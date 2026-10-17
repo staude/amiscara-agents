@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Quick replies above the key bar: saved prompts such as "weiter" or
+  "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
+  added, edited, reordered and deleted in a sheet, stored per device (#54).
 - Rename spaces, tabs and agents from the app (context menu or swipe on a
   space or agent row, context menu on a tab), only with input allowed.
   Agent names come from the snapshot's `agents` list; after `agent.rename`
