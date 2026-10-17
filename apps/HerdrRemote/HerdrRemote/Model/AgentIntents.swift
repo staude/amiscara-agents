@@ -1,9 +1,13 @@
 import AppIntents
 import Foundation
+#if os(iOS)
+import UIKit
+#endif
 
 // Shortcuts and Siri. The intents run in the app process and read the live
 // HostStore the app registers with AppDependencyManager; none of them sends
-// anything to herdr.
+// anything to herdr. Agent names, titles and hosts are private, so every
+// intent needs an unlocked device and the query answers nothing while locked.
 
 /// An agent pane on a host, as Shortcuts and Siri see it.
 struct AgentEntity: AppEntity {
@@ -77,6 +81,7 @@ struct AgentQuery: EntityStringQuery {
 struct WaitingAgentsIntent: AppIntent {
     static let title: LocalizedStringResource = "Welche Agents warten?"
     static let description = IntentDescription("Nennt die Agents, die auf eine Antwort warten, über alle Hosts.")
+    static let authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @Dependency private var store: HostStore
 
@@ -110,6 +115,7 @@ struct WaitingAgentsIntent: AppIntent {
 struct OpenAgentIntent: OpenIntent {
     static let title: LocalizedStringResource = "Agent öffnen"
     static let description = IntentDescription("Öffnet Herdr Remote beim gewählten Agent.")
+    static let authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @Parameter(title: "Agent")
     var target: AgentEntity
@@ -157,6 +163,9 @@ extension HostStore {
     /// still connecting: an intent may have just launched or woken the app,
     /// and an empty board then would be a wrong answer.
     func agents() async -> [AgentEntity] {
+        // Entity queries can run for suggestions before any intent asks
+        // for authentication; a locked device gets nothing.
+        guard Platform.isUnlocked else { return [] }
         reconnectStale()
         let deadline = ContinuousClock.now + .seconds(6)
         while connections.contains(where: \.isSettling), ContinuousClock.now < deadline {
@@ -186,5 +195,17 @@ extension HostConnection {
         case .live: return update?.serverVersion == nil
         case .hostKeyUnknown, .hostKeyChanged, .failed: return false
         }
+    }
+}
+
+extension Platform {
+    /// False while an iPhone or iPad with a passcode is locked.
+    @MainActor
+    static var isUnlocked: Bool {
+        #if os(iOS)
+        UIApplication.shared.isProtectedDataAvailable
+        #else
+        true
+        #endif
     }
 }
