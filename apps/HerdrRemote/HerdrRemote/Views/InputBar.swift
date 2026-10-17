@@ -42,6 +42,9 @@ struct InputBar: View {
         }
         .padding(10)
         .disabled(sending || !connection.isLive)
+        .onChange(of: dictation.error) { _, message in
+            if let message { error = message }
+        }
         .onChange(of: dictation.transcript) { _, spoken in
             guard dictation.isRunning || !spoken.isEmpty else { return }
             let base = textBeforeDictation.trimmingCharacters(in: .whitespaces)
