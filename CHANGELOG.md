@@ -64,3 +64,5 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
+- iPad and iPhone: "Host hinzufügen" in the sidebar, on the iPhone board and as a
+  button when no host exists; the toolbar on the split view never showed (#20).

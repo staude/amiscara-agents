@@ -25,13 +25,14 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                AddHostButton(editing: $editing)
+            }
+        }
         .overlay {
             if store.connections.isEmpty {
-                ContentUnavailableView(
-                    "Keine Hosts",
-                    systemImage: "server.rack",
-                    description: Text("Fügen Sie über + einen Rechner hinzu, auf dem herdr läuft.")
-                )
+                NoHostsView(editing: $editing)
             }
         }
     }

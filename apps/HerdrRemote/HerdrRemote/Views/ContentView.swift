@@ -13,17 +13,10 @@ struct ContentView: View {
             SidebarView(selection: $selection, editing: $editing)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } content: {
-            BoardView(selection: $selection)
+            BoardView(selection: $selection, editing: $editing)
                 .navigationSplitViewColumnWidth(min: 300, ideal: 380)
         } detail: {
             PaneDetailView(selection: selection)
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Host hinzufügen", systemImage: "plus") {
-                    editing = HostConfig(name: "", kind: .ssh)
-                }
-            }
         }
         .sheet(item: $editing) { config in
             HostEditorView(config: config)
@@ -51,6 +44,18 @@ struct ContentView: View {
                 }
             }
         )
+    }
+}
+
+/// Opens the host editor for a new SSH host. Lives in the columns, not on the
+/// split view: iPad and iPhone do not show toolbar items attached there.
+struct AddHostButton: View {
+    @Binding var editing: HostConfig?
+
+    var body: some View {
+        Button("Host hinzufügen", systemImage: "plus") {
+            editing = HostConfig(name: "", kind: .ssh)
+        }
     }
 }
 
