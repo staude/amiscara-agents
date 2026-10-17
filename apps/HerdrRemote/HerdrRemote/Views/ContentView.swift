@@ -5,9 +5,11 @@ struct ContentView: View {
     @State private var selection: PaneRef?
     @State private var editing: HostConfig?
     @State private var dismissedKeyPrompts: Set<UUID> = []
+    /// On iPhone the split view collapses; start on the board.
+    @State private var compactColumn = NavigationSplitViewColumn.content
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(preferredCompactColumn: $compactColumn) {
             SidebarView(selection: $selection, editing: $editing)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } content: {

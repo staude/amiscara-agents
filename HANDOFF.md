@@ -60,7 +60,8 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
    - `scripts/release.sh` für Developer ID und Notarisierung. Es fehlen noch das Developer-ID-Application-Zertifikat und das notarytool-Profil, siehe `docs/release.md`.
    - Sicherheitsbefund: `port-forwarding` im `authorized_keys`-Eintrag erlaubt auch TCP-Weiterleitung. `permitopen` hilft nicht, weil sshd damit auch den Streamlocal-Kanal ablehnt (getestet). Einziger Weg: `AllowTcpForwarding no` in `sshd_config`, betrifft alle Logins. Entscheidung bei Frank.
 7. **Eingaben (Issue #14):** `herdr-core::actions` (`agent.prompt`, `pane.send_keys`, `pane.send_text`), FFI-Methoden, in der App Schalter „Eingaben erlauben“ pro Host (Standard an) und Eingabeleiste unter der Pane: Antwortzeile bei `blocked` (1, 2, 3, Enter, Esc), Tastenleiste, Eingabefeld. Getestet nur gegen die Test-Session `herdr-remote-test` (Text plus Enter kommt an, Prompt an eine Shell und ungültige Tasten werden abgelehnt). Den Freigabe-Ablauf mit echtem Agent testet Frank per Klick.
-8. Danach: iPad- und iPhone-Ansichten, Push.
+8. **iPad und iPhone (Issue #16):** Target `HerdrRemote-iOS` (iOS 27) mit denselben Quellen, `Platform.swift` für die Unterschiede, Board als Startansicht auf dem iPhone, sofortiger Reconnect beim Wechsel in den Vordergrund. XCFramework mit drei Slices. Baut für Gerät und Simulator; der Simulator startet auf work nicht (CoreSimulator veraltet), Installation und Klicktest macht Frank am Gerät (Befehle im README).
+9. Danach: Benachrichtigungen (lokal auf dem Mac, später Push aufs iPhone), Release einrichten, Windows mit Tauri.
 
 ## Hinweise für die nächste Session
 

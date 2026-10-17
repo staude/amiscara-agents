@@ -24,7 +24,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
         echo "xcodegen not found: brew install xcodegen" >&2
         exit 1
     fi
-    rustup target add aarch64-apple-darwin
-    scripts/build-ffi.sh debug
+    rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim
+    scripts/build-ffi.sh debug all
     (cd apps/HerdrRemote && xcodegen generate)
 fi

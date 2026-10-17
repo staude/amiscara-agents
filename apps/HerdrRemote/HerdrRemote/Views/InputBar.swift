@@ -37,24 +37,46 @@ struct InputBar: View {
     }
 
     private var answerRow: some View {
-        HStack(spacing: 6) {
-            Label("Wartet auf Antwort", systemImage: "hand.raised.fill")
-                .foregroundStyle(AgentState.blocked.color)
-                .font(.callout.weight(.medium))
-            Spacer()
-            ForEach(["1", "2", "3"], id: \.self) { key in
-                Button(key) { send(keys: [key]) }
-                    .help("Option \(key) wählen")
+        // Side by side when there is room, label above the buttons on a phone.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                waitingLabel
+                Spacer()
+                answerButtons
             }
-            Button("Bestätigen", systemImage: "return") { send(keys: ["enter"]) }
-                .buttonStyle(.borderedProminent)
-                .tint(AgentState.blocked.color)
-            Button("Abbrechen") { send(keys: ["esc"]) }
+            VStack(alignment: .leading, spacing: 6) {
+                waitingLabel
+                HStack(spacing: 6) { answerButtons }
+            }
         }
         .controlSize(.large)
     }
 
+    private var waitingLabel: some View {
+        Label("Wartet auf Antwort", systemImage: "hand.raised.fill")
+            .foregroundStyle(AgentState.blocked.color)
+            .font(.callout.weight(.medium))
+    }
+
+    @ViewBuilder
+    private var answerButtons: some View {
+        ForEach(["1", "2", "3"], id: \.self) { key in
+            Button(key) { send(keys: [key]) }
+                .help("Option \(key) wählen")
+        }
+        Button("Bestätigen", systemImage: "return") { send(keys: ["enter"]) }
+            .buttonStyle(.borderedProminent)
+            .tint(AgentState.blocked.color)
+        Button("Abbrechen") { send(keys: ["esc"]) }
+    }
+
     private var keyRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            keys
+        }
+    }
+
+    private var keys: some View {
         HStack(spacing: 4) {
             key("Esc", "esc")
             key("Tab", "tab")
