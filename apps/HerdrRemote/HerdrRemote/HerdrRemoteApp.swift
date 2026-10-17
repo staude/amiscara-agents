@@ -21,6 +21,7 @@ struct HerdrRemoteApp: App {
                 store.reconnectStale()
             }
         }
+        .commands { TerminalZoomCommands() }
     }
 }
 

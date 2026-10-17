@@ -104,6 +104,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Zoom the pane view: pinch, ⌘+ / ⌘- / ⌘0 (View menu, also on the iPad with
+  a hardware keyboard) or the "Aa" menu in the pane header change the
+  terminal font size (8 to 28 pt), one size for all panes, kept across
+  launches (#65).
 
 ### Fixed
 

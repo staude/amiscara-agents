@@ -55,6 +55,7 @@ struct PaneDetailView: View {
                     .foregroundStyle(state.color)
             }
             Text(connection.config.name).foregroundStyle(.secondary)
+            TerminalZoomMenu()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -64,6 +65,7 @@ struct PaneDetailView: View {
     private func screen(connection: HostConnection) -> some View {
         if let content = model.content {
             TerminalScreenView(content: content)
+                .terminalZoomGesture()
                 .overlay(alignment: .top) {
                     if let error = model.error {
                         Banner(text: error, systemImage: "exclamationmark.triangle")
