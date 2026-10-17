@@ -67,6 +67,40 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Creates a space with a shell in `directory` (`~` allowed).
+    func createSpace(label: String, directory: String) async throws -> Created {
+        let session = try writableSession()
+        let cwd = absolutePath(directory)
+        let name = label.trimmingCharacters(in: .whitespaces)
+        return try await Task.detached {
+            try session.createWorkspace(label: name.isEmpty ? nil : name, cwd: cwd)
+        }.value
+    }
+
+    /// Creates a tab in a space; herdr picks the directory.
+    func createTab(in workspaceID: String) async throws -> Created {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.createTab(workspaceId: workspaceID, cwd: nil)
+        }.value
+    }
+
+    /// herdr does not expand `~` and silently falls back to the home
+    /// directory for paths it cannot use, so the app sends absolute paths.
+    /// Remote hosts are assumed to be Macs (`/Users/<user>`), as for the
+    /// default socket path.
+    func absolutePath(_ input: String) -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        let home = config.kind == .local
+            ? (Platform.localSocketPath as NSString).deletingLastPathComponent
+                .replacingOccurrences(of: "/.config/herdr", with: "")
+            : "/Users/\(config.user)"
+        if trimmed.isEmpty || trimmed == "~" { return home }
+        if trimmed.hasPrefix("~/") { return home + trimmed.dropFirst(1) }
+        if trimmed.hasPrefix("/") { return trimmed }
+        return home + "/" + trimmed
+    }
+
     /// Uploads images and returns their paths on the host, in order.
     func upload(_ attachments: [ImageAttachment]) async throws -> [String] {
         guard config.uploadAllowed else { throw ConnectionFailure.uploadOff }

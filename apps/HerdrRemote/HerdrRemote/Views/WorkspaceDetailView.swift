@@ -7,6 +7,7 @@ struct WorkspaceDetailView: View {
     let selection: SpaceRef?
     @State private var tabID: String?
     @State private var paneID: String?
+    @State private var tabError: String?
 
     var body: some View {
         Group {
@@ -14,7 +15,10 @@ struct WorkspaceDetailView: View {
                let connection = store.connection(for: selection.hostID),
                let workspace = connection.update?.workspaces.first(where: { $0.workspaceId == selection.workspaceID }) {
                 VStack(spacing: 0) {
-                    tabBar(workspace)
+                    tabBar(workspace, connection: connection)
+                    if let tabError {
+                        Text(tabError).font(.caption).foregroundStyle(.red).padding(.horizontal, 8)
+                    }
                     if let tab = currentTab(workspace), tab.panes.count > 1 {
                         panePicker(tab)
                     }
@@ -42,7 +46,7 @@ struct WorkspaceDetailView: View {
         workspace.tabs.first { $0.tabId == tabID }
     }
 
-    private func tabBar(_ workspace: WorkspaceItem) -> some View {
+    private func tabBar(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 ForEach(workspace.tabs, id: \.tabId) { tab in
@@ -59,11 +63,19 @@ struct WorkspaceDetailView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 5)
                         .background(
-                            tab.tabId == tabID ? Color.accentColor.opacity(0.25) : Color.clear,
+                            isCurrent(tab) ? Color.accentColor.opacity(0.25) : Color.clear,
                             in: RoundedRectangle(cornerRadius: 5)
                         )
                     }
                     .buttonStyle(.plain)
+                }
+                if connection.config.inputAllowed && connection.isLive {
+                    Button("Neuer Tab", systemImage: "plus") {
+                        newTab(in: workspace, on: connection)
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .padding(.horizontal, 8)
                 }
             }
             .padding(.horizontal, 8)
@@ -83,6 +95,25 @@ struct WorkspaceDetailView: View {
         .padding(.bottom, 4)
     }
 
+    /// The selected tab; right after creating a tab or space the snapshot
+    /// may not know `tabID` yet, so the pane decides.
+    private func isCurrent(_ tab: TabItem) -> Bool {
+        tab.tabId == tabID || (tabID == nil && tab.panes.contains { $0.paneId == paneID })
+    }
+
+    private func newTab(in workspace: WorkspaceItem, on connection: HostConnection) {
+        tabError = nil
+        Task {
+            do {
+                let created = try await connection.createTab(in: workspace.workspaceId)
+                tabID = created.tabId
+                paneID = created.paneId
+            } catch {
+                tabError = inputErrorMessage(error)
+            }
+        }
+    }
+
     private func select(_ tab: TabItem) {
         tabID = tab.tabId
         paneID = (tab.panes.first { $0.focused } ?? tab.panes.first)?.paneId
@@ -90,12 +121,15 @@ struct WorkspaceDetailView: View {
 
     /// An agent picks its own tab and pane; a space opens on herdr's active tab.
     private func focus(on selection: SpaceRef?) {
+        tabError = nil
         guard let selection,
               let workspace = store.connection(for: selection.hostID)?.update?.workspaces
                 .first(where: { $0.workspaceId == selection.workspaceID })
         else {
+            // A space created a moment ago is not in the snapshot yet; its
+            // first pane is known already.
             tabID = nil
-            paneID = nil
+            paneID = selection?.paneID
             return
         }
         if let pane = selection.paneID,

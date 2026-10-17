@@ -147,6 +147,24 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
         print("ok   input: invalid key refused (\(error))")
     }
     follow.stop()
+
+    // New space and tab; both must show up in the session state.
+    let space = try session.createWorkspace(label: "smoke-space", cwd: "/tmp")
+    let tab = try session.createTab(workspaceId: space.workspaceId, cwd: nil)
+    let appeared = wait(5) {
+        probe.lock.withLock {
+            guard let ws = probe.update?.workspaces.first(where: { $0.workspaceId == space.workspaceId }) else { return false }
+            return ws.label == "smoke-space" && ws.tabs.contains { $0.tabId == tab.tabId && $0.panes.contains { $0.paneId == tab.paneId } }
+        }
+    }
+    guard appeared else { fail("created space \(space.workspaceId) / tab \(tab.tabId) not in the session") }
+    print("ok   create: space \(space.workspaceId) with tab \(tab.tabId)")
+    do {
+        _ = try session.createTab(workspaceId: "w999", cwd: nil)
+        fail("tab in unknown space was accepted")
+    } catch let error as FfiError {
+        print("ok   create: unknown space refused (\(error))")
+    }
     session.stop()
 }
 

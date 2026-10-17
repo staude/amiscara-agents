@@ -1037,6 +1037,7 @@ version = "0.1.0"
 dependencies = [
  "herdr-proto",
  "herdr-transport",
+ "serde",
  "serde_json",
  "thiserror",
  "tokio",

@@ -74,6 +74,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Upload over SFTP on the same SSH session (`russh-sftp`), or a direct write
   for the local host; per-host switch "Bilder hochladen (SFTP)", default off,
   and the key line then uses `command="/usr/libexec/sftp-server"` (#28).
+- Create spaces and tabs: "+" next to "spaces" (name and directory, `~`
+  expanded by the app) and at the end of the tab bar; the app opens the new
+  space or tab, herdr's own client keeps its focus (#30).
+- A visible "…" menu next to each host name (edit, reconnect, remove); the
+  long-press menu on the section header did not open on iPad (#30).
 
 ### Fixed
 
