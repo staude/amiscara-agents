@@ -68,3 +68,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   framework is built by its own aggregate target `HerdrFFI` with declared
   outputs and only replaced when the libraries changed, and `xcodegen
   generate` builds it once when it is missing (#18).
+- iPad and iPhone: "Host hinzufügen" in the sidebar, on the iPhone board and as a
+  button when no host exists; the toolbar on the split view never showed (#20).
+- Host status is a button on all platforms: it shows the state, the full error,
+  a hint for common causes (VPN off, SSH off, socket missing, key not
+  authorized) and "Jetzt verbinden"; tooltips never showed on iPad (#22).
