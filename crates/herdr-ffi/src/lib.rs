@@ -136,6 +136,24 @@ pub fn authorized_keys_line(public_openssh: String, allow_sftp: bool) -> Result<
     ))
 }
 
+/// A new space or tab: its first pane.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct Created {
+    pub workspace_id: String,
+    pub tab_id: String,
+    pub pane_id: String,
+}
+
+impl From<actions::Created> for Created {
+    fn from(created: actions::Created) -> Self {
+        Self {
+            workspace_id: created.workspace_id,
+            tab_id: created.tab_id,
+            pane_id: created.pane_id,
+        }
+    }
+}
+
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".herdr-remote/uploads";
 
@@ -230,6 +248,31 @@ impl HostSession {
         let conn = self.connection()?;
         runtime().block_on(actions::send_text(&conn, &pane_id, &text))?;
         Ok(())
+    }
+
+    /// Creates a space with a shell in `cwd` (absolute path) and returns
+    /// its first pane. Not focused in herdr's own client.
+    pub fn create_workspace(
+        &self,
+        label: Option<String>,
+        cwd: String,
+    ) -> Result<Created, FfiError> {
+        let conn = self.connection()?;
+        Ok(runtime()
+            .block_on(actions::create_workspace(&conn, label.as_deref(), &cwd))?
+            .into())
+    }
+
+    /// Creates a tab in a space and returns its first pane.
+    pub fn create_tab(
+        &self,
+        workspace_id: String,
+        cwd: Option<String>,
+    ) -> Result<Created, FfiError> {
+        let conn = self.connection()?;
+        Ok(runtime()
+            .block_on(actions::create_tab(&conn, &workspace_id, cwd.as_deref()))?
+            .into())
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.herdr-remote/uploads`

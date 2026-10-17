@@ -1,11 +1,11 @@
-//! Input for panes and agents: the only writing calls in the core.
+//! Writing calls: input for panes and agents, new spaces and tabs.
 //!
 //! Keys use herdr's logical names: `enter`, `esc`, `tab`, `backspace`,
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
 //! combinations such as `ctrl+c`. herdr validates all keys before it writes
 //! anything.
 
-use herdr_proto::ProtoError;
+use herdr_proto::{PaneInfo, ProtoError};
 use herdr_transport::{Connection, TransportError};
 use serde_json::json;
 
@@ -69,6 +69,71 @@ pub async fn send_text(conn: &Connection, pane_id: &str, text: &str) -> Result<(
     Ok(())
 }
 
+/// Where a new space or tab starts: its first pane.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Created {
+    pub workspace_id: String,
+    pub tab_id: String,
+    pub pane_id: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CreatedReply {
+    root_pane: PaneInfo,
+}
+
+impl From<CreatedReply> for Created {
+    fn from(reply: CreatedReply) -> Self {
+        Self {
+            workspace_id: reply.root_pane.workspace_id,
+            tab_id: reply.root_pane.tab_id,
+            pane_id: reply.root_pane.pane_id,
+        }
+    }
+}
+
+/// Creates a space with a shell in `cwd`. Pass an absolute path: herdr does
+/// not expand `~`, falls back to the home directory for paths that do not
+/// exist and to its own working directory when `cwd` is missing. The
+/// space is not focused, so a desktop client keeps its view.
+pub async fn create_workspace(
+    conn: &Connection,
+    label: Option<&str>,
+    cwd: &str,
+) -> Result<Created, ActionError> {
+    let mut params = json!({ "cwd": cwd, "focus": false });
+    if let Some(label) = label.filter(|label| !label.trim().is_empty()) {
+        params["label"] = json!(label.trim());
+    }
+    let reply: CreatedReply =
+        serde_json::from_value(conn.request("workspace.create", params).await?).map_err(|err| {
+            ActionError::Rejected {
+                code: "malformed_reply".into(),
+                message: err.to_string(),
+            }
+        })?;
+    Ok(reply.into())
+}
+
+/// Creates a tab in a space, unfocused. Without `cwd` herdr picks the
+/// directory itself.
+pub async fn create_tab(
+    conn: &Connection,
+    workspace_id: &str,
+    cwd: Option<&str>,
+) -> Result<Created, ActionError> {
+    let mut params = json!({ "workspace_id": workspace_id, "focus": false });
+    if let Some(cwd) = cwd {
+        params["cwd"] = json!(cwd);
+    }
+    let reply: CreatedReply = serde_json::from_value(conn.request("tab.create", params).await?)
+        .map_err(|err| ActionError::Rejected {
+            code: "malformed_reply".into(),
+            message: err.to_string(),
+        })?;
+    Ok(reply.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,5 +159,24 @@ mod tests {
             ActionError::from(TransportError::Closed),
             ActionError::Transport(TransportError::Closed)
         ));
+    }
+
+    #[test]
+    fn create_reply_names_the_first_pane() -> Result<(), serde_json::Error> {
+        let reply: CreatedReply = serde_json::from_value(serde_json::json!({
+            "type": "tab_created",
+            "tab": {"tab_id": "w2:t2", "workspace_id": "w2"},
+            "root_pane": {"pane_id": "w2:p2", "workspace_id": "w2", "tab_id": "w2:t2",
+                          "terminal_id": "t", "focused": true, "agent_status": "unknown", "revision": 0}
+        }))?;
+        assert_eq!(
+            Created::from(reply),
+            Created {
+                workspace_id: "w2".into(),
+                tab_id: "w2:t2".into(),
+                pane_id: "w2:p2".into()
+            }
+        );
+        Ok(())
     }
 }

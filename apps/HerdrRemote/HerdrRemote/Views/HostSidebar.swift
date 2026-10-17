@@ -15,6 +15,7 @@ struct HostSidebar: View {
     @Environment(HostStore.self) private var store
     @Binding var selection: SpaceRef?
     @Binding var editing: HostConfig?
+    @State private var newSpaceOn: HostConnection?
 
     var body: some View {
         List(selection: $selection) {
@@ -24,15 +25,10 @@ struct HostSidebar: View {
                         hostContent(connection, update)
                     }
                 } header: {
-                    HostHeader(connection: connection)
-                        .contextMenu {
-                            Button("Bearbeiten …") { editing = connection.config }
-                            Button("Neu verbinden") { connection.start() }
-                            Divider()
-                            Button("Entfernen", role: .destructive) {
-                                store.remove(connection.id)
-                            }
-                        }
+                    HostHeader(connection: connection) {
+                        hostActions(connection)
+                    }
+                    .contextMenu { hostActions(connection) }
                 }
             }
         }
@@ -48,11 +44,35 @@ struct HostSidebar: View {
                 NoHostsView(editing: $editing)
             }
         }
+        .sheet(item: $newSpaceOn) { connection in
+            NewSpaceView(connection: connection) { created in
+                selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func hostActions(_ connection: HostConnection) -> some View {
+        Button("Bearbeiten …", systemImage: "pencil") { editing = connection.config }
+        Button("Neu verbinden", systemImage: "arrow.clockwise") { connection.start() }
+        Divider()
+        Button("Entfernen", systemImage: "trash", role: .destructive) {
+            store.remove(connection.id)
+        }
     }
 
     @ViewBuilder
     private func hostContent(_ connection: HostConnection, _ update: SessionUpdate) -> some View {
-        SubHeader(title: String(localized: "Spaces"))
+        HStack {
+            SubHeader(title: String(localized: "Spaces"))
+            Spacer()
+            if connection.config.inputAllowed && connection.isLive {
+                Button("Neuer Space", systemImage: "plus") { newSpaceOn = connection }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+            }
+        }
         ForEach(SpaceOrder.arrange(update.workspaces), id: \.workspace.workspaceId) { entry in
             SpaceRow(workspace: entry.workspace, nested: entry.nested)
                 .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
@@ -62,6 +82,64 @@ struct HostSidebar: View {
             ForEach(update.board, id: \.paneId) { agent in
                 AgentRow(agent: agent)
                     .tag(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId))
+            }
+        }
+    }
+}
+
+/// Name and directory for a new space.
+private struct NewSpaceView: View {
+    let connection: HostConnection
+    let onCreated: (Created) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var directory = "~"
+    @State private var creating = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Name", text: $name, prompt: Text("z. B. kino-app"))
+                TextField("Verzeichnis", text: $directory, prompt: Text("~/dev/projekt"))
+                    .technicalInput()
+                if !directory.isEmpty {
+                    Text(connection.absolutePath(directory))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+                if let error {
+                    Text(error).foregroundStyle(.red)
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Neuer Space auf \(connection.config.name)")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Anlegen") { create() }
+                        .disabled(creating)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(width: 440, height: 260)
+        #endif
+    }
+
+    private func create() {
+        creating = true
+        error = nil
+        Task {
+            defer { creating = false }
+            do {
+                let created = try await connection.createSpace(label: name, directory: directory)
+                onCreated(created)
+                dismiss()
+            } catch {
+                self.error = inputErrorMessage(error)
             }
         }
     }
@@ -163,8 +241,11 @@ private struct AgentRow: View {
     }
 }
 
-private struct HostHeader: View {
+/// Host name with its state and a visible menu: a long press for the
+/// context menu is hard to find on iPad.
+private struct HostHeader<Actions: View>: View {
     let connection: HostConnection
+    @ViewBuilder let actions: () -> Actions
 
     var body: some View {
         HStack(spacing: 6) {
@@ -172,6 +253,15 @@ private struct HostHeader: View {
             Text(connection.config.name)
             Spacer()
             HostStatusLabel(connection: connection)
+            Menu {
+                actions()
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Host-Aktionen")
         }
     }
 }
