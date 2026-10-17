@@ -1,4 +1,5 @@
-//! Writing calls: input for panes and agents, new spaces and tabs.
+//! Writing calls: input for panes and agents, new spaces and tabs, agents
+//! started in a pane.
 //!
 //! Keys use herdr's logical names: `enter`, `esc`, `tab`, `backspace`,
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
@@ -134,9 +135,203 @@ pub async fn create_tab(
     Ok(reply.into())
 }
 
+/// Agent kinds herdr can start, for servers that cannot list them. The
+/// usual ones come first; herdr 0.9 knows these.
+pub const AGENT_KINDS: &[&str] = &[
+    "claude",
+    "codex",
+    "opencode",
+    "gemini",
+    "pi",
+    "cursor",
+    "copilot",
+    "amp",
+    "droid",
+    "devin",
+    "agy",
+    "cline",
+    "omp",
+    "mastracode",
+    "kimi",
+    "kiro",
+    "grok",
+    "hermes",
+    "kilo",
+    "qodercli",
+    "qwen",
+    "letta",
+    "maki",
+    "muse",
+];
+
+/// Shown first in a picker, in this order, when the server knows them.
+const COMMON_KINDS: &[&str] = &["claude", "codex", "opencode", "gemini", "pi"];
+
+/// The agent kinds this server can start. herdr has no list of installed
+/// agents; `server.agent_manifests` names every agent it can detect, which
+/// is the set `agent.start` accepts. Falls back to [`AGENT_KINDS`] when the
+/// server does not answer it.
+pub async fn agent_kinds(conn: &Connection) -> Vec<String> {
+    #[derive(serde::Deserialize)]
+    struct Manifest {
+        agent: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Reply {
+        manifests: Vec<Manifest>,
+    }
+    let listed = conn
+        .request("server.agent_manifests", json!({}))
+        .await
+        .ok()
+        .and_then(|value| serde_json::from_value::<Reply>(value).ok())
+        .map(|reply| reply.manifests.into_iter().map(|m| m.agent).collect());
+    match listed {
+        Some(kinds) => common_first(kinds),
+        None => AGENT_KINDS.iter().map(|kind| (*kind).to_string()).collect(),
+    }
+}
+
+fn common_first(mut kinds: Vec<String>) -> Vec<String> {
+    kinds.dedup();
+    let rank = |kind: &String| {
+        COMMON_KINDS
+            .iter()
+            .position(|common| common == kind)
+            .unwrap_or(COMMON_KINDS.len())
+    };
+    // Stable: the rest keeps the server's order.
+    kinds.sort_by_key(rank);
+    kinds
+}
+
+/// An agent that herdr is launching. herdr answers before the agent is up;
+/// its state then arrives through the usual events.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StartedAgent {
+    /// The name herdr knows the agent by, unique on the server.
+    pub name: String,
+    pub pane_id: String,
+}
+
+/// How often [`start_agent`] tries the next free name.
+const NAME_ATTEMPTS: u32 = 20;
+
+/// A new pane is not ready the moment herdr creates it: while the shell
+/// runs its startup files or a prompt hook (e.g. `git status`), herdr sees
+/// a foreground child and calls the pane busy. [`start_agent`] retries for
+/// about five seconds before it gives up.
+const BUSY_RETRIES: u32 = 12;
+const BUSY_PAUSE: std::time::Duration = std::time::Duration::from_millis(400);
+
+/// Starts an agent of `kind` (e.g. `claude`) in a pane that sits at its
+/// shell prompt, such as the first pane of a new space or tab. herdr types
+/// the agent's command into that shell, so the agent runs with the shell's
+/// directory and environment.
+///
+/// Agent names must be unique on the server. Without `name` the agent is
+/// named after its kind; a taken name gets a number (`claude-2`), so a
+/// second agent of the same kind needs no input. A pane that is still
+/// starting its shell gets a few seconds to reach the prompt.
+pub async fn start_agent(
+    conn: &Connection,
+    pane_id: &str,
+    kind: &str,
+    name: Option<&str>,
+) -> Result<StartedAgent, ActionError> {
+    let base = agent_name(name.filter(|name| !name.trim().is_empty()).unwrap_or(kind));
+    let mut attempt = 1;
+    let mut busy = 0;
+    loop {
+        let name = numbered_name(&base, attempt);
+        let params = json!({ "name": name, "kind": kind, "pane_id": pane_id });
+        match conn.request("agent.start", params).await {
+            Ok(_) => {
+                return Ok(StartedAgent {
+                    name,
+                    pane_id: pane_id.to_string(),
+                });
+            }
+            Err(TransportError::Proto(ProtoError::Api { code, .. }))
+                if code == "agent_name_taken" && attempt < NAME_ATTEMPTS =>
+            {
+                attempt += 1;
+            }
+            Err(TransportError::Proto(ProtoError::Api { code, .. }))
+                if code == "agent_pane_busy" && busy < BUSY_RETRIES =>
+            {
+                busy += 1;
+                tokio::time::sleep(BUSY_PAUSE).await;
+            }
+            Err(err) => return Err(err.into()),
+        }
+    }
+}
+
+/// herdr's rule for agent names: `[a-z][a-z0-9_-]{0,31}`. Anything else is
+/// turned into that shape instead of being refused.
+fn agent_name(raw: &str) -> String {
+    let mapped: String = raw
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = mapped.trim_start_matches(|ch: char| !ch.is_ascii_lowercase());
+    let mut name: String = trimmed.chars().take(28).collect();
+    while name.ends_with('-') {
+        name.pop();
+    }
+    if name.is_empty() {
+        "agent".into()
+    } else {
+        name
+    }
+}
+
+/// `base` for the first attempt, then `base-2`, `base-3`, ... (at most 32
+/// characters, as `agent_name` keeps the base at 28).
+fn numbered_name(base: &str, attempt: u32) -> String {
+    if attempt == 1 {
+        base.to_string()
+    } else {
+        format!("{base}-{attempt}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn agent_names_follow_herdrs_rule() {
+        assert_eq!(agent_name("claude"), "claude");
+        assert_eq!(agent_name("  Kino App! "), "kino-app");
+        assert_eq!(agent_name("2nd try"), "nd-try");
+        assert_eq!(agent_name("über"), "ber");
+        assert_eq!(agent_name("---"), "agent");
+        assert_eq!(agent_name(""), "agent");
+        let long = agent_name(&"a".repeat(50));
+        assert_eq!(long.len(), 28);
+        assert_eq!(numbered_name(&long, 20).len(), 31);
+        assert_eq!(numbered_name("claude", 1), "claude");
+        assert_eq!(numbered_name("claude", 3), "claude-3");
+    }
+
+    #[test]
+    fn common_kinds_come_first() {
+        let kinds = ["pi", "claude", "cursor", "codex", "amp"].map(String::from);
+        assert_eq!(
+            common_first(kinds.to_vec()),
+            ["claude", "codex", "pi", "cursor", "amp"].map(String::from)
+        );
+    }
 
     fn api(code: &str) -> TransportError {
         TransportError::Proto(ProtoError::Api {
