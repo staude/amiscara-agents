@@ -109,8 +109,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `herdr-remote://add-host?v=1&...` link (for "Dieser Mac" with a host name
   you enter and the key from `/etc/ssh/ssh_host_ed25519_key.pub`). iPhone and
   iPad scan it in the host editor (or open or paste the link), which fills in
-  the host, pins the key and creates the device key. Links are checked
-  strictly in Rust and never replace a host key the app already trusts (#63).
+  the host and creates the device key; the host key is pinned only after the
+  user confirms its fingerprint. Links are checked strictly in Rust and never
+  replace a host key the app already trusts (#63).
 
 ### Fixed
 
