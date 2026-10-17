@@ -18,6 +18,20 @@ struct HostSidebar: View {
     @State private var newSpaceOn: HostConnection?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
+    /// Folded sections as "hostID/spaces" or "hostID/agents", one per line;
+    /// kept per device.
+    @AppStorage("collapsedSections") private var collapsedSections = ""
+
+    private func isCollapsed(_ hostID: UUID, _ section: String) -> Bool {
+        collapsedSections.split(separator: "\n").contains { $0 == "\(hostID.uuidString)/\(section)" }
+    }
+
+    private func toggle(_ hostID: UUID, _ section: String) {
+        let key = "\(hostID.uuidString)/\(section)"
+        var keys = Set(collapsedSections.split(separator: "\n").map(String.init))
+        if keys.contains(key) { keys.remove(key) } else { keys.insert(key) }
+        withAnimation(.snappy) { collapsedSections = keys.sorted().joined(separator: "\n") }
+    }
 
     var body: some View {
         List(selection: $selection) {
@@ -65,8 +79,13 @@ struct HostSidebar: View {
 
     @ViewBuilder
     private func hostContent(_ connection: HostConnection, _ update: SessionUpdate) -> some View {
+        let spacesFolded = isCollapsed(connection.id, "spaces")
         HStack {
-            SubHeader(title: String(localized: "Spaces"))
+            SectionToggle(
+                title: String(localized: "Spaces"),
+                collapsed: spacesFolded,
+                summary: spacesFolded ? "\(update.workspaces.count)" : nil
+            ) { toggle(connection.id, "spaces") }
             Spacer()
             if connection.config.inputAllowed && connection.isLive {
                 Button("Neuer Space", systemImage: "plus") { newSpaceOn = connection }
@@ -75,22 +94,36 @@ struct HostSidebar: View {
                     .font(.caption)
             }
         }
-        ForEach(SpaceOrder.arrange(update.workspaces), id: \.workspace.workspaceId) { entry in
-            SpaceRow(workspace: entry.workspace, nested: entry.nested)
-                .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
+        if !spacesFolded {
+            ForEach(SpaceOrder.arrange(update.workspaces), id: \.workspace.workspaceId) { entry in
+                SpaceRow(workspace: entry.workspace, nested: entry.nested)
+                    .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
+            }
         }
         if !update.board.isEmpty {
+            let agentsFolded = isCollapsed(connection.id, "agents")
+            let waiting = update.board.filter { $0.agentState == .blocked }.count
             HStack {
-                SubHeader(title: String(localized: "Agents"))
+                SectionToggle(
+                    title: String(localized: "Agents"),
+                    collapsed: agentsFolded,
+                    // Folded, waiting agents must still be visible.
+                    summary: agentsFolded
+                        ? (waiting > 0 ? String(localized: "\(update.board.count), \(waiting) wartet") : "\(update.board.count)")
+                        : nil,
+                    attention: agentsFolded && waiting > 0
+                ) { toggle(connection.id, "agents") }
                 Spacer()
                 Button(agentOrder.label) { agentOrder = agentOrder.next }
                     .buttonStyle(.borderless)
                     .font(.caption)
                     .help(String(localized: "Sortierung umschalten"))
             }
-            ForEach(AgentOrder.sorted(update, by: agentOrder), id: \.agent.paneId) { entry in
-                AgentRow(agent: entry.agent, tabNumber: entry.tabNumber)
-                    .tag(SpaceRef(hostID: connection.id, workspaceID: entry.agent.workspaceId, paneID: entry.agent.paneId))
+            if !agentsFolded {
+                ForEach(AgentOrder.sorted(update, by: agentOrder), id: \.agent.paneId) { entry in
+                    AgentRow(agent: entry.agent, tabNumber: entry.tabNumber)
+                        .tag(SpaceRef(hostID: connection.id, workspaceID: entry.agent.workspaceId, paneID: entry.agent.paneId))
+                }
             }
         }
     }
@@ -180,6 +213,37 @@ enum SpaceOrder {
             result.append(Entry(workspace: worktree, nested: false))
         }
         return result
+    }
+}
+
+/// "spaces" / "agents" header that folds its section. Folded, it shows a
+/// short summary such as the number of entries.
+private struct SectionToggle: View {
+    let title: String
+    let collapsed: Bool
+    var summary: String?
+    var attention = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .rotationEffect(.degrees(collapsed ? 0 : 90))
+                    .foregroundStyle(.secondary)
+                SubHeader(title: title)
+                if let summary {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(attention ? AgentState.blocked.color : .secondary)
+                        .padding(.top, 4)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(collapsed ? "\(title) aufklappen" : "\(title) zuklappen")
     }
 }
 
