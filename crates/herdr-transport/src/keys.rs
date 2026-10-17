@@ -2,7 +2,7 @@
 
 use russh::keys::ssh_key::LineEnding;
 use russh::keys::ssh_key::rand_core::UnwrapErr;
-use russh::keys::{Algorithm, HashAlg, PrivateKey};
+use russh::keys::{Algorithm, HashAlg, PrivateKey, PublicKey};
 use ssh_key::getrandom::SysRng;
 
 use crate::TransportError;
@@ -29,6 +29,17 @@ pub fn generate_ed25519(comment: &str) -> Result<GeneratedKey, TransportError> {
 /// Parses an unencrypted OpenSSH private key.
 pub fn parse_private(private_openssh: &str) -> Result<PrivateKey, TransportError> {
     PrivateKey::from_openssh(private_openssh).map_err(key_error)
+}
+
+/// Parses one OpenSSH public key line (`ssh-ed25519 AAAA... comment`).
+/// Anything spanning more than one line is refused.
+pub fn parse_public(public_openssh: &str) -> Result<PublicKey, TransportError> {
+    if public_openssh.contains(['\n', '\r']) {
+        return Err(TransportError::Key(
+            "public key must be a single line".into(),
+        ));
+    }
+    PublicKey::from_openssh(public_openssh).map_err(key_error)
 }
 
 /// Text forms of an existing key.
@@ -60,6 +71,16 @@ mod tests {
         assert!(generated.fingerprint.starts_with("SHA256:"));
         let parsed = parse_private(&generated.private_openssh)?;
         assert_eq!(describe(&parsed)?.fingerprint, generated.fingerprint);
+        Ok(())
+    }
+
+    #[test]
+    fn public_key_must_be_one_valid_line() -> Result<(), TransportError> {
+        let generated = generate_ed25519("one-line")?;
+        assert!(parse_public(&generated.public_openssh).is_ok());
+        let injected = format!("{}\nssh-ed25519 AAAA other", generated.public_openssh);
+        assert!(parse_public(&injected).is_err());
+        assert!(parse_public("command=\"sh\" ssh-ed25519 AAAA").is_err());
         Ok(())
     }
 }

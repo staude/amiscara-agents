@@ -86,11 +86,23 @@ pub fn describe_ssh_key(private_openssh: String) -> Result<SshKey, FfiError> {
     Ok(keys::describe(&key).map_err(key_error)?.into())
 }
 
-/// The `authorized_keys` line for a client key: channels to the socket only,
-/// no shell, no commands.
+/// The `authorized_keys` line for a client key: no shell, no commands, no
+/// PTY, no agent or X11 forwarding.
+///
+/// `port-forwarding` is needed for the streamlocal channel to `herdr.sock`,
+/// but it also allows TCP forwarding through the server. `permitopen` cannot
+/// narrow that: sshd applies it to streamlocal as well and then refuses the
+/// socket (tested with OpenSSH 10.3). Closing TCP forwarding needs
+/// `AllowTcpForwarding no` in `sshd_config`, which affects every login.
 #[uniffi::export]
-pub fn authorized_keys_line(public_openssh: String) -> String {
-    format!("restrict,port-forwarding,command=\"/usr/bin/false\" {public_openssh}")
+pub fn authorized_keys_line(public_openssh: String) -> Result<String, FfiError> {
+    let key = keys::parse_public(public_openssh.trim()).map_err(key_error)?;
+    let line = key
+        .to_openssh()
+        .map_err(|err| FfiError::Key(err.to_string()))?;
+    Ok(format!(
+        "restrict,port-forwarding,command=\"/usr/bin/false\" {line}"
+    ))
 }
 
 /// Default `herdr.sock` path for a user on a macOS host.
