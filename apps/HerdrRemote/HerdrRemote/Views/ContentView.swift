@@ -15,8 +15,9 @@ struct ContentView: View {
         } detail: {
             WorkspaceDetailView(selection: selection)
         }
-        .onChange(of: store.notifier.openRequest) { _, request in
-            // A tapped notification opens its pane.
+        .onChange(of: store.notifier.openRequest, initial: true) { _, request in
+            // A tapped notification or a shortcut opens its pane. Initial,
+            // because the request may be what launched the app.
             guard let request else { return }
             selection = request
             store.notifier.openRequest = nil
