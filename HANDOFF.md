@@ -52,7 +52,14 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
    - Wichtig zum Event-Format: Globale Events kommen als `{"event":"pane_created","data":{"type":"pane_created",...}}`, Abos pro Pane als `{"event":"pane.agent_status_changed","data":{...}}` ohne `type`. herdr bedient jeden Abo-Typ in eigener Schleife (100 ms Takt), die Reihenfolge über Typen hinweg ist nicht garantiert. Deshalb gibt es bei Strukturänderungen einen neuen Snapshot statt Einzel-Updates.
    - `Subscription::next` ist nicht abbruchsicher, im Core liest jedes Abo in einer eigenen Task.
 5. **Pane-Inhalt (Issue #2, Branch `feature/2-terminal-emulation`):** Kein Terminal-Emulator, sondern ein SGR-Parser (`herdr-core::terminal`), der den Text in Zeilen aus gleich gestylten Abschnitten zerlegt. Passt direkt auf `AttributedString` und Web-Spans. `herdr-core::pane::follow` fragt die offene Pane per `pane.read` ab, 150 ms bei Änderungen, bis 1 s bei Ruhe. `herdr-spike check` vergleicht den geparsten Text aller Panes mit herdrs Textfassung (alle gleich, 0,35 bis 1 ms pro Bildschirm im Debug-Build), `herdr-spike view <pane>` folgt einer Pane live.
-6. Danach: `herdr-ffi` (UniFFI) und die Mac-App mit SwiftUI.
+6. **herdr-ffi, Mac-App, Release (Issues #7, #8, #9; PRs #10, #11, #12, gestapelt, in dieser Reihenfolge mergen):**
+   - `herdr-ffi` mit UniFFI 0.32.2: `HostSession` mit `SessionObserver`, `followPane` mit `PaneObserver`, Schlüssel erzeugen, `authorized_keys`-Zeile. `scripts/build-ffi.sh` baut `HerdrFFI.xcframework` und die Swift-Bindings nach `apps/HerdrRemote/Generated` (nicht eingecheckt).
+   - Transport: Schlüssel aus dem Speicher, fest hinterlegter Host-Key, Fehler `UnknownHostKey`/`HostKeyChanged` mit Fingerprint. Sync stoppt bei Fehlern, die eine Entscheidung brauchen, und teilt seine Verbindung mit dem Pane-Follower.
+   - Mac-App `apps/HerdrRemote`: SwiftUI, macOS 27, `net.staude.herdrremote`, Schlüssel pro Host in der Keychain, Host-Key-Abfrage, Seitenleiste, Board über alle Hosts, Live-Pane. Nur lesend.
+   - Geprüft per `scripts/ffi-smoke.sh` (lokal und SSH inkl. Host-Key-Ablauf). Die Oberfläche selbst und die Keychain sind noch nicht durchgeklickt, der Session fehlte die Bildschirmaufnahme-Berechtigung.
+   - `scripts/release.sh` für Developer ID und Notarisierung. Es fehlen noch das Developer-ID-Application-Zertifikat und das notarytool-Profil, siehe `docs/release.md`.
+   - Sicherheitsbefund: `port-forwarding` im `authorized_keys`-Eintrag erlaubt auch TCP-Weiterleitung. `permitopen` hilft nicht, weil sshd damit auch den Streamlocal-Kanal ablehnt (getestet). Einziger Weg: `AllowTcpForwarding no` in `sshd_config`, betrifft alle Logins. Entscheidung bei Frank.
+7. Danach: Eingaben (Prompt senden, Freigaben) erst nach Franks Freigabe für schreibende Methoden, iPad- und iPhone-Ansichten, Push.
 
 ## Hinweise für die nächste Session
 
