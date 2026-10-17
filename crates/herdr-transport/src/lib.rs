@@ -4,15 +4,20 @@
 //! opens a `direct-streamlocal@openssh.com` channel per request, which is the
 //! same path `herdr --remote` uses. Nothing has to be installed on the server.
 
+pub mod keys;
+
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use herdr_proto::{ProtoError, Request};
 use russh::client::{self, AuthResult, Handle};
 use russh::keys::agent::client::AgentClient;
-use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate, known_hosts, load_secret_key};
+use russh::keys::{
+    HashAlg, PrivateKey, PrivateKeyWithHashAlg, PublicKey, PublicKeyOrCertificate, known_hosts,
+    load_secret_key,
+};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -30,28 +35,93 @@ pub enum TransportError {
     AuthFailed(String),
     #[error("connection closed before a response arrived")]
     Closed,
+    /// The server presented a key nobody has trusted yet. Show the
+    /// fingerprint, ask, and pin `key` on consent.
+    #[error("unknown host key for {host}: {fingerprint}")]
+    UnknownHostKey {
+        host: String,
+        key: String,
+        fingerprint: String,
+    },
+    /// The server presented a different key than the trusted one.
+    #[error("host key for {host} changed, it is now {fingerprint}")]
+    HostKeyChanged {
+        host: String,
+        key: String,
+        fingerprint: String,
+    },
+}
+
+impl TransportError {
+    /// Errors that a retry cannot fix without a decision by the user.
+    pub fn needs_user(&self) -> bool {
+        matches!(
+            self,
+            Self::UnknownHostKey { .. }
+                | Self::HostKeyChanged { .. }
+                | Self::AuthFailed(_)
+                | Self::Key(_)
+        )
+    }
 }
 
 trait Stream: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> Stream for T {}
+
+#[derive(Clone)]
+pub enum Identity {
+    /// Private key file in OpenSSH format, unencrypted.
+    File(PathBuf),
+    /// The SSH agent (`SSH_AUTH_SOCK`, on Windows the OpenSSH named pipe).
+    Agent,
+    /// A key held in memory, for example loaded from the Keychain.
+    Key(Arc<PrivateKey>),
+}
+
+impl std::fmt::Debug for Identity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::File(path) => f.debug_tuple("File").field(path).finish(),
+            Self::Agent => f.write_str("Agent"),
+            Self::Key(_) => f.write_str("Key(..)"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum HostKeyPolicy {
+    /// An OpenSSH `known_hosts` file. With `accept_new`, unknown keys are
+    /// recorded (trust on first use); changed keys are always refused.
+    KnownHostsFile { path: PathBuf, accept_new: bool },
+    /// Exactly this key, as an OpenSSH public key line. `None` trusts
+    /// nothing yet, so the first contact ends in `UnknownHostKey`.
+    Pinned(Option<String>),
+}
 
 #[derive(Debug, Clone)]
 pub struct SshTarget {
     pub host: String,
     pub port: u16,
     pub user: String,
-    /// Private key file. Without one the SSH agent (`SSH_AUTH_SOCK`) is used.
-    pub identity: Option<PathBuf>,
-    pub known_hosts: PathBuf,
-    /// Record an unknown host key instead of rejecting it (trust on first use).
-    pub accept_new_host_key: bool,
+    pub identity: Identity,
+    pub host_key: HostKeyPolicy,
 }
 
 struct HostKeyCheck {
     host: String,
     port: u16,
-    known_hosts: PathBuf,
-    accept_new: bool,
+    policy: HostKeyPolicy,
+    /// Why a key was refused, read after the handshake failed.
+    refusal: Arc<Mutex<Option<TransportError>>>,
+}
+
+impl HostKeyCheck {
+    fn refuse(&self, error: TransportError) -> Result<bool, russh::Error> {
+        if let Ok(mut refusal) = self.refusal.lock() {
+            *refusal = Some(error);
+        }
+        Ok(false)
+    }
 }
 
 impl client::Handler for HostKeyCheck {
@@ -65,26 +135,58 @@ impl client::Handler for HostKeyCheck {
         if server_key.certificate().is_some() {
             return Ok(false);
         }
-        let server_public_key = &server_key.public_key();
-        match known_hosts::check_known_hosts_path(
-            &self.host,
-            self.port,
-            server_public_key,
-            &self.known_hosts,
-        ) {
-            Ok(true) => Ok(true),
-            Ok(false) if self.accept_new => {
-                known_hosts::learn_known_hosts_path(
+        let server_public_key = server_key.public_key();
+        let presented = || {
+            (
+                server_public_key.to_openssh().unwrap_or_default(),
+                server_public_key.fingerprint(HashAlg::Sha256).to_string(),
+            )
+        };
+        let unknown = || {
+            let (key, fingerprint) = presented();
+            TransportError::UnknownHostKey {
+                host: self.host.clone(),
+                key,
+                fingerprint,
+            }
+        };
+        let changed = || {
+            let (key, fingerprint) = presented();
+            TransportError::HostKeyChanged {
+                host: self.host.clone(),
+                key,
+                fingerprint,
+            }
+        };
+        match &self.policy {
+            HostKeyPolicy::Pinned(None) => self.refuse(unknown()),
+            HostKeyPolicy::Pinned(Some(line)) => match PublicKey::from_openssh(line) {
+                Ok(pinned) if pinned.key_data() == server_public_key.key_data() => Ok(true),
+                _ => self.refuse(changed()),
+            },
+            HostKeyPolicy::KnownHostsFile { path, accept_new } => {
+                match known_hosts::check_known_hosts_path(
                     &self.host,
                     self.port,
-                    server_public_key,
-                    &self.known_hosts,
-                )
-                .map_err(|e| russh::Error::IO(std::io::Error::other(e.to_string())))?;
-                Ok(true)
+                    &server_public_key,
+                    path,
+                ) {
+                    Ok(true) => Ok(true),
+                    Ok(false) if *accept_new => {
+                        known_hosts::learn_known_hosts_path(
+                            &self.host,
+                            self.port,
+                            &server_public_key,
+                            path,
+                        )
+                        .map_err(|e| russh::Error::IO(std::io::Error::other(e.to_string())))?;
+                        Ok(true)
+                    }
+                    Ok(false) => self.refuse(unknown()),
+                    Err(russh::keys::Error::KeyChanged { .. }) => self.refuse(changed()),
+                    Err(_) => self.refuse(unknown()),
+                }
             }
-            // Unknown key without consent, or a changed key: refuse.
-            Ok(false) | Err(_) => Ok(false),
         }
     }
 }
@@ -126,18 +228,28 @@ impl Connection {
             nodelay: true,
             ..Default::default()
         });
+        let refusal = Arc::new(Mutex::new(None));
         let check = HostKeyCheck {
             host: target.host.clone(),
             port: target.port,
-            known_hosts: target.known_hosts.clone(),
-            accept_new: target.accept_new_host_key,
+            policy: target.host_key.clone(),
+            refusal: Arc::clone(&refusal),
         };
         let mut handle =
-            client::connect(config, (target.host.as_str(), target.port), check).await?;
+            match client::connect(config, (target.host.as_str(), target.port), check).await {
+                Ok(handle) => handle,
+                Err(err) => {
+                    let refused = refusal.lock().ok().and_then(|mut r| r.take());
+                    return Err(refused.unwrap_or(TransportError::Ssh(err)));
+                }
+            };
 
         let authenticated = match &target.identity {
-            Some(path) => authenticate_with_file(&mut handle, &target.user, path).await?,
-            None => authenticate_with_agent(&mut handle, &target.user).await?,
+            Identity::File(path) => authenticate_with_file(&mut handle, &target.user, path).await?,
+            Identity::Agent => authenticate_with_agent(&mut handle, &target.user).await?,
+            Identity::Key(key) => {
+                authenticate_with_key(&mut handle, &target.user, Arc::clone(key)).await?
+            }
         };
         if !authenticated {
             return Err(TransportError::AuthFailed(format!(
@@ -295,9 +407,17 @@ async fn authenticate_with_file(
     path: &Path,
 ) -> Result<bool, TransportError> {
     let key = load_secret_key(path, None).map_err(|e| TransportError::Key(e.to_string()))?;
+    authenticate_with_key(handle, user, Arc::new(key)).await
+}
+
+async fn authenticate_with_key(
+    handle: &mut Handle<HostKeyCheck>,
+    user: &str,
+    key: Arc<PrivateKey>,
+) -> Result<bool, TransportError> {
     let hash = handle.best_supported_rsa_hash().await?.flatten();
     let result = handle
-        .authenticate_publickey(user, PrivateKeyWithHashAlg::new(Arc::new(key), hash))
+        .authenticate_publickey(user, PrivateKeyWithHashAlg::new(key, hash))
         .await?;
     Ok(matches!(result, AuthResult::Success))
 }
