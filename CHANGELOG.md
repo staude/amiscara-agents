@@ -14,6 +14,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `Connection::open_channel` and `request_on` to open a request channel ahead of time.
 - `herdr-spike` read-only probe with `ping`, `list`, `read`, `watch` and `bench`.
 - Competitor research in `docs/marktbegleiter.md`.
+- `herdr-core` with `SessionState` (built from `session.snapshot`, updated by
+  events) and the agent board sorted blocked, working, done, idle (#1).
+- `herdr-core::sync` driver: global and per-pane status subscriptions, debounced
+  re-snapshot on structural events, reconnect with backoff, `watch` channel (#1).
+- Typed `AgentStatus`, `WorkspaceInfo`, `TabInfo`, `PaneInfo`, `SessionSnapshot`
+  and `Event` with `parse_event` in `herdr-proto` (#1).
+- `Connection::subscribe_to` for subscriptions with parameters (#1).
+- `herdr-spike board` prints the live board (#1).
 
 ### Fixed
 

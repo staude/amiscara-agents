@@ -4,15 +4,17 @@
 //! and is request latency low enough for a live GUI?
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use herdr_core::{SessionState, SyncStatus};
 use herdr_proto::{
     GLOBAL_SUBSCRIPTIONS, PaneList, PaneRead, PaneReadResult, Pong, SUPPORTED_PROTOCOL,
     WorkspaceList,
 };
-use herdr_transport::{Connection, SshTarget};
+use herdr_transport::{Connection, SshTarget, TransportError};
 use serde_json::json;
 
 #[derive(Parser)]
@@ -56,6 +58,11 @@ enum Command {
         #[arg(long, default_value_t = 30)]
         seconds: u64,
     },
+    /// Live agent board, most urgent first, kept current by events.
+    Board {
+        #[arg(long, default_value_t = 30)]
+        seconds: u64,
+    },
     /// Measure request round trips.
     Bench {
         #[arg(long, default_value_t = 50)]
@@ -69,8 +76,12 @@ enum Command {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    let endpoint = Endpoint::from_cli(&cli)?;
+    if let Command::Board { seconds } = cli.command {
+        return board(endpoint, seconds).await;
+    }
     let started = Instant::now();
-    let conn = connect(&cli).await?;
+    let conn = endpoint.connect().await?;
     eprintln!("connected in {:.0} ms", ms(started.elapsed()));
 
     match cli.command {
@@ -79,54 +90,76 @@ async fn main() -> Result<()> {
         Command::Read { pane, ansi } => read(&conn, &pane, ansi).await,
         Command::Watch { seconds } => watch(&conn, seconds).await,
         Command::Bench { count, pane } => bench(&conn, count, pane).await,
+        Command::Board { .. } => Ok(()),
     }
 }
 
-#[cfg(unix)]
-fn connect_local(cli: &Cli) -> Result<Connection> {
-    let socket = match &cli.socket {
-        Some(path) => PathBuf::from(path),
-        None => Connection::default_local_socket().context("no home directory")?,
-    };
-    Ok(Connection::local(socket))
+/// Where the server lives. Kept apart from the connection so the sync
+/// driver can connect again after a drop.
+enum Endpoint {
+    #[cfg(unix)]
+    Local(PathBuf),
+    Ssh {
+        target: SshTarget,
+        socket: String,
+    },
 }
 
-#[cfg(not(unix))]
-fn connect_local(_cli: &Cli) -> Result<Connection> {
-    bail!("a local herdr socket needs a Unix system; use --ssh")
-}
+impl Endpoint {
+    fn from_cli(cli: &Cli) -> Result<Self> {
+        let Some(spec) = &cli.ssh else {
+            return Self::local(cli);
+        };
 
-async fn connect(cli: &Cli) -> Result<Connection> {
-    let Some(spec) = &cli.ssh else {
-        return connect_local(cli);
-    };
+        let (user, host_port) = spec
+            .split_once('@')
+            .context("--ssh expects user@host[:port]")?;
+        let (host, port) = match host_port.rsplit_once(':') {
+            Some((host, port)) => (host, port.parse().context("invalid port")?),
+            None => (host_port, 22),
+        };
+        let known_hosts = match &cli.known_hosts {
+            Some(path) => path.clone(),
+            None => dirs::home_dir()
+                .context("no home directory")?
+                .join(".ssh/known_hosts"),
+        };
+        let target = SshTarget {
+            host: host.to_owned(),
+            port,
+            user: user.to_owned(),
+            identity: cli.identity.clone(),
+            known_hosts,
+            accept_new_host_key: cli.accept_new_host_key,
+        };
+        let socket = cli
+            .socket
+            .clone()
+            .unwrap_or_else(|| format!("/Users/{user}/.config/herdr/herdr.sock"));
+        Ok(Self::Ssh { target, socket })
+    }
 
-    let (user, host_port) = spec
-        .split_once('@')
-        .context("--ssh expects user@host[:port]")?;
-    let (host, port) = match host_port.rsplit_once(':') {
-        Some((host, port)) => (host, port.parse().context("invalid port")?),
-        None => (host_port, 22),
-    };
-    let known_hosts = match &cli.known_hosts {
-        Some(path) => path.clone(),
-        None => dirs::home_dir()
-            .context("no home directory")?
-            .join(".ssh/known_hosts"),
-    };
-    let target = SshTarget {
-        host: host.to_owned(),
-        port,
-        user: user.to_owned(),
-        identity: cli.identity.clone(),
-        known_hosts,
-        accept_new_host_key: cli.accept_new_host_key,
-    };
-    let socket = cli
-        .socket
-        .clone()
-        .unwrap_or_else(|| format!("/Users/{user}/.config/herdr/herdr.sock"));
-    Ok(Connection::ssh(&target, socket).await?)
+    #[cfg(unix)]
+    fn local(cli: &Cli) -> Result<Self> {
+        let socket = match &cli.socket {
+            Some(path) => PathBuf::from(path),
+            None => Connection::default_local_socket().context("no home directory")?,
+        };
+        Ok(Self::Local(socket))
+    }
+
+    #[cfg(not(unix))]
+    fn local(_cli: &Cli) -> Result<Self> {
+        bail!("a local herdr socket needs a Unix system; use --ssh")
+    }
+
+    async fn connect(&self) -> Result<Connection, TransportError> {
+        match self {
+            #[cfg(unix)]
+            Self::Local(socket) => Ok(Connection::local(socket.clone())),
+            Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
+        }
+    }
 }
 
 async fn ping(conn: &Connection) -> Result<()> {
@@ -146,8 +179,8 @@ async fn list(conn: &Connection) -> Result<()> {
         println!(
             "{} {} [{}]",
             ws.workspace_id,
-            ws.label.as_deref().unwrap_or("-"),
-            ws.agent_status.as_deref().unwrap_or("-")
+            ws.label,
+            ws.agent_status.as_str()
         );
         for pane in panes
             .panes
@@ -158,7 +191,7 @@ async fn list(conn: &Connection) -> Result<()> {
                 "  {:<8} {:<8} {:<8} rev {:<6} {}",
                 pane.pane_id,
                 pane.agent.as_deref().unwrap_or("shell"),
-                pane.agent_status.as_deref().unwrap_or("-"),
+                pane.agent_status.as_str(),
                 pane.revision,
                 pane.terminal_title_stripped.as_deref().unwrap_or("")
             );
@@ -262,6 +295,67 @@ async fn bench(conn: &Connection, count: usize, pane: Option<String>) -> Result<
         &mut samples,
     );
     Ok(())
+}
+
+async fn board(endpoint: Endpoint, seconds: u64) -> Result<()> {
+    let endpoint = Arc::new(endpoint);
+    let mut rx = herdr_core::sync::spawn(move || {
+        let endpoint = Arc::clone(&endpoint);
+        async move { endpoint.connect().await }
+    });
+    let started = Instant::now();
+    let deadline = Duration::from_secs(seconds);
+    loop {
+        let remaining = deadline.saturating_sub(started.elapsed());
+        match tokio::time::timeout(remaining, rx.changed()).await {
+            Err(_) => return Ok(()),
+            Ok(Err(_)) => bail!("sync driver stopped"),
+            Ok(Ok(())) => {}
+        }
+        let state = rx.borrow_and_update().clone();
+        let at = started.elapsed().as_secs_f64();
+        match (&state.status, &state.session) {
+            (SyncStatus::Live, Some(session)) => print_board(at, session),
+            (SyncStatus::Retrying { attempt, error }, _) => {
+                println!("{at:>6.1}s retrying (attempt {attempt}): {error}");
+            }
+            (status, _) => println!("{at:>6.1}s {status:?}"),
+        }
+    }
+}
+
+fn print_board(at: f64, session: &SessionState) {
+    let board = session.board();
+    println!(
+        "{at:>6.1}s herdr {} protocol {}, {} agents",
+        session.version,
+        session.protocol,
+        board.len()
+    );
+    for entry in board {
+        let pane = entry.pane;
+        let place = format!(
+            "{} / {}",
+            entry.workspace.map_or("?", |ws| ws.label.as_str()),
+            entry.tab.map_or("?", |tab| tab.label.as_str())
+        );
+        let title = pane
+            .terminal_title_stripped
+            .as_deref()
+            .or(pane.title.as_deref())
+            .unwrap_or("");
+        println!(
+            "        {:<8} {:<8} {:<20} {:<8} {}",
+            pane.agent_status.as_str(),
+            pane.pane_id,
+            place,
+            pane.display_agent
+                .as_deref()
+                .or(pane.agent.as_deref())
+                .unwrap_or(""),
+            title
+        );
+    }
 }
 
 fn report(label: &str, samples: &mut [Duration]) {

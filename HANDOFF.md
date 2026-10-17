@@ -48,7 +48,10 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
    - Offen: derselbe Test vom MacBook Air über das NetBird-Tailnet.
 2. Die Marktbegleiter-Recherche lief in einem Hintergrund-Agenten. Ergebnis: `docs/marktbegleiter.md`, sobald fertig. Daraus Lessons für die Oberfläche ins Vault-Konzept übernehmen.
 3. Projekt-Infrastruktur nach `Projekt-Standards` (Vault `00 Kontext/`): privates GitHub-Repo, Issues pro Aufgabe, CHANGELOG, CI. GitHub-Repo erst nach Rückfrage anlegen. Lokal angelegt am 2026-10-17: README, CHANGELOG, Lizenzdateien (MIT oder Apache-2.0), `setup.sh`, `.github/workflows/ci.yml` (fmt, clippy, Tests auf Linux, macOS, Windows). Der lokale Socket ist jetzt `cfg(unix)`, damit Windows baut. Der Windows-Build ist lokal nicht prüfbar (aws-lc-sys braucht das Windows-SDK), das übernimmt die CI.
-4. Danach: `herdr-core` (Zustand, Event-Abo, Revisions-Abgleich, Terminal-Emulation über alacritty_terminal oder vt100), `herdr-ffi` (UniFFI), Mac-App mit SwiftUI.
+4. **herdr-core, Teil 1 (Issue #1, Branch `feature/1-session-state`):** `SessionState` aus `session.snapshot` plus Events, Board nach Dringlichkeit, Sync-Treiber mit globalem Abo, Status-Abo pro Pane, gesammeltem Neu-Snapshot bei Strukturänderungen und Reconnect mit Backoff. `herdr-spike board` zeigt das Board live, lokal und per SSH getestet. Live-Events und Reconnect sind nur per Unit-Test geprüft, weil während der Session keine anderen Agents liefen.
+   - Wichtig zum Event-Format: Globale Events kommen als `{"event":"pane_created","data":{"type":"pane_created",...}}`, Abos pro Pane als `{"event":"pane.agent_status_changed","data":{...}}` ohne `type`. herdr bedient jeden Abo-Typ in eigener Schleife (100 ms Takt), die Reihenfolge über Typen hinweg ist nicht garantiert. Deshalb gibt es bei Strukturänderungen einen neuen Snapshot statt Einzel-Updates.
+   - `Subscription::next` ist nicht abbruchsicher, im Core liest jedes Abo in einer eigenen Task.
+5. Danach: Terminal-Emulation (Issue #2, alacritty_terminal oder vt100) mit Abgleich über `revision`, dann `herdr-ffi` (UniFFI) und die Mac-App mit SwiftUI.
 
 ## Hinweise für die nächste Session
 
