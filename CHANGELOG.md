@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Quick replies above the key bar: saved prompts such as "weiter" or
+  "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
+  added, edited, reordered and deleted in a sheet, stored per device (#54).
 - Start an agent in a new space or tab: "Agent starten" in the "Neuer Space"
   sheet (last choice remembered) and a menu next to the tab "+". The core
   calls `agent.start`, names the agent after its kind (`claude-2` when taken)
