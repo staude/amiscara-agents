@@ -19,6 +19,7 @@ use russh::keys::{
     load_secret_key,
 };
 use russh_sftp::client::SftpSession;
+use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
@@ -354,7 +355,9 @@ impl Connection {
     /// Uploads a file into `dir` below the login's home directory (created
     /// if missing) and returns its absolute path on the server. Over SSH this
     /// uses SFTP on the same session, which needs a key whose forced command
-    /// is `sftp-server`; locally it writes the file directly.
+    /// is `sftp-server`; locally it writes the file directly. Uploads can be
+    /// private screenshots: every directory of `dir` gets mode 0700 and the
+    /// file 0600, also when they existed before.
     pub async fn upload(
         &self,
         dir: &str,
@@ -369,12 +372,31 @@ impl Connection {
         match &self.inner {
             #[cfg(unix)]
             Inner::Local(_) => {
+                use std::os::unix::fs::PermissionsExt;
+                use tokio::io::AsyncWriteExt;
+
                 let home = dirs::home_dir()
                     .ok_or_else(|| TransportError::Upload("no home directory".into()))?;
-                let dir = home.join(dir);
-                tokio::fs::create_dir_all(&dir).await?;
-                let path = dir.join(file_name);
-                tokio::fs::write(&path, data).await?;
+                let mut path = home;
+                for part in dir.split('/').filter(|part| !part.is_empty()) {
+                    path.push(part);
+                    tokio::fs::DirBuilder::new()
+                        .mode(0o700)
+                        .recursive(true)
+                        .create(&path)
+                        .await?;
+                    tokio::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+                        .await?;
+                }
+                path.push(file_name);
+                let mut file = tokio::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(&path)
+                    .await?;
+                file.write_all(data).await?;
+                file.flush().await?;
                 Ok(path.to_string_lossy().into_owned())
             }
             Inner::Ssh { handle, .. } => sftp_upload(handle, dir, file_name, data).await,
@@ -439,17 +461,35 @@ async fn sftp_upload(
         .map_err(|err| unavailable(&err))?;
     let failed = |err: russh_sftp::client::error::Error| TransportError::Upload(err.to_string());
 
+    let mode = |bits: u32| FileAttributes {
+        permissions: Some(bits),
+        ..FileAttributes::empty()
+    };
     let mut path = sftp.canonicalize(".").await.map_err(failed)?;
     for part in dir.split('/').filter(|part| !part.is_empty()) {
         path = format!("{}/{part}", path.trim_end_matches('/'));
         if !sftp.try_exists(path.as_str()).await.map_err(failed)? {
             sftp.create_dir(path.as_str()).await.map_err(failed)?;
         }
+        sftp.set_metadata(path.as_str(), mode(0o700))
+            .await
+            .map_err(failed)?;
     }
     let target = format!("{path}/{file_name}");
-    let mut file = sftp.create(target.as_str()).await.map_err(failed)?;
+    let mut file = sftp
+        .open_with_flags_and_attributes(
+            target.as_str(),
+            OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE,
+            mode(0o600),
+        )
+        .await
+        .map_err(failed)?;
     file.write_all(data).await?;
     file.shutdown().await?;
+    // Some servers apply the umask to the create attributes; set it again.
+    sftp.set_metadata(target.as_str(), mode(0o600))
+        .await
+        .map_err(failed)?;
     sftp.close().await.map_err(failed)?;
     Ok(target)
 }

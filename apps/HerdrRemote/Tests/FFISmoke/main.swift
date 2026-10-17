@@ -68,10 +68,22 @@ guard let pane = update.board.first?.paneId ?? panes.first?.paneId else {
     print("skip pane: server has no panes")
     exit(0)
 }
+/// Uploads may be private screenshots: file 0600, directory 0700.
+func checkPrivate(_ path: String) {
+    let mode = { (p: String) in
+        ((try? FileManager.default.attributesOfItem(atPath: p))?[.posixPermissions] as? NSNumber)?.intValue ?? -1
+    }
+    let dir = (path as NSString).deletingLastPathComponent
+    guard mode(path) == 0o600, mode(dir) == 0o700 else {
+        fail(String(format: "upload permissions: file %o, dir %o", mode(path), mode(dir)))
+    }
+}
+
 // Upload on the local host writes straight into ~/.herdr-remote/uploads.
 let payload = Data("herdr-remote smoke \(UUID().uuidString)".utf8)
 let localPath = try session.uploadFile(data: payload, fileExtension: "txt")
 guard FileManager.default.contents(atPath: localPath) == payload else { fail("local upload content: \(localPath)") }
+checkPrivate(localPath)
 try? FileManager.default.removeItem(atPath: localPath)
 if (try? session.uploadFile(data: payload, fileExtension: "../x")) != nil { fail("bad extension accepted") }
 print("ok   upload local: \(localPath)")
@@ -182,6 +194,7 @@ if let target = env["HERDR_SMOKE_SSH"], let keyPath = env["HERDR_SMOKE_KEY"] {
         // The smoke test runs on the host itself when HERDR_SMOKE_SSH points at it.
         if FileManager.default.fileExists(atPath: remotePath) {
             guard FileManager.default.contents(atPath: remotePath) == payload else { fail("sftp upload content") }
+            checkPrivate(remotePath)
             try? FileManager.default.removeItem(atPath: remotePath)
         }
         print("ok   ssh upload: \(remotePath)")
