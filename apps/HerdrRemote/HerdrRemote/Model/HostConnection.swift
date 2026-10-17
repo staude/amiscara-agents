@@ -54,6 +54,33 @@ final class HostConnection: Identifiable {
         session?.followPane(paneId: paneID, observer: observer)
     }
 
+    /// Sends a prompt to an agent, or text plus Enter to a shell.
+    func submit(_ text: String, to paneID: String, isAgent: Bool) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            if isAgent {
+                try session.sendPrompt(paneId: paneID, text: text)
+            } else {
+                try session.sendText(paneId: paneID, text: text)
+                try session.sendKeys(paneId: paneID, keys: ["enter"])
+            }
+        }.value
+    }
+
+    /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
+    func send(keys: [String], to paneID: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.sendKeys(paneId: paneID, keys: keys)
+        }.value
+    }
+
+    private func writableSession() throws -> HostSession {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return session
+    }
+
     private func endpoint() throws -> Endpoint {
         switch config.kind {
         case .local:
@@ -79,12 +106,30 @@ final class HostConnection: Identifiable {
 
 enum ConnectionFailure: LocalizedError {
     case missingKey
+    case readOnly
+    case notConnected
 
     var errorDescription: String? {
         switch self {
         case .missingKey:
             String(localized: "Für diesen Host liegt kein Schlüssel in der Keychain.")
+        case .readOnly:
+            String(localized: "Eingaben sind für diesen Host ausgeschaltet.")
+        case .notConnected:
+            String(localized: "Keine Verbindung zum Host.")
         }
+    }
+}
+
+/// Text for an error from sending input, in the app's language.
+func inputErrorMessage(_ error: Error) -> String {
+    switch error {
+    case FfiError.AgentBlocked:
+        String(localized: "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten.")
+    case FfiError.NotConnected:
+        String(localized: "Keine Verbindung zum Host.")
+    default:
+        error.localizedDescription
     }
 }
 

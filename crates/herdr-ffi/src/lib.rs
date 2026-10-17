@@ -11,6 +11,7 @@ mod convert;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use herdr_core::actions;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::sync::{self, SyncState};
 use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError, keys};
@@ -32,6 +33,25 @@ pub enum FfiError {
     Key(String),
     #[error("{0}")]
     Unsupported(String),
+    /// No live connection right now; the session reconnects on its own.
+    #[error("{0}")]
+    NotConnected(String),
+    /// The agent waits at an approval or question dialog; answer it first.
+    #[error("{0}")]
+    AgentBlocked(String),
+    /// herdr refused the input, e.g. an unknown pane or key.
+    #[error("{0}")]
+    Rejected(String),
+}
+
+impl From<actions::ActionError> for FfiError {
+    fn from(err: actions::ActionError) -> Self {
+        match err {
+            actions::ActionError::AgentBlocked => Self::AgentBlocked(err.to_string()),
+            actions::ActionError::Rejected { .. } => Self::Rejected(err.to_string()),
+            actions::ActionError::Transport(_) => Self::NotConnected(err.to_string()),
+        }
+    }
 }
 
 /// Where a herdr server lives.
@@ -175,6 +195,29 @@ impl HostSession {
         }
     }
 
+    /// Sends a prompt to the agent in a pane, followed by Enter. Blocks for
+    /// one round trip; call it off the main thread.
+    pub fn send_prompt(&self, pane_id: String, text: String) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::send_prompt(&conn, &pane_id, &text))?;
+        Ok(())
+    }
+
+    /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.
+    /// Blocks for one round trip; call it off the main thread.
+    pub fn send_keys(&self, pane_id: String, keys: Vec<String>) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::send_keys(&conn, &pane_id, &keys))?;
+        Ok(())
+    }
+
+    /// Types text into a pane without Enter. Blocks for one round trip.
+    pub fn send_text(&self, pane_id: String, text: String) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::send_text(&conn, &pane_id, &text))?;
+        Ok(())
+    }
+
     /// Follows the visible screen of a pane until the returned handle is
     /// stopped or dropped.
     pub fn follow_pane(&self, pane_id: String, observer: Box<dyn PaneObserver>) -> Arc<PaneFollow> {
@@ -198,6 +241,16 @@ impl HostSession {
             }
         });
         Arc::new(PaneFollow { task })
+    }
+}
+
+impl HostSession {
+    fn connection(&self) -> Result<Arc<Connection>, FfiError> {
+        self.state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().connection.clone()))
+            .ok_or_else(|| FfiError::NotConnected("not connected to herdr".into()))
     }
 }
 

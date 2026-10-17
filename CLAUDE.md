@@ -15,7 +15,8 @@ Konzept: Vault `02 Projekte/Herdr Remote.md`. Aktueller Stand und nächste Schri
 
 ## Besonderheiten
 
-- Gegen einen produktiv genutzten herdr-Server nur lesende Methoden aufrufen (`ping`, `*.list`, `*.get`, `pane.read`, `events.subscribe`), außer es ist ausdrücklich anders gewünscht.
+- Gegen einen produktiv genutzten herdr-Server nur lesende Methoden aufrufen (`ping`, `*.list`, `*.get`, `pane.read`, `session.snapshot`, `events.subscribe`), außer es ist ausdrücklich anders gewünscht.
+- Schreibende Methoden (`agent.prompt`, `pane.send_keys`, `pane.send_text`, Anlegen von Workspaces) nur gegen eine eigene Test-Session testen: `herdr --session herdr-remote-test server` startet einen getrennten Server mit Socket `~/.config/herdr/sessions/herdr-remote-test/herdr.sock`. Danach `herdr session stop herdr-remote-test`.
 - Protokollversion steht in `herdr_proto::SUPPORTED_PROTOCOL` und wird bei `ping` geprüft.
 - Aufbau orientiert sich an `~/dev/torromail` (Workspace-Lints, Edition 2024).
 - Mac-App unter `apps/HerdrRemote`, Xcode-Projekt nur über xcodegen (`project.yml`), `.xcodeproj` und `Generated/` sind nicht eingecheckt.

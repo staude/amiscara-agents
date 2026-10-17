@@ -13,6 +13,10 @@ struct PaneDetailView: View {
                     header(connection: connection, paneID: selection.paneID)
                     Divider()
                     screen(connection: connection)
+                    if connection.config.inputAllowed, let pane = pane(connection, selection.paneID) {
+                        Divider()
+                        InputBar(connection: connection, pane: pane)
+                    }
                 }
             } else {
                 ContentUnavailableView(
@@ -28,10 +32,14 @@ struct PaneDetailView: View {
         .onDisappear { model.stop() }
     }
 
-    private func header(connection: HostConnection, paneID: String) -> some View {
-        let pane = connection.update?.workspaces
+    private func pane(_ connection: HostConnection, _ paneID: String) -> PaneItem? {
+        connection.update?.workspaces
             .flatMap(\.tabs).flatMap(\.panes)
             .first { $0.paneId == paneID }
+    }
+
+    private func header(connection: HostConnection, paneID: String) -> some View {
+        let pane = pane(connection, paneID)
         return HStack(spacing: 8) {
             StatusDot(state: pane?.agent == nil ? nil : pane?.agentState)
             Text(pane?.title.isEmpty == false ? pane!.title : paneID)

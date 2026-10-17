@@ -59,7 +59,8 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
    - Geprüft per `scripts/ffi-smoke.sh` (lokal und SSH inkl. Host-Key-Ablauf). Die Oberfläche selbst und die Keychain sind noch nicht durchgeklickt, der Session fehlte die Bildschirmaufnahme-Berechtigung.
    - `scripts/release.sh` für Developer ID und Notarisierung. Es fehlen noch das Developer-ID-Application-Zertifikat und das notarytool-Profil, siehe `docs/release.md`.
    - Sicherheitsbefund: `port-forwarding` im `authorized_keys`-Eintrag erlaubt auch TCP-Weiterleitung. `permitopen` hilft nicht, weil sshd damit auch den Streamlocal-Kanal ablehnt (getestet). Einziger Weg: `AllowTcpForwarding no` in `sshd_config`, betrifft alle Logins. Entscheidung bei Frank.
-7. Danach: Eingaben (Prompt senden, Freigaben) erst nach Franks Freigabe für schreibende Methoden, iPad- und iPhone-Ansichten, Push.
+7. **Eingaben (Issue #14):** `herdr-core::actions` (`agent.prompt`, `pane.send_keys`, `pane.send_text`), FFI-Methoden, in der App Schalter „Eingaben erlauben“ pro Host (Standard an) und Eingabeleiste unter der Pane: Antwortzeile bei `blocked` (1, 2, 3, Enter, Esc), Tastenleiste, Eingabefeld. Getestet nur gegen die Test-Session `herdr-remote-test` (Text plus Enter kommt an, Prompt an eine Shell und ungültige Tasten werden abgelehnt). Den Freigabe-Ablauf mit echtem Agent testet Frank per Klick.
+8. Danach: iPad- und iPhone-Ansichten, Push.
 
 ## Hinweise für die nächste Session
 

@@ -68,8 +68,19 @@ open target/xcode/Build/Products/Debug/HerdrRemote.app
 the local server; with `HERDR_SMOKE_SSH=user@host HERDR_SMOKE_KEY=<key>` it
 also runs the SSH and host key flow.
 
-The app is read-only for now: it shows hosts, workspaces, the agent board and
-the live pane screen, but sends nothing to herdr.
+The app shows hosts, workspaces, the agent board and the live pane screen.
+Under the pane it sends prompts to agents, text to shells and keys such as
+Enter, Esc or 1/2/3 to answer an agent waiting for approval. Each host has a
+switch to keep it read-only.
+
+Test input only against a separate session, never the one with real work:
+
+```sh
+herdr --session herdr-remote-test server &
+HERDR_SMOKE_WRITE_SOCKET=~/.config/herdr/sessions/herdr-remote-test/herdr.sock \
+    scripts/ffi-smoke.sh
+herdr session stop herdr-remote-test
+```
 
 ## Verify
 

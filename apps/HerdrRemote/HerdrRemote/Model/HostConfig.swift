@@ -23,6 +23,14 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
     var pinnedHostKey: String?
     /// Public half of this device's key, shown for `authorized_keys`.
     var publicKey: String?
+    /// Whether the app may send prompts and keys to this host. Optional so
+    /// host files from before this switch still load; missing means on.
+    var allowInput: Bool?
+
+    var inputAllowed: Bool {
+        get { allowInput ?? true }
+        set { allowInput = newValue }
+    }
 
     static func local() -> HostConfig {
         HostConfig(name: String(localized: "Dieser Mac"), kind: .local)
