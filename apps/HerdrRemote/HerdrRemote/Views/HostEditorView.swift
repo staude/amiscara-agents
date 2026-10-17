@@ -51,6 +51,12 @@ struct HostEditorView: View {
                 }
 
                 Section {
+                    Toggle("Benachrichtigungen", isOn: $config.notificationsOn)
+                } footer: {
+                    Text("Mitteilung, wenn ein Agent auf eine Antwort wartet oder fertig ist. Auf iPad und iPhone nur, solange die App läuft.")
+                }
+
+                Section {
                     Toggle("Eingaben erlauben", isOn: $config.inputAllowed)
                 } footer: {
                     Text("Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten.")

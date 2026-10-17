@@ -9,8 +9,15 @@ final class Probe: SessionObserver, PaneObserver, @unchecked Sendable {
     var update: SessionUpdate?
     var content: PaneContent?
     var paneError: String?
+    /// Every attention item seen, in order.
+    var attention: [BoardItem] = []
 
-    func onUpdate(update: SessionUpdate) { lock.withLock { self.update = update } }
+    func onUpdate(update: SessionUpdate) {
+        lock.withLock {
+            self.update = update
+            attention += update.attention
+        }
+    }
     func onContent(content: PaneContent) { lock.withLock { self.content = content } }
     func onError(message: String) { lock.withLock { paneError = message } }
 }
@@ -158,6 +165,38 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
         }
     }
     guard appeared else { fail("created space \(space.workspaceId) / tab \(tab.tabId) not in the session") }
+
+    // Attention: simulate an agent with pane.report_agent (herdr's own
+    // integration call) and expect one notice for "blocked" and one for "done".
+    func report(_ state: String) throws {
+        let socket = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        defer { close(socket) }
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &address.sun_path) { raw in
+            _ = writeSocket.utf8CString.withUnsafeBytes { raw.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(raw.count - 1))) }
+        }
+        let size = socklen_t(MemoryLayout<sockaddr_un>.size)
+        guard withUnsafePointer(to: &address, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(socket, $0, size) } }) == 0 else {
+            fail("cannot reach the test socket")
+        }
+        let line = "{\"id\":\"smoke\",\"method\":\"pane.report_agent\",\"params\":{\"pane_id\":\"\(tab.paneId)\",\"source\":\"ffi-smoke\",\"agent\":\"claude\",\"state\":\"\(state)\"}}\n"
+        _ = line.withCString { send(socket, $0, strlen($0), 0) }
+        var reply = [UInt8](repeating: 0, count: 4096)
+        _ = recv(socket, &reply, reply.count, 0)
+    }
+    let noticed = { (status: AgentState) in
+        wait(5) { probe.lock.withLock { probe.attention.contains { $0.paneId == tab.paneId && $0.agentState == status } } }
+    }
+    try report("working")
+    try report("blocked")
+    guard noticed(.blocked) else { fail("no attention for blocked") }
+    try report("working")
+    try report("idle")
+    guard noticed(.done) else { fail("no attention for done") }
+    let notices = probe.lock.withLock { probe.attention.filter { $0.paneId == tab.paneId } }
+    guard notices.count == 2 else { fail("expected 2 notices, got \(notices.map(\.agentState))") }
+    print("ok   attention: blocked and done, once each")
     print("ok   create: space \(space.workspaceId) with tab \(tab.tabId)")
     do {
         _ = try session.createTab(workspaceId: "w999", cwd: nil)

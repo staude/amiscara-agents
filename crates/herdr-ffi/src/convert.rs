@@ -1,5 +1,6 @@
 //! Plain records for the app, built from the core types.
 
+use herdr_core::SessionState;
 use herdr_core::pane::PaneScreen;
 use herdr_core::sync::{SyncState, SyncStatus};
 use herdr_core::terminal::{Color, Span};
@@ -35,6 +36,9 @@ pub struct SessionUpdate {
     pub workspaces: Vec<WorkspaceItem>,
     /// Agent panes, most urgent first.
     pub board: Vec<BoardItem>,
+    /// Agents that started waiting or finished since the previous update;
+    /// empty on the first update after start. For notifications.
+    pub attention: Vec<BoardItem>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -128,7 +132,7 @@ pub enum TermColor {
     },
 }
 
-pub fn session_update(state: &SyncState) -> SessionUpdate {
+pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> SessionUpdate {
     let status = match &state.status {
         SyncStatus::Connecting => HostStatus::Connecting,
         SyncStatus::Live => HostStatus::Live,
@@ -156,6 +160,7 @@ pub fn session_update(state: &SyncState) -> SessionUpdate {
             focused_pane_id: None,
             workspaces: Vec::new(),
             board: Vec::new(),
+            attention: Vec::new(),
         };
     };
 
@@ -206,7 +211,7 @@ pub fn session_update(state: &SyncState) -> SessionUpdate {
         })
         .collect();
 
-    let board = session
+    let board: Vec<BoardItem> = session
         .board()
         .into_iter()
         .map(|entry| BoardItem {
@@ -230,8 +235,21 @@ pub fn session_update(state: &SyncState) -> SessionUpdate {
         })
         .collect();
 
+    let attention = match previous {
+        Some(before) => {
+            let panes = session.attention_since(before);
+            board
+                .iter()
+                .filter(|item: &&BoardItem| panes.contains(&item.pane_id))
+                .cloned()
+                .collect()
+        }
+        None => Vec::new(),
+    };
+
     SessionUpdate {
         status,
+        attention,
         server_version: Some(session.version.clone()),
         protocol_supported: session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
         focused_pane_id: session.focused_pane_id.clone(),

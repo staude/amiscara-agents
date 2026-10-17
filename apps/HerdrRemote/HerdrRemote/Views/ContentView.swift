@@ -15,6 +15,12 @@ struct ContentView: View {
         } detail: {
             WorkspaceDetailView(selection: selection)
         }
+        .onChange(of: store.notifier.openRequest) { _, request in
+            // A tapped notification opens its pane.
+            guard let request else { return }
+            selection = request
+            store.notifier.openRequest = nil
+        }
         .sheet(item: $editing) { config in
             HostEditorView(config: config)
         }

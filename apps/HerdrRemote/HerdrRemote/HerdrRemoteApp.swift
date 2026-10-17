@@ -16,6 +16,7 @@ struct HerdrRemoteApp: App {
         .onChange(of: scenePhase) { _, phase in
             // iOS suspends the app and the SSH session with it. Coming back,
             // reconnect at once instead of waiting out the retry pause.
+            store.notifier.appActive = phase == .active
             if phase == .active {
                 store.reconnectStale()
             }

@@ -205,8 +205,14 @@ impl HostSession {
         });
         let mut updates = rx.clone();
         let forward = runtime.spawn(async move {
+            // The state the last update was based on, to report what changed.
+            let mut previous: Option<Arc<herdr_core::SessionState>> = None;
             loop {
-                let update = convert::session_update(&updates.borrow_and_update());
+                let state = updates.borrow_and_update().clone();
+                let update = convert::session_update(&state, previous.as_deref());
+                if state.session.is_some() {
+                    previous = state.session.clone();
+                }
                 observer.on_update(update);
                 if updates.changed().await.is_err() {
                     return;
