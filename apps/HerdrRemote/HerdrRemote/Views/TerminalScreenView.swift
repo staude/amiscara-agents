@@ -5,14 +5,24 @@ import SwiftUI
 /// values for a dark background.
 struct TerminalScreenView: View {
     let content: PaneContent
+    /// Scrollback controls above the first line; `nil` hides them.
+    var history: PaneModel?
     @AppStorage("terminalFontSize") private var fontSize = Platform.defaultTerminalFontSize
+    /// Set once the user scrolled, so the first layout (which may briefly sit
+    /// at the top before the bottom anchor applies) cannot load history.
+    @State private var userScrolled = false
 
     var body: some View {
         ScrollView([.vertical, .horizontal]) {
             // A plain VStack: the visible screen is about 60 lines, and a
             // LazyVStack in a two-axis scroll view could stay undrawn until
-            // the content changed (a black pane on the iPad).
+            // the content changed (a black pane on the iPad). With history
+            // it holds up to 1000 lines, which SwiftUI still lays out fast.
             VStack(alignment: .leading, spacing: 0) {
+                if let history {
+                    HistoryHeader(model: history, content: content)
+                        .padding(.bottom, 8)
+                }
                 ForEach(Array(content.lines.enumerated()), id: \.offset) { _, line in
                     Text(TerminalStyle.attributed(line, fontSize: fontSize))
                         .fixedSize()
@@ -24,13 +34,57 @@ struct TerminalScreenView: View {
         }
         // Like a terminal: start at the bottom, where the latest output and
         // the agent's prompt are, and stay there when new lines arrive.
+        // Older lines loaded above keep the lines in view where they are.
         .defaultScrollAnchor(.bottomLeading)
         .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
+        .onScrollPhaseChange { _, phase in
+            if phase.isScrolling { userScrolled = true }
+        }
+        // Scrolling up to the first line loads the next history step, like
+        // a terminal's scrollback.
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            geometry.contentSize.height > geometry.containerSize.height
+                && geometry.contentOffset.y <= geometry.contentInsets.top + 24
+        } action: { _, atTop in
+            if atTop, userScrolled { history?.loadMoreHistory() }
+        }
         // A fresh scroll view per pane, so the previous pane's scroll
         // position cannot leave the new one out of sight.
         .id(content.paneId)
         .background(TerminalStyle.background)
         .environment(\.colorScheme, .dark)
+    }
+}
+
+/// First row of the pane: load older lines, or say why there are none.
+private struct HistoryHeader: View {
+    let model: PaneModel
+    let content: PaneContent
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if model.isLoadingHistory {
+                ProgressView().controlSize(.small)
+                Text("Verlauf wird geladen …")
+            } else if model.canLoadMoreHistory {
+                Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
+                    model.loadMoreHistory()
+                }
+            } else if content.historyLines > 0, content.truncated {
+                Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
+            } else if content.historyLines > 0 {
+                Text("Anfang des Verlaufs")
+            }
+            if content.historyLines > 0 {
+                Button("Nur Bildschirm", systemImage: "rectangle.compress.vertical") {
+                    model.hideHistory()
+                }
+            }
+        }
+        .font(.callout)
+        .buttonStyle(.bordered)
+        .foregroundStyle(TerminalStyle.foreground.opacity(0.7))
+        .fixedSize()
     }
 }
 

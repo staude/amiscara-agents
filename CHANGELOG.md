@@ -104,6 +104,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Pane view scrolls back into history: scrolling to the top (or "Älteren
+  Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
+  limit, and keeps them live; "Nur Bildschirm" goes back. Core:
+  `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
 
 ### Fixed
 

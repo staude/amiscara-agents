@@ -168,6 +168,12 @@ pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL
 }
 
+/// Most history rows herdr returns for one pane read.
+#[uniffi::export]
+pub fn max_history_lines() -> u32 {
+    pane::MAX_HISTORY_LINES
+}
+
 #[uniffi::export(callback_interface)]
 pub trait SessionObserver: Send + Sync {
     fn on_update(&self, update: SessionUpdate);
@@ -302,9 +308,11 @@ impl HostSession {
     }
 
     /// Follows the visible screen of a pane until the returned handle is
-    /// stopped or dropped.
+    /// stopped or dropped. [`PaneFollow::set_history_lines`] switches to
+    /// the screen plus scrollback.
     pub fn follow_pane(&self, pane_id: String, observer: Box<dyn PaneObserver>) -> Arc<PaneFollow> {
         let state = self.state.lock().ok().and_then(|state| state.clone());
+        let (history, mut history_rx) = watch::channel(0);
         let task = runtime().spawn(async move {
             let Some(mut state) = state else {
                 return;
@@ -312,7 +320,8 @@ impl HostSession {
             loop {
                 let connection = state.borrow_and_update().connection.clone();
                 if let Some(conn) = connection
-                    && let Err(message) = follow_once(&conn, &pane_id, observer.as_ref()).await
+                    && let Err(message) =
+                        follow_once(&conn, &pane_id, &mut history_rx, observer.as_ref()).await
                 {
                     observer.on_error(message);
                 }
@@ -323,7 +332,7 @@ impl HostSession {
                 }
             }
         });
-        Arc::new(PaneFollow { task })
+        Arc::new(PaneFollow { task, history })
     }
 }
 
@@ -346,10 +355,11 @@ impl Drop for HostSession {
 async fn follow_once(
     conn: &Connection,
     pane_id: &str,
+    history: &mut watch::Receiver<u32>,
     observer: &dyn PaneObserver,
 ) -> Result<(), String> {
     let (tx, mut rx) = watch::channel(None);
-    let follow = pane::follow(conn, pane_id, Pacing::default(), &tx);
+    let follow = pane::follow_with_history(conn, pane_id, Pacing::default(), history, &tx);
     let forward = async {
         while rx.changed().await.is_ok() {
             let screen = rx.borrow_and_update().clone();
@@ -368,12 +378,21 @@ async fn follow_once(
 #[derive(uniffi::Object)]
 pub struct PaneFollow {
     task: JoinHandle<()>,
+    history: watch::Sender<u32>,
 }
 
 #[uniffi::export]
 impl PaneFollow {
     pub fn stop(&self) {
         self.task.abort();
+    }
+
+    /// Shows the last `lines` rows including scrollback instead of only the
+    /// visible screen; 0 goes back to the screen. Capped at
+    /// [`max_history_lines`]. Content with the new value follows at once.
+    pub fn set_history_lines(&self, lines: u32) {
+        self.history
+            .send_replace(lines.min(pane::MAX_HISTORY_LINES));
     }
 }
 

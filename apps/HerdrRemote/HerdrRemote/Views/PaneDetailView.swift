@@ -63,7 +63,7 @@ struct PaneDetailView: View {
     @ViewBuilder
     private func screen(connection: HostConnection) -> some View {
         if let content = model.content {
-            TerminalScreenView(content: content)
+            TerminalScreenView(content: content, history: model)
                 .overlay(alignment: .top) {
                     if let error = model.error {
                         Banner(text: error, systemImage: "exclamationmark.triangle")

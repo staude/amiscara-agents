@@ -108,6 +108,20 @@ guard gotContent, let content = probe.lock.withLock({ probe.content }) else {
 }
 let spans = content.lines.reduce(0) { $0 + $1.spans.count }
 print("ok   pane \(pane): \(content.lines.count) lines, \(spans) spans")
+guard content.historyLines == 0 else { fail("follow starts with history") }
+
+// History: a recent read (ANSI, read-only) replaces the visible screen.
+follow.setHistoryLines(lines: 100_000)
+let gotHistory = wait(5) { probe.lock.withLock { probe.content?.historyLines == maxHistoryLines() } }
+guard gotHistory, let history = probe.lock.withLock({ probe.content }) else {
+    fail("no history for \(pane): \(probe.paneError ?? "-")")
+}
+guard history.lines.count <= Int(maxHistoryLines()) else { fail("history above the cap") }
+print("ok   history \(pane): \(history.lines.count) lines, more: \(history.truncated)")
+follow.setHistoryLines(lines: 0)
+guard wait(5, until: { probe.lock.withLock { probe.content?.historyLines == 0 } }) else {
+    fail("history did not switch back to the screen")
+}
 follow.stop()
 session.stop()
 

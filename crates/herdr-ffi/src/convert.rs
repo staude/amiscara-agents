@@ -105,7 +105,10 @@ pub struct BoardItem {
 pub struct PaneContent {
     pub pane_id: String,
     pub lines: Vec<StyledLine>,
+    /// With history: herdr holds older rows than these.
     pub truncated: bool,
+    /// History rows asked for, 0 when `lines` is the visible screen only.
+    pub history_lines: u32,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -291,6 +294,7 @@ pub fn pane_content(screen: &PaneScreen) -> PaneContent {
             })
             .collect(),
         truncated: screen.truncated,
+        history_lines: screen.history_lines,
     }
 }
 
