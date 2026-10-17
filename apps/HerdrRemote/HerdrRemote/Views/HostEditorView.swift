@@ -18,6 +18,21 @@ struct HostEditorView: View {
     @State private var scanning = false
     /// Why a scanned or pasted code was refused, shown next to the buttons.
     @State private var importError: String?
+    /// Host key from a scanned or opened code. A link can come from any
+    /// website or message, so the key stays unverified until the user
+    /// confirms its fingerprint against the sending device; unconfirmed,
+    /// the host is saved without a pinned key and the normal first-contact
+    /// prompt applies.
+    @State private var importedKey: ImportedKey?
+    @State private var keyConfirmed = false
+
+    private struct ImportedKey: Equatable {
+        let key: String
+        let fingerprint: String
+        /// The address the code named; editing it drops the key.
+        let host: String
+        let port: Int
+    }
 
     init(config: HostConfig, importLink: String? = nil) {
         _config = State(initialValue: config)
@@ -49,6 +64,7 @@ struct HostEditorView: View {
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
                             .technicalInput()
                     }
+                    importedKeySection
                     hostKeySection
                     keySection
                 } else {
@@ -90,7 +106,9 @@ struct HostEditorView: View {
         .frame(width: 520)
         #endif
         // A swipe down would drop changes silently on iPad.
-        .interactiveDismissDisabled(config != original || newPrivateKey != nil)
+        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil)
+        .onChange(of: config.host) { dropImportedKeyIfAddressChanged() }
+        .onChange(of: config.port) { dropImportedKeyIfAddressChanged() }
         .task {
             if let importLink { applyLink(importLink) }
         }
@@ -102,7 +120,8 @@ struct HostEditorView: View {
     }
 
     /// Fill in everything from a code another device shows (its host menu,
-    /// "QR-Code zeigen"): nothing to type, the host key is pinned at once.
+    /// "QR-Code zeigen"): nothing to type; the host key is pinned once its
+    /// fingerprint is confirmed.
     private var importSection: some View {
         Section {
             #if os(iOS)
@@ -119,6 +138,22 @@ struct HostEditorView: View {
             Text("Per QR-Code")
         } footer: {
             Text("Auf dem Mac in Herdr Remote im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen.")
+        }
+    }
+
+    @ViewBuilder
+    private var importedKeySection: some View {
+        if let importedKey {
+            Section {
+                LabeledContent("Fingerabdruck", value: importedKey.fingerprint)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Toggle("Fingerabdruck stimmt mit dem auf dem Mac angezeigten überein", isOn: $keyConfirmed)
+            } header: {
+                Text("Host-Key aus dem Code (ungeprüft)")
+            } footer: {
+                Text("Vergleichen Sie den Fingerabdruck mit dem, den das andere Gerät unter dem QR-Code zeigt. Ohne Bestätigung wird kein Host-Key gespeichert und die App fragt beim ersten Verbinden nach.")
+            }
         }
     }
 
@@ -211,7 +246,7 @@ struct HostEditorView: View {
     }
 
     private func apply(_ link: AddHostLink) {
-        if let conflict = store.hostKeyConflict(for: link, editing: original) {
+        if let conflict = store.hostKeyConflict(host: link.host, port: Int(link.port), key: link.hostKey, editing: original) {
             importError = conflict
             return
         }
@@ -224,11 +259,31 @@ struct HostEditorView: View {
         config.user = link.user
         // Keep the field empty for the default, like a host typed in by hand.
         config.socketPath = link.socketPath == defaultRemoteSocket(user: link.user) ? "" : link.socketPath
-        config.pinnedHostKey = link.hostKey
+        if let pinned = original.pinnedHostKey, HostStore.sameKey(pinned, link.hostKey) {
+            // Already trusted; nothing to confirm.
+            importedKey = nil
+        } else {
+            importedKey = ImportedKey(
+                key: link.hostKey,
+                fingerprint: (try? publicKeyFingerprint(publicOpenssh: link.hostKey)) ?? link.hostKey,
+                host: HostStore.normalizedHost(link.host),
+                port: Int(link.port)
+            )
+        }
+        keyConfirmed = false
         importError = nil
         // The authorized_keys line is the one step left; show it right away.
         if config.publicKey == nil {
             generateKey()
+        }
+    }
+
+    private func dropImportedKeyIfAddressChanged() {
+        guard let importedKey else { return }
+        if HostStore.normalizedHost(config.host) != importedKey.host || config.port != importedKey.port {
+            self.importedKey = nil
+            keyConfirmed = false
+            importError = String(localized: "Host oder Port wurden geändert. Der Host-Key aus dem Code wurde verworfen.")
         }
     }
 
@@ -244,6 +299,16 @@ struct HostEditorView: View {
     }
 
     private func save() {
+        var config = config
+        if config.kind == .ssh, let importedKey, keyConfirmed,
+           HostStore.normalizedHost(config.host) == importedKey.host, config.port == importedKey.port {
+            // Re-checked: another host may have been trusted meanwhile.
+            if let conflict = store.hostKeyConflict(host: config.host, port: config.port, key: importedKey.key, editing: original) {
+                error = conflict
+                return
+            }
+            config.pinnedHostKey = importedKey.key
+        }
         do {
             if config.kind == .ssh, let newPrivateKey {
                 try KeyStore.save(privateKey: newPrivateKey, for: config.id)

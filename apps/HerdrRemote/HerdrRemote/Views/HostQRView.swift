@@ -91,8 +91,8 @@ struct HostQRView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityLabel("QR-Code zum Hinzufügen von \(config.name)")
             }
-            LabeledContent("Host-Key", value: fingerprint)
-                .font(.caption)
+            LabeledContent("Fingerabdruck", value: fingerprint)
+                .font(.caption.monospaced())
                 .textSelection(.enabled)
             Button {
                 Platform.copy(text)
@@ -106,7 +106,7 @@ struct HostQRView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
         } footer: {
-            Text("In Herdr Remote auf iPhone oder iPad unter „Host hinzufügen“ scannen. Danach die Schlüsselzeile des Geräts auf diesem Host in ~/.ssh/authorized_keys eintragen.")
+            Text("In Herdr Remote auf iPhone oder iPad unter „Host hinzufügen“ scannen. Dort den Fingerabdruck mit dem hier angezeigten vergleichen und bestätigen. Danach die Schlüsselzeile des Geräts auf diesem Host in ~/.ssh/authorized_keys eintragen.")
         }
     }
 

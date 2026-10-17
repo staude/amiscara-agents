@@ -16,32 +16,41 @@ func hostLinkErrorMessage(_ error: Error) -> String {
 }
 
 extension HostStore {
-    /// Why `link` must not be applied to `config`, or nil. A scanned code
-    /// never replaces a host key the user already trusts, neither on the
-    /// host being edited nor on another host at the same address: that is
-    /// exactly what a forged code would try.
+    /// Why a host key from a scanned or opened code must not be pinned for
+    /// `host`:`port`, or nil. A code never replaces a host key the user
+    /// already trusts, neither on the host being edited nor on another host
+    /// at the same address: that is exactly what a forged code would try.
+    /// Checked on import and again on save.
     ///
     /// `original` is the host as stored before editing, so a second scan in
     /// the same editor may still replace the key of the first scan.
-    func hostKeyConflict(for link: AddHostLink, editing original: HostConfig) -> String? {
-        if let pinned = original.pinnedHostKey, !Self.sameKey(pinned, link.hostKey) {
+    func hostKeyConflict(host: String, port: Int, key: String, editing original: HostConfig) -> String? {
+        if let pinned = original.pinnedHostKey, !Self.sameKey(pinned, key) {
             return String(localized: "Der Code enthält einen anderen Host-Key als den, dem dieser Host vertraut. Er wurde nicht übernommen. Wenn der Server neu aufgesetzt wurde, entfernen Sie den Host und fügen ihn neu hinzu.")
         }
+        let address = Self.normalizedHost(host)
         let others = connections.map(\.config).filter { other in
             other.id != original.id && other.kind == .ssh
-                && other.host.caseInsensitiveCompare(link.host) == .orderedSame
-                && other.port == Int(link.port)
+                && Self.normalizedHost(other.host) == address
+                && other.port == port
         }
         for other in others {
-            if let pinned = other.pinnedHostKey, !Self.sameKey(pinned, link.hostKey) {
+            if let pinned = other.pinnedHostKey, !Self.sameKey(pinned, key) {
                 return String(localized: "„\(other.name)“ unter derselben Adresse vertraut einem anderen Host-Key. Der Code wurde nicht übernommen. Prüfen Sie den Host-Key auf dem Server.")
             }
         }
         return nil
     }
 
+    /// "Work.Staude.Internal." and "work.staude.internal" are one host.
+    static func normalizedHost(_ host: String) -> String {
+        var host = host.trimmingCharacters(in: .whitespaces).lowercased()
+        while host.hasSuffix(".") { host.removeLast() }
+        return host
+    }
+
     /// Same algorithm and key data; the comment does not matter.
-    private static func sameKey(_ a: String, _ b: String) -> Bool {
+    static func sameKey(_ a: String, _ b: String) -> Bool {
         let fields = { (line: String) in line.split(separator: " ", omittingEmptySubsequences: true).prefix(2) }
         return fields(a) == fields(b)
     }
