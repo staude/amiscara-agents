@@ -1,4 +1,4 @@
-//! Writing calls: input for panes and agents, new spaces and tabs.
+//! Writing calls: input for panes and agents, new spaces and tabs, renames.
 //!
 //! Keys use herdr's logical names: `enter`, `esc`, `tab`, `backspace`,
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
@@ -134,6 +134,59 @@ pub async fn create_tab(
     Ok(reply.into())
 }
 
+/// Renames a space. herdr answers with `workspace_renamed`, which the sync
+/// applies in place.
+pub async fn rename_workspace(
+    conn: &Connection,
+    workspace_id: &str,
+    label: &str,
+) -> Result<(), ActionError> {
+    let label = non_empty(label)?;
+    conn.request(
+        "workspace.rename",
+        json!({ "workspace_id": workspace_id, "label": label }),
+    )
+    .await?;
+    Ok(())
+}
+
+/// Renames a tab; announced with `tab_renamed`.
+pub async fn rename_tab(conn: &Connection, tab_id: &str, label: &str) -> Result<(), ActionError> {
+    let label = non_empty(label)?;
+    conn.request("tab.rename", json!({ "tab_id": tab_id, "label": label }))
+        .await?;
+    Ok(())
+}
+
+/// Gives the agent in a pane a name, or removes it with `None` (or an empty
+/// name). herdr allows lowercase letters, digits, `-` and `_`, starting with
+/// a letter, at most 32 characters, unique among agents; it refuses others
+/// with `invalid_agent_name`. The name only shows up in the next snapshot,
+/// see [`crate::sync::SyncState::request_snapshot`].
+pub async fn rename_agent(
+    conn: &Connection,
+    pane_id: &str,
+    name: Option<&str>,
+) -> Result<(), ActionError> {
+    let name = name.map(str::trim).filter(|name| !name.is_empty());
+    conn.request("agent.rename", json!({ "target": pane_id, "name": name }))
+        .await?;
+    Ok(())
+}
+
+/// herdr takes an empty label as a name, which leaves an empty row. Refuse
+/// it here instead.
+fn non_empty(label: &str) -> Result<&str, ActionError> {
+    let label = label.trim();
+    if label.is_empty() {
+        return Err(ActionError::Rejected {
+            code: "empty_label".into(),
+            message: "the name must not be empty".into(),
+        });
+    }
+    Ok(label)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,6 +212,15 @@ mod tests {
             ActionError::from(TransportError::Closed),
             ActionError::Transport(TransportError::Closed)
         ));
+    }
+
+    #[test]
+    fn empty_labels_are_refused() {
+        assert!(matches!(
+            non_empty("  "),
+            Err(ActionError::Rejected { code, .. }) if code == "empty_label"
+        ));
+        assert_eq!(non_empty(" api ").ok(), Some("api"));
     }
 
     #[test]

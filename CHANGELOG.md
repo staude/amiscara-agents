@@ -104,6 +104,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Rename spaces, tabs and agents from the app (context menu or swipe on a
+  space or agent row, context menu on a tab), only with input allowed.
+  Agent names come from the snapshot's `agents` list; after `agent.rename`
+  the sync driver takes a fresh snapshot (`SyncState::request_snapshot`) (#59).
 
 ### Fixed
 
