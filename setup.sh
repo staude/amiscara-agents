@@ -17,3 +17,14 @@ fi
 
 cargo build --workspace
 cargo test --workspace
+
+# Mac app: Rust library, Swift bindings, Xcode project from project.yml.
+if [[ "$(uname)" == "Darwin" ]]; then
+    if ! command -v xcodegen >/dev/null 2>&1; then
+        echo "xcodegen not found: brew install xcodegen" >&2
+        exit 1
+    fi
+    rustup target add aarch64-apple-darwin
+    scripts/build-ffi.sh debug
+    (cd apps/HerdrRemote && xcodegen generate)
+fi
