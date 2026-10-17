@@ -20,8 +20,8 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 pub use convert::{
-    AgentState, BoardItem, HostStatus, PaneContent, PaneItem, SessionUpdate, StyledLine,
-    StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
+    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, SessionUpdate,
+    SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
 };
 
 uniffi::setup_scaffolding!();
@@ -304,7 +304,20 @@ impl HostSession {
     /// Follows the visible screen of a pane until the returned handle is
     /// stopped or dropped.
     pub fn follow_pane(&self, pane_id: String, observer: Box<dyn PaneObserver>) -> Arc<PaneFollow> {
+        self.follow_pane_paced(pane_id, true, observer)
+    }
+
+    /// Like `follow_pane`; `live: false` reads the pane only every few
+    /// seconds, for panes shown next to the selected one. The pace can be
+    /// changed later with [`PaneFollow::set_live`].
+    pub fn follow_pane_paced(
+        &self,
+        pane_id: String,
+        live: bool,
+        observer: Box<dyn PaneObserver>,
+    ) -> Arc<PaneFollow> {
         let state = self.state.lock().ok().and_then(|state| state.clone());
+        let (pacing_tx, pacing) = watch::channel(pacing_for(live));
         let task = runtime().spawn(async move {
             let Some(mut state) = state else {
                 return;
@@ -312,7 +325,8 @@ impl HostSession {
             loop {
                 let connection = state.borrow_and_update().connection.clone();
                 if let Some(conn) = connection
-                    && let Err(message) = follow_once(&conn, &pane_id, observer.as_ref()).await
+                    && let Err(message) =
+                        follow_once(&conn, &pane_id, pacing.clone(), observer.as_ref()).await
                 {
                     observer.on_error(message);
                 }
@@ -323,7 +337,10 @@ impl HostSession {
                 }
             }
         });
-        Arc::new(PaneFollow { task })
+        Arc::new(PaneFollow {
+            task,
+            pacing: pacing_tx,
+        })
     }
 }
 
@@ -343,13 +360,22 @@ impl Drop for HostSession {
     }
 }
 
+fn pacing_for(live: bool) -> Pacing {
+    if live {
+        Pacing::default()
+    } else {
+        Pacing::background()
+    }
+}
+
 async fn follow_once(
     conn: &Connection,
     pane_id: &str,
+    pacing: watch::Receiver<Pacing>,
     observer: &dyn PaneObserver,
 ) -> Result<(), String> {
     let (tx, mut rx) = watch::channel(None);
-    let follow = pane::follow(conn, pane_id, Pacing::default(), &tx);
+    let follow = pane::follow_paced(conn, pane_id, pacing, &tx);
     let forward = async {
         while rx.changed().await.is_ok() {
             let screen = rx.borrow_and_update().clone();
@@ -368,12 +394,24 @@ async fn follow_once(
 #[derive(uniffi::Object)]
 pub struct PaneFollow {
     task: JoinHandle<()>,
+    pacing: watch::Sender<Pacing>,
 }
 
 #[uniffi::export]
 impl PaneFollow {
     pub fn stop(&self) {
         self.task.abort();
+    }
+
+    /// Switches between the fast pace of the selected pane and the slow one
+    /// of a pane beside it. Switching reads the pane once right away.
+    pub fn set_live(&self, live: bool) {
+        let pacing = pacing_for(live);
+        self.pacing.send_if_modified(|current| {
+            let changed = current.busy != pacing.busy || current.quiet != pacing.quiet;
+            *current = pacing;
+            changed
+        });
     }
 }
 

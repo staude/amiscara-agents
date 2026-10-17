@@ -104,6 +104,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Split tabs side by side on the Mac and iPad (regular width): every pane in
+  herdr's arrangement with its own live screen, font shrunk to fit its
+  columns; tapping a pane selects it for the input bar. Only the selected pane
+  is read at full pace, the others every 1 to 4 s. The iPhone keeps the pane
+  picker. Core: `session.snapshot` layouts in `SessionState`, resizes from
+  `layout_updated` applied in place, `pane::follow_paced` and
+  `PaneFollow.set_live` (#61).
 
 ### Fixed
 
