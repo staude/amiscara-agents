@@ -79,6 +79,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   space or tab, herdr's own client keeps its focus (#30).
 - A visible "…" menu next to each host name (edit, reconnect, remove); the
   long-press menu on the section header did not open on iPad (#30).
+- Host editor: "Zeile kopieren" turns into a green "Kopiert" for two seconds,
+  with haptic feedback on iOS (#33).
 
 ### Fixed
 

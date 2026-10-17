@@ -9,6 +9,8 @@ struct HostEditorView: View {
     @State private var config: HostConfig
     @State private var newPrivateKey: String?
     @State private var error: String?
+    /// Set for a moment after "Zeile kopieren", so the tap visibly worked.
+    @State private var copied = false
     private let isNew: Bool
 
     init(config: HostConfig) {
@@ -84,9 +86,23 @@ struct HostEditorView: View {
                     .textSelection(.enabled)
                     .lineLimit(4)
                 HStack {
-                    Button("Zeile kopieren", systemImage: "doc.on.doc") {
+                    Button {
                         Platform.copy(line)
+                        withAnimation { copied = true }
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            withAnimation { copied = false }
+                        }
+                    } label: {
+                        Label(
+                            copied ? "Kopiert" : "Zeile kopieren",
+                            systemImage: copied ? "checkmark.circle.fill" : "doc.on.doc"
+                        )
+                        .foregroundStyle(copied ? .green : .accentColor)
+                        .contentTransition(.symbolEffect(.replace))
                     }
+                    .sensoryFeedback(.success, trigger: copied) { _, now in now }
+                    .accessibilityHint(copied ? "In der Zwischenablage" : "")
                     Spacer()
                     if let fingerprint = try? describePublicKeyFingerprint() {
                         Text(fingerprint).font(.caption).foregroundStyle(.secondary)
