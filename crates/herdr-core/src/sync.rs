@@ -15,7 +15,11 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use herdr_proto::{GLOBAL_SUBSCRIPTIONS, ProtoError, SnapshotResult, parse_event};
+use std::collections::BTreeMap;
+
+use herdr_proto::{
+    GLOBAL_SUBSCRIPTIONS, ProtoError, SnapshotResult, WorktreeListResult, parse_event,
+};
 use herdr_transport::{Connection, Subscription, TransportError};
 use serde_json::{Value, json};
 use tokio::sync::{mpsc, watch};
@@ -27,6 +31,8 @@ use crate::{Applied, SessionState};
 /// How long structural events are collected before one snapshot answers them.
 const RESNAPSHOT_DELAY: Duration = Duration::from_millis(150);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
+/// Branches change by checkouts, which herdr reports with no event.
+const BRANCH_REFRESH: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -202,18 +208,30 @@ async fn follow_inner(
     let mut global = Forwarder::start(global);
 
     let mut state = snapshot(conn).await?;
+    state.branches = branches(conn, &state).await;
     let mut panes = PaneStatus::subscribe(conn, &state).await?;
     *attempt = 0;
     publish(tx, SyncStatus::Live, &state);
 
     let mut resnapshot_at: Option<Instant> = None;
+    let mut branch_refresh =
+        tokio::time::interval_at(Instant::now() + BRANCH_REFRESH, BRANCH_REFRESH);
     loop {
         let item = tokio::select! {
             item = global.recv() => item,
             item = panes.recv() => item,
+            _ = branch_refresh.tick() => {
+                let fresh = branches(conn, &state).await;
+                if fresh != state.branches {
+                    state.branches = fresh;
+                    publish(tx, SyncStatus::Live, &state);
+                }
+                continue;
+            }
             () = wait_until(resnapshot_at) => {
                 resnapshot_at = None;
-                let fresh = snapshot(conn).await?;
+                let mut fresh = snapshot(conn).await?;
+                fresh.branches = branches(conn, &fresh).await;
                 if fresh.pane_ids() != state.pane_ids() {
                     panes = PaneStatus::subscribe(conn, &fresh).await?;
                 }
@@ -233,6 +251,78 @@ async fn follow_inner(
             }
         }
     }
+}
+
+/// Branch per workspace, resolved like herdr's sidebar: the working
+/// directory of the space's focused pane decides, not the directory the
+/// space was created for. The branch comes from the `worktree.list` entry
+/// whose path contains that directory. One call lists all worktrees of a
+/// repository; spaces outside git get no branch.
+async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, String> {
+    let mut worktrees: Vec<(String, String)> = Vec::new(); // (path, branch)
+    let mut found = BTreeMap::new();
+    for workspace in &state.workspaces {
+        let Some(cwd) = space_directory(state, &workspace.workspace_id) else {
+            continue;
+        };
+        if let Some(branch) = branch_for(&worktrees, &cwd) {
+            found.insert(workspace.workspace_id.clone(), branch);
+            continue;
+        }
+        let Ok(value) = conn
+            .request(
+                "worktree.list",
+                json!({ "workspace_id": workspace.workspace_id }),
+            )
+            .await
+        else {
+            continue;
+        };
+        let Ok(list) = serde_json::from_value::<WorktreeListResult>(value) else {
+            continue;
+        };
+        worktrees.extend(
+            list.worktrees
+                .into_iter()
+                .filter_map(|entry| entry.branch.map(|branch| (entry.path, branch))),
+        );
+        if let Some(branch) = branch_for(&worktrees, &cwd) {
+            found.insert(workspace.workspace_id.clone(), branch);
+        }
+    }
+    found
+}
+
+/// The directory that stands for a space: its focused pane in the active
+/// tab, else the first pane of the active tab, else any pane of the space.
+fn space_directory(state: &SessionState, workspace_id: &str) -> Option<String> {
+    let active_tab = state
+        .workspace(workspace_id)
+        .map(|ws| ws.active_tab_id.as_str())
+        .unwrap_or_default();
+    let panes: Vec<_> = state
+        .panes
+        .iter()
+        .filter(|pane| pane.workspace_id == workspace_id)
+        .collect();
+    let pane = panes
+        .iter()
+        .find(|pane| pane.tab_id == active_tab && pane.focused)
+        .or_else(|| panes.iter().find(|pane| pane.tab_id == active_tab))
+        .or_else(|| panes.first())?;
+    pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())
+}
+
+/// Branch of the innermost worktree containing `dir`.
+fn branch_for(worktrees: &[(String, String)], dir: &str) -> Option<String> {
+    worktrees
+        .iter()
+        .filter(|(path, _)| {
+            let path = path.trim_end_matches('/');
+            dir == path || dir.starts_with(&format!("{path}/"))
+        })
+        .max_by_key(|(path, _)| path.len())
+        .map(|(_, branch)| branch.clone())
 }
 
 async fn snapshot(conn: &Connection) -> Result<SessionState, SyncError> {
@@ -326,6 +416,33 @@ impl PaneStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn branch_comes_from_the_innermost_worktree() {
+        let worktrees = vec![
+            ("/dev/enon".to_owned(), "production".to_owned()),
+            ("/dev/enon/.worktrees/docs".to_owned(), "docs".to_owned()),
+            ("/dev/enon-2375".to_owned(), "feature/2375".to_owned()),
+        ];
+        assert_eq!(
+            branch_for(&worktrees, "/dev/enon").as_deref(),
+            Some("production")
+        );
+        assert_eq!(
+            branch_for(&worktrees, "/dev/enon/src").as_deref(),
+            Some("production")
+        );
+        assert_eq!(
+            branch_for(&worktrees, "/dev/enon/.worktrees/docs/a").as_deref(),
+            Some("docs")
+        );
+        // A sibling directory with the same prefix is not inside the repo.
+        assert_eq!(
+            branch_for(&worktrees, "/dev/enon-2375").as_deref(),
+            Some("feature/2375")
+        );
+        assert_eq!(branch_for(&worktrees, "/dev/other"), None);
+    }
 
     #[test]
     fn backoff_grows_and_caps() {

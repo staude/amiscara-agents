@@ -54,7 +54,18 @@ pub struct WorkspaceItem {
     /// For a linked worktree: its directory name, e.g. `docs-herdr-remote`.
     /// herdr shows such spaces indented under the repository's space.
     pub worktree_name: Option<String>,
+    /// Git branch of the space's focused pane, as herdr's sidebar shows it.
+    pub branch: Option<String>,
+    /// Custom values from plugins or agents (`workspace.report_metadata`),
+    /// sorted by name; herdr can show them as extra rows.
+    pub tokens: Vec<TokenItem>,
     pub tabs: Vec<TabItem>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct TokenItem {
+    pub name: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -184,6 +195,16 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
                 .as_ref()
                 .filter(|wt| wt.is_linked_worktree)
                 .map(|wt| worktree_name(&wt.checkout_path)),
+            branch: session.branches.get(&ws.workspace_id).cloned(),
+            tokens: ws
+                .tokens
+                .iter()
+                .filter(|(_, value)| !value.is_empty())
+                .map(|(name, value)| TokenItem {
+                    name: name.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
             tabs: session
                 .tabs
                 .iter()

@@ -70,6 +70,12 @@ guard live, let update = probe.lock.withLock({ probe.update }) else {
 let panes = update.workspaces.flatMap(\.tabs).flatMap(\.panes)
 print("ok   live: herdr \(update.serverVersion ?? "?"), \(update.workspaces.count) workspaces, \(panes.count) panes, \(update.board.count) on the board")
 guard update.protocolSupported else { fail("protocol not supported") }
+let branchesSeen = wait(5) {
+    probe.lock.withLock { probe.update?.workspaces.contains { $0.branch != nil } ?? false }
+}
+let spaces = probe.lock.withLock { probe.update?.workspaces ?? [] }
+print("ok   spaces: " + spaces.map { "\($0.worktreeName.map { "└" + $0 } ?? $0.label)=\($0.branch ?? "-")" }.joined(separator: ", "))
+if !branchesSeen { print("info no branch found for any space") }
 
 guard let pane = update.board.first?.paneId ?? panes.first?.paneId else {
     print("skip pane: server has no panes")

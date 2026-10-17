@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use herdr_proto::{AgentStatus, Event, PaneInfo, SessionSnapshot, TabInfo, WorkspaceInfo};
 
 /// Everything the client knows about one server.
@@ -11,6 +13,9 @@ pub struct SessionState {
     pub tabs: Vec<TabInfo>,
     pub panes: Vec<PaneInfo>,
     pub focused_pane_id: Option<String>,
+    /// Git branch per workspace id, from `worktree.list`; not part of the
+    /// snapshot, so the sync driver fills and carries it.
+    pub branches: BTreeMap<String, String>,
 }
 
 /// What [`SessionState::apply`] did with an event.
@@ -42,6 +47,7 @@ impl SessionState {
             tabs: snapshot.tabs,
             panes: snapshot.panes,
             focused_pane_id: snapshot.focused_pane_id,
+            branches: BTreeMap::new(),
         };
         state.workspaces.sort_by_key(|ws| ws.number);
         let order = state.workspace_order();

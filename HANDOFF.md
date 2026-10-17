@@ -66,7 +66,9 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
     - Diktat: Während einer **Bildschirmfreigabe vom iPad zum Mac** liefert iPadOS Apps exakt Stille und keinen orangenen Punkt; Systemdiktat und Signal gehen trotzdem. Die App erkennt das nach 1,5 s und sagt es. Nicht getestet: `voiceChat` mit Sprachverarbeitung während der Freigabe.
     - Ist eine Hardware-Tastatur gemeldet (z. B. Mac-Tastatur über die Freigabe), blendet iPadOS keine Bildschirmtastatur ein.
     - `scripts/install-ios.sh` installiert per WLAN ohne Freigabe; das iPad muss entsperrt und wach sein. Vorschau-Stände aus mehreren offenen PRs über einen lokalen Wegwerf-Branch.
-11. Danach: Benachrichtigungen (lokal auf dem Mac, später Push aufs iPhone), Release einrichten, Windows mit Tauri.
+11. **Benachrichtigungen (#40, gemergt):** lokale Mitteilungen bei „wartet“ und „fertig“, Tipp öffnet die Pane, Badge = wartende Agents. Erkennung in `SessionState::attention_since`. Auf iOS nur, solange die App läuft; echte Push-Nachrichten brauchen einen Sender auf dem Host.
+12. **Zeilen unter den Spaces (#42):** Branch wie in herdr über das Verzeichnis der fokussierten Pane und `worktree.list`, alle 30 s aufgefrischt; `tokens` aus `workspace.report_metadata` als weitere Zeile. Die Zeilenaufteilung aus herdrs `config.toml` (`[sidebar.spaces] rows`) liefert die API nicht. Ahead/behind fehlt in der API: Vorschlag upstream als herdrdev/herdr#5362 (17.10.2026). Sobald herdr das liefert, `WorkspaceInfo.ahead_behind` übernehmen.
+13. Danach: Release einrichten, Windows mit Tauri, Diktat-Variante mit Sprachverarbeitung während einer Bildschirmfreigabe testen, Push-Nachrichten fürs iPhone (lokal auf dem Mac, später Push aufs iPhone), Release einrichten, Windows mit Tauri.
 
 ## Hinweise für die nächste Session
 

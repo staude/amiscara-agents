@@ -21,7 +21,7 @@ use tokio::task::JoinHandle;
 
 pub use convert::{
     AgentState, BoardItem, HostStatus, PaneContent, PaneItem, SessionUpdate, StyledLine,
-    StyledSpan, TabItem, TermColor, WorkspaceItem,
+    StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
 };
 
 uniffi::setup_scaffolding!();

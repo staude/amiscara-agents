@@ -4,6 +4,8 @@
 //! response line out. Subscriptions keep the connection open and stream one
 //! event per line after the initial acknowledgement.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -120,6 +122,28 @@ pub struct WorkspaceInfo {
     pub agent_status: AgentStatus,
     #[serde(default)]
     pub worktree: Option<WorktreeInfo>,
+    /// Custom values set via `workspace.report_metadata` (plugins, agents);
+    /// herdr's sidebar can show them as extra rows under the space.
+    #[serde(default)]
+    pub tokens: BTreeMap<String, String>,
+}
+
+/// `worktree.list` result: the worktrees of the space's repository.
+#[derive(Debug, Deserialize)]
+pub struct WorktreeListResult {
+    #[serde(default)]
+    pub worktrees: Vec<WorktreeEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorktreeEntry {
+    #[serde(default)]
+    pub path: String,
+    #[serde(default)]
+    pub branch: Option<String>,
+    /// The space showing this worktree, if one is open.
+    #[serde(default)]
+    pub open_workspace_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -163,6 +187,9 @@ pub struct PaneInfo {
     pub focused: bool,
     #[serde(default)]
     pub cwd: Option<String>,
+    /// Directory of the foreground process, e.g. after `cd` in the shell.
+    #[serde(default)]
+    pub foreground_cwd: Option<String>,
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
