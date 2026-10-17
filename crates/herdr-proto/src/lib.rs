@@ -176,6 +176,12 @@ pub struct PaneInfo {
     pub revision: u64,
 }
 
+/// `pane.get` result.
+#[derive(Debug, Deserialize)]
+pub struct PaneGetResult {
+    pub pane: PaneInfo,
+}
+
 /// `session.snapshot` result: the whole server state in one answer.
 #[derive(Debug, Deserialize)]
 pub struct SnapshotResult {

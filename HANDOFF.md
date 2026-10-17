@@ -20,8 +20,8 @@ Konzept und Entscheidungen: Vault-Notiz `/Users/staude/Obsidian/Frank/02 Projekt
 - Socket `~/.config/herdr/herdr.sock` (0600). Newline-JSON `{"id","method","params"}`, Antwort `{"id","result"}` oder `{"id","error":{"code","message"}}`.
 - **Pro Verbindung eine Anfrage**, danach schließt der Server. Ausnahme: `events.subscribe` hält die Verbindung offen, erst kommt `{"result":{"type":"subscription_started"}}`, dann ein Event pro Zeile.
 - `pane.agent_status_changed`, `pane.output_matched` und `pane.scroll_changed` brauchen ein `pane_id` je Abo. Alle anderen Event-Typen gehen global (`GLOBAL_SUBSCRIPTIONS` in `herdr-proto`).
-- Es gibt kein globales Output-Event. Jede Pane hat aber ein `revision` in `pane.list`, damit lassen sich Änderungen erkennen.
-- `pane.read` antwortet mit `{"type":"pane_read","read":{pane_id, text, revision, truncated, ...}}`. `format: "ansi"` liefert Truecolor-Sequenzen (`38;2;r;g;b`), `\r\n`-Zeilenenden.
+- Es gibt kein Output-Event: `pane_output_changed` steht im Schema, wird in 0.9.4 aber nie gesendet. `PaneInfo.revision` zählt nur Metadaten (Titel, Status), nicht den Inhalt, und `pane.read` liefert `revision` immer als 0. Der interne Inhaltszähler `content_revision` ist nur über Copy-Mode-Methoden sichtbar. Eine offene Pane muss deshalb per `pane.read` abgefragt und auf dem Client verglichen werden.
+- `pane.read` antwortet mit `{"type":"pane_read","read":{pane_id, text, revision, truncated, ...}}`. `format: "ansi"` liefert einen fertig gerenderten Bildschirm: nur SGR-Sequenzen (`ESC[...m`, u. a. Truecolor `38;2;r;g;b`) und `\r\n`-Zeilenenden, keine Cursor-Bewegungen. Geprüft über alle Panes, sichtbar und mit 400 Zeilen Verlauf.
 - Vollständiges Schema: `herdr api schema --json`. Agent-Anleitung: `herdr --skill`.
 - Das interne Protokoll von `herdr-client.sock` (TUI-Attach) nicht verwenden.
 
@@ -51,7 +51,8 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
 4. **herdr-core, Teil 1 (Issue #1, Branch `feature/1-session-state`):** `SessionState` aus `session.snapshot` plus Events, Board nach Dringlichkeit, Sync-Treiber mit globalem Abo, Status-Abo pro Pane, gesammeltem Neu-Snapshot bei Strukturänderungen und Reconnect mit Backoff. `herdr-spike board` zeigt das Board live, lokal und per SSH getestet. Live-Events und Reconnect sind nur per Unit-Test geprüft, weil während der Session keine anderen Agents liefen.
    - Wichtig zum Event-Format: Globale Events kommen als `{"event":"pane_created","data":{"type":"pane_created",...}}`, Abos pro Pane als `{"event":"pane.agent_status_changed","data":{...}}` ohne `type`. herdr bedient jeden Abo-Typ in eigener Schleife (100 ms Takt), die Reihenfolge über Typen hinweg ist nicht garantiert. Deshalb gibt es bei Strukturänderungen einen neuen Snapshot statt Einzel-Updates.
    - `Subscription::next` ist nicht abbruchsicher, im Core liest jedes Abo in einer eigenen Task.
-5. Danach: Terminal-Emulation (Issue #2, alacritty_terminal oder vt100) mit Abgleich über `revision`, dann `herdr-ffi` (UniFFI) und die Mac-App mit SwiftUI.
+5. **Pane-Inhalt (Issue #2, Branch `feature/2-terminal-emulation`):** Kein Terminal-Emulator, sondern ein SGR-Parser (`herdr-core::terminal`), der den Text in Zeilen aus gleich gestylten Abschnitten zerlegt. Passt direkt auf `AttributedString` und Web-Spans. `herdr-core::pane::follow` fragt die offene Pane per `pane.read` ab, 150 ms bei Änderungen, bis 1 s bei Ruhe. `herdr-spike check` vergleicht den geparsten Text aller Panes mit herdrs Textfassung (alle gleich, 0,35 bis 1 ms pro Bildschirm im Debug-Build), `herdr-spike view <pane>` folgt einer Pane live.
+6. Danach: `herdr-ffi` (UniFFI) und die Mac-App mit SwiftUI.
 
 ## Hinweise für die nächste Session
 
