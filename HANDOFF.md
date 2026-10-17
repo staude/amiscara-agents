@@ -61,7 +61,8 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
    - Sicherheitsbefund: `port-forwarding` im `authorized_keys`-Eintrag erlaubt auch TCP-Weiterleitung. `permitopen` hilft nicht, weil sshd damit auch den Streamlocal-Kanal ablehnt (getestet). Einziger Weg: `AllowTcpForwarding no` in `sshd_config`, betrifft alle Logins. Entscheidung bei Frank.
 7. **Eingaben (Issue #14):** `herdr-core::actions` (`agent.prompt`, `pane.send_keys`, `pane.send_text`), FFI-Methoden, in der App Schalter „Eingaben erlauben“ pro Host (Standard an) und Eingabeleiste unter der Pane: Antwortzeile bei `blocked` (1, 2, 3, Enter, Esc), Tastenleiste, Eingabefeld. Getestet nur gegen die Test-Session `herdr-remote-test` (Text plus Enter kommt an, Prompt an eine Shell und ungültige Tasten werden abgelehnt). Den Freigabe-Ablauf mit echtem Agent testet Frank per Klick.
 8. **iPad und iPhone (Issue #16):** Target `HerdrRemote-iOS` (iOS 27) mit denselben Quellen, `Platform.swift` für die Unterschiede, Board als Startansicht auf dem iPhone, sofortiger Reconnect beim Wechsel in den Vordergrund. XCFramework mit drei Slices. Baut für Gerät und Simulator; der Simulator startet auf work nicht (CoreSimulator veraltet), Installation und Klicktest macht Frank am Gerät (Befehle im README).
-9. Danach: Benachrichtigungen (lokal auf dem Mac, später Push aufs iPhone), Release einrichten, Windows mit Tauri.
+9. **Aufbau wie herdr (Issue #24):** zwei Spalten statt drei. Seitenleiste pro Host mit „Spaces“ (Worktrees eingerückt) und „Agents“ („Space · Tab“), rechts Tab-Reiter, Pane-Auswahl bei geteilten Tabs, Terminal und Eingabe. Auslöser war Franks erster iPad-Test: Board und Seitenleiste zeigten die Agents doppelt, zwei Spaces hießen „enon“. Den Git-Branch zeigt herdr selbst an, die API liefert ihn nicht.
+10. Danach: Benachrichtigungen (lokal auf dem Mac, später Push aufs iPhone), Release einrichten, Windows mit Tauri.
 
 ## Hinweise für die nächste Session
 
