@@ -44,6 +44,12 @@ pub struct WorkspaceItem {
     pub label: String,
     pub focused: bool,
     pub agent_state: AgentState,
+    pub active_tab_id: String,
+    /// Git repository of the space, shared by all its worktrees.
+    pub repo_key: Option<String>,
+    /// For a linked worktree: its directory name, e.g. `docs-herdr-remote`.
+    /// herdr shows such spaces indented under the repository's space.
+    pub worktree_name: Option<String>,
     pub tabs: Vec<TabItem>,
 }
 
@@ -162,6 +168,17 @@ pub fn session_update(state: &SyncState) -> SessionUpdate {
             label: ws.label.clone(),
             focused: ws.focused,
             agent_state: ws.agent_status.into(),
+            active_tab_id: ws.active_tab_id.clone(),
+            repo_key: ws
+                .worktree
+                .as_ref()
+                .map(|wt| wt.repo_key.clone())
+                .filter(|key| !key.is_empty()),
+            worktree_name: ws
+                .worktree
+                .as_ref()
+                .filter(|wt| wt.is_linked_worktree)
+                .map(|wt| worktree_name(&wt.checkout_path)),
             tabs: session
                 .tabs
                 .iter()
@@ -255,6 +272,16 @@ fn styled_span(span: &Span) -> StyledSpan {
     }
 }
 
+/// Last path component of a worktree checkout.
+fn worktree_name(checkout_path: &str) -> String {
+    checkout_path
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or(checkout_path)
+        .to_owned()
+}
+
 /// What to call a pane: its label, else the terminal title, else the cwd.
 fn title(pane: &PaneInfo) -> String {
     pane.label
@@ -284,5 +311,19 @@ impl From<Color> for TermColor {
             Color::Indexed(index) => Self::Indexed { index },
             Color::Rgb(r, g, b) => Self::Rgb { r, g, b },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worktree_name_is_the_checkout_directory() {
+        assert_eq!(
+            worktree_name("/Users/x/dev/enon/.worktrees/docs-herdr-remote"),
+            "docs-herdr-remote"
+        );
+        assert_eq!(worktree_name("/srv/repo/"), "repo");
     }
 }

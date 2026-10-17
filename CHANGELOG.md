@@ -60,6 +60,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   foreground (#16).
 - `scripts/build-ffi.sh` builds macOS, iOS and iOS simulator slices into one
   XCFramework and only the slice the current Xcode platform needs (#16).
+- App layout like herdr: two columns; the sidebar lists per host the spaces
+  (linked worktrees indented under their repository, named after their
+  directory) and the agents as "space · tab", waiting ones first; the detail
+  shows herdr's tab bar, a pane picker for split tabs, terminal and input.
+  The separate board column is gone (#24).
+- `WorkspaceItem` carries repo key, worktree name and active tab (#24).
 
 ### Fixed
 
