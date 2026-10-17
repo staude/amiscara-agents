@@ -1,0 +1,18 @@
+[package]
+name = "herdr-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+async-trait = "0.1.92"
+dirs = "7.0.0"
+herdr-proto = { version = "0.1.0", path = "../herdr-proto" }
+russh = "0.64.1"
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+tokio = { version = "1.53.3", features = ["net", "io-util", "time", "sync", "rt"] }
+
+[lints]
+workspace = true
