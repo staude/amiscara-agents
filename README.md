@@ -21,15 +21,24 @@ restrict,port-forwarding,command="/usr/bin/false" ssh-ed25519 AAAA... herdr-remo
 
 `restrict,port-forwarding` alone still lets the key run commands.
 
+`port-forwarding` also allows TCP forwarding through the server, so a stolen
+device key could reach other machines from there. `permitopen` does not help:
+sshd applies it to the streamlocal channel too and then refuses `herdr.sock`
+(OpenSSH 10.3). If no other login needs it, `AllowTcpForwarding no` in
+`sshd_config` closes TCP forwarding for everyone. Otherwise use one key per
+device and remove a lost device's line right away.
+
 ## Layout
 
 - `crates/herdr-proto`: request, response and event types, protocol version check
 - `crates/herdr-transport`: local socket and SSH streamlocal transport, requests and event subscriptions
 - `crates/herdr-core`: session state from snapshot and events, agent board, sync driver with reconnect, pane content as styled lines
+- `crates/herdr-ffi`: UniFFI bindings for the apps (`scripts/build-ffi.sh` builds the XCFramework and Swift code)
+- `crates/uniffi-bindgen`: the binding generator, kept out of the app library
 - `crates/herdr-spike`: read-only command line probe (`ping`, `list`, `read`, `watch`, `board`, `check`, `view`, `bench`)
 - `docs`: research and design notes
 
-Planned: `herdr-ffi` (UniFFI) and the apps under `apps/` (SwiftUI for Apple platforms, Tauri for Windows).
+Planned: the apps under `apps/` (SwiftUI for Apple platforms, Tauri for Windows).
 
 ## Setup
 

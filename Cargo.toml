@@ -4,6 +4,8 @@ members = [
     "crates/herdr-core",
     "crates/herdr-transport",
     "crates/herdr-spike",
+    "crates/herdr-ffi",
+    "crates/uniffi-bindgen",
 ]
 resolver = "3"
 

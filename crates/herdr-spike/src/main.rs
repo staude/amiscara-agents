@@ -16,7 +16,7 @@ use herdr_proto::{
     GLOBAL_SUBSCRIPTIONS, PaneList, PaneRead, PaneReadResult, Pong, SUPPORTED_PROTOCOL,
     WorkspaceList,
 };
-use herdr_transport::{Connection, SshTarget, TransportError};
+use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError};
 use serde_json::json;
 
 #[derive(Parser)]
@@ -140,9 +140,11 @@ impl Endpoint {
             host: host.to_owned(),
             port,
             user: user.to_owned(),
-            identity: cli.identity.clone(),
-            known_hosts,
-            accept_new_host_key: cli.accept_new_host_key,
+            identity: cli.identity.clone().map_or(Identity::Agent, Identity::File),
+            host_key: HostKeyPolicy::KnownHostsFile {
+                path: known_hosts,
+                accept_new: cli.accept_new_host_key,
+            },
         };
         let socket = cli
             .socket

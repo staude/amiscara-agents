@@ -28,6 +28,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   150 ms while it changes, up to 1 s while quiet (#2).
 - `herdr-spike check` compares parsed screens with herdr's plain text,
   `herdr-spike view` follows one pane (#2).
+- `herdr-ffi`: UniFFI bindings with `HostSession`, `SessionObserver`,
+  `follow_pane`/`PaneObserver`, ed25519 key generation and the restricted
+  `authorized_keys` line (#7).
+- `scripts/build-ffi.sh` builds `HerdrFFI.xcframework` and the Swift bindings (#7).
+- `herdr-transport`: in-memory keys (`Identity::Key`), pinned host keys and
+  structured `UnknownHostKey`/`HostKeyChanged` errors with fingerprint (#7).
+- `herdr-core::sync` stops on errors that need the user and shares the live
+  connection through `SyncState::connection` (#7).
 
 ### Fixed
 

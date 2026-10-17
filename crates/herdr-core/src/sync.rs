@@ -5,7 +5,9 @@
 //! status needs one subscription entry per pane; that subscription is replaced
 //! whenever the set of panes changes. Structural events are collected for a
 //! short moment and answered with one fresh snapshot. When the connection
-//! breaks, the driver reconnects with growing pauses.
+//! breaks, the driver reconnects with growing pauses. Errors only the user
+//! can resolve (unknown or changed host key, refused login) end the driver
+//! with a status that says so.
 //!
 //! Only read-only methods are used: `session.snapshot` and `events.subscribe`.
 
@@ -35,14 +37,42 @@ pub enum SyncStatus {
         attempt: u32,
         error: String,
     },
+    /// The server's host key is not trusted yet. The driver has stopped;
+    /// start a new one with `key` pinned once the user agrees.
+    HostKeyUnknown {
+        key: String,
+        fingerprint: String,
+    },
+    /// The server presents a different key than the pinned one. Stopped.
+    HostKeyChanged {
+        key: String,
+        fingerprint: String,
+    },
+    /// Login refused or the key unusable. Stopped.
+    Failed {
+        error: String,
+    },
 }
 
 /// What observers see. `session` keeps the last known state while the driver
 /// reconnects, so a UI can show it greyed out instead of going blank.
-#[derive(Debug, Clone)]
+/// `connection` is the live connection while there is one, for work beside
+/// the sync such as following a pane.
+#[derive(Clone)]
 pub struct SyncState {
     pub status: SyncStatus,
     pub session: Option<Arc<SessionState>>,
+    pub connection: Option<Arc<Connection>>,
+}
+
+impl std::fmt::Debug for SyncState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SyncState")
+            .field("status", &self.status)
+            .field("session", &self.session)
+            .field("connected", &self.connection.is_some())
+            .finish()
+    }
 }
 
 impl Default for SyncState {
@@ -50,6 +80,7 @@ impl Default for SyncState {
         Self {
             status: SyncStatus::Connecting,
             session: None,
+            connection: None,
         }
     }
 }
@@ -88,10 +119,21 @@ where
     let mut attempt = 0u32;
     loop {
         let error = match connect().await {
-            Ok(conn) => follow(&conn, &tx, &mut attempt).await,
+            Ok(conn) => {
+                let conn = Arc::new(conn);
+                tx.send_modify(|state| state.connection = Some(Arc::clone(&conn)));
+                follow(&conn, &tx, &mut attempt).await
+            }
             Err(err) => SyncError::from(err),
         };
         if matches!(error, SyncError::Unobserved) || tx.is_closed() {
+            return;
+        }
+        if let Some(status) = stop_status(&error) {
+            tx.send_modify(|state| {
+                state.status = status;
+                state.connection = None;
+            });
             return;
         }
         attempt = attempt.saturating_add(1);
@@ -99,12 +141,38 @@ where
             state.status = SyncStatus::Retrying {
                 attempt,
                 error: error.to_string(),
-            }
+            };
+            state.connection = None;
         });
         tokio::select! {
             () = sleep(backoff(attempt)) => {}
             () = tx.closed() => return,
         }
+    }
+}
+
+/// The final status for errors a retry cannot fix.
+fn stop_status(error: &SyncError) -> Option<SyncStatus> {
+    let SyncError::Transport(err) = error else {
+        return None;
+    };
+    match err {
+        TransportError::UnknownHostKey {
+            key, fingerprint, ..
+        } => Some(SyncStatus::HostKeyUnknown {
+            key: key.clone(),
+            fingerprint: fingerprint.clone(),
+        }),
+        TransportError::HostKeyChanged {
+            key, fingerprint, ..
+        } => Some(SyncStatus::HostKeyChanged {
+            key: key.clone(),
+            fingerprint: fingerprint.clone(),
+        }),
+        err if err.needs_user() => Some(SyncStatus::Failed {
+            error: err.to_string(),
+        }),
+        _ => None,
     }
 }
 
@@ -174,9 +242,9 @@ async fn snapshot(conn: &Connection) -> Result<SessionState, SyncError> {
 }
 
 fn publish(tx: &watch::Sender<SyncState>, status: SyncStatus, state: &SessionState) {
-    tx.send_replace(SyncState {
-        status,
-        session: Some(Arc::new(state.clone())),
+    tx.send_modify(|current| {
+        current.status = status;
+        current.session = Some(Arc::new(state.clone()));
     });
 }
 
