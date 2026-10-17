@@ -107,15 +107,20 @@ final class Dictation {
         }
     }
 
-    /// iPadOS hands apps pure silence (no microphone indicator) while the
-    /// screen is shared to a Mac; system dictation still works then. A real
-    /// microphone never delivers exact zeros for long, so stop and say why.
+    /// While the iPad is remote controlled from a Mac (screen sharing with
+    /// control), iPadOS mutes the microphone for every app: the system log
+    /// shows `IsInputMutedBecauseDeviceIsRemoteControlled` for this app and
+    /// for Signal alike, and the app gets exact zeros without a microphone
+    /// indicator. Only system dictation keeps working. Tried without effect:
+    /// other session modes, voice processing, recording to a file (#46).
+    /// A real microphone never delivers exact zeros for long, so stop and
+    /// say why.
     private func watchForSilence(_ feed: AudioFeed) {
         Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(1500))
             guard let self, self.isRunning, self.feed === feed, feed.peak == 0 else { return }
             self.stop()
-            self.error = String(localized: "Das iPad liefert kein Mikrofonsignal an die App, zum Beispiel während einer Bildschirmfreigabe zum Mac. Freigabe beenden oder das Diktat der Tastatur nutzen.")
+            self.error = String(localized: "Kein Mikrofon: Solange das iPad per Bildschirmfreigabe vom Mac aus gesteuert wird, schaltet iPadOS das Mikrofon für Apps stumm. Freigabe beenden oder das Diktat der Tastatur nutzen.")
         }
     }
 

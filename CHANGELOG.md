@@ -85,7 +85,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   (on the device where possible) writes into the composer while speaking, a
   second tap or sending stops it; no keyboard needed. While the iPad screen
   is shared to a Mac, iPadOS gives apps only silence; the app notices after
-  1.5 s and says so instead of recording nothing (#31).
+  1.5 s and says so instead of recording nothing (#31). The message now names
+  the cause: iPadOS mutes the microphone for all apps while the iPad is remote
+  controlled from a Mac (#46).
 - Notifications: "claude wartet" / "claude ist fertig" with host, space, tab
   and title when an agent starts waiting or finishes; tap opens the pane; no
   banner for the pane on screen; app badge counts waiting agents; per-host
