@@ -22,6 +22,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   and `Event` with `parse_event` in `herdr-proto` (#1).
 - `Connection::subscribe_to` for subscriptions with parameters (#1).
 - `herdr-spike board` prints the live board (#1).
+- `herdr-core::terminal`: parses `pane.read` ANSI output (SGR only) into lines of
+  styled spans with colors, attributes and display width (#2).
+- `herdr-core::pane::follow` keeps an open pane current by polling `pane.read`,
+  150 ms while it changes, up to 1 s while quiet (#2).
+- `herdr-spike check` compares parsed screens with herdr's plain text,
+  `herdr-spike view` follows one pane (#2).
 
 ### Fixed
 

@@ -9,6 +9,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use herdr_core::pane::Pacing;
+use herdr_core::terminal::Screen;
 use herdr_core::{SessionState, SyncStatus};
 use herdr_proto::{
     GLOBAL_SUBSCRIPTIONS, PaneList, PaneRead, PaneReadResult, Pong, SUPPORTED_PROTOCOL,
@@ -63,6 +65,14 @@ enum Command {
         #[arg(long, default_value_t = 30)]
         seconds: u64,
     },
+    /// Compare parsed ANSI screens with herdr's plain text for every pane.
+    Check,
+    /// Follow one pane and report each content change.
+    View {
+        pane: String,
+        #[arg(long, default_value_t = 30)]
+        seconds: u64,
+    },
     /// Measure request round trips.
     Bench {
         #[arg(long, default_value_t = 50)]
@@ -90,6 +100,8 @@ async fn main() -> Result<()> {
         Command::Read { pane, ansi } => read(&conn, &pane, ansi).await,
         Command::Watch { seconds } => watch(&conn, seconds).await,
         Command::Bench { count, pane } => bench(&conn, count, pane).await,
+        Command::Check => check(&conn).await,
+        Command::View { pane, seconds } => view(&conn, &pane, seconds).await,
         Command::Board { .. } => Ok(()),
     }
 }
@@ -294,6 +306,89 @@ async fn bench(conn: &Connection, count: usize, pane: Option<String>) -> Result<
         &format!("pane.read ansi {pane} ({bytes} bytes)"),
         &mut samples,
     );
+    Ok(())
+}
+
+async fn check(conn: &Connection) -> Result<()> {
+    let panes: PaneList = serde_json::from_value(conn.request("pane.list", json!({})).await?)?;
+    let mut failures = 0;
+    for pane in &panes.panes {
+        let ansi = read_pane(conn, &pane.pane_id, true).await?;
+        let plain = read_pane(conn, &pane.pane_id, false).await?;
+        if ansi.revision != plain.revision {
+            println!("{:<8} skipped, changed between reads", pane.pane_id);
+            continue;
+        }
+        let t = Instant::now();
+        let screen = Screen::parse(&ansi.text);
+        let parse = t.elapsed();
+        let ours: Vec<String> = screen
+            .text_lines()
+            .iter()
+            .map(|l| l.trim_end().to_owned())
+            .collect();
+        let theirs: Vec<String> = Screen::parse(&plain.text)
+            .text_lines()
+            .iter()
+            .map(|l| l.trim_end().to_owned())
+            .collect();
+        let spans: usize = screen.lines.iter().map(|l| l.spans.len()).sum();
+        let verdict = if ours == theirs { "ok" } else { "MISMATCH" };
+        if ours != theirs {
+            failures += 1;
+        }
+        println!(
+            "{:<8} {verdict:<8} {} lines, {} spans, {} bytes, parsed in {:.0} µs",
+            pane.pane_id,
+            screen.lines.len(),
+            spans,
+            ansi.text.len(),
+            parse.as_secs_f64() * 1e6
+        );
+        if let Some((n, (a, b))) = ours
+            .iter()
+            .zip(&theirs)
+            .enumerate()
+            .find(|(_, (a, b))| a != b)
+        {
+            println!("    line {n}:\n    ansi: {a:?}\n    text: {b:?}");
+        }
+    }
+    if failures > 0 {
+        bail!("{failures} pane(s) differ");
+    }
+    Ok(())
+}
+
+async fn view(conn: &Connection, pane: &str, seconds: u64) -> Result<()> {
+    let (tx, mut rx) = tokio::sync::watch::channel(None);
+    let started = Instant::now();
+    let follow = herdr_core::pane::follow(conn, pane, Pacing::default(), &tx);
+    let report = async {
+        while rx.changed().await.is_ok() {
+            let Some(screen) = rx.borrow_and_update().clone() else {
+                continue;
+            };
+            let last = screen
+                .screen
+                .text_lines()
+                .into_iter()
+                .rev()
+                .find(|l| !l.trim().is_empty())
+                .unwrap_or_default();
+            println!(
+                "{:>6.1}s {} lines | {}",
+                started.elapsed().as_secs_f64(),
+                screen.screen.lines.len(),
+                last.trim()
+            );
+        }
+    };
+    tokio::select! {
+        result = follow => result?,
+        () = report => {}
+        () = tokio::time::sleep(Duration::from_secs(seconds)) => {}
+    }
     Ok(())
 }
 
