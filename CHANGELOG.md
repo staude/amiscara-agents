@@ -90,6 +90,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
+- `scripts/install-ios.sh` regenerates the Xcode project first, so it builds
+  after a branch switch with added or removed files (#38).
 - Xcode builds: `build-ffi.sh` works with the bash 3.2 that Xcode runs, the
   framework is built by its own aggregate target `HerdrFFI` with declared
   outputs and only replaced when the libraries changed, and `xcodegen
