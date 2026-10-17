@@ -294,9 +294,12 @@ async fn authenticate_with_agent(
     handle: &mut Handle<HostKeyCheck>,
     user: &str,
 ) -> Result<bool, TransportError> {
-    let mut agent = AgentClient::connect_env()
-        .await
-        .map_err(|e| TransportError::Key(e.to_string()))?;
+    #[cfg(unix)]
+    let agent = AgentClient::connect_env().await;
+    // Windows OpenSSH runs its agent on a fixed named pipe.
+    #[cfg(windows)]
+    let agent = AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await;
+    let mut agent = agent.map_err(|e| TransportError::Key(e.to_string()))?;
     let identities = agent
         .request_identities()
         .await
