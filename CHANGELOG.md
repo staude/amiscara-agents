@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Quick replies above the key bar: saved prompts such as "weiter" or
+  "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
+  added, edited, reordered and deleted in a sheet, stored per device (#54).
 - Shortcuts and Siri: "Welche Agents warten?" answers from the live state of
   all hosts, "Agent öffnen" opens the app on a chosen agent; both read only
   (#64).
