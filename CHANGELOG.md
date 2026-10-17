@@ -86,6 +86,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   second tap or sending stops it; no keyboard needed. While the iPad screen
   is shared to a Mac, iPadOS gives apps only silence; the app notices after
   1.5 s and says so instead of recording nothing (#31).
+- Notifications: "claude wartet" / "claude ist fertig" with host, space, tab
+  and title when an agent starts waiting or finishes; tap opens the pane; no
+  banner for the pane on screen; app badge counts waiting agents; per-host
+  switch "Benachrichtigungen" (default on). On iOS only while the app runs (#40).
+- `SessionState::attention_since` and `SessionUpdate.attention` report agents
+  that newly need the user (#40).
 
 ### Fixed
 

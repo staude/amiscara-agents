@@ -97,6 +97,24 @@ impl SessionState {
         entries
     }
 
+    /// Agent panes that now need the user and did not before: newly
+    /// `blocked` (waiting for an answer) or newly `done` (finished, unseen).
+    /// Panes that were already in that state stay quiet, so repeated
+    /// snapshots or reconnects do not notify twice.
+    pub fn attention_since(&self, before: &SessionState) -> Vec<String> {
+        self.panes
+            .iter()
+            .filter(|pane| pane.agent.is_some())
+            .filter(|pane| matches!(pane.agent_status, AgentStatus::Blocked | AgentStatus::Done))
+            .filter(|pane| {
+                before
+                    .pane(&pane.pane_id)
+                    .is_none_or(|old| old.agent_status != pane.agent_status)
+            })
+            .map(|pane| pane.pane_id.clone())
+            .collect()
+    }
+
     pub fn apply(&mut self, event: &Event) -> Applied {
         match event {
             Event::WorkspaceUpdated { workspace }
@@ -449,6 +467,40 @@ mod tests {
             assert_eq!(state.apply(&event(value)), Applied::NeedsSnapshot);
         }
         assert_eq!(state, snapshot(), "nothing applied");
+    }
+
+    #[test]
+    fn attention_only_for_new_waits_and_finishes() {
+        let before = snapshot();
+        let mut after = before.clone();
+        assert!(after.attention_since(&before).is_empty(), "nothing changed");
+
+        let set = |state: &mut SessionState, pane: &str, status: &str| {
+            state.apply(&event(json!({
+                "event": "pane.agent_status_changed",
+                "data": {"pane_id": pane, "workspace_id": "w1", "agent_status": status}
+            })));
+        };
+        set(&mut after, "w1:p1", "blocked"); // idle -> blocked
+        set(&mut after, "w1:p2", "done"); // working -> done
+        assert_eq!(after.attention_since(&before), ["w1:p1", "w1:p2"]);
+
+        // Still blocked and done in the next state: no second notice.
+        let again = after.clone();
+        assert!(again.attention_since(&after).is_empty());
+
+        // w2:p1 was done before the app looked; staying done is not news.
+        assert!(!after.attention_since(&before).contains(&"w2:p1".to_owned()));
+    }
+
+    #[test]
+    fn shells_never_need_attention() {
+        let before = snapshot();
+        let mut after = before.clone();
+        if let Some(shell) = after.panes.iter_mut().find(|p| p.pane_id == "w2:p2") {
+            shell.agent_status = AgentStatus::Blocked;
+        }
+        assert!(after.attention_since(&before).is_empty());
     }
 
     #[test]

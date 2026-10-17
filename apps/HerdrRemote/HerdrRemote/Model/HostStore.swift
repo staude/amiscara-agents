@@ -6,6 +6,7 @@ import Observation
 @Observable
 final class HostStore {
     private(set) var connections: [HostConnection] = []
+    let notifier = Notifier()
     var loadError: String?
 
     private let fileURL: URL = {
@@ -17,10 +18,25 @@ final class HostStore {
         load()
         if connections.isEmpty, Platform.hasLocalSocket,
            FileManager.default.fileExists(atPath: Platform.localSocketPath) {
-            connections = [HostConnection(config: .local())]
+            connections = [connect(.local())]
             save()
         }
         connections.forEach { $0.start() }
+    }
+
+    /// A connection wired to notifications and the badge.
+    private func connect(_ config: HostConfig) -> HostConnection {
+        let connection = HostConnection(config: config)
+        connection.onUpdate = { [weak self] connection, update in
+            guard let self else { return }
+            self.notifier.notify(update.attention, on: connection.config)
+            self.notifier.updateBadge(waiting: self.connections
+                .filter(\.config.notificationsOn)
+                .flatMap { $0.update?.board ?? [] }
+                .filter { $0.agentState == .blocked }
+                .count)
+        }
+        return connection
     }
 
     func connection(for id: UUID?) -> HostConnection? {
@@ -28,7 +44,7 @@ final class HostStore {
     }
 
     func add(_ config: HostConfig) {
-        let connection = HostConnection(config: config)
+        let connection = connect(config)
         connections.append(connection)
         save()
         connection.start()
@@ -65,7 +81,7 @@ final class HostStore {
         guard let data = try? Data(contentsOf: fileURL) else { return }
         do {
             let configs = try JSONDecoder().decode([HostConfig].self, from: data)
-            connections = configs.map(HostConnection.init(config:))
+            connections = configs.map(connect)
         } catch {
             loadError = error.localizedDescription
         }

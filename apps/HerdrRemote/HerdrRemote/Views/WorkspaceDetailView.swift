@@ -40,6 +40,11 @@ struct WorkspaceDetailView: View {
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
         }
+        .onChange(of: paneID, initial: true) { _, pane in
+            store.notifier.visiblePane = selection.flatMap { selection in
+                pane.map { (hostID: selection.hostID, paneID: $0) }
+            }
+        }
     }
 
     private func currentTab(_ workspace: WorkspaceItem) -> TabItem? {

@@ -36,6 +36,14 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
     /// the user on that host.
     var allowUpload: Bool?
 
+    /// Notifications when an agent waits or finishes; missing means on.
+    var notify: Bool?
+
+    var notificationsOn: Bool {
+        get { notify ?? true }
+        set { notify = newValue }
+    }
+
     var uploadAllowed: Bool {
         get { kind == .local || (allowUpload ?? false) }
         set { allowUpload = newValue }

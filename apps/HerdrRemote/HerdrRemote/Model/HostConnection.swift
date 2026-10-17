@@ -10,6 +10,8 @@ final class HostConnection: Identifiable {
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
     @ObservationIgnored private var session: HostSession?
+    /// Called on the main actor after every update, e.g. for notifications.
+    @ObservationIgnored var onUpdate: ((HostConnection, SessionUpdate) -> Void)?
     nonisolated let id: UUID
 
     init(config: HostConfig) {
@@ -29,7 +31,11 @@ final class HostConnection: Identifiable {
         startError = nil
         do {
             let bridge = SessionBridge { [weak self] update in
-                Task { @MainActor in self?.update = update }
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.update = update
+                    self.onUpdate?(self, update)
+                }
             }
             session = try HostSession.start(endpoint: try endpoint(), observer: bridge)
         } catch {
