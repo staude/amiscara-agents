@@ -92,6 +92,21 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Creates a Git worktree from the repository of a space and opens it
+    /// as a new space. Empty fields are left to herdr: a generated branch,
+    /// `HEAD` as base, the branch as name, herdr's worktree directory.
+    func createWorktree(from workspaceID: String, branch: String, base: String, label: String) async throws -> Created {
+        let session = try writableSession()
+        let filled = { (value: String) -> String? in
+            let trimmed = value.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        let worktree = NewWorktree(branch: filled(branch), base: filled(base), label: filled(label), path: nil)
+        return try await Task.detached {
+            try session.createWorktree(workspaceId: workspaceID, worktree: worktree)
+        }.value
+    }
+
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. The agent comes up in the
     /// background; its state arrives with the next updates.

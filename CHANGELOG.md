@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- "Neuer Worktree …" in the context menu of a Git space: branch, base and
+  name (all optional), opened as a new space via `worktree.create`, optionally
+  with an agent started in it (#58).
 
 ### Fixed
 
