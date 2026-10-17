@@ -43,6 +43,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Read-only (#8).
 - `scripts/ffi-smoke.sh`: headless check of the Swift bindings, optionally
   including the SSH host key flow (#8).
+- `scripts/release.sh`: Developer ID archive, export, notarization, stapling
+  and Gatekeeper checks, with precondition checks up front; `scripts/bump-build.sh`;
+  setup steps in `docs/release.md` (#9).
 
 ### Fixed
 

@@ -83,8 +83,9 @@ CI runs the same checks on Linux, macOS and Windows.
 
 ## Release
 
-There are no releases yet. The apps will ship through their platform channels
-once they exist.
+The Mac app ships outside the App Store, signed with Developer ID and
+notarized: `scripts/bump-build.sh`, commit, `scripts/release.sh`. One-time
+setup (certificate, notarytool profile) in [docs/release.md](docs/release.md).
 
 ## License
 
