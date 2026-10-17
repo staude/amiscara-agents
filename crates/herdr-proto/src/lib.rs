@@ -124,6 +124,9 @@ pub struct WorkspaceInfo {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct WorktreeInfo {
+    /// Same for every worktree of one repository (its `.git` path).
+    #[serde(default)]
+    pub repo_key: String,
     pub repo_name: String,
     pub checkout_path: String,
     #[serde(default)]

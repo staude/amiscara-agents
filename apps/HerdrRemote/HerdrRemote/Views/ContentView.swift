@@ -2,21 +2,18 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(HostStore.self) private var store
-    @State private var selection: PaneRef?
+    @State private var selection: SpaceRef?
     @State private var editing: HostConfig?
     @State private var dismissedKeyPrompts: Set<UUID> = []
-    /// On iPhone the split view collapses; start on the board.
-    @State private var compactColumn = NavigationSplitViewColumn.content
 
     var body: some View {
-        NavigationSplitView(preferredCompactColumn: $compactColumn) {
-            SidebarView(selection: $selection, editing: $editing)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } content: {
-            BoardView(selection: $selection, editing: $editing)
-                .navigationSplitViewColumnWidth(min: 300, ideal: 380)
+        // Two columns like herdr: spaces and agents on the left, the space
+        // with its tabs on the right. On iPhone the sidebar is the start screen.
+        NavigationSplitView {
+            HostSidebar(selection: $selection, editing: $editing)
+                .navigationSplitViewColumnWidth(min: 240, ideal: 280)
         } detail: {
-            PaneDetailView(selection: selection)
+            WorkspaceDetailView(selection: selection)
         }
         .sheet(item: $editing) { config in
             HostEditorView(config: config)
