@@ -68,7 +68,11 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
     - `scripts/install-ios.sh` installiert per WLAN ohne Freigabe; das iPad muss entsperrt und wach sein. Vorschau-Stände aus mehreren offenen PRs über einen lokalen Wegwerf-Branch.
 11. **Benachrichtigungen (#40, gemergt):** lokale Mitteilungen bei „wartet“ und „fertig“, Tipp öffnet die Pane, Badge = wartende Agents. Erkennung in `SessionState::attention_since`. Auf iOS nur, solange die App läuft; echte Push-Nachrichten brauchen einen Sender auf dem Host.
 12. **Zeilen unter den Spaces (#42):** Branch wie in herdr über das Verzeichnis der fokussierten Pane und `worktree.list`, alle 30 s aufgefrischt; `tokens` aus `workspace.report_metadata` als weitere Zeile. Die Zeilenaufteilung aus herdrs `config.toml` (`[sidebar.spaces] rows`) liefert die API nicht. Ahead/behind fehlt in der API: Vorschlag upstream als herdrdev/herdr#5362 (17.10.2026). Sobald herdr das liefert, `WorkspaceInfo.ahead_behind` übernehmen.
-13. Danach: Release einrichten, Windows mit Tauri, Diktat-Variante mit Sprachverarbeitung während einer Bildschirmfreigabe testen, Push-Nachrichten fürs iPhone (lokal auf dem Mac, später Push aufs iPhone), Release einrichten, Windows mit Tauri.
+13. **Agents wie in herdr (#44):** erste Zeile „Space · Tab“, Tab-Nummer nur bei mehreren Tabs, zweite Zeile nur der Agent; Schalter „grouped“ (Standard wie in herdr) / „nach Status“. Lookups aus Serverdaten mit `uniquingKeysWith`, damit doppelte IDs die App nicht abstürzen lassen.
+14. **Diktat und Bildschirmfreigabe (#46, geklärt per sysdiagnose):** Solange das iPad vom Mac aus ferngesteuert wird, setzt iPadOS `IsInputMutedBecauseDeviceIsRemoteControlled` bzw. `IsRecordingMutedForRemoteDevice` für jede App, auch für Signal. Nur das Systemdiktat geht. Ohne Wirkung probiert: andere Modi, Sprachverarbeitung, Aufnahme in eine Datei. Die App erkennt die Stille nach 1,5 s und nennt den Grund.
+15. **Spaces und Agents auf- und zuklappbar (#47):** zugeklappt mit Anzahl, bei Agents auch „x wartet“; Zustand pro Gerät.
+16. **Schwarze Pane nach dem Wechsel (#50):** eigene Scroll-Ansicht pro Pane, normaler statt „lazy“ Stapel, Start am unteren Rand. herdr lieferte den Inhalt immer; nichts an den Agent senden, um neu zu zeichnen.
+17. Danach: Release (Developer-ID-Zertifikat und notarytool-Profil legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone, Windows mit Tauri, Push-Nachrichten fürs iPhone, Abstand zum Upstream sobald herdr#5362 umgesetzt ist.
 
 ## Hinweise für die nächste Session
 

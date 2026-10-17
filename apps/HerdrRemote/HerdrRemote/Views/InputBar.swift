@@ -20,6 +20,8 @@ struct InputBar: View {
     @State private var dictation = Dictation()
     /// Composer text from before dictation started; the transcript follows it.
     @State private var textBeforeDictation = ""
+    @State private var editingQuickReplies = false
+    private let quickReplies = QuickReplyStore.shared
     #if os(macOS)
     /// Key monitor for ⌘V in the composer, see `catchImagePaste`.
     @State private var pasteMonitor: Any?
@@ -33,6 +35,7 @@ struct InputBar: View {
             if isBlocked {
                 answerRow
             }
+            quickReplyRow
             keyRow
             if !attachments.isEmpty {
                 attachmentRow
@@ -86,6 +89,47 @@ struct InputBar: View {
         // Presented from the view, not as a PhotosPicker inside the Menu,
         // which often does not open on iOS.
         .photosPicker(isPresented: $choosingPhotos, selection: $pickedPhotos, maxSelectionCount: 5, matching: .images)
+        .sheet(isPresented: $editingQuickReplies) {
+            QuickReplyEditor(store: quickReplies)
+        }
+    }
+
+    /// Saved prompts, one tap sends. Scrolls sideways so it fits an iPhone.
+    private var quickReplyRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                ForEach(quickReplies.usable) { reply in
+                    Button {
+                        send(quickReply: reply.trimmed)
+                    } label: {
+                        Text(reply.trimmed)
+                            .lineLimit(1)
+                            .frame(maxWidth: 220)
+                    }
+                    .help(String(localized: "Senden: \(reply.trimmed)"))
+                    .contextMenu {
+                        Button("In Eingabe übernehmen", systemImage: "text.cursor") {
+                            text = text.isEmpty ? reply.trimmed : text + " " + reply.trimmed
+                            composerFocused = true
+                        }
+                        Button("Bearbeiten …", systemImage: "pencil") { editingQuickReplies = true }
+                    }
+                }
+                Button {
+                    editingQuickReplies = true
+                } label: {
+                    if quickReplies.usable.isEmpty {
+                        Label("Schnellantworten", systemImage: "text.bubble")
+                    } else {
+                        Image(systemName: "text.bubble")
+                    }
+                }
+                .help(String(localized: "Schnellantworten bearbeiten"))
+                .accessibilityLabel("Schnellantworten bearbeiten")
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 
     private var attachmentRow: some View {
@@ -353,6 +397,11 @@ struct InputBar: View {
             text = ""
             attachments.removeAll { item in pending.contains { $0.id == item.id } }
         }
+    }
+
+    /// Sends a quick reply as is; composer text and attachments stay.
+    private func send(quickReply: String) {
+        perform { try await connection.submit(quickReply, to: pane.paneId, isAgent: isAgent) }
     }
 
     private func send(keys: [String]) {
