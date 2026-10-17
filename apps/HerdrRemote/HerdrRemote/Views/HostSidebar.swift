@@ -221,7 +221,7 @@ struct WorktreeSource: Identifiable {
 
 /// Branch, base and name for a new worktree, optionally with an agent
 /// started in it. Empty fields are left to herdr.
-private struct NewWorktreeView: View {
+struct NewWorktreeView: View {
     let source: WorktreeSource
     let onCreated: (Created) -> Void
     @Environment(\.dismiss) private var dismiss

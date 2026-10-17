@@ -4,7 +4,11 @@ import SwiftUI
 /// A split tab gets a pane picker under the tab bar.
 struct WorkspaceDetailView: View {
     @Environment(HostStore.self) private var store
-    let selection: SpaceRef?
+    /// A binding so a new worktree opened from here can be selected.
+    @Binding var selection: SpaceRef?
+    /// Long presses in the sidebar are unreliable on iPad, so the worktree
+    /// sheet is also reachable from a visible button here.
+    @State private var newWorktreeFrom: WorktreeSource?
     @State private var tabID: String?
     @State private var paneID: String?
     @State private var tabError: String?
@@ -35,6 +39,11 @@ struct WorkspaceDetailView: View {
                     systemImage: "square.split.2x1",
                     description: Text("Wählen Sie links einen Space oder einen Agent.")
                 )
+            }
+        }
+        .sheet(item: $newWorktreeFrom) { source in
+            NewWorktreeView(source: source) { created in
+                selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
             }
         }
         .onChange(of: selection, initial: true) { _, selection in
@@ -81,6 +90,16 @@ struct WorkspaceDetailView: View {
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .padding(.horizontal, 8)
+                }
+                if connection.config.inputAllowed && connection.isLive,
+                   let repo = WorktreeSource.repository(of: workspace, in: connection.update?.workspaces ?? []) {
+                    Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
+                        newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .padding(.trailing, 8)
+                    .help(String(localized: "Neuer Worktree …"))
                 }
             }
             .padding(.horizontal, 8)

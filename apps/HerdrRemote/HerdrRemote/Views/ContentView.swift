@@ -13,7 +13,7 @@ struct ContentView: View {
             HostSidebar(selection: $selection, editing: $editing)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 280)
         } detail: {
-            WorkspaceDetailView(selection: selection)
+            WorkspaceDetailView(selection: $selection)
         }
         .onChange(of: store.notifier.openRequest) { _, request in
             // A tapped notification opens its pane.
