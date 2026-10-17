@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Mac menu bar item with the number of waiting agents over all hosts and a
+  menu to jump to one; it opens the main window if it is closed. Hosts stay
+  connected and notifications keep coming while the window is closed (#62).
 
 ### Fixed
 
