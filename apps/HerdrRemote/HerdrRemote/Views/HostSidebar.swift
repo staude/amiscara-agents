@@ -294,9 +294,11 @@ enum AgentOrder: String {
 
     static func sorted(_ update: SessionUpdate, by order: AgentOrder) -> [Entry] {
         let spaces = SpaceOrder.arrange(update.workspaces).map(\.workspace)
-        let spaceIndex = Dictionary(uniqueKeysWithValues: spaces.enumerated().map { ($1.workspaceId, $0) })
-        let tabs = Dictionary(uniqueKeysWithValues: update.workspaces.flatMap(\.tabs).map { ($0.tabId, $0) })
-        let tabCount = Dictionary(uniqueKeysWithValues: update.workspaces.map { ($0.workspaceId, $0.tabs.count) })
+        // The data comes from the server; duplicate ids must not crash the
+        // app (uniqueKeysWithValues traps), the first entry wins.
+        let spaceIndex = Dictionary(spaces.enumerated().map { ($1.workspaceId, $0) }, uniquingKeysWith: { first, _ in first })
+        let tabs = Dictionary(update.workspaces.flatMap(\.tabs).map { ($0.tabId, $0) }, uniquingKeysWith: { first, _ in first })
+        let tabCount = Dictionary(update.workspaces.map { ($0.workspaceId, $0.tabs.count) }, uniquingKeysWith: { first, _ in first })
 
         // The board arrives sorted by urgency; keep that as the tie-breaker.
         let ranked = update.board.enumerated().map { (index: $0, agent: $1) }
