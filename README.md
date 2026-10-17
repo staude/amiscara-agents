@@ -64,16 +64,13 @@ xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote \
 open target/xcode/Build/Products/Debug/HerdrRemote.app
 ```
 
-iPad and iPhone (scheme `HerdrRemote-iOS`, same sources). Install on a
-connected device with developer mode on:
+iPad and iPhone (scheme `HerdrRemote-iOS`, same sources). Build, install and
+launch on a connected device with developer mode on:
 
 ```sh
-xcrun devicectl list devices
-xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote-iOS \
-    -destination 'generic/platform=iOS' -derivedDataPath target/xcode \
-    -allowProvisioningUpdates build
-xcrun devicectl device install app --device <UDID> \
-    target/xcode/Build/Products/Debug-iphoneos/HerdrRemote.app
+scripts/install-ios.sh                # the only connected iPhone or iPad
+scripts/install-ios.sh "iPad (2)"     # by name or UDID when several are connected
+scripts/install-ios.sh --release      # Release build; --no-launch installs only
 ```
 
 On iOS there is no local socket; hosts are SSH only. The app reconnects as

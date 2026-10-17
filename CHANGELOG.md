@@ -66,6 +66,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   shows herdr's tab bar, a pane picker for split tabs, terminal and input.
   The separate board column is gone (#24).
 - `WorkspaceItem` carries repo key, worktree name and active tab (#24).
+- `scripts/install-ios.sh`: builds the iOS app for the connected iPad or
+  iPhone (or one given by name or UDID), installs and launches it (#26).
 
 ### Fixed
 
