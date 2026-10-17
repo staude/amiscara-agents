@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/herdr-proto",
+    "crates/herdr-core",
     "crates/herdr-transport",
     "crates/herdr-spike",
 ]

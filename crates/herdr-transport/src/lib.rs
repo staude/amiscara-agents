@@ -231,6 +231,15 @@ impl Connection {
             .iter()
             .map(|t| serde_json::json!({ "type": t }))
             .collect();
+        self.subscribe_to(subscriptions).await
+    }
+
+    /// Like [`Connection::subscribe`], with full subscription objects such as
+    /// `{"type": "pane.agent_status_changed", "pane_id": "w1:p1"}`.
+    pub async fn subscribe_to(
+        &self,
+        subscriptions: Vec<Value>,
+    ) -> Result<Subscription, TransportError> {
         let mut reader = self
             .send(
                 "events.subscribe",
@@ -248,6 +257,9 @@ impl Connection {
 /// An open channel to the server socket, good for exactly one request.
 pub struct Channel(Box<dyn Stream>);
 
+/// A running event stream. [`Subscription::next`] is not cancel-safe: a
+/// cancelled call can lose a partly read line, so read it from its own task
+/// rather than inside `select!`.
 pub struct Subscription {
     reader: BufReader<Box<dyn Stream>>,
 }
