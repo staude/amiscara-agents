@@ -92,6 +92,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   switch "Benachrichtigungen" (default on). On iOS only while the app runs (#40).
 - `SessionState::attention_since` and `SessionUpdate.attention` report agents
   that newly need the user (#40).
+- Spaces show herdr's extra rows: the git branch of the space's focused pane
+  (from `worktree.list`, refreshed after each snapshot and every 30 s) and
+  custom tokens from plugins or agents; a linked worktree is named after its
+  branch like in herdr instead of its directory (#42).
 
 ### Fixed
 

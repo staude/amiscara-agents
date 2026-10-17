@@ -186,28 +186,49 @@ private struct SubHeader: View {
     }
 }
 
+/// A space the way herdr's sidebar shows it: name, then the branch, then
+/// custom values from plugins or agents. A linked worktree is indented and
+/// named after its branch.
 private struct SpaceRow: View {
     let workspace: WorkspaceItem
     let nested: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .top, spacing: 6) {
             if nested {
                 Text("└")
                     .foregroundStyle(.tertiary)
                     .padding(.leading, 10)
             }
             StatusDot(state: workspace.agentState)
+                .padding(.top, 6)
             VStack(alignment: .leading, spacing: 1) {
-                Text(workspace.worktreeName ?? workspace.label)
+                Text(title)
                     .lineLimit(1)
-                if workspace.worktreeName != nil && !nested {
-                    Text(workspace.label)
+                if let branchLine {
+                    Text(branchLine)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if !workspace.tokens.isEmpty {
+                    Text(workspace.tokens.map(\.value).joined(separator: " · "))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
         }
+    }
+
+    private var title: String {
+        if nested { return workspace.branch ?? workspace.worktreeName ?? workspace.label }
+        return workspace.label
+    }
+
+    /// The branch line; a nested worktree already shows its branch as name.
+    private var branchLine: String? {
+        nested ? nil : workspace.branch
     }
 }
 
