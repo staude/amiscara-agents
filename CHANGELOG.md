@@ -64,3 +64,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
+- Xcode builds: `build-ffi.sh` works with the bash 3.2 that Xcode runs, the
+  framework is built by its own aggregate target `HerdrFFI` with declared
+  outputs and only replaced when the libraries changed, and `xcodegen
+  generate` builds it once when it is missing (#18).
