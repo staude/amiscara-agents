@@ -36,6 +36,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   structured `UnknownHostKey`/`HostKeyChanged` errors with fingerprint (#7).
 - `herdr-core::sync` stops on errors that need the user and shares the live
   connection through `SyncState::connection` (#7).
+- Mac app `apps/HerdrRemote` (SwiftUI, macOS 27, xcodegen): hosts with a
+  per-host ed25519 key in the Keychain and the `authorized_keys` line to copy,
+  host key confirmation on first contact and a warning on change, sidebar
+  with workspaces and panes, agent board across hosts, live pane screen.
+  Read-only (#8).
+- `scripts/ffi-smoke.sh`: headless check of the Swift bindings, optionally
+  including the SSH host key flow (#8).
+- `scripts/release.sh`: Developer ID archive, export, notarization, stapling
+  and Gatekeeper checks, with precondition checks up front; `scripts/bump-build.sh`;
+  setup steps in `docs/release.md` (#9).
 
 ### Fixed
 

@@ -18,4 +18,7 @@ Konzept: Vault `02 Projekte/Herdr Remote.md`. Aktueller Stand und nächste Schri
 - Gegen einen produktiv genutzten herdr-Server nur lesende Methoden aufrufen (`ping`, `*.list`, `*.get`, `pane.read`, `events.subscribe`), außer es ist ausdrücklich anders gewünscht.
 - Protokollversion steht in `herdr_proto::SUPPORTED_PROTOCOL` und wird bei `ping` geprüft.
 - Aufbau orientiert sich an `~/dev/torromail` (Workspace-Lints, Edition 2024).
-- Apple-Oberflächen kommen später nach `apps/`, Xcode-Projekt nur über xcodegen.
+- Mac-App unter `apps/HerdrRemote`, Xcode-Projekt nur über xcodegen (`project.yml`), `.xcodeproj` und `Generated/` sind nicht eingecheckt.
+- App bauen: `./setup.sh` einmal, danach `xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote -derivedDataPath target/xcode build`. Der Pre-Build-Schritt ruft `scripts/build-ffi.sh`.
+- Bindings ohne UI prüfen: `scripts/ffi-smoke.sh` (lokal), mit `HERDR_SMOKE_SSH=user@host HERDR_SMOKE_KEY=<key>` zusätzlich der SSH- und Host-Key-Ablauf.
+- `MACOSX_DEPLOYMENT_TARGET` nicht für den Rust-Build setzen: Mit 27.0 lassen sich die Proc-Macro-Dylibs nicht mehr laden.
