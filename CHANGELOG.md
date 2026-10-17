@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Search in the pane view: ⌘F (or the magnifier) opens a search bar, matches
+  are highlighted in the shown lines (ignoring case and accents), Return or
+  ⌘G jumps to the next, ⇧⌘G to the previous, Esc closes (#55).
 
 ### Fixed
 

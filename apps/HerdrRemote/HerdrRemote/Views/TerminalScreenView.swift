@@ -5,30 +5,45 @@ import SwiftUI
 /// values for a dark background.
 struct TerminalScreenView: View {
     let content: PaneContent
+    /// Search matches to mark; empty when no search is open.
+    var search = SearchHighlight()
     @AppStorage("terminalFontSize") private var fontSize = Platform.defaultTerminalFontSize
 
     var body: some View {
-        ScrollView([.vertical, .horizontal]) {
-            // A plain VStack: the visible screen is about 60 lines, and a
-            // LazyVStack in a two-axis scroll view could stay undrawn until
-            // the content changed (a black pane on the iPad).
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(content.lines.enumerated()), id: \.offset) { _, line in
-                    Text(TerminalStyle.attributed(line, fontSize: fontSize))
+        ScrollViewReader { proxy in
+            ScrollView([.vertical, .horizontal]) {
+                // A plain VStack: the visible screen is about 60 lines, and a
+                // LazyVStack in a two-axis scroll view could stay undrawn until
+                // the content changed (a black pane on the iPad).
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(content.lines.enumerated()), id: \.offset) { index, line in
+                        Text(TerminalStyle.attributed(
+                            line,
+                            fontSize: fontSize,
+                            matches: search.byLine[index] ?? [],
+                            current: search.current
+                        ))
                         .fixedSize()
                         .frame(minHeight: fontSize * 1.25, alignment: .leading)
+                    }
+                }
+                .padding(10)
+                .textSelection(.enabled)
+            }
+            // Like a terminal: start at the bottom, where the latest output and
+            // the agent's prompt are, and stay there when new lines arrive.
+            .defaultScrollAnchor(.bottomLeading)
+            .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
+            // A fresh scroll view per pane, so the previous pane's scroll
+            // position cannot leave the new one out of sight.
+            .id(content.paneId)
+            .onChange(of: search.scrollRequest) {
+                guard let line = search.current?.line else { return }
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo(line, anchor: UnitPoint(x: 0, y: 0.5))
                 }
             }
-            .padding(10)
-            .textSelection(.enabled)
         }
-        // Like a terminal: start at the bottom, where the latest output and
-        // the agent's prompt are, and stay there when new lines arrive.
-        .defaultScrollAnchor(.bottomLeading)
-        .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
-        // A fresh scroll view per pane, so the previous pane's scroll
-        // position cannot leave the new one out of sight.
-        .id(content.paneId)
         .background(TerminalStyle.background)
         .environment(\.colorScheme, .dark)
     }
@@ -37,8 +52,15 @@ struct TerminalScreenView: View {
 enum TerminalStyle {
     static let background = Color(red: 0.11, green: 0.11, blue: 0.12)
     static let foreground = Color(red: 0.88, green: 0.88, blue: 0.88)
+    static let match = Color(red: 0.95, green: 0.80, blue: 0.25).opacity(0.75)
+    static let currentMatch = Color(red: 1.00, green: 0.55, blue: 0.10)
 
-    static func attributed(_ line: StyledLine, fontSize: Double) -> AttributedString {
+    static func attributed(
+        _ line: StyledLine,
+        fontSize: Double,
+        matches: [SearchMatch] = [],
+        current: SearchMatch? = nil
+    ) -> AttributedString {
         var result = AttributedString()
         for span in line.spans {
             var part = AttributedString(span.text)
@@ -59,6 +81,14 @@ enum TerminalStyle {
             if span.underline { part.underlineStyle = .single }
             if span.strikethrough { part.strikethroughStyle = .single }
             result += part
+        }
+        for match in matches {
+            let chars = result.characters
+            guard let start = chars.index(chars.startIndex, offsetBy: match.start, limitedBy: chars.endIndex),
+                  let end = chars.index(start, offsetBy: match.length, limitedBy: chars.endIndex)
+            else { continue }
+            result[start..<end].backgroundColor = match == current ? currentMatch : Self.match
+            result[start..<end].foregroundColor = .black
         }
         return result
     }
