@@ -15,16 +15,12 @@ final class HostStore {
 
     init() {
         load()
-        if connections.isEmpty, FileManager.default.fileExists(atPath: Self.localSocketPath) {
+        if connections.isEmpty, Platform.hasLocalSocket,
+           FileManager.default.fileExists(atPath: Platform.localSocketPath) {
             connections = [HostConnection(config: .local())]
             save()
         }
         connections.forEach { $0.start() }
-    }
-
-    static var localSocketPath: String {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appending(path: ".config/herdr/herdr.sock").path
     }
 
     func connection(for id: UUID?) -> HostConnection? {
@@ -49,6 +45,14 @@ final class HostStore {
         KeyStore.delete(for: id)
         connections.remove(at: index)
         save()
+    }
+
+    /// Reconnects hosts that are not live right away, e.g. when the app
+    /// returns to the foreground and the driver still waits out a backoff.
+    func reconnectStale() {
+        for connection in connections where !connection.isLive && !connection.needsHostKeyDecision {
+            connection.start()
+        }
     }
 
     func trustHostKey(_ key: String, for id: UUID) {

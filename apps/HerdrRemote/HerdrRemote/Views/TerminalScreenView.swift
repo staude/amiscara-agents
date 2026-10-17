@@ -5,7 +5,7 @@ import SwiftUI
 /// values for a dark background.
 struct TerminalScreenView: View {
     let content: PaneContent
-    @AppStorage("terminalFontSize") private var fontSize = 12.0
+    @AppStorage("terminalFontSize") private var fontSize = Platform.defaultTerminalFontSize
 
     var body: some View {
         ScrollView([.vertical, .horizontal]) {

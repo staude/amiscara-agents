@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 /// Adds or edits a host. For SSH hosts the app creates a key for this Mac,
@@ -21,23 +20,29 @@ struct HostEditorView: View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
                 TextField("Name", text: $config.name, prompt: Text("z. B. work"))
-                Picker("Verbindung", selection: $config.kind) {
-                    Text("SSH").tag(HostConfig.Kind.ssh)
-                    Text("Dieser Mac").tag(HostConfig.Kind.local)
+                if Platform.hasLocalSocket {
+                    Picker("Verbindung", selection: $config.kind) {
+                        Text("SSH").tag(HostConfig.Kind.ssh)
+                        Text("Dieser Mac").tag(HostConfig.Kind.local)
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
 
                 if config.kind == .ssh {
                     Section("Server") {
                         TextField("Host", text: $config.host, prompt: Text("work.staude.internal"))
+                            .technicalInput()
                         TextField("Port", value: $config.port, format: .number.grouping(.never))
                         TextField("Benutzer", text: $config.user)
+                            .technicalInput()
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
+                            .technicalInput()
                     }
                     keySection
                 } else {
                     Section("Socket") {
-                        TextField("Pfad", text: $config.socketPath, prompt: Text(HostStore.localSocketPath))
+                        TextField("Pfad", text: $config.socketPath, prompt: Text(Platform.localSocketPath))
+                            .technicalInput()
                     }
                 }
 
@@ -63,7 +68,9 @@ struct HostEditorView: View {
             }
             .padding()
         }
+        #if os(macOS)
         .frame(width: 520)
+        #endif
     }
 
     @ViewBuilder
@@ -77,8 +84,7 @@ struct HostEditorView: View {
                     .lineLimit(4)
                 HStack {
                     Button("Zeile kopieren", systemImage: "doc.on.doc") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(line, forType: .string)
+                        Platform.copy(line)
                     }
                     Spacer()
                     if let fingerprint = try? describePublicKeyFingerprint() {
@@ -115,8 +121,7 @@ struct HostEditorView: View {
 
     private func generateKey() {
         do {
-            let host = Host.current().localizedName ?? "Mac"
-            let key = try generateSshKey(comment: "herdr-remote \(host)")
+            let key = try generateSshKey(comment: "herdr-remote \(Platform.deviceName)")
             newPrivateKey = key.privateOpenssh
             config.publicKey = key.publicOpenssh
             error = nil

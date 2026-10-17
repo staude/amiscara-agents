@@ -54,6 +54,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Esc), key bar and composer; prompts go to agents, text plus Enter to shells (#14).
 - `scripts/ffi-smoke.sh` tests input against a named test session given in
   `HERDR_SMOKE_WRITE_SOCKET` and refuses the default socket (#14).
+- iPad and iPhone app: target `HerdrRemote-iOS` (iOS 27) sharing the sources
+  with the Mac app; board first on iPhone, scrollable key bar, answer row that
+  wraps on narrow screens, SSH hosts only, reconnect on returning to the
+  foreground (#16).
+- `scripts/build-ffi.sh` builds macOS, iOS and iOS simulator slices into one
+  XCFramework and only the slice the current Xcode platform needs (#16).
 
 ### Fixed
 
