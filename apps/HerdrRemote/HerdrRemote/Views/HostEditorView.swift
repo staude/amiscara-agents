@@ -76,8 +76,9 @@ struct HostEditorView: View {
     @ViewBuilder
     private var keySection: some View {
         Section {
+            Toggle("Bilder hochladen (SFTP)", isOn: $config.uploadAllowed)
             if let publicKey = config.publicKey {
-                let line = (try? authorizedKeysLine(publicOpenssh: publicKey)) ?? publicKey
+                let line = (try? authorizedKeysLine(publicOpenssh: publicKey, allowSftp: config.uploadAllowed)) ?? publicKey
                 Text(line)
                     .font(.system(.caption, design: .monospaced))
                     .textSelection(.enabled)
@@ -97,7 +98,13 @@ struct HostEditorView: View {
         } header: {
             Text("Schlüssel")
         } footer: {
-            Text("Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen.")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen.")
+                if config.uploadAllowed {
+                    Text("Mit „Bilder hochladen“ läuft für diesen Schlüssel sftp-server. Er kann dann alle Dateien Ihres Benutzers lesen und schreiben, auch ~/.ssh/authorized_keys, und sich so selbst mehr Rechte geben. Nach dem Umschalten die Zeile auf dem Server ersetzen.")
+                        .foregroundStyle(.orange)
+                }
+            }
         }
     }
 

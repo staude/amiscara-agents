@@ -68,6 +68,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `WorkspaceItem` carries repo key, worktree name and active tab (#24).
 - `scripts/install-ios.sh`: builds the iOS app for the connected iPad or
   iPhone (or one given by name or UDID), installs and launches it (#26).
+- Images in prompts: paperclip in the composer (Photos, on the Mac also files),
+  HEIC and oversized images become JPEG up to 2560 px, upload to
+  `~/.herdr-remote/uploads/` on the host, paths appended to the prompt (#28).
+- Upload over SFTP on the same SSH session (`russh-sftp`), or a direct write
+  for the local host; per-host switch "Bilder hochladen (SFTP)", default off,
+  and the key line then uses `command="/usr/libexec/sftp-server"` (#28).
 
 ### Fixed
 

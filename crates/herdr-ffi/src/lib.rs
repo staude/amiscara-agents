@@ -42,6 +42,10 @@ pub enum FfiError {
     /// herdr refused the input, e.g. an unknown pane or key.
     #[error("{0}")]
     Rejected(String),
+    /// A file could not be uploaded (no SFTP for this key, or the server
+    /// refused the write).
+    #[error("{0}")]
+    Upload(String),
 }
 
 impl From<actions::ActionError> for FfiError {
@@ -106,8 +110,10 @@ pub fn describe_ssh_key(private_openssh: String) -> Result<SshKey, FfiError> {
     Ok(keys::describe(&key).map_err(key_error)?.into())
 }
 
-/// The `authorized_keys` line for a client key: no shell, no commands, no
-/// PTY, no agent or X11 forwarding.
+/// The `authorized_keys` line for a client key. Without SFTP: no shell, no
+/// commands, no PTY, no agent or X11 forwarding. With SFTP every session runs
+/// `sftp-server` instead of failing, which allows uploads but also gives the
+/// key read and write access to all files of the user.
 ///
 /// `port-forwarding` is needed for the streamlocal channel to `herdr.sock`,
 /// but it also allows TCP forwarding through the server. `permitopen` cannot
@@ -115,15 +121,23 @@ pub fn describe_ssh_key(private_openssh: String) -> Result<SshKey, FfiError> {
 /// socket (tested with OpenSSH 10.3). Closing TCP forwarding needs
 /// `AllowTcpForwarding no` in `sshd_config`, which affects every login.
 #[uniffi::export]
-pub fn authorized_keys_line(public_openssh: String) -> Result<String, FfiError> {
+pub fn authorized_keys_line(public_openssh: String, allow_sftp: bool) -> Result<String, FfiError> {
     let key = keys::parse_public(public_openssh.trim()).map_err(key_error)?;
     let line = key
         .to_openssh()
         .map_err(|err| FfiError::Key(err.to_string()))?;
+    let command = if allow_sftp {
+        "/usr/libexec/sftp-server"
+    } else {
+        "/usr/bin/false"
+    };
     Ok(format!(
-        "restrict,port-forwarding,command=\"/usr/bin/false\" {line}"
+        "restrict,port-forwarding,command=\"{command}\" {line}"
     ))
 }
+
+/// Where uploads land, relative to the login's home directory.
+pub const UPLOAD_DIR: &str = ".herdr-remote/uploads";
 
 /// Default `herdr.sock` path for a user on a macOS host.
 #[uniffi::export]
@@ -216,6 +230,26 @@ impl HostSession {
         let conn = self.connection()?;
         runtime().block_on(actions::send_text(&conn, &pane_id, &text))?;
         Ok(())
+    }
+
+    /// Uploads a file (e.g. an image for a prompt) to `~/.herdr-remote/uploads`
+    /// on the host under a fresh name and returns its absolute path. Blocks
+    /// until the upload is done; call it off the main thread.
+    pub fn upload_file(&self, data: Vec<u8>, file_extension: String) -> Result<String, FfiError> {
+        let ext = file_extension.trim_start_matches('.').to_ascii_lowercase();
+        if ext.is_empty() || ext.len() > 5 || !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return Err(FfiError::Upload(format!(
+                "invalid file extension {file_extension:?}"
+            )));
+        }
+        let conn = self.connection()?;
+        let name = upload_name(&ext);
+        runtime()
+            .block_on(conn.upload(UPLOAD_DIR, &name, &data))
+            .map_err(|err| match err {
+                TransportError::Upload(message) => FfiError::Upload(message),
+                other => FfiError::NotConnected(other.to_string()),
+            })
     }
 
     /// Follows the visible screen of a pane until the returned handle is
@@ -358,6 +392,15 @@ impl Connector {
             Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
         }
     }
+}
+
+/// `img-<unix seconds>-<nanos>.<ext>`: sortable and unique enough for one
+/// device uploading by hand.
+fn upload_name(ext: &str) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    format!("img-{}-{:09}.{ext}", now.as_secs(), now.subsec_nanos())
 }
 
 fn key_error(err: TransportError) -> FfiError {

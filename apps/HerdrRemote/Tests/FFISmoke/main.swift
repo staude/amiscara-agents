@@ -34,11 +34,15 @@ let key = try generateSshKey(comment: "ffi-smoke")
 guard key.publicOpenssh.hasPrefix("ssh-ed25519 "), key.fingerprint.hasPrefix("SHA256:") else {
     fail("generated key looks wrong")
 }
-let line = try authorizedKeysLine(publicOpenssh: key.publicOpenssh)
+let line = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: false)
 guard line.hasPrefix("restrict,port-forwarding,command=\"/usr/bin/false\" ssh-ed25519 ") else {
     fail("authorized_keys line: \(line)")
 }
-if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AAAA x")) != nil {
+let sftpLine = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: true)
+guard sftpLine.hasPrefix("restrict,port-forwarding,command=\"/usr/libexec/sftp-server\" ssh-ed25519 ") else {
+    fail("authorized_keys line with SFTP: \(sftpLine)")
+}
+if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AAAA x", allowSftp: false)) != nil {
     fail("multi-line public key was accepted")
 }
 print("ok   keys: \(key.fingerprint)")
@@ -64,6 +68,14 @@ guard let pane = update.board.first?.paneId ?? panes.first?.paneId else {
     print("skip pane: server has no panes")
     exit(0)
 }
+// Upload on the local host writes straight into ~/.herdr-remote/uploads.
+let payload = Data("herdr-remote smoke \(UUID().uuidString)".utf8)
+let localPath = try session.uploadFile(data: payload, fileExtension: "txt")
+guard FileManager.default.contents(atPath: localPath) == payload else { fail("local upload content: \(localPath)") }
+try? FileManager.default.removeItem(atPath: localPath)
+if (try? session.uploadFile(data: payload, fileExtension: "../x")) != nil { fail("bad extension accepted") }
+print("ok   upload local: \(localPath)")
+
 let follow = session.followPane(paneId: pane, observer: probe)
 let gotContent = wait(5) { probe.lock.withLock { probe.content != nil } }
 guard gotContent, let content = probe.lock.withLock({ probe.content }) else {
@@ -163,6 +175,19 @@ if let target = env["HERDR_SMOKE_SSH"], let keyPath = env["HERDR_SMOKE_KEY"] {
     }
     guard sshLive else { fail("ssh with pinned key not live: \(String(describing: second.update?.status))") }
     print("ok   ssh pinned: live, \(second.update?.board.count ?? 0) on the board")
+
+    // Upload over SFTP. Works only when the key line runs sftp-server.
+    do {
+        let remotePath = try pinned.uploadFile(data: payload, fileExtension: "txt")
+        // The smoke test runs on the host itself when HERDR_SMOKE_SSH points at it.
+        if FileManager.default.fileExists(atPath: remotePath) {
+            guard FileManager.default.contents(atPath: remotePath) == payload else { fail("sftp upload content") }
+            try? FileManager.default.removeItem(atPath: remotePath)
+        }
+        print("ok   ssh upload: \(remotePath)")
+    } catch {
+        print("info ssh upload refused: \(error)")
+    }
     pinned.stop()
 
     let third = Probe()
