@@ -7,12 +7,14 @@ struct HostEditorView: View {
     @Environment(HostStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var config: HostConfig
+    private let original: HostConfig
     @State private var newPrivateKey: String?
     @State private var error: String?
     private let isNew: Bool
 
     init(config: HostConfig) {
         _config = State(initialValue: config)
+        original = config
         isNew = config.name.isEmpty
     }
 
@@ -71,6 +73,8 @@ struct HostEditorView: View {
         #if os(macOS)
         .frame(width: 520)
         #endif
+        // A swipe down would drop changes silently on iPad.
+        .interactiveDismissDisabled(config != original || newPrivateKey != nil)
     }
 
     @ViewBuilder

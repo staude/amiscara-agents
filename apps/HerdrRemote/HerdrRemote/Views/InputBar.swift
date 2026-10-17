@@ -15,6 +15,7 @@ struct InputBar: View {
     @State private var attachments: [ImageAttachment] = []
     @State private var pickedPhotos: [PhotosPickerItem] = []
     @State private var importingFiles = false
+    @State private var choosingPhotos = false
     @FocusState private var composerFocused: Bool
 
     private var isAgent: Bool { pane.agent != nil }
@@ -51,6 +52,9 @@ struct InputBar: View {
         .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
             addFiles(result)
         }
+        // Presented from the view, not as a PhotosPicker inside the Menu,
+        // which often does not open on iOS.
+        .photosPicker(isPresented: $choosingPhotos, selection: $pickedPhotos, maxSelectionCount: 5, matching: .images)
     }
 
     private var attachmentRow: some View {
@@ -85,21 +89,30 @@ struct InputBar: View {
         }
     }
 
+    /// Always tappable: a disabled button gives no feedback on iPad. With
+    /// upload off it says how to turn it on.
+    @ViewBuilder
     private var attachMenu: some View {
-        Menu {
-            PhotosPicker(selection: $pickedPhotos, maxSelectionCount: 5, matching: .images) {
-                Label("Fotos", systemImage: "photo.on.rectangle")
+        if connection.config.uploadAllowed {
+            Menu {
+                Button("Fotos", systemImage: "photo.on.rectangle") { choosingPhotos = true }
+                Button("Dateien …", systemImage: "folder") { importingFiles = true }
+            } label: {
+                Image(systemName: "paperclip")
             }
-            Button("Dateien …", systemImage: "folder") { importingFiles = true }
-        } label: {
-            Image(systemName: "paperclip")
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(String(localized: "Bild anhängen"))
+        } else {
+            Button {
+                error = String(localized: "Bilder hochladen ist für \(connection.config.name) aus. Einschalten unter „…“ › „Bearbeiten …“ › „Bilder hochladen (SFTP)“.")
+            } label: {
+                Image(systemName: "paperclip")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Bilder hochladen ist für diesen Host aus"))
         }
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .disabled(!connection.config.uploadAllowed)
-        .help(connection.config.uploadAllowed
-            ? String(localized: "Bild anhängen")
-            : String(localized: "Bilder hochladen ist für diesen Host aus (Host bearbeiten)"))
     }
 
     private func addPhotos(_ items: [PhotosPickerItem]) async {
