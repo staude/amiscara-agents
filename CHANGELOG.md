@@ -104,6 +104,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Images can be pasted into the composer (⌘V, or "Aus Zwischenablage" under
+  the paperclip) and are attached like picked photos; text paste is
+  unchanged, and text wins when the clipboard holds both (#56).
 
 ### Fixed
 

@@ -39,6 +39,22 @@ struct ImageAttachment: Identifiable, Sendable {
         return ImageAttachment(data: jpeg, fileExtension: "jpg", preview: preview)
     }
 
+    /// Prepares an image from a paste or drop. Prefers a format agents read
+    /// directly (PNG before the TIFF macOS screenshots also carry).
+    @MainActor
+    static func make(from provider: NSItemProvider) async -> ImageAttachment? {
+        let images = provider.registeredContentTypes.filter { $0.conforms(to: .image) }
+        let preferred = images.first { type in passThrough.contains { type.conforms(to: $0) } }
+        guard let type = preferred ?? images.first else { return nil }
+        let data: Data? = await withCheckedContinuation { continuation in
+            _ = provider.loadDataRepresentation(for: type) { data, _ in
+                continuation.resume(returning: data)
+            }
+        }
+        guard let data else { return nil }
+        return make(data: data, type: type)
+    }
+
     private static func thumbnail(_ source: CGImageSource, maxPixels: Int) -> CGImage? {
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -57,5 +73,22 @@ struct ImageAttachment: Identifiable, Sendable {
         CGImageDestinationAddImage(destination, image, options as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return output as Data
+    }
+}
+
+/// Image data from a paste, with the format it came in. Representations
+/// are listed in order of preference, so a macOS screenshot that carries
+/// PNG and TIFF arrives as PNG and is uploaded unchanged.
+struct PastedImage: Transferable, Sendable {
+    let data: Data
+    let type: UTType
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(importedContentType: .png) { PastedImage(data: $0, type: .png) }
+        DataRepresentation(importedContentType: .jpeg) { PastedImage(data: $0, type: .jpeg) }
+        DataRepresentation(importedContentType: .gif) { PastedImage(data: $0, type: .gif) }
+        DataRepresentation(importedContentType: .webP) { PastedImage(data: $0, type: .webP) }
+        DataRepresentation(importedContentType: .heic) { PastedImage(data: $0, type: .heic) }
+        DataRepresentation(importedContentType: .image) { PastedImage(data: $0, type: .image) }
     }
 }
