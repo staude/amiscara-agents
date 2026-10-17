@@ -61,6 +61,11 @@ fi
 udid="${candidates%%$'\t'*}"
 name="${candidates#*$'\t'}"
 
+# The .xcodeproj is generated and not checked in; after a branch switch it
+# may still list files that no longer exist.
+command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
+(cd apps/HerdrRemote && xcodegen generate --quiet)
+
 step "Build HerdrRemote-iOS ($configuration) for $name"
 derived="target/xcode-device"
 xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote-iOS \
