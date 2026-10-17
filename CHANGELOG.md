@@ -96,6 +96,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   (from `worktree.list`, refreshed after each snapshot and every 30 s) and
   custom tokens from plugins or agents; a linked worktree is named after its
   branch like in herdr instead of its directory (#42).
+- Agents list like herdr's default rows: "space · tab" (tab only when the space
+  has several tabs), then just the agent; a switch next to "agents" sorts
+  "grouped" (space order, herdr's default) or "nach Status" (waiting first),
+  remembered per device (#44).
 
 ### Fixed
 
