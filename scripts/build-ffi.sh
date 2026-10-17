@@ -48,8 +48,10 @@ for p in "${platforms[@]}"; do
     if [[ "$p" != "macosx" ]]; then
         ios_target=(IPHONEOS_DEPLOYMENT_TARGET=27.0)
     fi
-    env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u IPHONEOS_DEPLOYMENT_TARGET "${ios_target[@]}" \
-        cargo build -p herdr-ffi --target "$(triple_for "$p")" "${cargo_profile[@]}"
+    # ${a[@]+"${a[@]}"}: empty arrays count as unset under `set -u` in the
+    # bash 3.2 that Xcode build phases run.
+    env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u IPHONEOS_DEPLOYMENT_TARGET ${ios_target[@]+"${ios_target[@]}"} \
+        cargo build -p herdr-ffi --target "$(triple_for "$p")" ${cargo_profile[@]+"${cargo_profile[@]}"}
 done
 
 work="target/ffi"
@@ -69,16 +71,38 @@ cp "$work/swift/herdr_ffiFFI.h" "$work/headers/"
 cp "$work/swift/herdr_ffiFFI.modulemap" "$work/headers/module.modulemap"
 
 libraries=()
+stamp_input=()
 for p in macosx iphoneos iphonesimulator; do
     lib="target/$(triple_for "$p")/$profile/libherdr_ffi.a"
     if [[ -f "$lib" ]]; then
         libraries+=(-library "$lib" -headers "$work/headers")
+        stamp_input+=("$lib")
     fi
 done
 
-rm -rf "$out/HerdrFFI.xcframework"
+# Leave the framework alone when nothing changed: Xcode may already be
+# reading it for the app target.
+stamp="$(shasum "${stamp_input[@]}" "$work/headers/herdr_ffiFFI.h" | shasum | cut -d' ' -f1)"
+if [[ -d "$out/HerdrFFI.xcframework" && "$(cat "$out/.ffi-stamp" 2>/dev/null)" == "$stamp" ]] \
+    && cmp -s "$work/swift/herdr_ffi.swift" "$out/herdr_ffi.swift"; then
+    echo "herdr-ffi ($profile, ${platforms[*]}) unchanged"
+    exit 0
+fi
+
+# Build next to the old framework and swap, so Xcode never finds the path
+# missing, and only touch the Swift file when it changed (no needless
+# recompiles).
 xcodebuild -create-xcframework "${libraries[@]}" \
-    -output "$out/HerdrFFI.xcframework" >/dev/null
-cp "$work/swift/herdr_ffi.swift" "$out/"
+    -output "$work/HerdrFFI.xcframework" >/dev/null
+rm -rf "$out/HerdrFFI.xcframework.old"
+if [[ -d "$out/HerdrFFI.xcframework" ]]; then
+    mv "$out/HerdrFFI.xcframework" "$out/HerdrFFI.xcframework.old"
+fi
+mv "$work/HerdrFFI.xcframework" "$out/HerdrFFI.xcframework"
+rm -rf "$out/HerdrFFI.xcframework.old"
+if ! cmp -s "$work/swift/herdr_ffi.swift" "$out/herdr_ffi.swift"; then
+    cp "$work/swift/herdr_ffi.swift" "$out/"
+fi
+echo "$stamp" > "$out/.ffi-stamp"
 
 echo "herdr-ffi ($profile, ${platforms[*]}) -> $out"

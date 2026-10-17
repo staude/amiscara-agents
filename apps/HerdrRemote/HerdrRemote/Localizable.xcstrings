@@ -1,5 +1,209 @@
 {
   "sourceLanguage" : "de",
-  "strings" : {},
+  "strings" : {
+    "%@ (%@) meldet sich mit diesem Schlüssel. Vergleichen Sie den Fingerprint mit dem Server, z. B. per `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@) meldet sich mit diesem Schlüssel. Vergleichen Sie den Fingerprint mit dem Server, z. B. per `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`."
+          }
+        }
+      }
+    },
+    "%@ meldet sich mit einem anderen Schlüssel als bisher. Das kann eine Neuinstallation des Servers sein, aber auch ein Angriff. Vertrauen Sie dem neuen Schlüssel nur, wenn Sie den Grund kennen." : {
+
+    },
+    "Abbrechen" : {
+
+    },
+    "arbeitet" : {
+
+    },
+    "Ausführen" : {
+
+    },
+    "Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten." : {
+
+    },
+    "Bearbeiten …" : {
+
+    },
+    "Befehl" : {
+
+    },
+    "Benutzer" : {
+
+    },
+    "bereit" : {
+
+    },
+    "Bestätigen" : {
+
+    },
+    "Board" : {
+
+    },
+    "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten." : {
+
+    },
+    "Dieser Mac" : {
+
+    },
+    "Eingaben erlauben" : {
+
+    },
+    "Eingaben sind für diesen Host ausgeschaltet." : {
+
+    },
+    "Entfernen" : {
+
+    },
+    "fertig" : {
+
+    },
+    "Fügen Sie über + einen Rechner hinzu, auf dem herdr läuft." : {
+
+    },
+    "Für diesen Host liegt kein Schlüssel in der Keychain." : {
+
+    },
+    "Hinzufügen" : {
+
+    },
+    "Host" : {
+
+    },
+    "Host hinzufügen" : {
+
+    },
+    "Host-Key hat sich geändert" : {
+
+    },
+    "Host-Key muss bestätigt werden" : {
+
+    },
+    "Keine Agents" : {
+
+    },
+    "Keine Entscheidung nötig." : {
+
+    },
+    "Keine Hosts" : {
+
+    },
+    "Keine Pane gewählt" : {
+
+    },
+    "Keine Verbindung zum Host." : {
+
+    },
+    "Keychain: %@" : {
+
+    },
+    "Name" : {
+
+    },
+    "Neu verbinden" : {
+
+    },
+    "Neuen Schlüssel vertrauen" : {
+
+    },
+    "Option %@ wählen" : {
+
+    },
+    "Pane nicht lesbar" : {
+
+    },
+    "Pfad" : {
+
+    },
+    "Port" : {
+
+    },
+    "Prompt an %@" : {
+
+    },
+    "Schließen" : {
+
+    },
+    "Schlüssel" : {
+
+    },
+    "Schlüssel für diesen Mac erzeugen" : {
+
+    },
+    "Senden" : {
+
+    },
+    "Server" : {
+
+    },
+    "Shell" : {
+
+    },
+    "Sichern" : {
+
+    },
+    "Sobald auf einem Host ein Agent läuft, erscheint er hier." : {
+
+    },
+    "Socket" : {
+
+    },
+    "Später" : {
+
+    },
+    "SSH" : {
+
+    },
+    "Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen." : {
+
+    },
+    "unbekannt" : {
+
+    },
+    "Unbekannter Host-Key" : {
+
+    },
+    "Verbindung" : {
+
+    },
+    "Verbindung unterbrochen, Inhalt veraltet" : {
+
+    },
+    "Versuch %u: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Versuch %1$u: %2$@"
+          }
+        }
+      }
+    },
+    "Vertrauen und verbinden" : {
+
+    },
+    "Wählen Sie links einen Agent oder eine Pane." : {
+
+    },
+    "wartet" : {
+
+    },
+    "Wartet auf Antwort" : {
+
+    },
+    "work.staude.internal" : {
+
+    },
+    "z. B. work" : {
+
+    },
+    "Zeile kopieren" : {
+
+    }
+  },
   "version" : "1.0"
 }
