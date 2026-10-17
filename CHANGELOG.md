@@ -102,6 +102,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   has several tabs), then just the agent; a switch next to "agents" sorts
   "grouped" (space order, herdr's default) or "nach Status" (waiting first),
   remembered per device (#44).
+- "spaces" and "agents" fold per host; folded they show the count, agents
+  also how many are waiting; remembered per device (#47).
 
 ### Fixed
 
