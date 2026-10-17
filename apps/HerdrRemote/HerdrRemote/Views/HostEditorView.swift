@@ -41,6 +41,12 @@ struct HostEditorView: View {
                     }
                 }
 
+                Section {
+                    Toggle("Eingaben erlauben", isOn: $config.inputAllowed)
+                } footer: {
+                    Text("Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten.")
+                }
+
                 if let error {
                     Text(error).foregroundStyle(.red)
                 }

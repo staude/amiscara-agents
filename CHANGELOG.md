@@ -46,6 +46,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `scripts/release.sh`: Developer ID archive, export, notarization, stapling
   and Gatekeeper checks, with precondition checks up front; `scripts/bump-build.sh`;
   setup steps in `docs/release.md` (#9).
+- `herdr-core::actions`: `send_prompt` (`agent.prompt`), `send_keys`,
+  `send_text` with `AgentBlocked` and `Rejected` errors (#14).
+- `herdr-ffi`: `HostSession.sendPrompt`, `sendKeys`, `sendText` (#14).
+- Mac app: per-host switch "Eingaben erlauben" (default on), input bar under
+  the pane with one-tap answers while an agent is blocked (1, 2, 3, Enter,
+  Esc), key bar and composer; prompts go to agents, text plus Enter to shells (#14).
+- `scripts/ffi-smoke.sh` tests input against a named test session given in
+  `HERDR_SMOKE_WRITE_SOCKET` and refuses the default socket (#14).
 
 ### Fixed
 

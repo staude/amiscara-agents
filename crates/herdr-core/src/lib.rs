@@ -6,6 +6,7 @@
 //! [`terminal`] turns pane content into styled lines, [`pane`] keeps one
 //! open pane current.
 
+pub mod actions;
 pub mod pane;
 mod state;
 pub mod sync;

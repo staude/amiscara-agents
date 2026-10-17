@@ -74,9 +74,60 @@ print("ok   pane \(pane): \(content.lines.count) lines, \(spans) spans")
 follow.stop()
 session.stop()
 
+// Optional: input. Writes into a pane, so it only runs against an explicit
+// test session (HERDR_SMOKE_WRITE_SOCKET), never the default socket.
+let env = ProcessInfo.processInfo.environment
+if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
+    let defaultSocket = FileManager.default.homeDirectoryForCurrentUser
+        .appending(path: ".config/herdr/herdr.sock").path
+    guard writeSocket != defaultSocket, writeSocket.contains("/sessions/") else {
+        fail("HERDR_SMOKE_WRITE_SOCKET must point to a named test session, not \(writeSocket)")
+    }
+    let probe = Probe()
+    let session = try HostSession.start(endpoint: .local(socketPath: writeSocket), observer: probe)
+    let live = wait(5) {
+        probe.lock.withLock {
+            if case .live = probe.update?.status { return true }
+            return false
+        }
+    }
+    guard live, let shell = probe.lock.withLock({
+        probe.update?.workspaces.flatMap(\.tabs).flatMap(\.panes).first { $0.agent == nil }
+    }) else {
+        fail("test session has no shell pane")
+    }
+    let follow = session.followPane(paneId: shell.paneId, observer: probe)
+    let marker = "herdr-remote-\(UInt32.random(in: 100_000...999_999))"
+    try session.sendText(paneId: shell.paneId, text: "echo \(marker)-ok")
+    try session.sendKeys(paneId: shell.paneId, keys: ["enter"])
+    let echoed = wait(5) {
+        probe.lock.withLock {
+            probe.content?.lines.contains { line in
+                line.spans.map(\.text).joined().trimmingCharacters(in: .whitespaces) == "\(marker)-ok"
+            } ?? false
+        }
+    }
+    guard echoed else { fail("echo output did not appear in \(shell.paneId)") }
+    print("ok   input: text + enter reached \(shell.paneId)")
+
+    do {
+        try session.sendPrompt(paneId: shell.paneId, text: "hello")
+        fail("prompt to a shell was accepted")
+    } catch let error as FfiError {
+        print("ok   input: prompt to a shell refused (\(error))")
+    }
+    do {
+        try session.sendKeys(paneId: shell.paneId, keys: ["no-such-key"])
+        fail("invalid key was accepted")
+    } catch let error as FfiError {
+        print("ok   input: invalid key refused (\(error))")
+    }
+    follow.stop()
+    session.stop()
+}
+
 // Optional: the SSH flow of the app. Set HERDR_SMOKE_SSH=user@host and
 // HERDR_SMOKE_KEY=/path/to/private_key (a key allowed in authorized_keys).
-let env = ProcessInfo.processInfo.environment
 if let target = env["HERDR_SMOKE_SSH"], let keyPath = env["HERDR_SMOKE_KEY"] {
     let parts = target.split(separator: "@", maxSplits: 1).map(String.init)
     guard parts.count == 2 else { fail("HERDR_SMOKE_SSH must be user@host") }
