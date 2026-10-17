@@ -81,6 +81,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   long-press menu on the section header did not open on iPad (#30).
 - Host editor: "Zeile kopieren" turns into a green "Kopiert" for two seconds,
   with haptic feedback on iOS (#33).
+- Dictation: microphone at the left of the key bar; German speech recognition
+  (on the device where possible) writes into the composer while speaking, a
+  second tap or sending stops it; no keyboard needed. While the iPad screen
+  is shared to a Mac, iPadOS gives apps only silence; the app notices after
+  1.5 s and says so instead of recording nothing (#31).
 
 ### Fixed
 

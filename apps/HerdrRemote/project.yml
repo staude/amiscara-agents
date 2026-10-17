@@ -54,6 +54,8 @@ targets:
         # reaches ~/.config/herdr/herdr.sock and SSH hosts, which the
         # sandbox would block.
         com.apple.security.app-sandbox: false
+        # Dictation: the hardened runtime blocks the microphone otherwise.
+        com.apple.security.device.audio-input: true
     info:
       path: HerdrRemote/Info.plist
       properties:
@@ -64,6 +66,8 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: "© 2026 Frank Neumann-Staude"
         ITSAppUsesNonExemptEncryption: false
+        NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
+        NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
   HerdrRemote-iOS:
     type: application
     platform: iOS
@@ -102,6 +106,8 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         NSHumanReadableCopyright: "© 2026 Frank Neumann-Staude"
         ITSAppUsesNonExemptEncryption: false
+        NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
+        NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
         NSLocalNetworkUsageDescription: "Herdr Remote verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft."
         UILaunchScreen: {}
         UIApplicationSceneManifest:

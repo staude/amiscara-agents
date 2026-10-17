@@ -28,6 +28,10 @@
 	<string>© 2026 Frank Neumann-Staude</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Herdr Remote verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Zum Diktieren von Prompts direkt in das Eingabefeld.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Wandelt Ihr Diktat in Text für das Eingabefeld um.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

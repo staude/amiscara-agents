@@ -17,6 +17,9 @@ struct InputBar: View {
     @State private var importingFiles = false
     @State private var choosingPhotos = false
     @FocusState private var composerFocused: Bool
+    @State private var dictation = Dictation()
+    /// Composer text from before dictation started; the transcript follows it.
+    @State private var textBeforeDictation = ""
 
     private var isAgent: Bool { pane.agent != nil }
     private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
@@ -39,7 +42,17 @@ struct InputBar: View {
         }
         .padding(10)
         .disabled(sending || !connection.isLive)
+        .onChange(of: dictation.error) { _, message in
+            if let message { error = message }
+        }
+        .onChange(of: dictation.transcript) { _, spoken in
+            guard dictation.isRunning || !spoken.isEmpty else { return }
+            let base = textBeforeDictation.trimmingCharacters(in: .whitespaces)
+            text = base.isEmpty ? spoken : base + " " + spoken
+        }
+        .onDisappear { dictation.stop() }
         .onChange(of: pane.paneId) {
+            dictation.stop()
             text = ""
             error = nil
             attachments = []
@@ -183,6 +196,8 @@ struct InputBar: View {
 
     private var keys: some View {
         HStack(spacing: 4) {
+            dictationButton
+            Divider().frame(height: 16)
             key("Esc", "esc")
             key("Tab", "tab")
             key("⌃C", "ctrl+c", help: "Control-C")
@@ -223,7 +238,33 @@ struct InputBar: View {
 
     /// Uploads attached images first, then sends the prompt with their paths
     /// appended; agents such as Claude Code read images from those paths.
+    /// Starts and stops dictation into the composer; no keyboard needed.
+    private var dictationButton: some View {
+        Button {
+            toggleDictation()
+        } label: {
+            Image(systemName: dictation.isRunning ? "mic.fill" : "mic")
+                .foregroundStyle(dictation.isRunning ? Color.red : Color.accentColor)
+                .symbolEffect(.pulse, isActive: dictation.isRunning)
+        }
+        .help(dictation.isRunning ? String(localized: "Diktat beenden") : String(localized: "Diktieren"))
+        .accessibilityLabel(dictation.isRunning ? "Diktat beenden" : "Diktieren")
+    }
+
+    private func toggleDictation() {
+        if dictation.isRunning {
+            dictation.stop()
+            return
+        }
+        textBeforeDictation = text
+        Task {
+            await dictation.start()
+            if let message = dictation.error { error = message }
+        }
+    }
+
     private func submit() {
+        if dictation.isRunning { dictation.stop() }
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty || !attachments.isEmpty else { return }
         let pending = attachments
