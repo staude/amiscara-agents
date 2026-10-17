@@ -16,6 +16,8 @@ struct HostSidebar: View {
     @Binding var selection: SpaceRef?
     @Binding var editing: HostConfig?
     @State private var newSpaceOn: HostConnection?
+    /// herdr's own switch under "agents": by space ("grouped") or by state.
+    @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
 
     var body: some View {
         List(selection: $selection) {
@@ -78,10 +80,17 @@ struct HostSidebar: View {
                 .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
         }
         if !update.board.isEmpty {
-            SubHeader(title: String(localized: "Agents"))
-            ForEach(update.board, id: \.paneId) { agent in
-                AgentRow(agent: agent)
-                    .tag(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId))
+            HStack {
+                SubHeader(title: String(localized: "Agents"))
+                Spacer()
+                Button(agentOrder.label) { agentOrder = agentOrder.next }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .help(String(localized: "Sortierung umschalten"))
+            }
+            ForEach(AgentOrder.sorted(update, by: agentOrder), id: \.agent.paneId) { entry in
+                AgentRow(agent: entry.agent, tabNumber: entry.tabNumber)
+                    .tag(SpaceRef(hostID: connection.id, workspaceID: entry.agent.workspaceId, paneID: entry.agent.paneId))
             }
         }
     }
@@ -232,8 +241,11 @@ private struct SpaceRow: View {
     }
 }
 
+/// An agent the way herdr's sidebar shows it by default: state, space and
+/// tab number (only when the space has several tabs), then the agent.
 private struct AgentRow: View {
     let agent: BoardItem
+    let tabNumber: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -241,7 +253,7 @@ private struct AgentRow: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text("\(agent.workspaceLabel) · \(agent.tabLabel)")
+                    Text(tabNumber.map { "\(agent.workspaceLabel) · \($0)" } ?? agent.workspaceLabel)
                         .lineLimit(1)
                     if agent.agentState != .idle {
                         Text(agent.agentState.label)
@@ -249,16 +261,65 @@ private struct AgentRow: View {
                             .foregroundStyle(agent.agentState.color)
                     }
                 }
-                Text(subtitle)
+                Text(agent.agent)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
     }
+}
 
-    private var subtitle: String {
-        agent.title.isEmpty || agent.title == agent.agent ? agent.agent : "\(agent.agent) · \(agent.title)"
+/// Order of the agents list, switchable like in herdr.
+enum AgentOrder: String {
+    /// Space order, then tab: herdr's default ("grouped").
+    case grouped
+    /// Waiting first, then working, done, idle.
+    case status
+
+    var label: String {
+        switch self {
+        case .grouped: String(localized: "grouped")
+        case .status: String(localized: "nach Status")
+        }
+    }
+
+    var next: AgentOrder { self == .grouped ? .status : .grouped }
+
+    struct Entry {
+        let agent: BoardItem
+        /// Tab label, only when the agent's space has more than one tab.
+        let tabNumber: String?
+    }
+
+    static func sorted(_ update: SessionUpdate, by order: AgentOrder) -> [Entry] {
+        let spaces = SpaceOrder.arrange(update.workspaces).map(\.workspace)
+        // The data comes from the server; duplicate ids must not crash the
+        // app (uniqueKeysWithValues traps), the first entry wins.
+        let spaceIndex = Dictionary(spaces.enumerated().map { ($1.workspaceId, $0) }, uniquingKeysWith: { first, _ in first })
+        let tabs = Dictionary(update.workspaces.flatMap(\.tabs).map { ($0.tabId, $0) }, uniquingKeysWith: { first, _ in first })
+        let tabCount = Dictionary(update.workspaces.map { ($0.workspaceId, $0.tabs.count) }, uniquingKeysWith: { first, _ in first })
+
+        // The board arrives sorted by urgency; keep that as the tie-breaker.
+        let ranked = update.board.enumerated().map { (index: $0, agent: $1) }
+        let ordered = ranked.sorted { a, b in
+            let place = { (item: (index: Int, agent: BoardItem)) in
+                (spaceIndex[item.agent.workspaceId] ?? Int.max, Int(tabs[item.agent.tabId]?.number ?? UInt32.max))
+            }
+            switch order {
+            case .grouped:
+                return (place(a).0, place(a).1, a.index) < (place(b).0, place(b).1, b.index)
+            case .status:
+                return (a.agent.agentState.urgency, place(a).0, place(a).1, a.index)
+                    < (b.agent.agentState.urgency, place(b).0, place(b).1, b.index)
+            }
+        }
+        return ordered.map { item in
+            Entry(
+                agent: item.agent,
+                tabNumber: (tabCount[item.agent.workspaceId] ?? 0) > 1 ? item.agent.tabLabel : nil
+            )
+        }
     }
 }
 
