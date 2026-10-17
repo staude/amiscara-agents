@@ -4,6 +4,10 @@ import SwiftUI
 struct BoardView: View {
     @Environment(HostStore.self) private var store
     @Binding var selection: PaneRef?
+    @Binding var editing: HostConfig?
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
 
     private struct Entry: Identifiable {
         let host: HostConnection
@@ -30,14 +34,42 @@ struct BoardView: View {
             }
         }
         .navigationTitle("Board")
+        .toolbar {
+            #if os(iOS)
+            // On iPhone the board is the first screen and the sidebar is one
+            // step back, so the board offers adding a host as well.
+            if sizeClass == .compact {
+                ToolbarItem(placement: .primaryAction) {
+                    AddHostButton(editing: $editing)
+                }
+            }
+            #endif
+        }
         .overlay {
-            if entries.isEmpty {
+            if store.connections.isEmpty {
+                NoHostsView(editing: $editing)
+            } else if entries.isEmpty {
                 ContentUnavailableView(
                     "Keine Agents",
                     systemImage: "rectangle.stack",
                     description: Text("Sobald auf einem Host ein Agent läuft, erscheint er hier.")
                 )
             }
+        }
+    }
+}
+
+struct NoHostsView: View {
+    @Binding var editing: HostConfig?
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Keine Hosts", systemImage: "server.rack")
+        } description: {
+            Text("Fügen Sie einen Rechner hinzu, auf dem herdr läuft.")
+        } actions: {
+            AddHostButton(editing: $editing)
+                .buttonStyle(.borderedProminent)
         }
     }
 }
