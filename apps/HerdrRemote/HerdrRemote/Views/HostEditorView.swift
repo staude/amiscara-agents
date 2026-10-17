@@ -13,11 +13,17 @@ struct HostEditorView: View {
     /// Set for a moment after "Zeile kopieren", so the tap visibly worked.
     @State private var copied = false
     private let isNew: Bool
+    /// An "add host" link opened from outside, applied once on appear.
+    private let importLink: String?
+    @State private var scanning = false
+    /// Why a scanned or pasted code was refused, shown next to the buttons.
+    @State private var importError: String?
 
-    init(config: HostConfig) {
+    init(config: HostConfig, importLink: String? = nil) {
         _config = State(initialValue: config)
         original = config
         isNew = config.name.isEmpty
+        self.importLink = importLink
     }
 
     var body: some View {
@@ -33,6 +39,7 @@ struct HostEditorView: View {
                 }
 
                 if config.kind == .ssh {
+                    importSection
                     Section("Server") {
                         TextField("Host", text: $config.host, prompt: Text("work.staude.internal"))
                             .technicalInput()
@@ -42,6 +49,7 @@ struct HostEditorView: View {
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
                             .technicalInput()
                     }
+                    hostKeySection
                     keySection
                 } else {
                     Section("Socket") {
@@ -83,6 +91,48 @@ struct HostEditorView: View {
         #endif
         // A swipe down would drop changes silently on iPad.
         .interactiveDismissDisabled(config != original || newPrivateKey != nil)
+        .task {
+            if let importLink { applyLink(importLink) }
+        }
+        #if os(iOS)
+        .sheet(isPresented: $scanning) {
+            QRScannerView { link in apply(link) }
+        }
+        #endif
+    }
+
+    /// Fill in everything from a code another device shows (its host menu,
+    /// "QR-Code zeigen"): nothing to type, the host key is pinned at once.
+    private var importSection: some View {
+        Section {
+            #if os(iOS)
+            Button("QR-Code scannen", systemImage: "qrcode.viewfinder") { scanning = true }
+            #endif
+            PasteButton(payloadType: String.self) { strings in
+                guard let text = strings.first else { return }
+                Task { @MainActor in applyLink(text) }
+            }
+            if let importError {
+                Text(importError).foregroundStyle(.red)
+            }
+        } header: {
+            Text("Per QR-Code")
+        } footer: {
+            Text("Auf dem Mac in Herdr Remote im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen.")
+        }
+    }
+
+    @ViewBuilder
+    private var hostKeySection: some View {
+        if let key = config.pinnedHostKey {
+            Section {
+                LabeledContent("Host-Key", value: (try? publicKeyFingerprint(publicOpenssh: key)) ?? key)
+                    .font(.caption)
+                    .textSelection(.enabled)
+            } footer: {
+                Text("Diesem Schlüssel vertraut die App. Meldet sich der Server mit einem anderen, warnt sie.")
+            }
+        }
     }
 
     @ViewBuilder
@@ -150,6 +200,36 @@ struct HostEditorView: View {
         let stored = newPrivateKey == nil ? try KeyStore.load(for: config.id) : newPrivateKey
         guard let key = stored else { return nil }
         return try describeSshKey(privateOpenssh: key).fingerprint
+    }
+
+    private func applyLink(_ text: String) {
+        do {
+            apply(try decodeAddHostLink(text: text))
+        } catch {
+            importError = hostLinkErrorMessage(error)
+        }
+    }
+
+    private func apply(_ link: AddHostLink) {
+        if let conflict = store.hostKeyConflict(for: link, editing: original) {
+            importError = conflict
+            return
+        }
+        if config.name.trimmingCharacters(in: .whitespaces).isEmpty {
+            config.name = link.name
+        }
+        config.kind = .ssh
+        config.host = link.host
+        config.port = Int(link.port)
+        config.user = link.user
+        // Keep the field empty for the default, like a host typed in by hand.
+        config.socketPath = link.socketPath == defaultRemoteSocket(user: link.user) ? "" : link.socketPath
+        config.pinnedHostKey = link.hostKey
+        importError = nil
+        // The authorized_keys line is the one step left; show it right away.
+        if config.publicKey == nil {
+            generateKey()
+        }
     }
 
     private func generateKey() {

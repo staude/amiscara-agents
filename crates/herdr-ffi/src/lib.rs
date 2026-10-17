@@ -6,6 +6,7 @@
 //! the app hops to its UI thread itself. Keys live in the app (Keychain) and
 //! are handed over as OpenSSH text.
 
+mod add_host;
 mod convert;
 
 use std::sync::{Arc, Mutex, OnceLock};
@@ -19,6 +20,10 @@ use tokio::runtime::Runtime;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
+pub use add_host::{
+    ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, decode_add_host_link, encode_add_host_link,
+    public_key_fingerprint,
+};
 pub use convert::{
     AgentState, BoardItem, HostStatus, PaneContent, PaneItem, SessionUpdate, StyledLine,
     StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
@@ -46,6 +51,10 @@ pub enum FfiError {
     /// refused the write).
     #[error("{0}")]
     Upload(String),
+    /// A scanned or opened "add host" link was refused; the message is
+    /// German and meant for the user as is.
+    #[error("{0}")]
+    InvalidLink(String),
 }
 
 impl From<actions::ActionError> for FfiError {

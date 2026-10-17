@@ -68,6 +68,11 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
+        CFBundleURLTypes:
+          # "Add host" links, see crates/herdr-ffi/src/add_host.rs.
+          - CFBundleURLName: net.staude.herdrremote.add-host
+            CFBundleURLSchemes:
+              - herdr-remote
   HerdrRemote-iOS:
     type: application
     platform: iOS
@@ -108,6 +113,11 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
+        NSCameraUsageDescription: "Zum Scannen des QR-Codes, mit dem Sie einen Host hinzufügen."
+        CFBundleURLTypes:
+          - CFBundleURLName: net.staude.herdrremote.add-host
+            CFBundleURLSchemes:
+              - herdr-remote
         NSLocalNetworkUsageDescription: "Herdr Remote verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft."
         UILaunchScreen: {}
         UIApplicationSceneManifest:

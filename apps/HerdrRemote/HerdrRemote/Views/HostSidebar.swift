@@ -16,6 +16,7 @@ struct HostSidebar: View {
     @Binding var selection: SpaceRef?
     @Binding var editing: HostConfig?
     @State private var newSpaceOn: HostConnection?
+    @State private var showingQR: HostConfig?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
     /// Folded sections as "hostID/spaces" or "hostID/agents", one per line;
@@ -60,6 +61,9 @@ struct HostSidebar: View {
                 NoHostsView(editing: $editing)
             }
         }
+        .sheet(item: $showingQR) { config in
+            HostQRView(config: config)
+        }
         .sheet(item: $newSpaceOn) { connection in
             NewSpaceView(connection: connection) { created in
                 selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
@@ -71,6 +75,7 @@ struct HostSidebar: View {
     private func hostActions(_ connection: HostConnection) -> some View {
         Button("Bearbeiten …", systemImage: "pencil") { editing = connection.config }
         Button("Neu verbinden", systemImage: "arrow.clockwise") { connection.start() }
+        Button("QR-Code zeigen …", systemImage: "qrcode") { showingQR = connection.config }
         Divider()
         Button("Entfernen", systemImage: "trash", role: .destructive) {
             store.remove(connection.id)
