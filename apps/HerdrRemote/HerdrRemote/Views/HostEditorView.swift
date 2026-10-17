@@ -85,7 +85,7 @@ struct HostEditorView: View {
         } header: {
             Text("Schlüssel")
         } footer: {
-            Text("Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel kann damit nur Kanäle zum herdr-Socket öffnen, keine Shell und keine Befehle.")
+            Text("Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen.")
         }
     }
 
