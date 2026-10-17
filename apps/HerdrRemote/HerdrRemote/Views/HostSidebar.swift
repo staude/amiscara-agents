@@ -15,6 +15,7 @@ struct HostSidebar: View {
     @Environment(HostStore.self) private var store
     @Binding var selection: SpaceRef?
     @Binding var editing: HostConfig?
+    @Binding var switching: Bool
     @State private var newSpaceOn: HostConnection?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
@@ -53,6 +54,11 @@ struct HostSidebar: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 AddHostButton(editing: $editing)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Schnell wechseln", systemImage: "magnifyingglass") { switching = true }
+                    .help(String(localized: "Space oder Agent suchen (⌘K)"))
+                    .disabled(store.connections.isEmpty)
             }
         }
         .overlay {

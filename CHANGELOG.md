@@ -104,6 +104,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Quick switcher (⌘K, or the magnifier in the sidebar): searches spaces and
+  agents on all hosts by name, branch, agent and title and jumps there.
+  Keyboard shortcuts in the "Gehe zu" and "Tasten" menus: ⌘1 to ⌘9 for the
+  spaces of the current host, ⇧⌘[ and ⇧⌘] for tabs, ⌘. Esc, ⌃C, ⇧⌘↩ Enter,
+  ⌥⌘ arrows and ⌥⌘1 to ⌥⌘3 for the key bar (#60).
 
 ### Fixed
 
