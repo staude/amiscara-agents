@@ -9,7 +9,10 @@ struct TerminalScreenView: View {
 
     var body: some View {
         ScrollView([.vertical, .horizontal]) {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            // A plain VStack: the visible screen is about 60 lines, and a
+            // LazyVStack in a two-axis scroll view could stay undrawn until
+            // the content changed (a black pane on the iPad).
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(content.lines.enumerated()), id: \.offset) { _, line in
                     Text(TerminalStyle.attributed(line, fontSize: fontSize))
                         .fixedSize()
@@ -19,6 +22,13 @@ struct TerminalScreenView: View {
             .padding(10)
             .textSelection(.enabled)
         }
+        // Like a terminal: start at the bottom, where the latest output and
+        // the agent's prompt are, and stay there when new lines arrive.
+        .defaultScrollAnchor(.bottomLeading)
+        .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
+        // A fresh scroll view per pane, so the previous pane's scroll
+        // position cannot leave the new one out of sight.
+        .id(content.paneId)
         .background(TerminalStyle.background)
         .environment(\.colorScheme, .dark)
     }

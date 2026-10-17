@@ -108,6 +108,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
+- Pane view no longer stays black after switching panes: a fresh scroll view
+  per pane, a plain stack instead of a lazy one, and the view starts at the
+  bottom like a terminal (#50).
 - `scripts/install-ios.sh` regenerates the Xcode project first, so it builds
   after a branch switch with added or removed files (#38).
 - Xcode builds: `build-ffi.sh` works with the bash 3.2 that Xcode runs, the
