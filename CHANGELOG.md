@@ -14,3 +14,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `Connection::open_channel` and `request_on` to open a request channel ahead of time.
 - `herdr-spike` read-only probe with `ping`, `list`, `read`, `watch` and `bench`.
 - Competitor research in `docs/marktbegleiter.md`.
+
+### Fixed
+
+- Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
