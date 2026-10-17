@@ -1,6 +1,7 @@
 import AVFoundation
 import Observation
 import Speech
+import Synchronization
 
 /// Dictation straight into the composer, without bringing up the keyboard
 /// first: apps cannot start the system dictation, so this uses the Speech
@@ -63,8 +64,13 @@ final class Dictation {
 
     private func begin(with recognizer: SFSpeechRecognizer) throws {
         #if os(iOS)
+        // Non-mixable (no `.duckOthers`), default mode (not `.measurement`),
+        // built-in microphone preferred. Tested on the iPad Pro M5.
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+            try session.setPreferredInput(builtIn)
+        }
         try session.setActive(true, options: .notifyOthersOnDeactivation)
         #endif
 
@@ -80,8 +86,13 @@ final class Dictation {
         let engine = AVAudioEngine()
         self.engine = engine
         feed.install(on: engine.inputNode)
+        // Pull the input through the graph, silently. Without a connection
+        // the input node may not be rendered.
+        engine.connect(engine.inputNode, to: engine.mainMixerNode, format: engine.inputNode.outputFormat(forBus: 0))
+        engine.mainMixerNode.outputVolume = 0
         engine.prepare()
         try engine.start()
+        watchForSilence(feed)
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
@@ -93,6 +104,18 @@ final class Dictation {
                 if let message, self.transcript.isEmpty { self.error = message }
                 if done && self.isRunning { self.stop() }
             }
+        }
+    }
+
+    /// iPadOS hands apps pure silence (no microphone indicator) while the
+    /// screen is shared to a Mac; system dictation still works then. A real
+    /// microphone never delivers exact zeros for long, so stop and say why.
+    private func watchForSilence(_ feed: AudioFeed) {
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(1500))
+            guard let self, self.isRunning, self.feed === feed, feed.peak == 0 else { return }
+            self.stop()
+            self.error = String(localized: "Das iPad liefert kein Mikrofonsignal an die App, zum Beispiel während einer Bildschirmfreigabe zum Mac. Freigabe beenden oder das Diktat der Tastatur nutzen.")
         }
     }
 
@@ -138,15 +161,28 @@ final class Dictation {
 /// actor after the tap is removed.
 private final class AudioFeed: @unchecked Sendable {
     let request: SFSpeechAudioBufferRecognitionRequest
+    private let level = Mutex<Float>(0)
 
     init(request: SFSpeechAudioBufferRecognitionRequest) {
         self.request = request
     }
 
+    /// Loudest sample so far; exactly 0 means the system sends silence.
+    var peak: Float { level.withLock { $0 } }
+
     nonisolated func install(on input: AVAudioInputNode) {
         let format = input.outputFormat(forBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [request] buffer, _ in
-            request.append(buffer)
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [self] buffer, _ in
+            receive(buffer)
         }
+    }
+
+    private nonisolated func receive(_ buffer: AVAudioPCMBuffer) {
+        if let samples = buffer.floatChannelData?[0] {
+            var loudest: Float = 0
+            for i in 0..<Int(buffer.frameLength) { loudest = max(loudest, abs(samples[i])) }
+            level.withLock { $0 = max($0, loudest) }
+        }
+        request.append(buffer)
     }
 }

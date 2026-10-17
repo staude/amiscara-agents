@@ -83,7 +83,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   with haptic feedback on iOS (#33).
 - Dictation: microphone at the left of the key bar; German speech recognition
   (on the device where possible) writes into the composer while speaking, a
-  second tap or sending stops it; no keyboard needed (#31).
+  second tap or sending stops it; no keyboard needed. While the iPad screen
+  is shared to a Mac, iPadOS gives apps only silence; the app notices after
+  1.5 s and says so instead of recording nothing (#31).
 
 ### Fixed
 
