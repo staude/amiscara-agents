@@ -104,6 +104,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   remembered per device (#44).
 - "spaces" and "agents" fold per host; folded they show the count, agents
   also how many are waiting; remembered per device (#47).
+- Start an agent in a new space or tab: "Agent starten" in the "Neuer Space"
+  sheet (last choice remembered) and a menu next to the tab "+". The core
+  calls `agent.start`, names the agent after its kind (`claude-2` when taken)
+  and waits a few seconds for a pane that is still starting its shell (#57).
 
 ### Fixed
 

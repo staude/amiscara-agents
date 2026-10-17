@@ -129,14 +129,19 @@ struct HostSidebar: View {
     }
 }
 
-/// Name and directory for a new space.
+/// Name and directory for a new space, optionally with an agent started
+/// in its first pane.
 private struct NewSpaceView: View {
     let connection: HostConnection
     let onCreated: (Created) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var directory = "~"
+    /// The last choice, so whoever always starts claude picks it once.
+    @AppStorage("newSpaceAgentKind") private var agentKind: String?
     @State private var creating = false
+    /// Set when the space exists but its agent did not start.
+    @State private var createdWithoutAgent = false
     @State private var error: String?
 
     var body: some View {
@@ -150,6 +155,7 @@ private struct NewSpaceView: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
+                AgentPicker(connection: connection, kind: $agentKind)
                 if let error {
                     Text(error).foregroundStyle(.red)
                 }
@@ -158,31 +164,44 @@ private struct NewSpaceView: View {
             .navigationTitle("Neuer Space auf \(connection.config.name)")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button(createdWithoutAgent ? "Schließen" : "Abbrechen") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Anlegen") { create() }
-                        .disabled(creating)
+                        .disabled(creating || createdWithoutAgent)
                 }
             }
         }
         #if os(macOS)
-        .frame(width: 440, height: 260)
+        .frame(width: 440, height: 300)
         #endif
     }
 
     private func create() {
         creating = true
         error = nil
+        let kind = agentKind
         Task {
             defer { creating = false }
+            let created: Created
             do {
-                let created = try await connection.createSpace(label: name, directory: directory)
-                onCreated(created)
-                dismiss()
+                created = try await connection.createSpace(label: name, directory: directory)
             } catch {
                 self.error = inputErrorMessage(error)
+                return
             }
+            onCreated(created)
+            if let kind {
+                do {
+                    _ = try await connection.startAgent(kind: kind, in: created.paneId)
+                } catch {
+                    // The space exists; "Anlegen" again would make a second one.
+                    createdWithoutAgent = true
+                    self.error = agentStartErrorMessage(error)
+                    return
+                }
+            }
+            dismiss()
         }
     }
 }
