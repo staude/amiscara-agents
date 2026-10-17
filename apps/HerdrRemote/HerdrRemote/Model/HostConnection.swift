@@ -67,6 +67,17 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Uploads images and returns their paths on the host, in order.
+    func upload(_ attachments: [ImageAttachment]) async throws -> [String] {
+        guard config.uploadAllowed else { throw ConnectionFailure.uploadOff }
+        let session = try writableSession()
+        return try await Task.detached {
+            try attachments.map { attachment in
+                try session.uploadFile(data: attachment.data, fileExtension: attachment.fileExtension)
+            }
+        }.value
+    }
+
     /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
     func send(keys: [String], to paneID: String) async throws {
         let session = try writableSession()
@@ -108,6 +119,7 @@ enum ConnectionFailure: LocalizedError {
     case missingKey
     case readOnly
     case notConnected
+    case uploadOff
 
     var errorDescription: String? {
         switch self {
@@ -117,6 +129,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Eingaben sind für diesen Host ausgeschaltet.")
         case .notConnected:
             String(localized: "Keine Verbindung zum Host.")
+        case .uploadOff:
+            String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
         }
     }
 }
@@ -128,6 +142,8 @@ func inputErrorMessage(_ error: Error) -> String {
         String(localized: "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten.")
     case FfiError.NotConnected:
         String(localized: "Keine Verbindung zum Host.")
+    case FfiError.Upload(let message):
+        String(localized: "Hochladen fehlgeschlagen: \(message)")
     default:
         error.localizedDescription
     }

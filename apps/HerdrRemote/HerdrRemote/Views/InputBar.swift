@@ -1,4 +1,6 @@
+import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Input under the pane screen: one-tap answers while an agent waits, a key
 /// bar, and a composer. Answers appear only here, next to the screen they
@@ -10,6 +12,9 @@ struct InputBar: View {
     @State private var text = ""
     @State private var sending = false
     @State private var error: String?
+    @State private var attachments: [ImageAttachment] = []
+    @State private var pickedPhotos: [PhotosPickerItem] = []
+    @State private var importingFiles = false
     @FocusState private var composerFocused: Bool
 
     private var isAgent: Bool { pane.agent != nil }
@@ -21,6 +26,9 @@ struct InputBar: View {
                 answerRow
             }
             keyRow
+            if !attachments.isEmpty {
+                attachmentRow
+            }
             composer
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle")
@@ -33,6 +41,90 @@ struct InputBar: View {
         .onChange(of: pane.paneId) {
             text = ""
             error = nil
+            attachments = []
+        }
+        .onChange(of: pickedPhotos) { _, items in
+            guard !items.isEmpty else { return }
+            pickedPhotos = []
+            Task { await addPhotos(items) }
+        }
+        .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+            addFiles(result)
+        }
+    }
+
+    private var attachmentRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(attachments) { attachment in
+                    ZStack(alignment: .topTrailing) {
+                        Group {
+                            if let preview = attachment.preview {
+                                Image(decorative: preview, scale: 1)
+                                    .resizable()
+                                    .scaledToFill()
+                            } else {
+                                Image(systemName: "photo").foregroundStyle(.secondary)
+                            }
+                        }
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        Button {
+                            attachments.removeAll { $0.id == attachment.id }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, .black.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(2)
+                        .accessibilityLabel("Bild entfernen")
+                    }
+                }
+            }
+        }
+    }
+
+    private var attachMenu: some View {
+        Menu {
+            PhotosPicker(selection: $pickedPhotos, maxSelectionCount: 5, matching: .images) {
+                Label("Fotos", systemImage: "photo.on.rectangle")
+            }
+            Button("Dateien …", systemImage: "folder") { importingFiles = true }
+        } label: {
+            Image(systemName: "paperclip")
+        }
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .disabled(!connection.config.uploadAllowed)
+        .help(connection.config.uploadAllowed
+            ? String(localized: "Bild anhängen")
+            : String(localized: "Bilder hochladen ist für diesen Host aus (Host bearbeiten)"))
+    }
+
+    private func addPhotos(_ items: [PhotosPickerItem]) async {
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+            if let attachment = ImageAttachment.make(data: data, type: item.supportedContentTypes.first) {
+                attachments.append(attachment)
+            } else {
+                error = String(localized: "Ein Bild konnte nicht gelesen werden.")
+            }
+        }
+    }
+
+    private func addFiles(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result else { return }
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url),
+                  let attachment = ImageAttachment.make(data: data, type: UTType(filenameExtension: url.pathExtension))
+            else {
+                error = String(localized: "\(url.lastPathComponent) ist kein lesbares Bild.")
+                continue
+            }
+            attachments.append(attachment)
         }
     }
 
@@ -100,6 +192,7 @@ struct InputBar: View {
 
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            attachMenu
             TextField(
                 isAgent ? "Prompt an \(pane.agent ?? "Agent")" : "Befehl",
                 text: $text,
@@ -110,17 +203,23 @@ struct InputBar: View {
             .focused($composerFocused)
             .onSubmit(submit)
             Button(isAgent ? "Senden" : "Ausführen", systemImage: "paperplane.fill", action: submit)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)
                 .keyboardShortcut(.return, modifiers: .command)
         }
     }
 
+    /// Uploads attached images first, then sends the prompt with their paths
+    /// appended; agents such as Claude Code read images from those paths.
     private func submit() {
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return }
+        guard !prompt.isEmpty || !attachments.isEmpty else { return }
+        let pending = attachments
         perform {
-            try await connection.submit(prompt, to: pane.paneId, isAgent: isAgent)
+            let paths = pending.isEmpty ? [] : try await connection.upload(pending)
+            let full = ([prompt] + paths).filter { !$0.isEmpty }.joined(separator: isAgent ? "\n" : " ")
+            try await connection.submit(full, to: pane.paneId, isAgent: isAgent)
             text = ""
+            attachments.removeAll { item in pending.contains { $0.id == item.id } }
         }
     }
 

@@ -86,6 +86,13 @@ Under the pane it sends prompts to agents, text to shells and keys such as
 Enter, Esc or 1/2/3 to answer an agent waiting for approval. Each host has a
 switch to keep it read-only.
 
+Images: the paperclip in the composer uploads pictures to
+`~/.herdr-remote/uploads/` on the host and appends their paths to the prompt.
+For SSH hosts this needs the switch "Bilder hochladen (SFTP)" and the key line
+with `command="/usr/libexec/sftp-server"` instead of `/usr/bin/false`. That key
+can then read and write every file of the user, including
+`~/.ssh/authorized_keys`, so it is effectively full access to that account.
+
 Test input only against a separate session, never the one with real work:
 
 ```sh

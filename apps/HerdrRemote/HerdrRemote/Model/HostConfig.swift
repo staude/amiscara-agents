@@ -31,6 +31,15 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
         get { allowInput ?? true }
         set { allowInput = newValue }
     }
+    /// Whether images may be uploaded over SFTP. Off by default: the key
+    /// line then runs `sftp-server`, which can read and write every file of
+    /// the user on that host.
+    var allowUpload: Bool?
+
+    var uploadAllowed: Bool {
+        get { kind == .local || (allowUpload ?? false) }
+        set { allowUpload = newValue }
+    }
 
     static func local() -> HostConfig {
         HostConfig(name: String(localized: "Dieser Mac"), kind: .local)
