@@ -207,3 +207,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Host status is a button on all platforms: it shows the state, the full error,
   a hint for common causes (VPN off, SSH off, socket missing, key not
   authorized) and "Jetzt verbinden"; tooltips never showed on iPad (#22).
+- History for full-screen programs such as Claude Code: when herdr has no
+  rows above the screen, the pane says so instead of seeming to load
+  nothing (#101).
