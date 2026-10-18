@@ -196,12 +196,16 @@ pub fn key_fingerprint(public_key: String) -> Result<String, AppError> {
     Ok(herdr_session::public_key_fingerprint(public_key)?)
 }
 
-/// Adds the host of a confirmed link, its host key already trusted, with a
-/// new key of its own.
+/// Adds the host of a confirmed link with a new key of its own.
+/// `trust_host_key` pins the link's host key; only for links the user pasted
+/// from their own device. A link opened through the URL scheme can come from
+/// any web page, so its key is not trusted: the first connection asks for
+/// the fingerprint as usual.
 #[tauri::command]
 pub async fn add_from_link(
     state: State<'_, AppState>,
     link: AddHostLink,
+    trust_host_key: bool,
 ) -> Result<HostConfig, AppError> {
     let socket_path = if link.socket_path.is_empty() {
         format!("/Users/{}/.config/herdr/herdr.sock", link.user)
@@ -220,7 +224,7 @@ pub async fn add_from_link(
         port: link.port,
         user: link.user,
         socket_path,
-        pinned_host_key: Some(link.host_key),
+        pinned_host_key: trust_host_key.then_some(link.host_key),
         public_key: None,
         auth: Auth::Key,
         allow_input: None,

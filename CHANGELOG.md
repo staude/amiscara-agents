@@ -284,7 +284,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Secret Service), never in the file. SSH with a key of its own (restricted
   `authorized_keys` line with copy button) or the SSH agent; on Linux also
   the local socket. Host key prompt with fingerprint, "add host" links pasted
-  or opened (`amiscara-agents://`), sidebar with spaces and panes, live pane
+  or opened (`amiscara-agents://`; an opened link pins no host key, the first
+  connection asks for the fingerprint), sidebar with spaces and panes, live pane
   view with prompt input.
 
 ### Changed

@@ -26,7 +26,8 @@
   async function add() {
     if (!link) return;
     try {
-      const host = await core.addFromLink(link);
+      // Only a pasted link is trusted, see `add_from_link`.
+      const host = await core.addFromLink(link, !url);
       model.replace(host);
       await core.connect(host.id);
       close();
@@ -66,10 +67,17 @@
         <dt>Host-Key</dt>
         <dd class="mono">{fingerprint}</dd>
       </dl>
-      <p class="small">
-        Der Host-Key aus dem Link gilt als bestätigt, wenn der Link vom eigenen Gerät stammt. Danach die Schlüsselzeile dieses Geräts auf dem
-        Rechner eintragen.
-      </p>
+      {#if url}
+        <p class="warn">
+          Dieser Link wurde von außen geöffnet. Prüfen Sie Host und Benutzer. Den Fingerabdruck fragt die
+          App bei der ersten Verbindung ab.
+        </p>
+      {:else}
+        <p class="small">
+          Der Host-Key aus dem eingefügten Link gilt als bestätigt. Danach die Schlüsselzeile dieses
+          Geräts auf dem Rechner eintragen.
+        </p>
+      {/if}
     {/if}
     {#if error}<p class="error">{error}</p>{/if}
     <div class="buttons">
@@ -129,7 +137,8 @@
     color: var(--secondary);
     margin: 0;
   }
-  .error {
+  .error,
+  .warn {
     color: #d70015;
     margin: 0;
   }

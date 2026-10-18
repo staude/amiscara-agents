@@ -21,7 +21,8 @@ export const keyLine = (hostId: string, allowSftp: boolean) =>
 export const decodeLink = (text: string) => invoke<AddHostLink>("decode_link", { text });
 export const keyFingerprint = (publicKey: string) =>
   invoke<string>("key_fingerprint", { publicKey });
-export const addFromLink = (link: AddHostLink) => invoke<HostConfig>("add_from_link", { link });
+export const addFromLink = (link: AddHostLink, trustHostKey: boolean) =>
+  invoke<HostConfig>("add_from_link", { link, trustHostKey });
 export const pendingLinks = () => invoke<string[]>("pending_links");
 export const connect = (hostId: string) => invoke<void>("connect", { hostId });
 export const disconnect = (hostId: string) => invoke<void>("disconnect", { hostId });
