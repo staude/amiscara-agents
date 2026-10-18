@@ -4,7 +4,7 @@ use herdr_core::SessionState;
 use herdr_core::pane::PaneScreen;
 use herdr_core::sync::{SyncState, SyncStatus};
 use herdr_core::terminal::{Color, Span};
-use herdr_proto::{AgentStatus, PaneInfo};
+use herdr_proto::{AgentStatus, PaneInfo, TabLayout};
 
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum HostStatus {
@@ -76,6 +76,30 @@ pub struct TabItem {
     pub focused: bool,
     pub agent_state: AgentState,
     pub panes: Vec<PaneItem>,
+    /// Where herdr draws each pane; `None` if the server sent no layout.
+    pub layout: Option<SplitLayout>,
+}
+
+/// The arrangement of a tab's panes in terminal cells, as herdr draws it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SplitLayout {
+    /// Size of the whole tab area.
+    pub columns: u32,
+    pub rows: u32,
+    /// herdr shows only the focused pane right now; the frames still
+    /// describe the split.
+    pub zoomed: bool,
+    pub panes: Vec<PaneFrame>,
+}
+
+/// One pane's rectangle, relative to the tab area's top left corner.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PaneFrame {
+    pub pane_id: String,
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -232,6 +256,7 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
                             focused: pane.focused,
                         })
                         .collect(),
+                    layout: session.layout(&tab.tab_id).map(split_layout),
                 })
                 .collect(),
         })
@@ -317,6 +342,26 @@ fn styled_span(span: &Span) -> StyledSpan {
     }
 }
 
+fn split_layout(layout: &TabLayout) -> SplitLayout {
+    let area = layout.area;
+    SplitLayout {
+        columns: area.width.into(),
+        rows: area.height.into(),
+        zoomed: layout.zoomed,
+        panes: layout
+            .panes
+            .iter()
+            .map(|pane| PaneFrame {
+                pane_id: pane.pane_id.clone(),
+                x: pane.rect.x.saturating_sub(area.x).into(),
+                y: pane.rect.y.saturating_sub(area.y).into(),
+                width: pane.rect.width.into(),
+                height: pane.rect.height.into(),
+            })
+            .collect(),
+    }
+}
+
 /// Last path component of a worktree checkout.
 fn worktree_name(checkout_path: &str) -> String {
     checkout_path
@@ -362,6 +407,41 @@ impl From<Color> for TermColor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use herdr_proto::{CellRect, LayoutPane};
+
+    #[test]
+    fn frames_are_relative_to_the_area() {
+        let rect = |x, y, width, height| CellRect {
+            x,
+            y,
+            width,
+            height,
+        };
+        let pane = |id: &str, rect| LayoutPane {
+            pane_id: id.to_owned(),
+            focused: false,
+            rect,
+        };
+        let layout = TabLayout {
+            workspace_id: "w1".into(),
+            tab_id: "w1:t1".into(),
+            zoomed: true,
+            area: rect(2, 1, 120, 40),
+            focused_pane_id: "w1:p2".into(),
+            panes: vec![
+                pane("w1:p1", rect(2, 1, 60, 40)),
+                pane("w1:p2", rect(62, 1, 60, 40)),
+            ],
+            splits: Vec::new(),
+        };
+        let split = split_layout(&layout);
+        assert_eq!((split.columns, split.rows, split.zoomed), (120, 40, true));
+        let second = &split.panes[1];
+        assert_eq!(
+            (second.pane_id.as_str(), second.x, second.y, second.width),
+            ("w1:p2", 60, 0, 60)
+        );
+    }
 
     #[test]
     fn worktree_name_is_the_checkout_directory() {

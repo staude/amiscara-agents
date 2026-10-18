@@ -231,6 +231,9 @@ pub struct SessionSnapshot {
     pub workspaces: Vec<WorkspaceInfo>,
     pub tabs: Vec<TabInfo>,
     pub panes: Vec<PaneInfo>,
+    /// One entry per tab: where herdr draws each pane.
+    #[serde(default)]
+    pub layouts: Vec<TabLayout>,
     /// Agent panes with their custom names. Older servers leave it out.
     #[serde(default)]
     pub agents: Vec<AgentInfo>,
@@ -245,6 +248,60 @@ pub struct AgentInfo {
     /// Set with `agent.rename`; `None` when the agent has no custom name.
     #[serde(default)]
     pub name: Option<String>,
+}
+
+/// How herdr arranges the panes of one tab, in terminal cells. Each pane has
+/// its rectangle inside `area`; `splits` describes the tree behind it. A
+/// zoomed tab keeps the split rectangles, herdr just draws the focused pane
+/// over the whole area.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct TabLayout {
+    pub workspace_id: String,
+    pub tab_id: String,
+    #[serde(default)]
+    pub zoomed: bool,
+    pub area: CellRect,
+    #[serde(default)]
+    pub focused_pane_id: String,
+    pub panes: Vec<LayoutPane>,
+    #[serde(default)]
+    pub splits: Vec<LayoutSplit>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+pub struct CellRect {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct LayoutPane {
+    pub pane_id: String,
+    #[serde(default)]
+    pub focused: bool,
+    pub rect: CellRect,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct LayoutSplit {
+    #[serde(default)]
+    pub id: String,
+    pub direction: SplitDirection,
+    #[serde(default)]
+    pub ratio: f32,
+    pub rect: CellRect,
+}
+
+/// `right`: side by side, `down`: one above the other.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SplitDirection {
+    Right,
+    Down,
+    #[serde(other)]
+    Unknown,
 }
 
 /// One event from `events.subscribe`. Global subscriptions send
@@ -341,10 +398,26 @@ pub enum Event {
         #[serde(default)]
         title: Option<String>,
     },
-    LayoutUpdated {},
+    /// Sent on splits, resizes, zoom and swaps. Older or unexpected payloads
+    /// leave `layout` empty and the client falls back to a snapshot.
+    LayoutUpdated {
+        #[serde(default, deserialize_with = "lenient")]
+        layout: Option<TabLayout>,
+    },
     /// An event type this client does not know yet.
     #[serde(other)]
     Unknown,
+}
+
+/// `None` instead of an error for a payload that does not parse, so one odd
+/// field cannot end the event stream.
+fn lenient<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let value = Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).ok())
 }
 
 /// Parses one line of an event stream. An error line (for example
@@ -496,6 +569,42 @@ mod tests {
         assert_eq!(parse_event(line)?, Event::Unknown);
         let status: AgentStatus = serde_json::from_value(serde_json::json!("pondering"))?;
         assert_eq!(status, AgentStatus::Unknown);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_layout_event() -> Result<(), ProtoError> {
+        let line = serde_json::json!({
+            "event": "layout_updated",
+            "data": {"type": "layout_updated", "layout": {
+                "workspace_id": "w1", "tab_id": "w1:t1", "zoomed": false,
+                "area": {"x": 0, "y": 0, "width": 120, "height": 40},
+                "focused_pane_id": "w1:p1",
+                "panes": [
+                    {"pane_id": "w1:p1", "focused": true, "rect": {"x": 0, "y": 0, "width": 60, "height": 40}},
+                    {"pane_id": "w1:p2", "focused": false, "rect": {"x": 60, "y": 0, "width": 60, "height": 40}}
+                ],
+                "splits": [{"id": "split_0_root", "direction": "right", "ratio": 0.5,
+                            "rect": {"x": 0, "y": 0, "width": 120, "height": 40}}]
+            }}
+        });
+        let Event::LayoutUpdated {
+            layout: Some(layout),
+        } = parse_event(line)?
+        else {
+            panic!("expected a layout");
+        };
+        assert_eq!(layout.panes.len(), 2);
+        assert_eq!(layout.panes[1].rect.x, 60);
+        assert_eq!(layout.splits[0].direction, SplitDirection::Right);
+        // Without a usable payload the event still parses.
+        for data in [
+            serde_json::json!({"type": "layout_updated"}),
+            serde_json::json!({"type": "layout_updated", "layout": {}}),
+        ] {
+            let line = serde_json::json!({"event": "layout_updated", "data": data});
+            assert_eq!(parse_event(line)?, Event::LayoutUpdated { layout: None });
+        }
         Ok(())
     }
 

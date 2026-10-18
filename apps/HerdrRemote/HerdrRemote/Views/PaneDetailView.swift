@@ -81,7 +81,7 @@ struct PaneDetailView: View {
     }
 }
 
-private struct Banner: View {
+struct Banner: View {
     let text: String
     let systemImage: String
 
