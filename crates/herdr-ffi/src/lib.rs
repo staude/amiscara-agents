@@ -486,7 +486,8 @@ impl HostSession {
         let state = self.state.lock().ok().and_then(|state| state.clone());
         let (pacing_tx, pacing) = watch::channel(pacing_for(live));
         let (history_tx, history) = watch::channel(0);
-        let task = runtime().spawn(async move {
+        let (stop_tx, mut stop) = watch::channel(false);
+        runtime().spawn(async move {
             let Some(mut state) = state else {
                 return;
             };
@@ -498,21 +499,26 @@ impl HostSession {
                         &pane_id,
                         pacing.clone(),
                         history.clone(),
+                        stop.clone(),
                         observer.as_ref(),
                     )
                     .await
                 {
                     observer.on_error(message);
                 }
+                if *stop.borrow() {
+                    return;
+                }
                 // Wait for a new connection, or retry after a pause on the same one.
                 tokio::select! {
                     changed = state.changed() => if changed.is_err() { return },
                     () = tokio::time::sleep(Duration::from_secs(2)) => {}
+                    _ = stop.wait_for(|stopped| *stopped) => return,
                 }
             }
         });
         Arc::new(PaneFollow {
-            task,
+            stop: stop_tx,
             pacing: pacing_tx,
             history: history_tx,
         })
@@ -548,36 +554,58 @@ async fn follow_once(
     pane_id: &str,
     pacing: watch::Receiver<Pacing>,
     history: watch::Receiver<u32>,
+    mut stop: watch::Receiver<bool>,
     observer: &dyn PaneObserver,
 ) -> Result<(), String> {
     let (tx, mut rx) = watch::channel(None);
     let follow = pane::follow_with_history(conn, pane_id, pacing, history, &tx);
-    let forward = async {
-        while rx.changed().await.is_ok() {
-            let screen = rx.borrow_and_update().clone();
-            if let Some(screen) = screen {
-                observer.on_content(convert::pane_content(&screen));
+    tokio::pin!(follow);
+    // Owns `rx`: when it ends, the follower sees nobody watching and returns
+    // at its next pause.
+    let forward = async move {
+        loop {
+            tokio::select! {
+                changed = rx.changed() => {
+                    if changed.is_err() {
+                        return;
+                    }
+                    let screen = rx.borrow_and_update().clone();
+                    if let Some(screen) = screen {
+                        observer.on_content(convert::pane_content(&screen));
+                    }
+                }
+                _ = stop.wait_for(|stopped| *stopped) => return,
             }
         }
     };
     tokio::select! {
-        result = follow => result.map_err(|err| err.to_string()),
-        () = forward => Ok(()),
+        result = &mut follow => return result.map_err(|err| err.to_string()),
+        () = forward => {}
     }
+    // Stopped. Let a request in flight finish instead of dropping it: an
+    // SSH request dropped half way left the session unable to open new
+    // channels, so every later read hung (#107).
+    let _ = tokio::time::timeout(STOP_GRACE, follow).await;
+    Ok(())
 }
+
+/// How long a stopped pane follower may take to finish its request.
+const STOP_GRACE: Duration = Duration::from_secs(10);
 
 /// Handle for [`HostSession::follow_pane`].
 #[derive(uniffi::Object)]
 pub struct PaneFollow {
-    task: JoinHandle<()>,
+    stop: watch::Sender<bool>,
     pacing: watch::Sender<Pacing>,
     history: watch::Sender<u32>,
 }
 
 #[uniffi::export]
 impl PaneFollow {
+    /// Ends following once a request in flight has finished; no content is
+    /// reported after this.
     pub fn stop(&self) {
-        self.task.abort();
+        self.stop.send_replace(true);
     }
 
     /// Switches between the fast pace of the selected pane and the slow one
@@ -602,7 +630,7 @@ impl PaneFollow {
 
 impl Drop for PaneFollow {
     fn drop(&mut self) {
-        self.task.abort();
+        self.stop.send_replace(true);
     }
 }
 
