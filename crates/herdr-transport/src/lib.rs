@@ -49,6 +49,10 @@ pub enum TransportError {
     /// or the upload failed on the server.
     #[error("file upload failed: {0}")]
     Upload(String),
+    /// Reading files failed: no SFTP (as for uploads), or the file or
+    /// directory is missing or not readable.
+    #[error("file access failed: {0}")]
+    Files(String),
     /// The server presented a different key than the trusted one.
     #[error("host key for {host} changed, it is now {fingerprint}")]
     HostKeyChanged {
@@ -403,6 +407,84 @@ impl Connection {
         }
     }
 
+    /// Files in `dir` below the login's home directory, without
+    /// subdirectories. Over SSH this needs SFTP like [`Connection::upload`].
+    pub async fn list_files(&self, dir: &str) -> Result<Vec<RemoteFile>, TransportError> {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let path = local_home_path(dir)?;
+                let mut entries = tokio::fs::read_dir(&path)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{}: {err}", path.display())))?;
+                let mut files = Vec::new();
+                while let Some(entry) = entries.next_entry().await? {
+                    let meta = entry.metadata().await?;
+                    if !meta.is_file() {
+                        continue;
+                    }
+                    files.push(RemoteFile {
+                        name: entry.file_name().to_string_lossy().into_owned(),
+                        size: meta.len(),
+                        modified: meta
+                            .modified()
+                            .ok()
+                            .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map_or(0, |at| at.as_secs()),
+                    });
+                }
+                Ok(files)
+            }
+            Inner::Ssh { handle, .. } => sftp_list(handle, dir).await,
+        }
+    }
+
+    /// Up to `len` bytes of the file `path` (below the home directory) from
+    /// `offset`; fewer at its end.
+    pub async fn read_file_range(
+        &self,
+        path: &str,
+        offset: u64,
+        len: u64,
+    ) -> Result<Vec<u8>, TransportError> {
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let path = local_home_path(path)?;
+                let mut file = tokio::fs::File::open(&path)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{}: {err}", path.display())))?;
+                file.seek(std::io::SeekFrom::Start(offset)).await?;
+                let mut data = Vec::new();
+                file.take(len).read_to_end(&mut data).await?;
+                Ok(data)
+            }
+            Inner::Ssh { handle, .. } => {
+                let sftp = sftp_session(handle, TransportError::Files).await?;
+                let failed =
+                    |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+                let home = sftp.canonicalize(".").await.map_err(failed)?;
+                let target = format!(
+                    "{}/{}",
+                    home.trim_end_matches('/'),
+                    path.trim_start_matches('/')
+                );
+                let mut file = sftp
+                    .open_with_flags(target.as_str(), OpenFlags::READ)
+                    .await
+                    .map_err(failed)?;
+                file.seek(std::io::SeekFrom::Start(offset)).await?;
+                let mut data = Vec::new();
+                (&mut file).take(len).read_to_end(&mut data).await?;
+                drop(file);
+                sftp.close().await.map_err(failed)?;
+                Ok(data)
+            }
+        }
+    }
+
     /// Like [`Connection::subscribe`], with full subscription objects such as
     /// `{"type": "pane.agent_status_changed", "pane_id": "w1:p1"}`.
     pub async fn subscribe_to(
@@ -443,22 +525,74 @@ impl Subscription {
     }
 }
 
+/// A file from [`Connection::list_files`].
+#[derive(Debug, Clone)]
+pub struct RemoteFile {
+    pub name: String,
+    pub size: u64,
+    /// Seconds since 1970, 0 if unknown.
+    pub modified: u64,
+}
+
+/// `path` below the local home directory.
+#[cfg(unix)]
+fn local_home_path(path: &str) -> Result<std::path::PathBuf, TransportError> {
+    let home = dirs::home_dir().ok_or_else(|| TransportError::Files("no home directory".into()))?;
+    Ok(home.join(path.trim_start_matches('/')))
+}
+
+/// An SFTP session on its own channel. `error` wraps the failure: only a key
+/// whose forced command is `sftp-server` gets one.
+async fn sftp_session(
+    handle: &Handle<HostKeyCheck>,
+    error: fn(String) -> TransportError,
+) -> Result<SftpSession, TransportError> {
+    let channel = handle.channel_open_session().await?;
+    channel.request_subsystem(true, "sftp").await?;
+    SftpSession::new(channel.into_stream()).await.map_err(|err| {
+        error(format!(
+            "SFTP not available ({err}); the key line needs command=\"/usr/libexec/sftp-server\""
+        ))
+    })
+}
+
+async fn sftp_list(
+    handle: &Handle<HostKeyCheck>,
+    dir: &str,
+) -> Result<Vec<RemoteFile>, TransportError> {
+    let sftp = sftp_session(handle, TransportError::Files).await?;
+    let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+    let home = sftp.canonicalize(".").await.map_err(failed)?;
+    let target = format!(
+        "{}/{}",
+        home.trim_end_matches('/'),
+        dir.trim_start_matches('/')
+    );
+    let files = sftp
+        .read_dir(target.as_str())
+        .await
+        .map_err(|err| TransportError::Files(format!("{target}: {err}")))?
+        .filter(|entry| entry.file_type().is_file())
+        .map(|entry| {
+            let meta = entry.metadata();
+            RemoteFile {
+                name: entry.file_name(),
+                size: meta.size.unwrap_or(0),
+                modified: meta.mtime.map_or(0, u64::from),
+            }
+        })
+        .collect();
+    sftp.close().await.map_err(failed)?;
+    Ok(files)
+}
+
 async fn sftp_upload(
     handle: &Handle<HostKeyCheck>,
     dir: &str,
     file_name: &str,
     data: &[u8],
 ) -> Result<String, TransportError> {
-    let unavailable = |err: &dyn std::fmt::Display| {
-        TransportError::Upload(format!(
-            "SFTP not available ({err}); the key line needs command=\"/usr/libexec/sftp-server\""
-        ))
-    };
-    let channel = handle.channel_open_session().await?;
-    channel.request_subsystem(true, "sftp").await?;
-    let sftp = SftpSession::new(channel.into_stream())
-        .await
-        .map_err(|err| unavailable(&err))?;
+    let sftp = sftp_session(handle, TransportError::Upload).await?;
     let failed = |err: russh_sftp::client::error::Error| TransportError::Upload(err.to_string());
 
     let mode = |bits: u32| FileAttributes {

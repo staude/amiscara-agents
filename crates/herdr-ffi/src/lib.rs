@@ -12,9 +12,9 @@ mod convert;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use herdr_core::actions;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::sync::{self, SyncState};
+use herdr_core::{actions, claude};
 use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError, keys};
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
@@ -55,6 +55,68 @@ pub enum FfiError {
     /// German and meant for the user as is.
     #[error("{0}")]
     InvalidLink(String),
+    /// Files on the host could not be read: no SFTP for this key, or no
+    /// Claude Code session for the pane.
+    #[error("{0}")]
+    Files(String),
+}
+
+impl From<claude::ClaudeError> for FfiError {
+    fn from(err: claude::ClaudeError) -> Self {
+        match err {
+            claude::ClaudeError::Transport(TransportError::Files(message)) => Self::Files(message),
+            claude::ClaudeError::Transport(other) => Self::NotConnected(other.to_string()),
+            other => Self::Files(other.to_string()),
+        }
+    }
+}
+
+/// Who wrote an entry of a Claude Code conversation.
+#[derive(Debug, Clone, Copy, uniffi::Enum)]
+pub enum TranscriptKind {
+    User,
+    Assistant,
+    Tool,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct TranscriptEntry {
+    pub kind: TranscriptKind,
+    pub text: String,
+    /// ISO 8601, as Claude Code wrote it.
+    pub timestamp: Option<String>,
+}
+
+/// Where to continue a conversation backwards, from a [`TranscriptPage`].
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct TranscriptCursor {
+    pub session_path: String,
+    pub start: u64,
+}
+
+/// Part of a Claude Code conversation, oldest entry first.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct TranscriptPage {
+    /// The session file below the host's home directory; pass it back with
+    /// `start` to load the entries before this page.
+    pub session_path: String,
+    pub entries: Vec<TranscriptEntry>,
+    /// Byte offset this page starts at; 0 means the conversation's start.
+    pub start: u64,
+}
+
+impl From<claude::Entry> for TranscriptEntry {
+    fn from(entry: claude::Entry) -> Self {
+        Self {
+            kind: match entry.kind {
+                claude::EntryKind::User => TranscriptKind::User,
+                claude::EntryKind::Assistant => TranscriptKind::Assistant,
+                claude::EntryKind::Tool => TranscriptKind::Tool,
+            },
+            text: entry.text,
+            timestamp: entry.timestamp,
+        }
+    }
 }
 
 impl From<actions::ActionError> for FfiError {
@@ -393,6 +455,40 @@ impl HostSession {
                 .map(|k| (*k).to_string())
                 .collect(),
         }
+    }
+
+    /// The newest part of the Claude Code conversation in a pane, read from
+    /// the session file on the host (SFTP over SSH). With `before`, the part
+    /// that ends there in that file: a page's `session_path` and `start`.
+    /// Read only. Blocks for several round trips; call it off the main thread.
+    pub fn claude_history(
+        &self,
+        pane_id: String,
+        before: Option<TranscriptCursor>,
+    ) -> Result<TranscriptPage, FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(async {
+            let (session, end) = match before {
+                Some(cursor) => (
+                    claude::Session {
+                        path: cursor.session_path,
+                        size: cursor.start,
+                    },
+                    cursor.start,
+                ),
+                None => {
+                    let session = claude::find_session(&conn, &pane_id).await?;
+                    let end = session.size;
+                    (session, end)
+                }
+            };
+            let page = claude::read_back(&conn, &session, end).await?;
+            Ok(TranscriptPage {
+                session_path: session.path,
+                entries: page.entries.into_iter().map(Into::into).collect(),
+                start: page.start,
+            })
+        })
     }
 
     /// Renames a space. Blocks for one round trip.
