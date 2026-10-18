@@ -38,6 +38,10 @@ pub enum SessionError {
     /// refused the write).
     #[error("{0}")]
     Upload(String),
+    /// A scanned or opened "add host" link was refused; the message is
+    /// German and meant for the user as is.
+    #[error("{0}")]
+    InvalidLink(String),
     /// Files on the host could not be read: no SFTP for this key, or no
     /// Claude Code session for the pane.
     #[error("{0}")]
@@ -81,14 +85,32 @@ pub enum Endpoint {
         host: String,
         port: u16,
         user: String,
-        /// Unencrypted OpenSSH private key.
-        private_key_openssh: String,
+        identity: SshIdentity,
         /// Trusted host key as an OpenSSH public key line. `None` on first
         /// contact: the session then reports `HostStatus::HostKeyUnknown`.
         pinned_host_key: Option<String>,
         /// Absolute path of `herdr.sock` on the server.
         socket_path: String,
     },
+}
+
+/// How a session logs in over SSH.
+#[derive(Clone)]
+pub enum SshIdentity {
+    /// Unencrypted OpenSSH private key, e.g. from the OS key store.
+    Key(String),
+    /// The SSH agent: `SSH_AUTH_SOCK`, on Windows the OpenSSH agent's
+    /// named pipe.
+    Agent,
+}
+
+impl std::fmt::Debug for SshIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Key(_) => f.write_str("Key(..)"),
+            Self::Agent => f.write_str("Agent"),
+        }
+    }
 }
 
 /// Who wrote an entry of a Claude Code conversation.
@@ -647,17 +669,22 @@ impl Connector {
                 host,
                 port,
                 user,
-                private_key_openssh,
+                identity,
                 pinned_host_key,
                 socket_path,
             } => {
-                let key = keys::parse_private(&private_key_openssh).map_err(key_error)?;
+                let identity = match identity {
+                    SshIdentity::Key(text) => {
+                        Identity::Key(Arc::new(keys::parse_private(&text).map_err(key_error)?))
+                    }
+                    SshIdentity::Agent => Identity::Agent,
+                };
                 Ok(Self::Ssh {
                     target: SshTarget {
                         host,
                         port,
                         user,
-                        identity: Identity::Key(Arc::new(key)),
+                        identity,
                         host_key: HostKeyPolicy::Pinned(pinned_host_key),
                     },
                     socket: socket_path,

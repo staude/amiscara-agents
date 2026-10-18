@@ -25,6 +25,20 @@ npx tauri build     # bundles under target/release/bundle
 
 The Mac has the SwiftUI app; `npx tauri dev` works there for development.
 
+## Hosts and keys
+
+- Hosts: `hosts.json` in the app data folder (`%APPDATA%\net.staude.amiscara.agents`
+  on Windows, `~/.local/share/net.staude.amiscara.agents` on Linux), same
+  fields as `HostConfig` of the Apple apps.
+- Private keys: OS store under the service `net.staude.amiscara.agents.ssh-key`,
+  one entry per host id (Windows Credential Manager, Secret Service on Linux).
+- Login per host: a key of its own (the window shows the restricted
+  `authorized_keys` line) or the SSH agent. On Linux a host can also be the
+  local herdr socket.
+- `amiscara-agents://add-host?...` links: pasted with the link button in the
+  sidebar, or opened from elsewhere (the installers register the scheme, a
+  dev build registers it on start).
+
 ## Icon
 
 `icon.svg` is the dark variant of the app icon (`docs/icon/A`) without

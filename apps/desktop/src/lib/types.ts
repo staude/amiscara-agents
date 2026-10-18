@@ -1,0 +1,145 @@
+// Mirrors of the Rust records (serde, camelCase): herdr_session::view and
+// the desktop crate's hosts and errors.
+
+export type HostKind = "local" | "ssh";
+export type Auth = "key" | "agent";
+
+export interface HostConfig {
+  id: string;
+  name: string;
+  kind: HostKind;
+  host: string;
+  port: number;
+  user: string;
+  socketPath: string;
+  pinnedHostKey: string | null;
+  publicKey: string | null;
+  auth: Auth;
+  allowInput: boolean | null;
+  allowUpload: boolean | null;
+  notify: boolean | null;
+  groupSpaces: boolean | null;
+}
+
+export interface AppError {
+  kind: string;
+  message: string;
+}
+
+export interface AppInfo {
+  version: string;
+  protocol: number;
+  localSocket: boolean;
+  os: string;
+}
+
+export interface AddHostLink {
+  name: string;
+  host: string;
+  port: number;
+  user: string;
+  socketPath: string;
+  hostKey: string;
+}
+
+export type HostStatus =
+  | { kind: "connecting" }
+  | { kind: "live" }
+  | { kind: "retrying"; attempt: number; error: string }
+  | { kind: "hostKeyUnknown"; key: string; fingerprint: string }
+  | { kind: "hostKeyChanged"; key: string; fingerprint: string }
+  | { kind: "failed"; error: string };
+
+export type AgentState = "idle" | "working" | "blocked" | "done" | "unknown";
+
+export interface PaneItem {
+  paneId: string;
+  title: string;
+  agent: string | null;
+  name: string | null;
+  agentState: AgentState;
+  focused: boolean;
+}
+
+export interface TabItem {
+  tabId: string;
+  number: number;
+  label: string;
+  focused: boolean;
+  agentState: AgentState;
+  panes: PaneItem[];
+}
+
+export interface WorkspaceItem {
+  workspaceId: string;
+  number: number;
+  label: string;
+  name: string;
+  group: string | null;
+  focused: boolean;
+  agentState: AgentState;
+  activeTabId: string;
+  branch: string | null;
+  tabs: TabItem[];
+}
+
+export interface SpaceSlot {
+  workspaceId: string;
+  nested: boolean;
+}
+
+export interface BoardItem {
+  paneId: string;
+  workspaceId: string;
+  tabId: string;
+  workspaceLabel: string;
+  workspaceName: string;
+  workspaceGroup: string | null;
+  tabLabel: string;
+  agent: string;
+  name: string | null;
+  agentState: AgentState;
+  title: string;
+  cwd: string | null;
+}
+
+export interface SessionUpdate {
+  status: HostStatus;
+  serverVersion: string | null;
+  protocolSupported: boolean;
+  focusedPaneId: string | null;
+  workspaces: WorkspaceItem[];
+  spaceOrder: SpaceSlot[];
+  board: BoardItem[];
+  attention: BoardItem[];
+}
+
+export type TermColor =
+  | { kind: "default" }
+  | { kind: "indexed"; index: number }
+  | { kind: "rgb"; r: number; g: number; b: number };
+
+export interface StyledSpan {
+  text: string;
+  width: number;
+  fg: TermColor;
+  bg: TermColor;
+  bold: boolean;
+  dim: boolean;
+  italic: boolean;
+  underline: boolean;
+  inverse: boolean;
+  hidden: boolean;
+  strikethrough: boolean;
+}
+
+export interface PaneContent {
+  paneId: string;
+  lines: { spans: StyledSpan[] }[];
+  truncated: boolean;
+  historyLines: number;
+}
+
+export type PaneEvent =
+  | { kind: "content"; data: PaneContent }
+  | { kind: "error"; data: string };
