@@ -207,3 +207,5 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Host status is a button on all platforms: it shows the state, the full error,
   a hint for common causes (VPN off, SSH off, socket missing, key not
   authorized) and "Jetzt verbinden"; tooltips never showed on iPad (#22).
+- Dictation keeps what was said before a pause: the recognizer starts its
+  transcription over after each utterance, which replaced the beginning (#98).
