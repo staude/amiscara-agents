@@ -7,6 +7,11 @@
 //! the client. Only changed text is parsed and published. The interval stays
 //! short while the pane is busy and doubles while it is quiet.
 //!
+//! Every read costs a round trip, over SSH up to 100 ms of server time. When
+//! several panes of a split tab are on screen, only the one the user works in
+//! needs the fast pace; the others follow with [`Pacing::background`] and can
+//! be switched over without restarting through [`follow_paced`].
+//!
 //! With history requested, the content comes from `source: "recent"`, which
 //! returns the last N rows of scrollback and screen together. Such a read can
 //! be a hundred times the size of the visible screen, so the cheap visible
@@ -46,7 +51,7 @@ pub enum PaneError {
 }
 
 /// Poll pacing for [`follow`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pacing {
     /// Interval right after a change.
     pub busy: Duration,
@@ -62,6 +67,18 @@ impl Default for Pacing {
             busy: Duration::from_millis(150),
             quiet: Duration::from_secs(1),
             history: Duration::from_secs(1),
+        }
+    }
+}
+
+impl Pacing {
+    /// For a pane on screen next to the selected one: current within a few
+    /// seconds at a fraction of the reads.
+    pub fn background() -> Self {
+        Self {
+            busy: Duration::from_secs(1),
+            quiet: Duration::from_secs(4),
+            history: Duration::from_secs(4),
         }
     }
 }
@@ -115,37 +132,52 @@ pub async fn follow(
     pacing: Pacing,
     tx: &watch::Sender<Option<Arc<PaneScreen>>>,
 ) -> Result<(), PaneError> {
-    let (_keep, mut history) = watch::channel(0);
-    follow_with_history(conn, pane_id, pacing, &mut history, tx).await
+    let (_fixed, pacing) = watch::channel(pacing);
+    follow_paced(conn, pane_id, pacing, tx).await
 }
 
-/// Like [`follow`], but publishes the last `*history` rows including
+/// Like [`follow`], with a pace that can change while following. A new pace
+/// reads the pane right away, so a pane that becomes the selected one is
+/// current at once. A dropped pacing sender keeps the last pace.
+pub async fn follow_paced(
+    conn: &Connection,
+    pane_id: &str,
+    pacing: watch::Receiver<Pacing>,
+    tx: &watch::Sender<Option<Arc<PaneScreen>>>,
+) -> Result<(), PaneError> {
+    let (_none, history) = watch::channel(0);
+    follow_with_history(conn, pane_id, pacing, history, tx).await
+}
+
+/// Like [`follow_paced`], but publishes the last `*history` rows including
 /// scrollback whenever that value is above 0. A new value takes effect at
-/// once.
+/// once; a dropped history sender keeps the last value.
 pub async fn follow_with_history(
     conn: &Connection,
     pane_id: &str,
-    pacing: Pacing,
-    history: &mut watch::Receiver<u32>,
+    mut pacing: watch::Receiver<Pacing>,
+    mut history: watch::Receiver<u32>,
     tx: &watch::Sender<Option<Arc<PaneScreen>>>,
 ) -> Result<(), PaneError> {
+    let mut pacing_open = true;
     let mut history_open = true;
     let mut last_visible: Option<String> = None;
     let mut last_lines: Option<u32> = None;
     // The screen changed since the last publish, but the history read is
-    // still held back by `pacing.history`.
+    // still held back by `pace.history`.
     let mut pending = false;
     let mut last_history_read: Option<Instant> = None;
-    let mut interval = pacing.busy;
+    let mut interval = Duration::ZERO;
     loop {
+        let pace = *pacing.borrow_and_update();
         let lines = (*history.borrow_and_update()).min(MAX_HISTORY_LINES);
         let mode_changed = last_lines != Some(lines);
         let visible = read_raw(conn, pane_id, 0).await?;
         if mode_changed || last_visible.as_deref() != Some(visible.read.text.as_str()) {
-            interval = pacing.busy;
+            interval = pace.busy;
             pending = true;
         } else {
-            interval = (interval * 2).min(pacing.quiet);
+            interval = (interval * 2).clamp(pace.busy, pace.quiet);
         }
         last_lines = Some(lines);
         let mut wait = interval;
@@ -155,7 +187,7 @@ pub async fn follow_with_history(
             pending = false;
         } else if pending {
             last_visible = Some(visible.read.text);
-            let due = last_history_read.map(|at| at + pacing.history);
+            let due = last_history_read.map(|at| at + pace.history);
             match due {
                 Some(due) if !mode_changed && due > Instant::now() => {
                     wait = wait.min(due.saturating_duration_since(Instant::now()));
@@ -168,14 +200,25 @@ pub async fn follow_with_history(
                 }
             }
         }
+        let pace_changed = async {
+            if pacing_open {
+                pacing.changed().await.is_ok()
+            } else {
+                std::future::pending().await
+            }
+        };
         tokio::select! {
             () = sleep(wait) => {}
-            () = tx.closed() => return Ok(()),
+            open = pace_changed => {
+                pacing_open = open;
+                interval = Duration::ZERO;
+            }
             changed = history.changed(), if history_open => {
                 if changed.is_err() {
                     history_open = false;
                 }
             }
+            () = tx.closed() => return Ok(()),
         }
     }
 }
@@ -188,6 +231,7 @@ mod tests {
     use std::sync::Mutex;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixListener;
+    use tokio::time::timeout;
 
     /// Source and `lines` of each `pane.read` the fake server saw.
     type Requests = Arc<Mutex<Vec<(String, Option<u64>)>>>;
@@ -230,6 +274,42 @@ mod tests {
         (path, seen)
     }
 
+    fn reads(seen: &Requests) -> usize {
+        seen.lock().expect("lock").len()
+    }
+
+    #[tokio::test]
+    async fn a_new_pace_reads_at_once() {
+        let (path, seen) = fake_herdr("pace");
+        let conn = Connection::local(&path);
+        let slow = Pacing {
+            busy: Duration::from_secs(30),
+            quiet: Duration::from_secs(30),
+            history: Duration::from_secs(30),
+        };
+        let (pace_tx, pace_rx) = watch::channel(slow);
+        let (tx, mut rx) = watch::channel(None);
+        let follower = tokio::spawn(async move {
+            let _ = follow_paced(&conn, "w1:p1", pace_rx, &tx).await;
+        });
+
+        let first = timeout(Duration::from_secs(5), rx.changed()).await;
+        assert!(matches!(first, Ok(Ok(()))), "first screen");
+        assert_eq!(reads(&seen), 1);
+
+        let switched = Instant::now();
+        pace_tx.send_replace(Pacing::default());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while reads(&seen) < 2 && Instant::now() < deadline {
+            sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(reads(&seen), 2, "second read after the switch");
+        assert!(switched.elapsed() < Duration::from_secs(5));
+
+        follower.abort();
+        let _ = std::fs::remove_file(&path);
+    }
+
     #[tokio::test]
     async fn history_switches_to_recent_reads_and_back() {
         let (path, seen) = fake_herdr("history");
@@ -239,9 +319,10 @@ mod tests {
             quiet: Duration::from_millis(10),
             history: Duration::from_millis(5),
         };
-        let (history_tx, mut history) = watch::channel(0);
+        let (_pace_tx, pace_rx) = watch::channel(pacing);
+        let (history_tx, history) = watch::channel(0);
         let (tx, mut rx) = watch::channel(None);
-        let follow = follow_with_history(&conn, "w1:p1", pacing, &mut history, &tx);
+        let follow = follow_with_history(&conn, "w1:p1", pace_rx, history, &tx);
         let check = async {
             rx.changed().await.expect("first screen");
             let first = rx.borrow_and_update().clone().expect("screen");

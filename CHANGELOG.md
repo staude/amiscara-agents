@@ -107,10 +107,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
-- Pane view scrolls back into history: scrolling to the top (or "Älteren
-  Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
-  limit, and keeps them live; "Nur Bildschirm" goes back. Core:
-  `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
+- Images can be pasted into the composer (⌘V, or "Aus Zwischenablage" under
+  the paperclip) and are attached like picked photos; text paste is
+  unchanged, and text wins when the clipboard holds both (#56).
+- Split tabs side by side on the Mac and iPad (regular width): every pane in
+  herdr's arrangement with its own live screen, font shrunk to fit its
+  columns; tapping a pane selects it for the input bar. Only the selected pane
+  is read at full pace, the others every 1 to 4 s. The iPhone keeps the pane
+  picker. Core: `session.snapshot` layouts in `SessionState`, resizes from
+  `layout_updated` applied in place, `pane::follow_paced` and
+  `PaneFollow.set_live` (#61).
+- Zoom the pane view: pinch, ⌘+ / ⌘- / ⌘0 (View menu, also on the iPad with
+  a hardware keyboard) or the "Aa" menu in the pane header change the
+  terminal font size (8 to 28 pt), one size for all panes, kept across
+  launches (#65).
 - Rename spaces, tabs and agents from the app (context menu or swipe on a
   space or agent row, context menu on a tab), only with input allowed.
   Agent names come from the snapshot's `agents` list; after `agent.rename`
@@ -118,6 +128,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Mac menu bar item with the number of waiting agents over all hosts and a
   menu to jump to one; it opens the main window if it is closed. Hosts stay
   connected and notifications keep coming while the window is closed (#62).
+- Pane view scrolls back into history: scrolling to the top (or "Älteren
+  Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
+  limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab
+  only the selected pane loads history. Core:
+  `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
 
 ### Fixed
 

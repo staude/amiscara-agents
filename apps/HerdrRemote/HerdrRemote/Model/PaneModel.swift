@@ -1,8 +1,9 @@
 import Foundation
 import Observation
 
-/// The live screen of the pane shown in the detail view, optionally with
-/// scrollback above it.
+/// The live screen of the pane shown in the detail view, or of one pane of
+/// a split tab, optionally with scrollback above it. Only a live pane (the
+/// selected one) loads history; a background pane stays screen-only.
 @MainActor
 @Observable
 final class PaneModel {
@@ -12,6 +13,7 @@ final class PaneModel {
     private(set) var historyLines: UInt32 = 0
     @ObservationIgnored private var follow: PaneFollow?
     @ObservationIgnored private(set) var paneID: String?
+    @ObservationIgnored private var live = true
 
     /// Each load asks for the next step; herdr returns at most
     /// `maxHistoryLines()` rows, and every step is polled again while the
@@ -31,7 +33,7 @@ final class PaneModel {
     }
 
     func loadMoreHistory() {
-        guard canLoadMoreHistory else { return }
+        guard live, canLoadMoreHistory else { return }
         let next = Self.historySteps.first { $0 > historyLines } ?? maxHistoryLines()
         historyLines = next
         follow?.setHistoryLines(lines: next)
@@ -42,8 +44,14 @@ final class PaneModel {
         follow?.setHistoryLines(lines: 0)
     }
 
-    func show(paneID: String?, on connection: HostConnection?) {
-        guard paneID != self.paneID else { return }
+    /// `live: false` reads the pane only every few seconds; for a pane shown
+    /// beside the selected one, since every read costs a round trip.
+    func show(paneID: String?, on connection: HostConnection?, live: Bool = true) {
+        guard paneID != self.paneID else {
+            setLive(live)
+            return
+        }
+        self.live = live
         follow?.stop()
         follow = nil
         content = nil
@@ -63,7 +71,17 @@ final class PaneModel {
                 Task { @MainActor in self?.error = message }
             }
         )
-        follow = connection.followPane(paneID, observer: bridge)
+        follow = connection.followPane(paneID, live: live, observer: bridge)
+    }
+
+    /// Switches the pace without restarting; the pane is read once right away.
+    func setLive(_ live: Bool) {
+        guard live != self.live else { return }
+        self.live = live
+        follow?.setLive(live: live)
+        // A pane beside the selected one shows only its screen: a history
+        // read there would cost the most for the pane looked at least.
+        if !live, historyLines > 0 { hideHistory() }
     }
 
     func stop() {

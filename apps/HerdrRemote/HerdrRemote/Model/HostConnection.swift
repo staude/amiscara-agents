@@ -56,8 +56,8 @@ final class HostConnection: Identifiable {
         start()
     }
 
-    func followPane(_ paneID: String, observer: PaneObserver) -> PaneFollow? {
-        session?.followPane(paneId: paneID, observer: observer)
+    func followPane(_ paneID: String, live: Bool = true, observer: PaneObserver) -> PaneFollow? {
+        session?.followPanePaced(paneId: paneID, live: live, observer: observer)
     }
 
     /// Sends a prompt to an agent, or text plus Enter to a shell.
