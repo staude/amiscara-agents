@@ -42,6 +42,7 @@ struct WorkspaceDetailView: View {
                         PaneDetailView(selection: paneID.map { PaneRef(hostID: connection.id, paneID: $0) })
                     }
                 }
+                .focusedSceneValue(\.tabNavigator, workspace.tabs.count > 1 ? TabNavigator(step: { step(by: $0, in: workspace) }) : nil)
                 .navigationTitle(workspace.worktreeName ?? workspace.label)
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -193,6 +194,14 @@ struct WorkspaceDetailView: View {
                 tabError = agentStartErrorMessage(error)
             }
         }
+    }
+
+    /// ⌘⇧[ and ⌘⇧]: the neighbouring tab, wrapping around like herdr.
+    private func step(by offset: Int, in workspace: WorkspaceItem) {
+        let tabs = workspace.tabs
+        guard !tabs.isEmpty else { return }
+        let index = tabs.firstIndex(where: isCurrent) ?? 0
+        select(tabs[(index + offset % tabs.count + tabs.count) % tabs.count])
     }
 
     private func select(_ tab: TabItem) {
