@@ -2,6 +2,9 @@ import Foundation
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
+#if os(tvOS)
+import TVServices
+#endif
 
 /// Writes the board of all hosts for the widgets (`WidgetSnapshot`) and
 /// reloads them: when the agents change, and every few minutes while the
@@ -46,6 +49,10 @@ final class WidgetPublisher {
             written = snapshot
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
+            #endif
+            #if os(tvOS)
+            // The Top Shelf reads the same snapshot (#130).
+            TVTopShelfContentProvider.topShelfContentDidChange()
             #endif
         } catch {
             // Without the App Group (e.g. an unsigned build) there are no widgets.
