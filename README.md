@@ -10,24 +10,29 @@ herdr protocol, not the app.
 ## How it connects
 
 herdr exposes a newline-delimited JSON API on `~/.config/herdr/herdr.sock`.
-Remotely, the core opens one SSH session and a `direct-streamlocal@openssh.com`
-channel per request straight to that socket. Nothing is installed on the server.
+Remotely, the core opens one SSH session and one channel per request to that
+socket. Nothing is installed on the server.
 
-A dedicated key can be locked down in `~/.ssh/authorized_keys` so that it can
-open channels but never run a shell or command:
+A device key is locked down in `~/.ssh/authorized_keys` so that it reaches the
+herdr socket and nothing else (#132):
 
 ```
-restrict,port-forwarding,command="/usr/bin/false" ssh-ed25519 AAAA... amiscara-agents
+restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
 ```
 
-`restrict,port-forwarding` alone still lets the key run commands.
+`restrict` turns off all forwarding (TCP and Unix sockets), the PTY and agent
+forwarding; the forced command connects every session to the herdr socket,
+whatever the client asks to run. The app shows this line for its key in the
+host editor; it reaches herdr through a session running `herdr`.
 
-`port-forwarding` also allows TCP forwarding through the server, so a stolen
-device key could reach other machines from there. `permitopen` does not help:
-sshd applies it to the streamlocal channel too and then refuses `herdr.sock`
-(OpenSSH 10.3). If no other login needs it, `AllowTcpForwarding no` in
-`sshd_config` closes TCP forwarding for everyone. Otherwise use one key per
-device and remove a lost device's line right away.
+Older lines used `restrict,port-forwarding,command="/usr/bin/false"` and a
+`direct-streamlocal` channel. They keep working (the app tries streamlocal
+first and switches to the session when sshd refuses it), but `port-forwarding`
+also allows TCP forwarding through the host, so a stolen key could reach other
+machines from there; `permitopen` cannot narrow it, it refuses streamlocal too
+(OpenSSH 10.3). Replace such lines with the one the host editor shows now.
+Other options that do not work: `permitlisten="none"` is not accepted in
+`authorized_keys` (sshd rejects the whole line).
 
 ## Layout
 
@@ -104,8 +109,8 @@ tvOS).
 
 **Pairing:** under Hosts → „Mit iPhone koppeln“ the TV shows a QR code with
 its own public key. Scanning it with the iPhone camera opens the app there;
-it adds a restricted line (`restrict,port-forwarding,command="/usr/bin/false"`,
-herdr socket only, no shell, no files) to `~/.ssh/authorized_keys` on the
+it adds a restricted line (herdr socket only, no forwarding, no shell, no
+files; see "How it connects") to `~/.ssh/authorized_keys` on the
 chosen hosts over SFTP, keeping the old file as `authorized_keys.bak-amiscara`,
 and leaves the host data for the TV in the private iCloud database. The TV's
 private key never leaves it. iPhone and TV need the same Apple ID.
@@ -150,9 +155,11 @@ notifications, menu bar and Siri. The change applies at once.
 Images: the paperclip in the composer uploads pictures to
 `~/.amiscara-agents/uploads/` on the host and appends their paths to the prompt.
 For SSH hosts this needs the switch "Bilder hochladen (SFTP)" and the key line
-with `command="/usr/libexec/sftp-server"` instead of `/usr/bin/false`. That key
-can then read and write every file of the user, including
-`~/.ssh/authorized_keys`, so it is effectively full access to that account.
+with `*sftp*) exec /usr/libexec/sftp-server ;;` instead of `*sftp*) exit 1 ;;`
+(the host editor shows the right one). On Linux the path of `sftp-server`
+differs, e.g. `/usr/lib/openssh/sftp-server`. That key can then read and write
+every file of the user, including `~/.ssh/authorized_keys`, so it is
+effectively full access to that account.
 
 Test input only against a separate session, never the one with real work:
 
