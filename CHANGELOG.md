@@ -268,6 +268,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   tab. The TV app writes the same snapshot
   as the widgets into an App Group and tells tvOS when it changed. Board
   cards read state, agent, space and tab to VoiceOver.
+- Pushes through iCloud also for the Mac app's SSH hosts (#125): events of a
+  connected SSH host go out under that host's key fingerprint, so one
+  running Mac covers hosts without their own Mac app, such as a Linux
+  server. Before writing, the Mac skips an event another Mac (or the host's
+  own Mac app) wrote within the last minute with the same title and text,
+  so no push comes twice. Switch "Auch für SSH-Hosts senden" in the push
+  settings of "Dieser Mac", on by default.
 
 ### Changed
 

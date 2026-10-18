@@ -48,8 +48,17 @@ final class HostStore {
                 .count)
             self.widgets.publish(self)
             #if os(macOS)
-            if connection.config.kind == .local, connection.config.notificationsOn {
-                self.cloudPush.send(update.attention, hostName: Host.current().localizedName ?? connection.config.name)
+            if connection.config.notificationsOn {
+                switch connection.config.kind {
+                case .local:
+                    self.cloudPush.send(update.attention, hostName: Host.current().localizedName ?? connection.config.name)
+                case .ssh:
+                    // Devices find the host by its pinned key (#125).
+                    if self.cloudPush.includeSSHHosts,
+                       let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey) {
+                        self.cloudPush.send(update.attention, hostKey: key, hostName: connection.config.name)
+                    }
+                }
             }
             #endif
         }

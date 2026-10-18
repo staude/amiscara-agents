@@ -85,8 +85,33 @@ final class CloudPushSender {
         accountStatus = try? await CloudPush.container.accountStatus()
     }
 
+    /// Whether events of the SSH hosts go out too (#125), not only those of
+    /// this Mac; then one running Mac covers hosts without a Mac app.
+    var includeSSHHosts: Bool {
+        get { UserDefaults.standard.object(forKey: "cloudPushSSHHosts") as? Bool ?? true }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "cloudPushSSHHosts")
+            sshHostsSetting = newValue
+        }
+    }
+
+    /// Mirrors the setting for observation.
+    private var sshHostsSetting = true
+
+    /// A record written within this time with the same title and text counts
+    /// as the same event, e.g. from another Mac or the host's own Mac app.
+    private static let duplicateWindow: TimeInterval = 60
+
+    /// Events of this Mac's own host.
     func send(_ items: [BoardItem], hostName: String) {
-        guard let hostKey, !items.isEmpty else { return }
+        guard let hostKey else { return }
+        send(items, hostKey: hostKey, hostName: hostName)
+    }
+
+    /// Events of the host with key fingerprint `hostKey`; skipped when
+    /// another Mac wrote the same event a moment ago, so no push comes twice.
+    func send(_ items: [BoardItem], hostKey: String, hostName: String) {
+        guard !items.isEmpty else { return }
         let records = items.map { item in
             let waiting = item.agentState == .blocked
             let type = waiting ? CloudPush.waitingType : CloudPush.doneType
@@ -104,7 +129,18 @@ final class CloudPushSender {
             record[CloudPush.Field.collapseID] = CloudPush.recordName(hostKey, item.paneId)
             return record
         }
-        save(records)
+        Task {
+            let existing = (try? await CloudPush.container.privateCloudDatabase.records(for: records.map(\.recordID))) ?? [:]
+            let fresh = records.filter { record in
+                guard case .success(let stored)? = existing[record.recordID],
+                      let changed = stored.modificationDate,
+                      Date.now.timeIntervalSince(changed) < Self.duplicateWindow
+                else { return true }
+                return stored[CloudPush.Field.title] as? String != record[CloudPush.Field.title] as? String
+                    || stored[CloudPush.Field.body] as? String != record[CloudPush.Field.body] as? String
+            }
+            if !fresh.isEmpty { save(fresh) }
+        }
     }
 
     /// A "done" event that says the path works.
