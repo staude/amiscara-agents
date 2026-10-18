@@ -62,7 +62,13 @@ struct HostQRView: View {
             TextField("Host", text: $localHostName, prompt: Text("work.staude.internal"))
                 .technicalInput()
         } footer: {
-            Text("Name oder IP-Adresse, unter der iPhone und iPad diesen Mac per SSH erreichen. Dafür muss in den Systemeinstellungen unter Allgemein > Teilen die entfernte Anmeldung eingeschaltet sein.")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Name oder IP-Adresse, unter der iPhone und iPad diesen Mac per SSH erreichen. Dafür muss in den Systemeinstellungen unter Allgemein > Teilen die entfernte Anmeldung eingeschaltet sein.")
+                if isShortHostName(localHostName) {
+                    Label("Kurze Namen wie „\(localHostName.trimmingCharacters(in: .whitespaces))“ finden iPhone und iPad oft nicht, auch wenn der Mac sie auflöst. Tragen Sie besser den vollen Namen ein, z. B. work.staude.internal.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+            }
         }
         if localKeyUnreadable {
             Section {
@@ -75,6 +81,14 @@ struct HostQRView: View {
                 Text("/etc/ssh/ssh_host_ed25519_key.pub ließ sich nicht lesen. Fügen Sie die Zeile aus dieser Datei hier ein.")
             }
         }
+    }
+
+    /// A name without a dot that is no IP address, like "work". The Mac may
+    /// resolve it through a search domain, iPhone and iPad often do not.
+    private func isShortHostName(_ name: String) -> Bool {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, !name.contains("."), !name.contains(":") else { return false }
+        return name.lowercased() != "localhost"
     }
 
     private func codeSection(_ text: String, fingerprint: String) -> some View {
