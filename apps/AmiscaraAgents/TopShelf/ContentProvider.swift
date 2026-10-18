@@ -65,9 +65,8 @@ final class ContentProvider: TVTopShelfContentProvider {
             ])
             place.draw(in: CGRect(x: 70, y: 300, width: size.width - 110, height: 60))
         }
-        guard let data = image.pngData(),
-              let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-        else { return nil }
+        // In the App Group, so the system can read it for the Top Shelf.
+        guard let data = image.pngData(), let dir = WidgetSnapshot.directory else { return nil }
         let url = dir.appending(path: "card-\(agent.state.rawValue)-\(abs(agent.paneID.hashValue ^ agent.name.hashValue ^ agent.place.hashValue)).png")
         if !FileManager.default.fileExists(atPath: url.path) {
             try? data.write(to: url)

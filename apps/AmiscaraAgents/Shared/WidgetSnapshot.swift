@@ -70,10 +70,19 @@ struct WidgetSnapshot: Codable, Equatable {
     /// The widget kind; the app reloads it after writing.
     static let widgetKind = "Agents"
 
+    /// Where the snapshot and the Top Shelf cards live. tvOS lets apps write
+    /// only below `Library/Caches`, also in an App Group container.
+    static var directory: URL? {
+        let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+        #if os(tvOS)
+        return container?.appending(path: "Library/Caches")
+        #else
+        return container
+        #endif
+    }
+
     private static var fileURL: URL? {
-        FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
-            .appending(path: "widget-snapshot.json")
+        directory?.appending(path: "widget-snapshot.json")
     }
 
     static func load() -> WidgetSnapshot {
