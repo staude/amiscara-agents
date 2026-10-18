@@ -32,13 +32,11 @@ struct PaneDetailView: View {
                 )
             }
         }
-        // Follows the pane while the view is on screen. A new session (e.g.
-        // after coming back to the foreground) ended the old follower, so the
-        // generation is part of the key.
-        .task(id: FollowKey(pane: selection, generation: store.connection(for: selection?.hostID)?.generation)) {
-            let token = model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
-            await untilCancelled()
-            model.stop(token)
+        // A new session (e.g. after coming back to the foreground) ended the
+        // old follower, so the generation is part of the key. No stop on
+        // disappearing, see `PaneModel.show`.
+        .onChange(of: FollowKey(pane: selection, generation: store.connection(for: selection?.hostID)?.generation), initial: true) {
+            model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
         }
         .onChange(of: selection) { search.matchIndex = nil }
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
