@@ -107,6 +107,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
+- Shortcuts and Siri: "Welche Agents warten?" answers from the live state of
+  all hosts, "Agent öffnen" opens the app on a chosen agent; both read only
+  (#64).
 - Images can be pasted into the composer (⌘V, or "Aus Zwischenablage" under
   the paperclip) and are attached like picked photos; text paste is
   unchanged, and text wins when the clipboard holds both (#56).
@@ -128,6 +131,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Mac menu bar item with the number of waiting agents over all hosts and a
   menu to jump to one; it opens the main window if it is closed. Hosts stay
   connected and notifications keep coming while the window is closed (#62).
+- Start an agent in a new space or tab: "Agent starten" in the "Neuer Space"
+  sheet (last choice remembered) and a menu next to the tab "+". The core
+  calls `agent.start`, names the agent after its kind (`claude-2` when taken)
+  and waits a few seconds for a pane that is still starting its shell (#57).
 - Pane view scrolls back into history: scrolling to the top (or "Älteren
   Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
   limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab

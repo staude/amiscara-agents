@@ -289,6 +289,48 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     } catch let error as FfiError {
         print("ok   create: unknown space refused (\(error))")
     }
+
+    // Agent start. herdr types the agent's executable into the shell, so a
+    // fake `maki` early on PATH stands in for a real (paid) agent.
+    let kinds = session.agentKinds()
+    guard kinds.first == "claude", kinds.contains("maki") else { fail("agent kinds: \(kinds)") }
+    let fakeBin = FileManager.default.temporaryDirectory.appending(path: "herdr-smoke-bin-\(marker)")
+    try FileManager.default.createDirectory(at: fakeBin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: fakeBin) }
+    let fake = fakeBin.appending(path: "maki")
+    try Data("#!/bin/sh\necho fake-maki\nexec sleep 600\n".utf8).write(to: fake)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+    func agentTab() throws -> String {
+        let pane = try session.createTab(workspaceId: space.workspaceId, cwd: "/tmp").paneId
+        try session.sendText(paneId: pane, text: "export PATH='\(fakeBin.path)':\"$PATH\"")
+        try session.sendKeys(paneId: pane, keys: ["enter"])
+        Thread.sleep(forTimeInterval: 1)
+        return pane
+    }
+    let firstPane = try agentTab()
+    let secondPane = try agentTab()
+    let first = try session.startAgent(paneId: firstPane, kind: "maki", name: nil)
+    let second = try session.startAgent(paneId: secondPane, kind: "maki", name: nil)
+    guard first.hasPrefix("maki"), second != first, second.hasPrefix("maki-") else {
+        fail("agent names: \(first), \(second)")
+    }
+    let launched = session.followPane(paneId: secondPane, observer: probe)
+    let ranFake = wait(5) {
+        probe.lock.withLock {
+            probe.content?.lines.contains { $0.spans.map(\.text).joined().hasPrefix("fake-maki") } ?? false
+        }
+    }
+    launched.stop()
+    guard ranFake else { fail("fake agent did not run in \(secondPane)") }
+    print("ok   agent: started \(first) and \(second)")
+    for (pane, kind, what) in [(firstPane, "maki", "busy pane"), (tab.paneId, "no-such-agent", "unknown kind"), ("w999:p1", "maki", "unknown pane")] {
+        do {
+            _ = try session.startAgent(paneId: pane, kind: kind, name: nil)
+            fail("agent start in \(what) was accepted")
+        } catch let error as FfiError {
+            print("ok   agent: \(what) refused (\(error))")
+        }
+    }
     session.stop()
 }
 
