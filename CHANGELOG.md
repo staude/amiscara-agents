@@ -148,6 +148,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   sheet (last choice remembered) and a menu next to the tab "+". The core
   calls `agent.start`, names the agent after its kind (`claude-2` when taken)
   and waits a few seconds for a pane that is still starting its shell (#57).
+- Pane view scrolls back into history: scrolling to the top (or "Älteren
+  Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
+  limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab
+  only the selected pane loads history. Core:
+  `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
 
 ### Fixed
 

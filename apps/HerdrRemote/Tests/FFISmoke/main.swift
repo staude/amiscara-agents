@@ -146,6 +146,20 @@ follow.setLive(live: true)
 Thread.sleep(forTimeInterval: 0.5)
 if let error = probe.lock.withLock({ probe.paneError }) { fail("pane error after switching to live: \(error)") }
 print("ok   pane \(pane): switched to live pace")
+guard content.historyLines == 0 else { fail("follow starts with history") }
+
+// History: a recent read (ANSI, read-only) replaces the visible screen.
+follow.setHistoryLines(lines: 100_000)
+let gotHistory = wait(5) { probe.lock.withLock { probe.content?.historyLines == maxHistoryLines() } }
+guard gotHistory, let history = probe.lock.withLock({ probe.content }) else {
+    fail("no history for \(pane): \(probe.paneError ?? "-")")
+}
+guard history.lines.count <= Int(maxHistoryLines()) else { fail("history above the cap") }
+print("ok   history \(pane): \(history.lines.count) lines, more: \(history.truncated)")
+follow.setHistoryLines(lines: 0)
+guard wait(5, until: { probe.lock.withLock { probe.content?.historyLines == 0 } }) else {
+    fail("history did not switch back to the screen")
+}
 follow.stop()
 session.stop()
 
