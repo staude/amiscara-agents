@@ -533,6 +533,30 @@ if let target = env["HERDR_SMOKE_SSH"], let keyPath = env["HERDR_SMOKE_KEY"] {
     guard sshLive else { fail("ssh with pinned key not live: \(String(describing: second.update?.status))") }
     print("ok   ssh pinned: live, \(second.update?.board.count ?? 0) on the board")
 
+    // Pane content over the connection the sync shares, like the app. The
+    // app stops a follower when the pane view goes and starts a new one when
+    // it comes back, often while a read is in flight; a later follower must
+    // still get content (#107).
+    if let pane = second.lock.withLock({ second.update?.board.first?.paneId }) {
+        let started = Date()
+        let follow = pinned.followPane(paneId: pane, observer: second)
+        let read = wait(10) { second.lock.withLock { second.content?.paneId == pane } }
+        guard read else { fail("ssh pane \(pane): no content after 10 s, error \(String(describing: second.paneError))") }
+        print("ok   ssh pane \(pane): \(second.content?.lines.count ?? 0) lines after \(Int(Date().timeIntervalSince(started) * 1000)) ms")
+        follow.stop()
+        for _ in 0..<30 {
+            let short = pinned.followPane(paneId: pane, observer: second)
+            Thread.sleep(forTimeInterval: Double.random(in: 0...0.4))
+            short.stop()
+        }
+        second.lock.withLock { second.content = nil }
+        let again = pinned.followPane(paneId: pane, observer: second)
+        let readAgain = wait(10) { second.lock.withLock { second.content?.paneId == pane } }
+        again.stop()
+        guard readAgain else { fail("ssh pane \(pane): no content after stopped followers, error \(String(describing: second.paneError))") }
+        print("ok   ssh pane \(pane): content again after 30 followers stopped mid-way")
+    }
+
     // Upload over SFTP. Works only when the key line runs sftp-server.
     do {
         let remotePath = try pinned.uploadFile(data: payload, fileExtension: "txt")

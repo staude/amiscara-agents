@@ -235,3 +235,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
   keeps loading either: the collapsed split view shows the earlier pane
   view again without a new appear, and that view had stopped following
   when it disappeared. Pane views now follow until they are released (#107).
+- Reopening a pane over SSH no longer keeps loading: a pane follower is
+  stopped between requests, since an SSH request dropped half way left
+  the session unable to open new channels (#107).
