@@ -69,7 +69,7 @@ iPad and iPhone (scheme `AmiscaraAgents-iOS`, same sources). Build, install and
 launch on a connected device with developer mode on:
 
 ```sh
-scripts/install-ios.sh                # the only connected iPhone or iPad
+scripts/install-ios.sh                # the only connected iPhone, iPad or Apple TV
 scripts/install-ios.sh "iPad (2)"     # by name or UDID when several are connected
 scripts/install-ios.sh --release      # Release build; --no-launch installs only
 ```

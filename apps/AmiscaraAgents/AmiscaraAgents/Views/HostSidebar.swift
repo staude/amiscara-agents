@@ -54,7 +54,9 @@ struct HostSidebar: View {
                 }
             }
         }
+        #if !os(tvOS)
         .listStyle(.sidebar)
+        #endif
         .navigationTitle("Amiscara Agents")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -232,7 +234,7 @@ private struct NewSpaceView: View {
                 }
                 AgentPicker(connection: connection, kind: $agentKind)
                 if let error {
-                    Text(error).foregroundStyle(.red).textSelection(.enabled)
+                    Text(error).foregroundStyle(.red).selectableText()
                 }
             }
             .formStyle(.grouped)
@@ -331,7 +333,7 @@ struct NewWorktreeView: View {
                     ProgressView()
                 }
                 if let error {
-                    Text(error).foregroundStyle(.red).textSelection(.enabled)
+                    Text(error).foregroundStyle(.red).selectableText()
                 }
             }
             .formStyle(.grouped)
@@ -629,10 +631,12 @@ extension View {
                     Button(label, systemImage: "pencil", action: action)
                     more()
                 }
+                #if !os(tvOS)
                 .swipeActions(edge: .trailing) {
                     Button(label, systemImage: "pencil", action: action)
                         .tint(.accentColor)
                 }
+                #endif
         } else {
             self
         }

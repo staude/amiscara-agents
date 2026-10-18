@@ -58,7 +58,9 @@ struct ContentView: View {
             editing = config
         }
         // Open links in the existing window instead of a new one.
+        #if !os(tvOS)
         .handlesExternalEvents(preferring: ["amiscara-agents"], allowing: ["*"])
+        #endif
         .sheet(item: keyPrompt) { connection in
             HostKeyView(connection: connection) {
                 dismissedKeyPrompts.insert(connection.id)

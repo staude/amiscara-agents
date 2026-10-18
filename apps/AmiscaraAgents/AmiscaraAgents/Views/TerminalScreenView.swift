@@ -50,7 +50,7 @@ struct TerminalScreenView: View {
                     }
                 }
                 .padding(10)
-                .textSelection(.enabled)
+                .selectableText()
             }
             // Like a terminal: start at the bottom, where the latest output and
             // the agent's prompt are, and stay there when new lines arrive.

@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(WidgetKit)
 import WidgetKit
+#endif
 
 /// Writes the board of all hosts for the widgets (`WidgetSnapshot`) and
 /// reloads them: when the agents change, and every few minutes while the
@@ -42,7 +44,9 @@ final class WidgetPublisher {
         do {
             try snapshot.save()
             written = snapshot
+            #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
+            #endif
         } catch {
             // Without the App Group (e.g. an unsigned build) there are no widgets.
         }

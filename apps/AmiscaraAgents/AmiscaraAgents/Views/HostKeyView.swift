@@ -36,7 +36,7 @@ struct HostKeyView: View {
     private func fingerprintBox(_ fingerprint: String) -> some View {
         Text(fingerprint)
             .font(.system(.body, design: .monospaced))
-            .textSelection(.enabled)
+            .selectableText()
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
@@ -49,7 +49,9 @@ struct HostKeyView: View {
                 onLater()
                 dismiss()
             }
+            #if !os(tvOS)
             .keyboardShortcut(.cancelAction)
+            #endif
             Button(trustLabel, role: role) {
                 store.trustHostKey(key, for: connection.id)
                 dismiss()

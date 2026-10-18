@@ -3,7 +3,7 @@
 # HerdrFFI.xcframework plus the generated Swift bindings, both in
 # apps/AmiscaraAgents/Generated (not checked in).
 #
-# Usage: scripts/build-ffi.sh [debug|release] [macosx|iphoneos|iphonesimulator|all]
+# Usage: scripts/build-ffi.sh [debug|release] [macosx|iphoneos|iphonesimulator|appletvos|appletvsimulator|all]
 #
 # Profile defaults to release. Platform defaults to $PLATFORM_NAME (set by
 # Xcode build phases) or macosx. Only the requested slice is built; slices
@@ -24,12 +24,14 @@ triple_for() {
         macosx) echo aarch64-apple-darwin ;;
         iphoneos) echo aarch64-apple-ios ;;
         iphonesimulator) echo aarch64-apple-ios-sim ;;
+        appletvos) echo aarch64-apple-tvos ;;
+        appletvsimulator) echo aarch64-apple-tvos-sim ;;
         *) echo "unknown platform: $1" >&2; exit 1 ;;
     esac
 }
 
 if [[ "$platform" == "all" ]]; then
-    platforms=(macosx iphoneos iphonesimulator)
+    platforms=(macosx iphoneos iphonesimulator appletvos appletvsimulator)
 else
     platforms=("$platform")
 fi
@@ -42,15 +44,18 @@ fi
 for p in "${platforms[@]}"; do
     # Xcode exports SDKROOT and deployment targets for its own platform. They
     # must not leak into cargo: host proc-macros would be built against the
-    # iOS SDK or with a deployment target the host loader rejects. iOS slices
-    # get the app's deployment target, so the C parts (aws-lc) match it.
+    # iOS SDK or with a deployment target the host loader rejects. iOS and
+    # tvOS slices get the app's deployment target, so the C parts (aws-lc)
+    # match it. tvOS stays at 26: the Apple TV 4K (AppleTV6,2) gets no 27.
     ios_target=()
-    if [[ "$p" != "macosx" ]]; then
-        ios_target=(IPHONEOS_DEPLOYMENT_TARGET=27.0)
-    fi
+    case "$p" in
+        iphoneos | iphonesimulator) ios_target=(IPHONEOS_DEPLOYMENT_TARGET=27.0) ;;
+        appletvos | appletvsimulator) ios_target=(TVOS_DEPLOYMENT_TARGET=26.0) ;;
+    esac
     # ${a[@]+"${a[@]}"}: empty arrays count as unset under `set -u` in the
     # bash 3.2 that Xcode build phases run.
-    env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u IPHONEOS_DEPLOYMENT_TARGET ${ios_target[@]+"${ios_target[@]}"} \
+    env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u IPHONEOS_DEPLOYMENT_TARGET -u TVOS_DEPLOYMENT_TARGET \
+        ${ios_target[@]+"${ios_target[@]}"} \
         cargo build -p herdr-ffi --target "$(triple_for "$p")" ${cargo_profile[@]+"${cargo_profile[@]}"}
 done
 
@@ -61,7 +66,7 @@ mkdir -p "$work/swift" "$work/headers" "$out"
 
 # Bindings come from the slice just built; all slices share one API.
 bindings_lib="target/$(triple_for "${platforms[0]}")/$profile/libherdr_ffi.a"
-env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u IPHONEOS_DEPLOYMENT_TARGET \
+env -u SDKROOT -u MACOSX_DEPLOYMENT_TARGET -u IPHONEOS_DEPLOYMENT_TARGET -u TVOS_DEPLOYMENT_TARGET \
     cargo run -q -p uniffi-bindgen -- generate \
     --library "$bindings_lib" \
     --language swift \
@@ -72,7 +77,7 @@ cp "$work/swift/herdr_ffiFFI.modulemap" "$work/headers/module.modulemap"
 
 libraries=()
 stamp_input=()
-for p in macosx iphoneos iphonesimulator; do
+for p in macosx iphoneos iphonesimulator appletvos appletvsimulator; do
     lib="target/$(triple_for "$p")/$profile/libherdr_ffi.a"
     if [[ -f "$lib" ]]; then
         libraries+=(-library "$lib" -headers "$work/headers")

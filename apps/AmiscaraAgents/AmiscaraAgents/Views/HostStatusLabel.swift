@@ -18,9 +18,15 @@ struct HostStatusLabel: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(summary)
+            #if os(tvOS)
+            .sheet(isPresented: $showDetails) {
+                HostStatusDetails(connection: connection) { showDetails = false }
+            }
+            #else
             .popover(isPresented: $showDetails) {
                 HostStatusDetails(connection: connection) { showDetails = false }
             }
+            #endif
         }
     }
 
@@ -60,7 +66,7 @@ private struct HostStatusDetails: View {
             if let detail = connection.statusDetail {
                 Text(detail)
                     .font(.system(.callout, design: .monospaced))
-                    .textSelection(.enabled)
+                    .selectableText()
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

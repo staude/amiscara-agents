@@ -53,7 +53,9 @@ struct WorkspaceDetailView: View {
                 }
                 .focusedSceneValue(\.tabNavigator, workspace.tabs.count > 1 ? TabNavigator(step: { step(by: $0, in: workspace) }) : nil)
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
+                #if !os(tvOS)
                 .navigationSubtitle(workspace.group ?? "")
+                #endif
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
                 #endif

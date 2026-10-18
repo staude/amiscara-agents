@@ -9,6 +9,7 @@ import UserNotifications
 ///
 /// On iOS this only works while the app runs: in the background the system
 /// suspends it and the SSH session with it.
+#if !os(tvOS)
 @MainActor
 @Observable
 final class Notifier: NSObject {
@@ -103,6 +104,7 @@ final class Notifier: NSObject {
         AgentNotification.identifier(hostID, paneID)
     }
 }
+#endif
 
 /// Title, subtitle and body of an agent notification, shared by the local
 /// notifications and the pushes the Mac sends.
@@ -121,6 +123,7 @@ struct AgentNotificationText {
     }
 }
 
+#if !os(tvOS)
 extension Notifier: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -163,3 +166,22 @@ extension Notifier: UNUserNotificationCenterDelegate {
         }
     }
 }
+#endif
+
+#if os(tvOS)
+/// tvOS shows no notification banners: the TV shows the agents' state on
+/// screen. Same interface as on the other platforms, so the store needs no
+/// branches.
+@MainActor
+@Observable
+final class Notifier {
+    var openRequest: SpaceRef?
+    @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String) async -> Bool)?
+    @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
+    @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)?
+    @ObservationIgnored var appActive = true
+
+    func notify(_ items: [BoardItem], on host: HostConfig) {}
+    func updateBadge(waiting: Int) {}
+}
+#endif

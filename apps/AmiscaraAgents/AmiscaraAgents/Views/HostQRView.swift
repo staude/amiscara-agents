@@ -107,7 +107,7 @@ struct HostQRView: View {
             }
             LabeledContent("Fingerabdruck", value: fingerprint)
                 .font(.caption.monospaced())
-                .textSelection(.enabled)
+                .selectableText()
             Button {
                 Platform.copy(text)
                 withAnimation { copied = true }

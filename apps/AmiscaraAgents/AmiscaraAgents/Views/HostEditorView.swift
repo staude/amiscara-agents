@@ -83,12 +83,12 @@ struct HostEditorView: View {
                 if config.kind == .local {
                     CloudPushSection(sender: store.cloudPush)
                 }
-                #else
+                #elseif os(iOS)
                 if let status = CloudPushSubscriptions.shared.status {
                     Section("Push über iCloud") {
                         Label(status, systemImage: CloudPushSubscriptions.shared.active ? "checkmark.icloud" : "exclamationmark.icloud")
                             .foregroundStyle(CloudPushSubscriptions.shared.active ? Color.secondary : Color.orange)
-                            .textSelection(.enabled)
+                            .selectableText()
                     }
                 }
                 #endif
@@ -106,7 +106,7 @@ struct HostEditorView: View {
                 }
 
                 if let error {
-                    Text(error).foregroundStyle(.red).textSelection(.enabled)
+                    Text(error).foregroundStyle(.red).selectableText()
                 }
             }
             .formStyle(.grouped)
@@ -114,9 +114,13 @@ struct HostEditorView: View {
             HStack {
                 Spacer()
                 Button("Abbrechen", role: .cancel) { dismiss() }
+                    #if !os(tvOS)
                     .keyboardShortcut(.cancelAction)
+                    #endif
                 Button(isNew ? "Hinzufügen" : "Sichern") { save() }
+                    #if !os(tvOS)
                     .keyboardShortcut(.defaultAction)
+                    #endif
                     .disabled(!isComplete)
             }
             .padding()
@@ -146,10 +150,12 @@ struct HostEditorView: View {
             #if os(iOS)
             Button("QR-Code scannen", systemImage: "qrcode.viewfinder") { scanning = true }
             #endif
+            #if !os(tvOS)
             PasteButton(payloadType: String.self) { strings in
                 guard let text = strings.first else { return }
                 Task { @MainActor in applyLink(text) }
             }
+            #endif
             if let importError {
                 Text(importError).foregroundStyle(.red)
             }
@@ -166,7 +172,7 @@ struct HostEditorView: View {
             Section {
                 LabeledContent("Fingerabdruck", value: importedKey.fingerprint)
                     .font(.caption.monospaced())
-                    .textSelection(.enabled)
+                    .selectableText()
                 Toggle("Fingerabdruck stimmt mit dem auf dem Mac angezeigten überein", isOn: $keyConfirmed)
             } header: {
                 Text("Host-Key aus dem Code (ungeprüft)")
@@ -182,7 +188,7 @@ struct HostEditorView: View {
             Section {
                 LabeledContent("Host-Key", value: (try? publicKeyFingerprint(publicOpenssh: key)) ?? key)
                     .font(.caption)
-                    .textSelection(.enabled)
+                    .selectableText()
             } footer: {
                 Text("Diesem Schlüssel vertraut die App. Meldet sich der Server mit einem anderen, warnt sie.")
             }
@@ -197,7 +203,7 @@ struct HostEditorView: View {
                 let line = (try? authorizedKeysLine(publicOpenssh: publicKey, allowSftp: config.uploadAllowed)) ?? publicKey
                 Text(line)
                     .font(.system(.caption, design: .monospaced))
-                    .textSelection(.enabled)
+                    .selectableText()
                     .lineLimit(4)
                 HStack {
                     Button {

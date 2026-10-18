@@ -13,8 +13,10 @@ struct AmiscaraAgentsApp: App {
     init() {
         let store = HostStore()
         _store = State(initialValue: store)
+        #if !os(tvOS)
         // Shortcuts and Siri run in this process and read the same store.
         AppDependencyManager.shared.add(dependency: store)
+        #endif
     }
 
     var body: some Scene {
@@ -26,7 +28,9 @@ struct AmiscaraAgentsApp: App {
                 .frame(minWidth: 960, minHeight: 600)
                 #endif
         }
+        #if !os(tvOS)
         .commands { AppCommands() }
+        #endif
         .onChange(of: scenePhase) { _, phase in
             // iOS suspends the app and the SSH session with it. Coming back,
             // reconnect at once instead of waiting out the retry pause.
@@ -41,7 +45,9 @@ struct AmiscaraAgentsApp: App {
                 store.widgets.publish(store, force: true)
             }
         }
+        #if !os(tvOS)
         .commands { TerminalZoomCommands() }
+        #endif
         #if os(macOS)
         // Owned by the app like the store, so hosts stay connected and
         // notifications keep coming while the window is closed.
