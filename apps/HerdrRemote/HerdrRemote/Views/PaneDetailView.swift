@@ -5,14 +5,20 @@ struct PaneDetailView: View {
     @Environment(HostStore.self) private var store
     let selection: PaneRef?
     @State private var model = PaneModel()
+    @State private var search = PaneSearchState()
 
     var body: some View {
-        Group {
+        let matches = search.matches(in: model.content)
+        return Group {
             if let selection, let connection = store.connection(for: selection.hostID) {
                 VStack(spacing: 0) {
                     header(connection: connection, paneID: selection.paneID)
                     Divider()
-                    screen(connection: connection)
+                    if search.isOpen {
+                        PaneSearchBar(state: search, matches: matches)
+                        Divider()
+                    }
+                    screen(connection: connection, search: search.highlight(matches))
                     if connection.config.inputAllowed, let pane = pane(connection, selection.paneID) {
                         Divider()
                         InputBar(connection: connection, pane: pane)
@@ -28,7 +34,9 @@ struct PaneDetailView: View {
         }
         .onChange(of: selection, initial: true) { _, selection in
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
+            search.matchIndex = nil
         }
+        .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
         .onDisappear { model.stop() }
     }
 
@@ -55,6 +63,7 @@ struct PaneDetailView: View {
                     .foregroundStyle(state.color)
             }
             Text(connection.config.name).foregroundStyle(.secondary)
+            PaneSearchButton(state: search)
             TerminalZoomMenu()
         }
         .padding(.horizontal, 12)
@@ -62,9 +71,9 @@ struct PaneDetailView: View {
     }
 
     @ViewBuilder
-    private func screen(connection: HostConnection) -> some View {
+    private func screen(connection: HostConnection, search: SearchHighlight) -> some View {
         if let content = model.content {
-            TerminalScreenView(content: content, history: model)
+            TerminalScreenView(content: content, history: model, search: search)
                 .terminalZoomGesture()
                 .overlay(alignment: .top) {
                     if let error = model.error {

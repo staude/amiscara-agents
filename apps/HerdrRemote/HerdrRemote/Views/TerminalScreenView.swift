@@ -10,6 +10,9 @@ struct TerminalScreenView: View {
     /// For a pane in a split tab: shrink the font until this many terminal
     /// columns fit the width, down to a still readable minimum.
     var fitColumns: UInt32?
+    /// Search matches to mark; empty when no search is open. Covers loaded
+    /// history too, since it is part of `content`.
+    var search = SearchHighlight()
     @AppStorage("terminalFontSize") private var preferredFontSize = Platform.defaultTerminalFontSize
     @State private var width: CGFloat = 0
     /// Set once the user scrolled, so the first layout (which may briefly sit
@@ -24,45 +27,58 @@ struct TerminalScreenView: View {
     }
 
     var body: some View {
-        ScrollView([.vertical, .horizontal]) {
-            // A plain VStack: the visible screen is about 60 lines, and a
-            // LazyVStack in a two-axis scroll view could stay undrawn until
-            // the content changed (a black pane on the iPad). With history
-            // it holds up to 1000 lines, which SwiftUI still lays out fast.
-            VStack(alignment: .leading, spacing: 0) {
-                if let history {
-                    HistoryHeader(model: history, content: content)
-                        .padding(.bottom, 8)
-                }
-                ForEach(Array(content.lines.enumerated()), id: \.offset) { _, line in
-                    Text(TerminalStyle.attributed(line, fontSize: fontSize))
+        ScrollViewReader { proxy in
+            ScrollView([.vertical, .horizontal]) {
+                // A plain VStack: the visible screen is about 60 lines, and a
+                // LazyVStack in a two-axis scroll view could stay undrawn until
+                // the content changed (a black pane on the iPad). With history
+                // it holds up to 1000 lines, which SwiftUI still lays out fast.
+                VStack(alignment: .leading, spacing: 0) {
+                    if let history {
+                        HistoryHeader(model: history, content: content)
+                            .padding(.bottom, 8)
+                    }
+                    ForEach(Array(content.lines.enumerated()), id: \.offset) { index, line in
+                        Text(TerminalStyle.attributed(
+                            line,
+                            fontSize: fontSize,
+                            matches: search.byLine[index] ?? [],
+                            current: search.current
+                        ))
                         .fixedSize()
                         .frame(minHeight: fontSize * 1.25, alignment: .leading)
+                    }
+                }
+                .padding(10)
+                .textSelection(.enabled)
+            }
+            // Like a terminal: start at the bottom, where the latest output and
+            // the agent's prompt are, and stay there when new lines arrive.
+            // Older lines loaded above keep the lines in view where they are.
+            .defaultScrollAnchor(.bottomLeading)
+            .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
+            .onScrollPhaseChange { _, phase in
+                if phase.isScrolling { userScrolled = true }
+            }
+            // Scrolling up to the first line loads the next history step, like
+            // a terminal's scrollback.
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height > geometry.containerSize.height
+                    && geometry.contentOffset.y <= geometry.contentInsets.top + 24
+            } action: { _, atTop in
+                if atTop, userScrolled { history?.loadMoreHistory() }
+            }
+            // A fresh scroll view per pane, so the previous pane's scroll
+            // position cannot leave the new one out of sight.
+            .id(content.paneId)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .onChange(of: search.scrollRequest) {
+                guard let line = search.current?.line else { return }
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo(line, anchor: UnitPoint(x: 0, y: 0.5))
                 }
             }
-            .padding(10)
-            .textSelection(.enabled)
         }
-        // Like a terminal: start at the bottom, where the latest output and
-        // the agent's prompt are, and stay there when new lines arrive.
-        // Older lines loaded above keep the lines in view where they are.
-        .defaultScrollAnchor(.bottomLeading)
-        .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
-        .onScrollPhaseChange { _, phase in
-            if phase.isScrolling { userScrolled = true }
-        }
-        // Scrolling up to the first line loads the next history step, like
-        // a terminal's scrollback.
-        .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentSize.height > geometry.containerSize.height
-                && geometry.contentOffset.y <= geometry.contentInsets.top + 24
-        } action: { _, atTop in
-            if atTop, userScrolled { history?.loadMoreHistory() }
-        }
-        // A fresh scroll view per pane, so the previous pane's scroll
-        // position cannot leave the new one out of sight.
-        .id(content.paneId)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(TerminalStyle.background)
         .environment(\.colorScheme, .dark)
     }
@@ -104,7 +120,15 @@ enum TerminalStyle {
     static let background = Color(red: 0.11, green: 0.11, blue: 0.12)
     static let foreground = Color(red: 0.88, green: 0.88, blue: 0.88)
 
-    static func attributed(_ line: StyledLine, fontSize: Double) -> AttributedString {
+    static let match = Color(red: 0.95, green: 0.80, blue: 0.25).opacity(0.75)
+    static let currentMatch = Color(red: 1.00, green: 0.55, blue: 0.10)
+
+    static func attributed(
+        _ line: StyledLine,
+        fontSize: Double,
+        matches: [SearchMatch] = [],
+        current: SearchMatch? = nil
+    ) -> AttributedString {
         var result = AttributedString()
         for span in line.spans {
             var part = AttributedString(span.text)
@@ -125,6 +149,14 @@ enum TerminalStyle {
             if span.underline { part.underlineStyle = .single }
             if span.strikethrough { part.strikethroughStyle = .single }
             result += part
+        }
+        for match in matches {
+            let chars = result.characters
+            guard let start = chars.index(chars.startIndex, offsetBy: match.start, limitedBy: chars.endIndex),
+                  let end = chars.index(start, offsetBy: match.length, limitedBy: chars.endIndex)
+            else { continue }
+            result[start..<end].backgroundColor = match == current ? currentMatch : Self.match
+            result[start..<end].foregroundColor = .black
         }
         return result
     }

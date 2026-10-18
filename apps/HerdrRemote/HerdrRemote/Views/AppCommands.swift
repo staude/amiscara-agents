@@ -9,8 +9,24 @@ struct AppCommands: Commands {
     @FocusedValue(\.navigator) private var navigator
     @FocusedValue(\.tabNavigator) private var tabNavigator
     @FocusedValue(\.keySender) private var keySender
+    @FocusedValue(\.paneSearch) private var paneSearch
 
     var body: some Commands {
+        // In the Edit menu, where Find lives in every Mac app. SwiftUI adds
+        // no Find items of its own here (that would take TextEditingCommands),
+        // so ⌘F, ⌘G and ⇧⌘G belong to the pane search.
+        CommandGroup(after: .textEditing) {
+            Divider()
+            Button("Suchen …") { paneSearch?.open() }
+                .keyboardShortcut("f", modifiers: .command)
+                .disabled(paneSearch == nil)
+            Button("Weitersuchen") { paneSearch?.step(1) }
+                .keyboardShortcut("g", modifiers: .command)
+                .disabled(paneSearch?.canStep != true)
+            Button("Rückwärts suchen") { paneSearch?.step(-1) }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .disabled(paneSearch?.canStep != true)
+        }
         CommandMenu("Gehe zu") {
             Button("Schnell wechseln …") { navigator?.openSwitcher() }
                 .keyboardShortcut("k", modifiers: .command)
@@ -79,8 +95,17 @@ struct KeySender {
     let isBlocked: Bool
 }
 
+/// Search in the shown pane (the selected one in a split tab).
+struct PaneSearchActions {
+    let open: @MainActor () -> Void
+    let step: @MainActor (Int) -> Void
+    /// The bar is open and has matches.
+    let canStep: Bool
+}
+
 extension FocusedValues {
     @Entry var navigator: Navigator?
     @Entry var tabNavigator: TabNavigator?
     @Entry var keySender: KeySender?
+    @Entry var paneSearch: PaneSearchActions?
 }
