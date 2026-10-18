@@ -250,12 +250,6 @@ impl From<NewWorktree> for actions::NewWorktree {
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
 
-/// Push registrations of iPhones and iPads, read by the Mac app on the host.
-#[uniffi::export]
-pub fn push_dir() -> String {
-    ".amiscara-agents/push".into()
-}
-
 /// Default `herdr.sock` path for a user on a macOS host.
 #[uniffi::export]
 pub fn default_remote_socket(user: String) -> String {
@@ -547,34 +541,6 @@ impl HostSession {
             rx.borrow().request_snapshot();
         }
         Ok(())
-    }
-
-    /// Writes `data` as `~/.amiscara-agents/push/<file_name>` on the host,
-    /// replacing an earlier version (mode 0600). Needs SFTP like uploads.
-    pub fn write_push_registration(
-        &self,
-        file_name: String,
-        data: Vec<u8>,
-    ) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime()
-            .block_on(conn.write_file(&push_dir(), &file_name, &data))
-            .map(|_| ())
-            .map_err(|err| match err {
-                TransportError::Upload(message) => FfiError::Upload(message),
-                other => FfiError::NotConnected(other.to_string()),
-            })
-    }
-
-    /// Deletes this device's push registration on the host, if any.
-    pub fn remove_push_registration(&self, file_name: String) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime()
-            .block_on(conn.remove_file(&push_dir(), &file_name))
-            .map_err(|err| match err {
-                TransportError::Upload(message) => FfiError::Upload(message),
-                other => FfiError::NotConnected(other.to_string()),
-            })
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,

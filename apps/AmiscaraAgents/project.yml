@@ -62,6 +62,11 @@ targets:
         # Shares the board with the widget (Shared/WidgetSnapshot.swift).
         com.apple.security.application-groups:
           - 7N2W4T6UPV.net.staude.amiscara.agents
+        # Pushes through the user's private iCloud database (#119).
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.net.staude.amiscara.agents
+        com.apple.developer.icloud-services:
+          - CloudKit
     info:
       path: AmiscaraAgents/Info.plist
       properties:
@@ -103,9 +108,13 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.net.staude.amiscara.agents
-        # Pushes from the Mac app (#94); the export for TestFlight switches
-        # it to production.
+        # CloudKit subscriptions arrive as pushes (#119); the export for
+        # TestFlight switches it to production.
         aps-environment: development
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.net.staude.amiscara.agents
+        com.apple.developer.icloud-services:
+          - CloudKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents

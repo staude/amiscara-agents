@@ -5,7 +5,7 @@ import SwiftUI
 struct AmiscaraAgentsApp: App {
     @State private var store: HostStore
     #if os(iOS)
-    /// Push token and notification launches (#94).
+    /// Remote notifications for the iCloud subscriptions (#119).
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
     @Environment(\.scenePhase) private var scenePhase
