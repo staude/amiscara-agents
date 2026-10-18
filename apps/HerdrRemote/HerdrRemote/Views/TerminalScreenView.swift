@@ -5,7 +5,18 @@ import SwiftUI
 /// values for a dark background.
 struct TerminalScreenView: View {
     let content: PaneContent
-    @AppStorage("terminalFontSize") private var fontSize = Platform.defaultTerminalFontSize
+    /// For a pane in a split tab: shrink the font until this many terminal
+    /// columns fit the width, down to a still readable minimum.
+    var fitColumns: UInt32?
+    @AppStorage("terminalFontSize") private var preferredFontSize = Platform.defaultTerminalFontSize
+    @State private var width: CGFloat = 0
+
+    private var fontSize: Double {
+        guard let fitColumns, fitColumns > 0, width > 0 else { return preferredFontSize }
+        // A monospaced glyph is about 0.6 em wide; 20 is the padding.
+        let fitting = (Double(width) - 20) / (Double(fitColumns) * 0.6)
+        return min(preferredFontSize, max(7, fitting.rounded(.down)))
+    }
 
     var body: some View {
         ScrollView([.vertical, .horizontal]) {
@@ -29,6 +40,7 @@ struct TerminalScreenView: View {
         // A fresh scroll view per pane, so the previous pane's scroll
         // position cannot leave the new one out of sight.
         .id(content.paneId)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .background(TerminalStyle.background)
         .environment(\.colorScheme, .dark)
     }

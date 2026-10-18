@@ -56,8 +56,8 @@ final class HostConnection: Identifiable {
         start()
     }
 
-    func followPane(_ paneID: String, observer: PaneObserver) -> PaneFollow? {
-        session?.followPane(paneId: paneID, observer: observer)
+    func followPane(_ paneID: String, live: Bool = true, observer: PaneObserver) -> PaneFollow? {
+        session?.followPanePaced(paneId: paneID, live: live, observer: observer)
     }
 
     /// Sends a prompt to an agent, or text plus Enter to a shell.
@@ -88,6 +88,29 @@ final class HostConnection: Identifiable {
         let session = try writableSession()
         return try await Task.detached {
             try session.createTab(workspaceId: workspaceID, cwd: nil)
+        }.value
+    }
+
+    func renameSpace(_ workspaceID: String, to label: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.renameWorkspace(workspaceId: workspaceID, label: label)
+        }.value
+    }
+
+    func renameTab(_ tabID: String, to label: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.renameTab(tabId: tabID, label: label)
+        }.value
+    }
+
+    /// An empty name removes the agent's name.
+    func renameAgent(in paneID: String, to name: String) async throws {
+        let session = try writableSession()
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        try await Task.detached {
+            try session.renameAgent(paneId: paneID, name: trimmed.isEmpty ? nil : trimmed)
         }.value
     }
 

@@ -16,11 +16,16 @@ struct ContentView: View {
             WorkspaceDetailView(selection: selection)
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in
-            // A tapped notification or a shortcut opens its pane. Initial,
-            // because the request may be what launched the app.
+            // A tapped notification, menu bar entry or shortcut opens its
+            // pane. Initial, because the request may be what launched the app
+            // or, on the Mac, what opened this window.
             guard let request else { return }
             selection = request
             store.notifier.openRequest = nil
+        }
+        .onDisappear {
+            // A closed window shows no pane; its agents get banners again.
+            store.notifier.visiblePane = nil
         }
         .sheet(item: $editing) { config in
             HostEditorView(config: config)
