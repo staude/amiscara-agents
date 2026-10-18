@@ -409,6 +409,30 @@ impl HostSession {
         Ok(())
     }
 
+    /// Closes a tab and what runs in it. Blocks for one round trip.
+    pub fn close_tab(&self, tab_id: String) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::close_tab(&conn, &tab_id))?;
+        Ok(())
+    }
+
+    /// Closes a space with all its tabs; `with_worktrees` also closes the
+    /// linked worktree spaces of a repository's space, which herdr requires
+    /// when there are any. Blocks for one round trip.
+    pub fn close_workspace(
+        &self,
+        workspace_id: String,
+        with_worktrees: bool,
+    ) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::close_workspace(
+            &conn,
+            &workspace_id,
+            with_worktrees,
+        ))?;
+        Ok(())
+    }
+
     /// Names the agent in a pane; `None` or an empty name removes the name.
     /// herdr does not announce names with an event, so a fresh snapshot
     /// follows. Blocks for one round trip.
