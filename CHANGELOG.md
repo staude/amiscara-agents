@@ -274,6 +274,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Apple TV: "Neuer Tab mit Agent" opens a dialog with the agent kinds
+  instead of a menu that could be empty or unreachable with the remote.
 - Uploaded file names keep only letters, digits, `.`, `_` and `-`, and in a
   shell pane the appended upload paths are single-quoted, so a crafted file
   name cannot add a shell command (follow-up to #116).
