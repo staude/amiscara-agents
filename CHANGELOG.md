@@ -212,6 +212,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Watch; a tap reconnects in the background and sends the key. The APNs key
   (.p8) is set in the host settings of "Dieser Mac" and stays in the
   Keychain. Transport `write_file` replaces a file on the host.
+- Drop files and screenshots onto the input bar (#116), on the Mac and the
+  iPad, with a highlight while dragging; the paperclip's file dialog takes
+  any file as well. Images are prepared as before (`img-…`), other files go
+  up unchanged under their own name (`file-<time>-<name>`, any extension,
+  up to 20 MB). The text of a Finder text clipping goes into the prompt,
+  as a .txt attachment when longer than 2000 characters. Errors say why a
+  file was refused.
 
 ### Changed
 

@@ -204,7 +204,11 @@ final class HostConnection: Identifiable {
         let session = try writableSession()
         return try await Task.detached {
             try attachments.map { attachment in
-                try session.uploadFile(data: attachment.data, fileExtension: attachment.fileExtension)
+                if let name = attachment.fileName {
+                    try session.uploadNamedFile(data: attachment.data, fileName: name)
+                } else {
+                    try session.uploadFile(data: attachment.data, fileExtension: attachment.fileExtension)
+                }
             }
         }.value
     }

@@ -577,6 +577,20 @@ impl HostSession {
             })
     }
 
+    /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
+    /// made unique and safe (`file-<time>-<name>`), and returns the absolute
+    /// path. The name helps the agent tell what the file is.
+    pub fn upload_named_file(&self, data: Vec<u8>, file_name: String) -> Result<String, FfiError> {
+        let conn = self.connection()?;
+        let name = named_upload(&file_name);
+        runtime()
+            .block_on(conn.upload(UPLOAD_DIR, &name, &data))
+            .map_err(|err| match err {
+                TransportError::Upload(message) => FfiError::Upload(message),
+                other => FfiError::NotConnected(other.to_string()),
+            })
+    }
+
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path. Blocks
     /// until the upload is done; call it off the main thread.
@@ -826,11 +840,51 @@ impl Connector {
 
 /// `img-<unix seconds>-<nanos>.<ext>`: sortable and unique enough for one
 /// device uploading by hand.
+/// `file-<secs>-<nanos>-<name>` with path separators, control characters
+/// and leading dots replaced, at most 120 characters of the name (the end,
+/// with the extension, is kept).
+fn named_upload(file_name: &str) -> String {
+    let cleaned: String = file_name
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch == '/' || ch == '\\' || ch == ':' || ch.is_control() {
+                '_'
+            } else {
+                ch
+            }
+        })
+        .collect();
+    let cleaned = cleaned.trim_start_matches('.');
+    let chars: Vec<char> = cleaned.chars().collect();
+    let name: String = if chars.len() > 120 {
+        chars[chars.len() - 120..].iter().collect()
+    } else {
+        cleaned.to_owned()
+    };
+    let name = if name.is_empty() {
+        "datei".to_owned()
+    } else {
+        name
+    };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    format!("file-{}-{:09}-{name}", now.as_secs(), now.subsec_nanos())
+}
+
+/// `img-…` for images, `file-…` for anything else, so a listing of the
+/// upload folder says what is what.
 fn upload_name(ext: &str) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
-    format!("img-{}-{:09}.{ext}", now.as_secs(), now.subsec_nanos())
+    let image = matches!(
+        ext,
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "heic" | "tif" | "tiff"
+    );
+    let prefix = if image { "img" } else { "file" };
+    format!("{prefix}-{}-{:09}.{ext}", now.as_secs(), now.subsec_nanos())
 }
 
 fn key_error(err: TransportError) -> FfiError {
@@ -847,4 +901,31 @@ fn runtime() -> &'static Runtime {
             .build()
             .unwrap_or_else(|err| panic!("cannot start the tokio runtime: {err}"))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::named_upload;
+
+    #[test]
+    fn named_uploads_are_safe_and_keep_the_name() {
+        let name = named_upload("Rechnung März.xlsx");
+        assert!(
+            name.starts_with("file-") && name.ends_with("-Rechnung März.xlsx"),
+            "{name}"
+        );
+        let name = named_upload("../../.ssh/authorized_keys");
+        assert!(
+            !name.contains('/') && name.ends_with("-_.._.ssh_authorized_keys"),
+            "{name}"
+        );
+        assert!(named_upload(".hidden").ends_with("-hidden"));
+        assert!(named_upload("  ").ends_with("-datei"));
+        let long = format!("{}.textClipping", "x".repeat(200));
+        let name = named_upload(&long);
+        assert!(
+            name.ends_with(".textClipping") && name.len() < 160,
+            "{name}"
+        );
+    }
 }
