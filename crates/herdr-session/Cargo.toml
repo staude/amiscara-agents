@@ -1,0 +1,18 @@
+[package]
+name = "herdr-session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Live herdr sessions for the apps: connection, sync, pane follow and actions, shared by the Apple apps (via herdr-ffi) and the desktop app"
+
+[dependencies]
+herdr-core = { version = "0.1.0", path = "../herdr-core" }
+herdr-proto = { version = "0.1.0", path = "../herdr-proto" }
+herdr-transport = { version = "0.1.0", path = "../herdr-transport" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2.0.21"
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "sync", "time", "macros"] }
+
+[lints]
+workspace = true
