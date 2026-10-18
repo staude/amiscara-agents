@@ -108,6 +108,8 @@ pub struct PaneItem {
     pub title: String,
     /// `None` for a plain shell.
     pub agent: Option<String>,
+    /// Custom agent name from `agent.rename`.
+    pub name: Option<String>,
     pub agent_state: AgentState,
     pub focused: bool,
 }
@@ -120,6 +122,8 @@ pub struct BoardItem {
     pub workspace_label: String,
     pub tab_label: String,
     pub agent: String,
+    /// Custom name from `agent.rename`, e.g. `reviewer`.
+    pub name: Option<String>,
     pub agent_state: AgentState,
     pub title: String,
     pub cwd: Option<String>,
@@ -247,6 +251,7 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
                             pane_id: pane.pane_id.clone(),
                             title: title(pane),
                             agent: pane.display_agent.clone().or_else(|| pane.agent.clone()),
+                            name: session.agent_names.get(&pane.pane_id).cloned(),
                             agent_state: pane.agent_status.into(),
                             focused: pane.focused,
                         })
@@ -275,6 +280,7 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
                 .clone()
                 .or_else(|| entry.pane.agent.clone())
                 .unwrap_or_default(),
+            name: session.agent_names.get(&entry.pane.pane_id).cloned(),
             agent_state: entry.pane.agent_status.into(),
             title: title(entry.pane),
             cwd: entry.pane.cwd.clone(),

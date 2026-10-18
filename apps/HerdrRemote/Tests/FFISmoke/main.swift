@@ -239,6 +239,36 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     }
     guard split else { fail("split layout for \(tab.tabId) did not arrive") }
     print("ok   layout: \(tab.tabId) split side by side")
+    // Renames: space and tab arrive as events, the agent name with the
+    // snapshot the session takes after the rename.
+    let agentName = "smoke-\(UInt32.random(in: 1000...9999))"
+    try session.renameWorkspace(workspaceId: space.workspaceId, label: "smoke-renamed")
+    try session.renameTab(tabId: tab.tabId, label: "smoke-tab")
+    try session.renameAgent(paneId: tab.paneId, name: agentName)
+    let renamed = wait(5) {
+        probe.lock.withLock {
+            guard let update = probe.update,
+                  let ws = update.workspaces.first(where: { $0.workspaceId == space.workspaceId }) else { return false }
+            return ws.label == "smoke-renamed"
+                && ws.tabs.contains { $0.tabId == tab.tabId && $0.label == "smoke-tab" }
+                && update.board.contains { $0.paneId == tab.paneId && $0.name == agentName }
+        }
+    }
+    guard renamed else { fail("renames did not arrive: \(String(describing: probe.update?.board.map(\.name)))") }
+    do {
+        try session.renameAgent(paneId: tab.paneId, name: "Not Valid")
+        fail("invalid agent name was accepted")
+    } catch FfiError.Rejected(let message) where message.contains("invalid_agent_name") {}
+    do {
+        try session.renameWorkspace(workspaceId: space.workspaceId, label: "  ")
+        fail("empty space name was accepted")
+    } catch FfiError.Rejected {}
+    try session.renameAgent(paneId: tab.paneId, name: nil)
+    let cleared = wait(5) {
+        probe.lock.withLock { probe.update?.board.contains { $0.paneId == tab.paneId && $0.name == nil } ?? false }
+    }
+    guard cleared else { fail("agent name was not removed") }
+    print("ok   rename: space, tab and agent \(agentName), then the name removed")
     do {
         _ = try session.createTab(workspaceId: "w999", cwd: nil)
         fail("tab in unknown space was accepted")

@@ -234,6 +234,20 @@ pub struct SessionSnapshot {
     /// One entry per tab: where herdr draws each pane.
     #[serde(default)]
     pub layouts: Vec<TabLayout>,
+    /// Agent panes with their custom names. Older servers leave it out.
+    #[serde(default)]
+    pub agents: Vec<AgentInfo>,
+}
+
+/// An agent as `agent.list` and the snapshot report it. Only the name is
+/// used: it is not part of [`PaneInfo`], and `agent.rename` announces itself
+/// with a `pane_updated` that does not carry it either.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct AgentInfo {
+    pub pane_id: String,
+    /// Set with `agent.rename`; `None` when the agent has no custom name.
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 /// How herdr arranges the panes of one tab, in terminal cells. Each pane has
