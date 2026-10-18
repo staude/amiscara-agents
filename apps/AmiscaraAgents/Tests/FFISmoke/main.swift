@@ -435,6 +435,29 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
         fail("name groups: \(String(describing: probe.update.map { u in u.spaceOrder.map { s in (s.workspaceId, u.workspaces.first { $0.workspaceId == s.workspaceId }.map { "\($0.group ?? "-")|\($0.name)" } ?? "?") } })), board \(String(describing: probe.update?.board.map { "\($0.workspaceId)|\($0.workspaceGroup ?? "-")|\($0.workspaceName)" }))")
     }
     print("ok   groups: Smoke = second, repo, \(worktree.workspaceId) nested")
+
+    // Grouping off for this host: herdr's order and full names, the
+    // worktree still nested; the switch takes effect without reconnecting.
+    session.setGroupSpacesByName(on: false)
+    let flat = wait(5) {
+        probe.lock.withLock {
+            guard let update = probe.update else { return false }
+            let ids = update.spaceOrder.map(\.workspaceId)
+            let numbered = update.workspaces.sorted { $0.number < $1.number }.map(\.workspaceId)
+            guard let repoAt = ids.firstIndex(of: repoSpace.workspaceId), repoAt + 1 < ids.count else { return false }
+            return update.workspaces.allSatisfy { $0.group == nil && $0.name == $0.label }
+                && ids.filter { $0 != worktree.workspaceId } == numbered.filter { $0 != worktree.workspaceId }
+                && ids[repoAt + 1] == worktree.workspaceId && update.spaceOrder[repoAt + 1].nested
+                && update.board.contains { $0.workspaceId == space.workspaceId && $0.workspaceGroup == nil && $0.workspaceName == "Smoke/second" }
+        }
+    }
+    guard flat else { fail("grouping off: \(String(describing: probe.update?.spaceOrder.map(\.workspaceId)))") }
+    session.setGroupSpacesByName(on: true)
+    let regrouped = wait(5) {
+        probe.lock.withLock { probe.update?.workspaces.first { $0.workspaceId == space.workspaceId }?.group == "Smoke" }
+    }
+    guard regrouped else { fail("grouping back on did not arrive") }
+    print("ok   groups: off gives herdr's order and full names, on again regroups")
     session.stop()
 }
 

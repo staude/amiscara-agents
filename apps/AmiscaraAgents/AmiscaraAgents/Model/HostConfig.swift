@@ -44,6 +44,16 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
         set { notify = newValue }
     }
 
+    /// Whether spaces named "Bereich/Name" are grouped in the sidebar
+    /// (see `SpaceNames`). Missing means on: hosts saved before this switch
+    /// already used the convention.
+    var groupSpaces: Bool?
+
+    var groupSpacesByName: Bool {
+        get { groupSpaces ?? true }
+        set { groupSpaces = newValue }
+    }
+
     var uploadAllowed: Bool {
         get { kind == .local || (allowUpload ?? false) }
         set { allowUpload = newValue }

@@ -37,7 +37,11 @@ final class HostConnection: Identifiable {
                     self.onUpdate?(self, update)
                 }
             }
-            session = try HostSession.start(endpoint: try endpoint(), observer: bridge)
+            session = try HostSession.start(
+                endpoint: try endpoint(),
+                observer: bridge,
+                groupSpacesByName: config.groupSpacesByName
+            )
         } catch {
             startError = error.localizedDescription
         }
@@ -50,8 +54,16 @@ final class HostConnection: Identifiable {
     }
 
     /// Replaces the configuration (after editing or trusting a host key)
-    /// and reconnects.
+    /// and reconnects. A change of the grouping alone goes to the running
+    /// session instead, which sends a rebuilt update at once.
     func apply(_ config: HostConfig) {
+        var regrouped = self.config
+        regrouped.groupSpaces = config.groupSpaces
+        if regrouped == config, let session {
+            self.config = config
+            session.setGroupSpacesByName(on: config.groupSpacesByName)
+            return
+        }
         self.config = config
         update = nil
         start()
