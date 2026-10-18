@@ -1,4 +1,4 @@
-# Amiscara Agents (herdr-remote-core) - Projektregeln
+# Amiscara Agents - Projektregeln
 
 ## Zweck
 
