@@ -130,7 +130,7 @@ final class PushSender {
                 try? FileManager.default.removeItem(at: file.url)
             }
             if reason == "ExpiredProviderToken" { bearer = nil }
-            lastError = String(localized: "APNs: \(reason) (\(file.device.deviceName))")
+            lastError = Self.explain(reason, device: file.device)
         } catch {
             lastError = String(localized: "APNs: \(error.localizedDescription)")
         }
@@ -151,6 +151,22 @@ final class PushSender {
         let token = "\(input).\(Self.base64URL(signature.rawRepresentation))"
         bearer = (token, .now)
         return token
+    }
+
+    /// APNs reasons that need the user, in words.
+    private static func explain(_ reason: String, device: PushDevice) -> String {
+        switch reason {
+        case "BadEnvironmentKeyInToken":
+            device.sandbox
+                ? String(localized: "Der APNs-Schlüssel gilt nicht für die Sandbox, die Testversionen (\(device.deviceName)) brauchen. Im Developer-Konto einen Schlüssel für „Sandbox & Production“ anlegen und hier eintragen.")
+                : String(localized: "Der APNs-Schlüssel gilt nicht für Production (\(device.deviceName)). Im Developer-Konto einen Schlüssel für „Sandbox & Production“ anlegen und hier eintragen.")
+        case "InvalidProviderToken", "MissingProviderToken":
+            String(localized: "APNs lehnt den Schlüssel ab: Key-ID und .p8 passen nicht zusammen oder der Schlüssel wurde widerrufen.")
+        case "TopicDisallowed", "BadTopic":
+            String(localized: "Der APNs-Schlüssel gehört nicht zum Team dieser App.")
+        default:
+            String(localized: "APNs: \(reason) (\(device.deviceName))")
+        }
     }
 
     private static func base64URL(_ data: Data) -> String {
