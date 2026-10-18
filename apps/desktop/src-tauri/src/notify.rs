@@ -117,7 +117,12 @@ pub fn show(app: &AppHandle, notice: Notice) {
         notification
             .appname("Amiscara Agents")
             .summary(&notice.title)
-            .body(&format!("{}\n{}", notice.subtitle, notice.body))
+            // Servers read simple markup (links too) in the body; titles come
+            // from the terminal, where any program can set them.
+            .body(&markup_escaped(&format!(
+                "{}\n{}",
+                notice.subtitle, notice.body
+            )))
             .action("default", "Öffnen");
         if notice.blocked {
             for (key, title) in ANSWERS {
@@ -140,6 +145,26 @@ pub fn show(app: &AppHandle, notice: Notice) {
     });
 }
 
+/// `&`, `<` and `>` as entities, for the markup of a notification body.
+fn markup_escaped(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 /// The Mac has the SwiftUI app with its own notifications.
 #[cfg(not(any(windows, target_os = "linux")))]
 pub fn show(_app: &AppHandle, _notice: Notice) {}
+
+#[cfg(test)]
+mod tests {
+    use super::markup_escaped;
+
+    #[test]
+    fn notification_bodies_carry_no_markup() {
+        assert_eq!(
+            markup_escaped(r#"<a href="https://x">klick</a> & <b>"#),
+            r#"&lt;a href="https://x"&gt;klick&lt;/a&gt; &amp; &lt;b&gt;"#
+        );
+    }
+}
