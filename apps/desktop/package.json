@@ -8,7 +8,8 @@
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "tauri": "tauri",
-    "icons": "rsvg-convert -w 1024 -h 1024 icon.svg -o src-tauri/icons/source.png && tauri icon src-tauri/icons/source.png && cd src-tauri/icons && rm -rf source.png android ios Square*.png StoreLogo.png"
+    "icons": "rsvg-convert -w 1024 -h 1024 icon.svg -o src-tauri/icons/source.png && tauri icon src-tauri/icons/source.png && cd src-tauri/icons && rm -rf source.png android ios Square*.png StoreLogo.png",
+    "mock": "vite --mode mock"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4"

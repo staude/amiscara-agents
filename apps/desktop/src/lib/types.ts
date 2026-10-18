@@ -68,6 +68,27 @@ export interface TabItem {
   focused: boolean;
   agentState: AgentState;
   panes: PaneItem[];
+  layout: SplitLayout | null;
+}
+
+export interface PaneFrame {
+  paneId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface SplitLayout {
+  columns: number;
+  rows: number;
+  zoomed: boolean;
+  panes: PaneFrame[];
+}
+
+export interface TokenItem {
+  name: string;
+  value: string;
 }
 
 export interface WorkspaceItem {
@@ -79,7 +100,10 @@ export interface WorkspaceItem {
   focused: boolean;
   agentState: AgentState;
   activeTabId: string;
+  repoKey: string | null;
+  worktreeName: string | null;
   branch: string | null;
+  tokens: TokenItem[];
   tabs: TabItem[];
 }
 
@@ -143,3 +167,22 @@ export interface PaneContent {
 export type PaneEvent =
   | { kind: "content"; data: PaneContent }
   | { kind: "error"; data: string };
+
+export type TranscriptKind = "user" | "assistant" | "tool";
+
+export interface TranscriptEntry {
+  kind: TranscriptKind;
+  text: string;
+  timestamp: string | null;
+}
+
+export interface TranscriptCursor {
+  sessionPath: string;
+  start: number;
+}
+
+export interface TranscriptPage {
+  sessionPath: string;
+  entries: TranscriptEntry[];
+  start: number;
+}

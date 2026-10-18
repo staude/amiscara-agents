@@ -5,6 +5,10 @@
   --secondary: #5d6669;
   --line: #d6dcdd;
   --accent: #0e7c74;
+  --blocked: #ff9500;
+  --working: #0a84ff;
+  --done: #30d158;
+  --danger: #d70015;
   color-scheme: light dark;
   font-family: system-ui, "Segoe UI", Ubuntu, Cantarell, sans-serif;
   font-size: 14px;

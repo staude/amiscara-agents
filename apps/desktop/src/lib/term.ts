@@ -40,18 +40,10 @@ export function spanStyle(span: StyledSpan): string {
   if (fg) parts.push(`color: ${fg}`);
   if (bg) parts.push(`background: ${bg}`);
   if (span.bold) parts.push("font-weight: 700");
-  if (span.dim) parts.push("opacity: 0.6");
+  if (span.dim) parts.push("opacity: 0.55");
   if (span.italic) parts.push("font-style: italic");
   const lines = [span.underline && "underline", span.strikethrough && "line-through"].filter(Boolean);
   if (lines.length) parts.push(`text-decoration: ${lines.join(" ")}`);
-  if (span.hidden) parts.push("visibility: hidden");
+  if (span.hidden) parts.push("color: transparent");
   return parts.join("; ");
 }
-
-export const stateLabel: Record<string, string> = {
-  blocked: "Wartet",
-  working: "Arbeitet",
-  done: "Fertig",
-  idle: "Bereit",
-  unknown: "Unbekannt",
-};

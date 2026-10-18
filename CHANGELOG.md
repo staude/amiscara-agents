@@ -287,6 +287,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   or opened (`amiscara-agents://`; an opened link pins no host key, the first
   connection asks for the fingerprint), sidebar with spaces and panes, live pane
   view with prompt input.
+- Desktop app: main window like the Mac app (#144). Sidebar with spaces
+  (name groups, worktrees indented, branch and token rows) and agents
+  (grouped or by state), foldable; tabs, split tabs side by side, terminal
+  with bottom anchor, history paging, search (Ctrl+F, F3) and zoom
+  (Ctrl+plus/minus/0); input bar with answers for waiting agents, keys, quick
+  replies (editable), attachments by drag and drop, paste or file dialog
+  (#116 rules), Claude conversation history (#102). `npm run mock` shows the
+  window in a browser with sample data.
 
 ### Changed
 

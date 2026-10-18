@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { stateLabel } from "../lib/spaces";
   import type { AgentState } from "../lib/types";
 
+  /** `null` for a plain shell: an empty ring. */
   let { state }: { state: AgentState | null } = $props();
 </script>
 
-<span class="dot {state ?? 'none'}" aria-hidden="true"></span>
+<span class="dot {state ?? 'shell'}" role="img" aria-label={state ? stateLabel[state] : "Shell"}></span>
 
 <style>
   .dot {
@@ -13,20 +15,25 @@
     height: 8px;
     border-radius: 50%;
     flex: none;
-    background: transparent;
+    box-sizing: border-box;
   }
   .blocked {
-    background: #ff9500;
+    background: var(--blocked);
   }
   .working {
-    background: #0a84ff;
+    background: var(--working);
   }
   .done {
-    background: #30d158;
+    background: var(--done);
   }
-  .idle,
+  .idle {
+    background: var(--secondary);
+  }
   .unknown {
     background: var(--secondary);
     opacity: 0.5;
+  }
+  .shell {
+    border: 1px solid var(--secondary);
   }
 </style>

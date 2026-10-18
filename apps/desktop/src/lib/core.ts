@@ -9,6 +9,8 @@ import type {
   HostConfig,
   PaneEvent,
   SessionUpdate,
+  TranscriptCursor,
+  TranscriptPage,
 } from "./types";
 
 export const appInfo = () => invoke<AppInfo>("app_info");
@@ -33,27 +35,67 @@ export const sendPrompt = (hostId: string, paneId: string, text: string) =>
 export const sendKeys = (hostId: string, paneId: string, keys: string[]) =>
   invoke<void>("send_keys", { hostId, paneId, keys });
 
-/** Follows a pane until the returned function is called. */
+export const submit = (hostId: string, paneId: string, text: string, isAgent: boolean) =>
+  invoke<void>("submit", { hostId, paneId, text, isAgent });
+export const claudeHistory = (hostId: string, paneId: string, before: TranscriptCursor | null) =>
+  invoke<TranscriptPage>("claude_history", { hostId, paneId, before });
+export const quickReplies = () => invoke<string[]>("quick_replies");
+export const saveQuickReplies = (replies: string[]) =>
+  invoke<void>("save_quick_replies", { replies });
+
+/**
+ * Uploads one file to `~/.amiscara-agents/uploads` on the host and returns
+ * its path. `name` keeps the file's own name (any file), `extension` is for
+ * a prepared image.
+ */
+export function upload(
+  hostId: string,
+  data: Uint8Array,
+  target: { name: string } | { extension: string },
+): Promise<string> {
+  const headers: Record<string, string> = { "x-host-id": hostId };
+  if ("name" in target) headers["x-file-name"] = encodeURIComponent(target.name);
+  else headers["x-file-extension"] = target.extension;
+  return invoke<string>("upload", data, { headers });
+}
+
+/** A running pane follower, see `follow_pane` in src-tauri. */
+export interface Follower {
+  stop(): void;
+  setLive(live: boolean): void;
+  setHistoryLines(lines: number): void;
+}
+
+/** Follows a pane until `stop`; events go to `onEvent`. */
 export async function followPane(
   hostId: string,
   paneId: string,
   live: boolean,
   onEvent: (event: PaneEvent) => void,
-): Promise<() => void> {
+): Promise<Follower> {
   const channel = new Channel<PaneEvent>();
   channel.onmessage = onEvent;
   const followId = await invoke<number>("follow_pane", { hostId, paneId, live, channel });
-  return () => {
-    channel.onmessage = () => {};
-    void invoke("stop_follow", { followId });
+  return {
+    stop() {
+      channel.onmessage = () => {};
+      void invoke("stop_follow", { followId });
+    },
+    setLive(live) {
+      void invoke("set_follow_live", { followId, live });
+    },
+    setHistoryLines(lines) {
+      void invoke("set_follow_history", { followId, lines });
+    },
   };
 }
 
+/** Updates of all sessions; `generation` changes with every new session. */
 export function onSessionUpdate(
-  handler: (hostId: string, update: SessionUpdate) => void,
+  handler: (hostId: string, generation: number, update: SessionUpdate) => void,
 ): Promise<UnlistenFn> {
-  return listen<{ hostId: string; update: SessionUpdate }>("session-update", (event) =>
-    handler(event.payload.hostId, event.payload.update),
+  return listen<{ hostId: string; generation: number; update: SessionUpdate }>("session-update", (event) =>
+    handler(event.payload.hostId, event.payload.generation, event.payload.update),
   );
 }
 
