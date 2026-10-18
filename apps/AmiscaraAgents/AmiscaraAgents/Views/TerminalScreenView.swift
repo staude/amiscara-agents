@@ -79,7 +79,7 @@ struct TerminalScreenView: View {
                 }
             }
         }
-        .background(TerminalStyle.background)
+        .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
         .environment(\.colorScheme, .dark)
     }
 }

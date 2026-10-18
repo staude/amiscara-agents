@@ -133,7 +133,7 @@ private struct PaneTile: View {
             ContentUnavailableView("Pane nicht lesbar", systemImage: "exclamationmark.triangle", description: Text(error))
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(TerminalStyle.background)
+                .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
         }
     }
 }
