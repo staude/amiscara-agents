@@ -41,6 +41,7 @@ private struct TVSpaceScreen: View {
     @State private var error: String?
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
+    @State private var newWorktreeFrom: WorktreeSource?
 
     private enum Focus: Hashable { case tabs }
     @FocusState private var focus: Focus?
@@ -78,6 +79,9 @@ private struct TVSpaceScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focus, .tabs)
         .sheet(item: $renaming) { RenameView(target: $0) }
+        .sheet(item: $newWorktreeFrom) { source in
+            NewWorktreeView(source: source) { _ in }
+        }
         .closeConfirmation($closing)
     }
 
@@ -107,6 +111,16 @@ private struct TVSpaceScreen: View {
                 // A segment has no menu on long press: tab and space
                 // actions live here.
                 Menu {
+                    if let pane = workspace.tabs.flatMap(\.panes).first(where: { $0.paneId == paneID }), pane.agent != nil {
+                        Button("Agent benennen …", systemImage: "character.cursor.ibeam") {
+                            renaming = RenameTarget(connection: connection, kind: .agent(paneID: pane.paneId), current: pane.name ?? "")
+                        }
+                    }
+                    if let repo = WorktreeSource.repository(of: workspace, in: connection.update?.workspaces ?? []) {
+                        Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
+                            newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                        }
+                    }
                     if let tab = workspace.tabs.first(where: { $0.tabId == tabID }) {
                         Button("Tab umbenennen …", systemImage: "pencil") {
                             renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
@@ -240,6 +254,7 @@ struct TVBoardView: View {
 /// The spaces of every host in sidebar order.
 struct TVSpacesView: View {
     @Environment(HostStore.self) private var store
+    @State private var newSpaceOn: HostConnection?
 
     var body: some View {
         List {
@@ -257,12 +272,19 @@ struct TVSpacesView: View {
                     } else {
                         HostStatusLabel(connection: connection)
                     }
+                    if connection.config.inputAllowed && connection.isLive {
+                        Button("Neuer Space …", systemImage: "plus") { newSpaceOn = connection }
+                    }
                 } header: {
                     Text(connection.config.name)
                 }
             }
         }
         .spaceDestination()
+        .sheet(item: $newSpaceOn) { connection in
+            // The new space shows up in the list; open it from there.
+            NewSpaceView(connection: connection) { _ in }
+        }
     }
 }
 

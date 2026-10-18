@@ -13,6 +13,7 @@ struct InputBar: View {
     @State private var sending = false
     @State private var error: String?
     private let quickReplies = QuickReplyStore.shared
+    @State private var editingQuickReplies = false
 
     private var isAgent: Bool { pane.agent != nil }
     private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
@@ -34,11 +35,15 @@ struct InputBar: View {
                     ForEach(quickReplies.replies) { reply in
                         Button(reply.text) { submit(reply.text) }
                     }
+                    Button("Schnellantworten bearbeiten", systemImage: "pencil") { editingQuickReplies = true }
+                        .labelStyle(.iconOnly)
                     key("Esc", "esc")
                     key("Tab", "tab")
                     key("^C", "ctrl+c")
                     key("↑", "up")
                     key("↓", "down")
+                    key("←", "left")
+                    key("→", "right")
                     key("↩", "enter")
                 }
             }
@@ -59,6 +64,9 @@ struct InputBar: View {
         .onChange(of: pane.paneId) {
             text = ""
             error = nil
+        }
+        .sheet(isPresented: $editingQuickReplies) {
+            QuickReplyEditor(store: quickReplies)
         }
     }
 

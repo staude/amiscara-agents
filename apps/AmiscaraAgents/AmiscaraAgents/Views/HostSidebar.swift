@@ -202,7 +202,7 @@ struct HostSidebar: View {
 
 /// Name and directory for a new space, optionally with an agent started
 /// in its first pane.
-private struct NewSpaceView: View {
+struct NewSpaceView: View {
     let connection: HostConnection
     let onCreated: (Created) -> Void
     @Environment(\.dismiss) private var dismiss

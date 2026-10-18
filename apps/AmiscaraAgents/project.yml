@@ -236,7 +236,6 @@ targets:
           - AmiscaraAgents-iOS.entitlements
           - AmiscaraAgents-tvOS.entitlements
           - Views/QRScannerView.swift
-          - Views/QuickReplyEditor.swift
           - Views/InputBar.swift
           - Model/Dictation.swift
           - Model/AgentIntents.swift
