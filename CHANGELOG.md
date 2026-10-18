@@ -128,6 +128,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Mac menu bar item with the number of waiting agents over all hosts and a
   menu to jump to one; it opens the main window if it is closed. Hosts stay
   connected and notifications keep coming while the window is closed (#62).
+- Start an agent in a new space or tab: "Agent starten" in the "Neuer Space"
+  sheet (last choice remembered) and a menu next to the tab "+". The core
+  calls `agent.start`, names the agent after its kind (`claude-2` when taken)
+  and waits a few seconds for a pane that is still starting its shell (#57).
 
 ### Fixed
 
