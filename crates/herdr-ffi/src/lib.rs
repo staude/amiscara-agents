@@ -838,20 +838,19 @@ impl Connector {
     }
 }
 
-/// `img-<unix seconds>-<nanos>.<ext>`: sortable and unique enough for one
-/// device uploading by hand.
-/// `file-<secs>-<nanos>-<name>` with path separators, control characters
-/// and leading dots replaced, at most 120 characters of the name (the end,
-/// with the extension, is kept).
+/// `file-<secs>-<nanos>-<name>`. The name keeps only letters, digits, `.`,
+/// `_` and `-` (everything else becomes `_`), so the path the app appends
+/// to a prompt or shell command carries no whitespace or shell characters;
+/// no leading dots, at most 120 characters (the end, with the extension).
 fn named_upload(file_name: &str) -> String {
     let cleaned: String = file_name
         .trim()
         .chars()
         .map(|ch| {
-            if ch == '/' || ch == '\\' || ch == ':' || ch.is_control() {
-                '_'
-            } else {
+            if ch.is_alphanumeric() || matches!(ch, '.' | '_' | '-') {
                 ch
+            } else {
+                '_'
             }
         })
         .collect();
@@ -873,8 +872,9 @@ fn named_upload(file_name: &str) -> String {
     format!("file-{}-{:09}-{name}", now.as_secs(), now.subsec_nanos())
 }
 
-/// `img-…` for images, `file-…` for anything else, so a listing of the
-/// upload folder says what is what.
+/// `img-<unix seconds>-<nanos>.<ext>` for images, `file-…` for anything
+/// else: sortable, unique enough for one device uploading by hand, and a
+/// listing of the upload folder says what is what.
 fn upload_name(ext: &str) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -911,7 +911,13 @@ mod tests {
     fn named_uploads_are_safe_and_keep_the_name() {
         let name = named_upload("Rechnung März.xlsx");
         assert!(
-            name.starts_with("file-") && name.ends_with("-Rechnung März.xlsx"),
+            name.starts_with("file-") && name.ends_with("-Rechnung_März.xlsx"),
+            "{name}"
+        );
+        let name = named_upload("x;rm -rf ~ $(id) `id` 'a'\"b\".txt");
+        assert!(
+            name.chars()
+                .all(|ch| ch.is_alphanumeric() || matches!(ch, '.' | '_' | '-')),
             "{name}"
         );
         let name = named_upload("../../.ssh/authorized_keys");
