@@ -1,9 +1,13 @@
 import SwiftUI
 
 /// A space as herdr shows it: tabs along the top, then the selected pane.
-/// A split tab gets a pane picker under the tab bar.
+/// A split tab shows all its panes side by side where there is room (Mac,
+/// iPad in regular width), on the iPhone a pane picker under the tab bar.
 struct WorkspaceDetailView: View {
     @Environment(HostStore.self) private var store
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
     let selection: SpaceRef?
     @State private var tabID: String?
     @State private var paneID: String?
@@ -11,6 +15,7 @@ struct WorkspaceDetailView: View {
     /// Kinds for "new tab with agent", from the host's herdr.
     @State private var agentKinds: [String] = []
     @State private var startingAgent = false
+    @State private var renaming: RenameTarget?
 
     var body: some View {
         Group {
@@ -22,11 +27,20 @@ struct WorkspaceDetailView: View {
                     if let tabError {
                         Text(tabError).font(.caption).foregroundStyle(.red).padding(.horizontal, 8)
                     }
-                    if let tab = currentTab(workspace), tab.panes.count > 1 {
-                        panePicker(tab)
+                    if let tab = currentTab(workspace), let layout = sideBySide(tab) {
+                        Divider()
+                        SplitTabView(connection: connection, tab: tab, layout: layout, selection: $paneID)
+                        if connection.config.inputAllowed, let pane = tab.panes.first(where: { $0.paneId == paneID }) {
+                            Divider()
+                            InputBar(connection: connection, pane: pane)
+                        }
+                    } else {
+                        if let tab = currentTab(workspace), tab.panes.count > 1 {
+                            panePicker(tab)
+                        }
+                        Divider()
+                        PaneDetailView(selection: paneID.map { PaneRef(hostID: connection.id, paneID: $0) })
                     }
-                    Divider()
-                    PaneDetailView(selection: paneID.map { PaneRef(hostID: connection.id, paneID: $0) })
                 }
                 .navigationTitle(workspace.worktreeName ?? workspace.label)
                 #if os(iOS)
@@ -40,6 +54,9 @@ struct WorkspaceDetailView: View {
                 )
             }
         }
+        .sheet(item: $renaming) { target in
+            RenameView(target: target)
+        }
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
         }
@@ -52,6 +69,17 @@ struct WorkspaceDetailView: View {
 
     private func currentTab(_ workspace: WorkspaceItem) -> TabItem? {
         workspace.tabs.first { $0.tabId == tabID }
+    }
+
+    /// The layout to draw a split tab with, or `nil` for the pane picker:
+    /// on a compact width (iPhone, narrow iPad window) the panes would be
+    /// too small to read.
+    private func sideBySide(_ tab: TabItem) -> SplitLayout? {
+        #if os(iOS)
+        guard sizeClass == .regular else { return nil }
+        #endif
+        guard let layout = tab.layout, layout.panes.count > 1 else { return nil }
+        return layout
     }
 
     private func tabBar(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
@@ -76,6 +104,9 @@ struct WorkspaceDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .renameAction(available: RenameTarget.available(on: connection)) {
+                        renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                    }
                 }
                 if connection.config.inputAllowed && connection.isLive {
                     Button("Neuer Tab", systemImage: "plus") {
@@ -125,7 +156,7 @@ struct WorkspaceDetailView: View {
     private func panePicker(_ tab: TabItem) -> some View {
         Picker("Pane", selection: Binding(get: { paneID ?? "" }, set: { paneID = $0 })) {
             ForEach(tab.panes, id: \.paneId) { pane in
-                Text(pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
+                Text(pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
             }
         }
         .pickerStyle(.segmented)

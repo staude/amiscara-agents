@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use herdr_proto::{AgentStatus, Event, PaneInfo, SessionSnapshot, TabInfo, WorkspaceInfo};
+use herdr_proto::{
+    AgentStatus, Event, PaneInfo, SessionSnapshot, TabInfo, TabLayout, WorkspaceInfo,
+};
 
 /// Everything the client knows about one server.
 #[derive(Debug, Clone, PartialEq)]
@@ -12,10 +14,15 @@ pub struct SessionState {
     /// Ordered by workspace, then tab number.
     pub tabs: Vec<TabInfo>,
     pub panes: Vec<PaneInfo>,
+    /// Pane arrangement per tab, for showing split tabs side by side.
+    pub layouts: Vec<TabLayout>,
     pub focused_pane_id: Option<String>,
     /// Git branch per workspace id, from `worktree.list`; not part of the
     /// snapshot, so the sync driver fills and carries it.
     pub branches: BTreeMap<String, String>,
+    /// Custom agent names (`agent.rename`) by pane id. herdr sends them only
+    /// with the snapshot, so the sync driver takes a fresh one after a rename.
+    pub agent_names: BTreeMap<String, String>,
 }
 
 /// What [`SessionState::apply`] did with an event.
@@ -46,8 +53,14 @@ impl SessionState {
             workspaces: snapshot.workspaces,
             tabs: snapshot.tabs,
             panes: snapshot.panes,
+            layouts: snapshot.layouts,
             focused_pane_id: snapshot.focused_pane_id,
             branches: BTreeMap::new(),
+            agent_names: snapshot
+                .agents
+                .into_iter()
+                .filter_map(|agent| Some((agent.pane_id, agent.name?)))
+                .collect(),
         };
         state.workspaces.sort_by_key(|ws| ws.number);
         let order = state.workspace_order();
@@ -69,6 +82,10 @@ impl SessionState {
 
     pub fn pane(&self, pane_id: &str) -> Option<&PaneInfo> {
         self.panes.iter().find(|pane| pane.pane_id == pane_id)
+    }
+
+    pub fn layout(&self, tab_id: &str) -> Option<&TabLayout> {
+        self.layouts.iter().find(|layout| layout.tab_id == tab_id)
     }
 
     pub fn pane_ids(&self) -> Vec<String> {
@@ -241,6 +258,37 @@ impl SessionState {
                 Some(_) => Applied::Unchanged,
                 None => Applied::NeedsSnapshot,
             },
+            // A resize, ratio change or zoom keeps the same panes and can be
+            // applied directly. A layout with other panes comes together with
+            // create, close or move events, which take a snapshot anyway.
+            Event::LayoutUpdated {
+                layout: Some(layout),
+            } => {
+                let mut known: Vec<&str> = self
+                    .panes
+                    .iter()
+                    .filter(|pane| pane.tab_id == layout.tab_id)
+                    .map(|pane| pane.pane_id.as_str())
+                    .collect();
+                let mut laid_out: Vec<&str> = layout
+                    .panes
+                    .iter()
+                    .map(|pane| pane.pane_id.as_str())
+                    .collect();
+                known.sort_unstable();
+                laid_out.sort_unstable();
+                if known != laid_out {
+                    return Applied::NeedsSnapshot;
+                }
+                match self
+                    .layouts
+                    .iter_mut()
+                    .find(|existing| existing.tab_id == layout.tab_id)
+                {
+                    Some(existing) => replace(existing, layout.clone()),
+                    None => Applied::NeedsSnapshot,
+                }
+            }
             Event::WorkspaceCreated { .. }
             | Event::WorkspaceClosed { .. }
             | Event::WorkspaceMoved { .. }
@@ -255,7 +303,7 @@ impl SessionState {
             | Event::PaneClosed { .. }
             | Event::PaneMoved { .. }
             | Event::PaneExited { .. }
-            | Event::LayoutUpdated {}
+            | Event::LayoutUpdated { layout: None }
             | Event::Unknown => Applied::NeedsSnapshot,
         }
     }
@@ -338,8 +386,23 @@ mod tests {
                 {"pane_id": "w2:p2", "workspace_id": "w2", "tab_id": "w2:t1",
                  "agent_status": "unknown", "revision": 2}
             ],
-            "layouts": [],
-            "agents": []
+            "layouts": [
+                {"workspace_id": "w2", "tab_id": "w2:t1", "zoomed": false,
+                 "area": {"x": 0, "y": 0, "width": 120, "height": 40},
+                 "focused_pane_id": "w2:p1",
+                 "panes": [
+                    {"pane_id": "w2:p1", "focused": true, "rect": {"x": 0, "y": 0, "width": 60, "height": 40}},
+                    {"pane_id": "w2:p2", "rect": {"x": 60, "y": 0, "width": 60, "height": 40}}
+                 ],
+                 "splits": [{"id": "split_0_root", "direction": "right", "ratio": 0.5,
+                             "rect": {"x": 0, "y": 0, "width": 120, "height": 40}}]}
+            ],
+            "agents": [
+                {"terminal_id": "term_1", "name": "reviewer", "agent": "claude", "agent_status": "idle",
+                 "workspace_id": "w1", "tab_id": "w1:t1", "pane_id": "w1:p1", "revision": 3},
+                {"terminal_id": "term_2", "agent": "codex", "agent_status": "working",
+                 "workspace_id": "w1", "tab_id": "w1:t2", "pane_id": "w1:p2", "revision": 1}
+            ]
         });
         match serde_json::from_value(value) {
             Ok(snapshot) => SessionState::from_snapshot(snapshot),
@@ -445,6 +508,16 @@ mod tests {
     }
 
     #[test]
+    fn agent_names_come_from_the_snapshot() {
+        let state = snapshot();
+        assert_eq!(
+            state.agent_names.get("w1:p1").map(String::as_str),
+            Some("reviewer")
+        );
+        assert!(!state.agent_names.contains_key("w1:p2"), "unnamed agent");
+    }
+
+    #[test]
     fn output_revision_only_moves_forward() {
         let mut state = snapshot();
         let older = event(json!({
@@ -507,6 +580,53 @@ mod tests {
             shell.agent_status = AgentStatus::Blocked;
         }
         assert!(after.attention_since(&before).is_empty());
+    }
+
+    fn layout_event(tab: &str, panes: &[(&str, u16)]) -> Event {
+        let panes: Vec<_> = panes
+            .iter()
+            .map(|(id, width)| {
+                json!({"pane_id": id, "rect": {"x": 0, "y": 0, "width": width, "height": 40}})
+            })
+            .collect();
+        event(json!({
+            "event": "layout_updated",
+            "data": {"type": "layout_updated", "layout": {
+                "workspace_id": "w2", "tab_id": tab, "zoomed": false,
+                "area": {"x": 0, "y": 0, "width": 120, "height": 40},
+                "focused_pane_id": "w2:p1", "panes": panes, "splits": []
+            }}
+        }))
+    }
+
+    #[test]
+    fn snapshot_keeps_layouts() {
+        let state = snapshot();
+        let layout = state.layout("w2:t1");
+        assert_eq!(layout.map(|l| l.panes.len()), Some(2));
+        assert!(state.layout("w1:t1").is_none());
+    }
+
+    #[test]
+    fn resize_applies_in_place() {
+        let mut state = snapshot();
+        let resized = layout_event("w2:t1", &[("w2:p1", 80), ("w2:p2", 40)]);
+        assert_eq!(state.apply(&resized), Applied::Updated);
+        assert_eq!(
+            state.layout("w2:t1").map(|l| l.panes[0].rect.width),
+            Some(80)
+        );
+        assert_eq!(state.apply(&resized), Applied::Unchanged);
+    }
+
+    #[test]
+    fn layout_with_other_panes_needs_a_snapshot() {
+        let mut state = snapshot();
+        let split = layout_event("w2:t1", &[("w2:p1", 40), ("w2:p2", 40), ("w2:p3", 40)]);
+        assert_eq!(state.apply(&split), Applied::NeedsSnapshot);
+        let unknown_tab = layout_event("w2:t9", &[("w2:p1", 120)]);
+        assert_eq!(state.apply(&unknown_tab), Applied::NeedsSnapshot);
+        assert_eq!(state, snapshot(), "nothing applied");
     }
 
     #[test]
