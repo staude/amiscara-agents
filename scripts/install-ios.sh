@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Builds the iOS app for a connected iPad or iPhone, installs and launches it.
+# Builds the app for a connected iPad, iPhone or Apple TV, installs and
+# launches it.
 #
 #   scripts/install-ios.sh                 the only connected device
 #   scripts/install-ios.sh "iPad (2)"      a device by name or UDID
@@ -33,46 +34,58 @@ devices_json="$(mktemp)"
 trap 'rm -f "$devices_json"' EXIT
 xcrun devicectl list devices --json-output "$devices_json" >/dev/null
 
-# Connected physical iPhones and iPads: "udid<TAB>name" per line.
+# Connected physical iPhones, iPads and Apple TVs: "udid<TAB>name<TAB>platform"
+# per line.
 candidates="$(python3 -I - "$devices_json" "$wanted" <<'PY'
 import json, sys
 data = json.load(open(sys.argv[1]))["result"]["devices"]
 wanted = sys.argv[2]
 for d in data:
     hw, conn, props = d.get("hardwareProperties", {}), d.get("connectionProperties", {}), d.get("deviceProperties", {})
-    if hw.get("platform") != "iOS" or hw.get("reality") != "physical":
+    if hw.get("platform") not in ("iOS", "tvOS") or hw.get("reality") != "physical":
         continue
     if conn.get("tunnelState") != "connected":
         continue
     udid, name = hw.get("udid", ""), props.get("name", "")
     if wanted and wanted not in (udid, name):
         continue
-    print(f"{udid}\t{name}")
+    print(f"{udid}\t{name}\t{hw.get('platform')}")
 PY
 )"
 
 count=$(printf '%s' "$candidates" | grep -c . || true)
 if [[ "$count" -eq 0 ]]; then
-    die "no connected iPhone or iPad${wanted:+ matching '$wanted'} (xcrun devicectl list devices)"
+    die "no connected iPhone, iPad or Apple TV${wanted:+ matching '$wanted'} (xcrun devicectl list devices)"
 elif [[ "$count" -gt 1 ]]; then
     echo "$candidates" | sed 's/^/    /' >&2
     die "several devices connected; pass a name or UDID"
 fi
 udid="${candidates%%$'\t'*}"
-name="${candidates#*$'\t'}"
+rest="${candidates#*$'\t'}"
+name="${rest%%$'\t'*}"
+device_platform="${rest#*$'\t'}"
+if [[ "$device_platform" == "tvOS" ]]; then
+    scheme="AmiscaraAgents-tvOS"
+    sdk="appletvos"
+else
+    scheme="AmiscaraAgents-iOS"
+    sdk="iphoneos"
+fi
 
 # The .xcodeproj is generated and not checked in; after a branch switch it
 # may still list files that no longer exist.
 command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
 (cd apps/AmiscaraAgents && xcodegen generate --quiet)
 
-step "Build AmiscaraAgents-iOS ($configuration) for $name"
+step "Build $scheme ($configuration) for $name"
 derived="target/xcode-device"
-xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents-iOS \
+# Device registration: a new device (e.g. the Apple TV) joins the team's
+# development profile on its first build.
+xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme "$scheme" \
     -configuration "$configuration" -destination "id=$udid" \
-    -derivedDataPath "$derived" -allowProvisioningUpdates -quiet build
+    -derivedDataPath "$derived" -allowProvisioningUpdates -allowProvisioningDeviceRegistration -quiet build
 
-app="$derived/Build/Products/$configuration-iphoneos/AmiscaraAgents.app"
+app="$derived/Build/Products/$configuration-$sdk/AmiscaraAgents.app"
 [[ -d "$app" ]] || die "build product missing: $app"
 
 step "Install on $name"

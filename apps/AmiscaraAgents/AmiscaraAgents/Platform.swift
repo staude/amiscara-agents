@@ -64,6 +64,8 @@ enum Platform {
         #if os(macOS)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        #elseif os(tvOS)
+        // tvOS has no clipboard.
         #else
         UIPasteboard.general.string = text
         #endif
@@ -104,6 +106,8 @@ enum Platform {
             }
             return provider
         }
+        #elseif os(tvOS)
+        []
         #else
         UIPasteboard.general.itemProviders
         #endif
@@ -124,6 +128,9 @@ enum Platform {
     static var defaultTerminalFontSize: Double {
         #if os(macOS)
         12
+        #elseif os(tvOS)
+        // Read from the sofa, about three metres away.
+        24
         #else
         UIDevice.current.userInterfaceIdiom == .phone ? 9 : 11
         #endif
@@ -131,6 +138,16 @@ enum Platform {
 }
 
 extension View {
+    /// Text the user can select and copy; tvOS has no text selection.
+    @ViewBuilder
+    func selectableText() -> some View {
+        #if os(tvOS)
+        self
+        #else
+        textSelection(.enabled)
+        #endif
+    }
+
     /// Host names, users and paths: no capitals, no autocorrect.
     func technicalInput() -> some View {
         #if os(iOS)

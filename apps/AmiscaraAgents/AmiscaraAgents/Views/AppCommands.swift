@@ -1,5 +1,6 @@
 import SwiftUI
 
+#if !os(tvOS)
 /// Keyboard shortcuts as menu commands: in the Mac menu bar, in the iPad
 /// menu bar and in the overlay that holding ⌘ shows. The views publish what
 /// they can do as focused scene values; a command without a provider is
@@ -74,6 +75,7 @@ struct AppCommands: Commands {
             .disabled(keySender == nil)
     }
 }
+#endif
 
 /// What the main window offers: the switcher and spaces by number.
 struct Navigator {

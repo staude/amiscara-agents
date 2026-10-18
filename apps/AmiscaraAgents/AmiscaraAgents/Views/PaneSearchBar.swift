@@ -36,7 +36,9 @@ struct PaneSearchBar: View {
             Button("Nächster Treffer", systemImage: "chevron.down") { state.step(1, in: matches) }
                 .disabled(matches.isEmpty)
             Button("Suche schließen", systemImage: "xmark.circle.fill", action: state.close)
+                #if !os(tvOS)
                 .keyboardShortcut(.cancelAction)
+                #endif
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.borderless)

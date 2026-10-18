@@ -79,7 +79,7 @@ struct RenameView: View {
                     }
                 }
                 if let error {
-                    Text(error).foregroundStyle(.red).textSelection(.enabled)
+                    Text(error).foregroundStyle(.red).selectableText()
                 }
             }
             .formStyle(.grouped)

@@ -131,7 +131,9 @@ struct QuickSwitcher: View {
             VStack(spacing: 0) {
                 TextField("Space oder Agent suchen", text: $query)
                     .technicalInput()
+                    #if !os(tvOS)
                     .textFieldStyle(.roundedBorder)
+                    #endif
                     .focused($searchFocused)
                     .onSubmit { pick(current(in: results)) }
                     .onKeyPress(.downArrow) { move(1, in: results) }
@@ -168,7 +170,9 @@ struct QuickSwitcher: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Abbrechen") { dismiss() }
+                        #if !os(tvOS)
                         .keyboardShortcut(.cancelAction)
+                        #endif
                 }
             }
         }

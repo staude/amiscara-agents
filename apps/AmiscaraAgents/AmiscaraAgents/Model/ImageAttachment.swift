@@ -101,6 +101,7 @@ struct ImageAttachment: Identifiable, Sendable {
         return try content(data: data, name: url.lastPathComponent)
     }
 
+    #if !os(tvOS)
     /// Something dropped on the composer: a file (Finder, the screenshot
     /// thumbnail, Files on the iPad) or image data from another app.
     @MainActor
@@ -134,6 +135,7 @@ struct ImageAttachment: Identifiable, Sendable {
         }
         return try result.get()
     }
+    #endif
 
     /// The text in a Finder text clipping: a property list whose `UTI-Data`
     /// holds the dragged text under its type.

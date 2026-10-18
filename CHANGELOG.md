@@ -232,6 +232,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   content in the system text view, where a selection can span lines (drag,
   ⇧-click, ⌘A/⌘C on the Mac, handles on iPhone and iPad), with "Alles
   kopieren". Error lines and banners can be selected as well.
+- Apple TV target (#126, part of #95): `AmiscaraAgents-tvOS` (tvOS 26)
+  from the same sources, with tvOS slices of the Rust core in
+  `HerdrFFI.xcframework`. Features tvOS lacks are left out there (camera,
+  clipboard, files, the app's dictation, widgets, notifications, keyboard
+  shortcuts, text selection); `InputBarTV.swift` offers answers, keys,
+  quick replies and a prompt field. `scripts/install-ios.sh` installs on an
+  Apple TV as well; CI checks herdr-ffi for iOS and tvOS.
 
 ### Changed
 

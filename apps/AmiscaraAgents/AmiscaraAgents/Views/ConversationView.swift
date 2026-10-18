@@ -68,7 +68,7 @@ struct ConversationView: View {
                     }
                 }
                 .padding()
-                .textSelection(.enabled)
+                .selectableText()
             }
             .defaultScrollAnchor(.bottom)
         }

@@ -36,3 +36,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked --no-fail-fast
+
+  apple-targets:
+    name: Check iOS and tvOS targets
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios, aarch64-apple-tvos
+      - uses: Swatinem/rust-cache@v2
+      # The apps link herdr-ffi for these targets (scripts/build-ffi.sh).
+      - run: cargo check -p herdr-ffi --locked --target aarch64-apple-ios
+        env:
+          IPHONEOS_DEPLOYMENT_TARGET: "27.0"
+      - run: cargo check -p herdr-ffi --locked --target aarch64-apple-tvos
+        env:
+          TVOS_DEPLOYMENT_TARGET: "26.0"

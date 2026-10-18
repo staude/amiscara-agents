@@ -8,6 +8,7 @@ import UIKit
 /// Shows text in the system's own text view, where a selection can span
 /// lines (#123): the pane screen draws one SwiftUI `Text` per line, and a
 /// selection there ends at the line. Read only; starts at the end.
+#if !os(tvOS)
 struct SelectTextView: View {
     let title: String
     let text: String
@@ -39,6 +40,17 @@ struct SelectTextView: View {
     }
 }
 
+#endif
+
+#if os(tvOS)
+/// tvOS has no text selection: no button.
+struct SelectTextButton: View {
+    let title: String
+    let makeText: () -> String
+
+    var body: some View { EmptyView() }
+}
+#else
 /// Opens `SelectTextView` with the text `makeText` returns at that moment.
 struct SelectTextButton: View {
     let title: String
@@ -60,6 +72,8 @@ struct SelectTextButton: View {
         var id: Int { text.hashValue }
     }
 }
+
+#endif
 
 extension PaneContent {
     /// The lines as plain text: no styles, trailing spaces and empty lines
@@ -92,7 +106,7 @@ private struct NativeTextView: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {}
 }
-#else
+#elseif os(iOS)
 private struct NativeTextView: UIViewRepresentable {
     let text: String
 

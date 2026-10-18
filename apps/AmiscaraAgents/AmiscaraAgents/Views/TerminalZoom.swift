@@ -39,6 +39,10 @@ private struct TerminalZoomGesture: ViewModifier {
     @State private var pinchStart: Double?
 
     func body(content: Content) -> some View {
+        #if os(tvOS)
+        // No pinch on the Siri Remote; the zoom menu in the header remains.
+        content
+        #else
         content.simultaneousGesture(
             MagnifyGesture()
                 .onChanged { value in
@@ -51,6 +55,7 @@ private struct TerminalZoomGesture: ViewModifier {
                 }
                 .onEnded { _ in pinchStart = nil }
         )
+        #endif
     }
 }
 
@@ -65,19 +70,25 @@ struct TerminalZoomButtons: View {
         Button("Schrift größer", systemImage: "textformat.size.larger") {
             fontSize = TerminalZoom.larger(fontSize)
         }
+        #if !os(tvOS)
         .keyboardShortcut(withShortcuts ? KeyboardShortcut("+", modifiers: .command) : nil)
+        #endif
         .disabled(fontSize >= TerminalZoom.range.upperBound)
 
         Button("Schrift kleiner", systemImage: "textformat.size.smaller") {
             fontSize = TerminalZoom.smaller(fontSize)
         }
+        #if !os(tvOS)
         .keyboardShortcut(withShortcuts ? KeyboardShortcut("-", modifiers: .command) : nil)
+        #endif
         .disabled(fontSize <= TerminalZoom.range.lowerBound)
 
         Button("Originalgröße", systemImage: "arrow.counterclockwise") {
             fontSize = Platform.defaultTerminalFontSize
         }
+        #if !os(tvOS)
         .keyboardShortcut(withShortcuts ? KeyboardShortcut("0", modifiers: .command) : nil)
+        #endif
         .disabled(fontSize == Platform.defaultTerminalFontSize)
     }
 }
@@ -104,6 +115,7 @@ struct TerminalZoomMenu: View {
     }
 }
 
+#if !os(tvOS)
 /// ⌘+ / ⌘- / ⌘0 in the View menu. On the iPad the same items show up in
 /// the menu bar and the hardware keyboard shortcut overlay.
 struct TerminalZoomCommands: Commands {
@@ -113,3 +125,4 @@ struct TerminalZoomCommands: Commands {
         }
     }
 }
+#endif

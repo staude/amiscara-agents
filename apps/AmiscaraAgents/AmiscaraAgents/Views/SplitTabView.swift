@@ -62,7 +62,7 @@ private struct PaneTile: View {
             if isSelected, search.isOpen {
                 PaneSearchBar(state: search, matches: matches)
                     .font(.callout)
-                    .background(.bar)
+                    .background(Material.paneBar)
             }
             screen(search: search.highlight(matches))
         }
@@ -117,7 +117,7 @@ private struct PaneTile: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity)
         .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
-        .background(.bar)
+        .background(Material.paneBar)
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
     }
@@ -139,5 +139,16 @@ private struct PaneTile: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
         }
+    }
+}
+
+extension Material {
+    /// The material of headers and bars; tvOS has no `.bar`.
+    static var paneBar: Material {
+        #if os(tvOS)
+        .regularMaterial
+        #else
+        .bar
+        #endif
     }
 }

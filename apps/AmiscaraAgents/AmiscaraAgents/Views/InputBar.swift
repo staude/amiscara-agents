@@ -47,7 +47,7 @@ struct InputBar: View {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.callout)
                     .foregroundStyle(.red)
-                    .textSelection(.enabled)
+                    .selectableText()
             }
         }
         .padding(10)
@@ -412,7 +412,9 @@ struct InputBar: View {
             #endif
             Button(isAgent ? "Senden" : "Ausführen", systemImage: "paperplane.fill", action: submit)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)
+                #if !os(tvOS)
                 .keyboardShortcut(.return, modifiers: .command)
+                #endif
         }
     }
 

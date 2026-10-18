@@ -125,7 +125,7 @@ struct Banner: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(.regularMaterial, in: Capsule())
-            .textSelection(.enabled)
+            .selectableText()
             .padding(.top, 8)
     }
 }
