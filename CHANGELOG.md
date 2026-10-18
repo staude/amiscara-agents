@@ -221,6 +221,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The QR code for "Dieser Mac" warns when the host name is a short name
   like "work": the Mac may resolve it through a search domain, iPhone and
   iPad often do not, so the scanned host could not connect.
+- iOS keyboard: a tap on the key bar or a quick reply no longer brings the
+  keyboard back, the composer only gets its focus back if it had it, and a
+  button above the keyboard hides it (#97).
 - Reopening a pane over SSH no longer keeps loading: a pane follower is
   stopped between requests, since an SSH request dropped half way left
   the session unable to open new channels (#107).
