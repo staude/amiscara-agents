@@ -458,6 +458,40 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     }
     guard regrouped else { fail("grouping back on did not arrive") }
     print("ok   groups: off gives herdr's order and full names, on again regroups")
+
+    // Close: a tab, then a whole space; both must leave the session state.
+    // A space's only tab takes the space with it.
+    try session.closeTab(tabId: tab.tabId)
+    do {
+        try session.closeWorkspace(workspaceId: repoSpace.workspaceId, withWorktrees: false)
+        fail("repository space with a worktree closed alone")
+    } catch FfiError.Rejected(let message) where message.contains("workspace_group_close_required") {}
+    try session.closeWorkspace(workspaceId: repoSpace.workspaceId, withWorktrees: true)
+    let single = try session.createWorkspace(label: "smoke-single", cwd: "/tmp")
+    var singleTab: String?
+    _ = wait(5) {
+        singleTab = probe.lock.withLock { probe.update?.workspaces.first { $0.workspaceId == single.workspaceId }?.tabs.first?.tabId }
+        return singleTab != nil
+    }
+    guard let singleTab else { fail("space \(single.workspaceId) has no tab") }
+    try session.closeTab(tabId: singleTab)
+    let closed = wait(5) {
+        probe.lock.withLock {
+            guard let update = probe.update else { return false }
+            let ids = Set(update.workspaces.map(\.workspaceId))
+            return !update.workspaces.flatMap(\.tabs).contains { $0.tabId == tab.tabId }
+                && !ids.contains(repoSpace.workspaceId) && !ids.contains(worktree.workspaceId)
+                && !ids.contains(single.workspaceId)
+        }
+    }
+    guard closed else { fail("close: \(String(describing: probe.update?.workspaces.map { "\($0.workspaceId): \($0.tabs.map(\.tabId))" }))") }
+    do {
+        try session.closeTab(tabId: tab.tabId)
+        fail("closing an unknown tab was accepted")
+    } catch let error as FfiError {
+        guard FileManager.default.fileExists(atPath: checkout) else { fail("closing the group removed \(checkout)") }
+        print("ok   close: tab, repository space with its worktree (checkout kept), a space's last tab; unknown tab refused (\(error))")
+    }
     session.stop()
 }
 

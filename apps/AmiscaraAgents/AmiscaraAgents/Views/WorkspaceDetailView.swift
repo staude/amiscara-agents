@@ -20,6 +20,7 @@ struct WorkspaceDetailView: View {
     @State private var agentKinds: [String] = []
     @State private var startingAgent = false
     @State private var renaming: RenameTarget?
+    @State private var closing: CloseTarget?
 
     var body: some View {
         Group {
@@ -46,6 +47,10 @@ struct WorkspaceDetailView: View {
                         PaneDetailView(selection: paneID.map { PaneRef(hostID: connection.id, paneID: $0) })
                     }
                 }
+                .onChange(of: workspace.tabs.map(\.tabId)) { _, tabs in
+                    // The shown tab was closed: herdr's active tab instead.
+                    if let tabID, !tabs.contains(tabID) { focus(on: selection) }
+                }
                 .focusedSceneValue(\.tabNavigator, workspace.tabs.count > 1 ? TabNavigator(step: { step(by: $0, in: workspace) }) : nil)
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
                 .navigationSubtitle(workspace.group ?? "")
@@ -63,6 +68,7 @@ struct WorkspaceDetailView: View {
         .sheet(item: $renaming) { target in
             RenameView(target: target)
         }
+        .closeConfirmation($closing)
         .sheet(item: $newWorktreeFrom) { source in
             NewWorktreeView(source: source) { created in
                 selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
@@ -117,6 +123,10 @@ struct WorkspaceDetailView: View {
                     .buttonStyle(.plain)
                     .renameAction(available: RenameTarget.available(on: connection)) {
                         renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                    } more: {
+                        Button("Tab schließen …", systemImage: "xmark", role: .destructive) {
+                            closing = closeTarget(tab, on: connection)
+                        }
                     }
                 }
                 if connection.config.inputAllowed && connection.isLive {
@@ -159,6 +169,17 @@ struct WorkspaceDetailView: View {
                     }
                 }
             }
+            // Here as well: long presses on the tabs are unreliable on iPad.
+            Section {
+                if let tab = workspace.tabs.first(where: isCurrent) {
+                    Button("Tab schließen …", systemImage: "xmark", role: .destructive) {
+                        closing = closeTarget(tab, on: connection)
+                    }
+                }
+                Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
+                    closing = .space(workspace, on: connection)
+                }
+            }
         } label: {
             Label("Neuer Tab mit Agent", systemImage: "sparkles")
         }
@@ -170,6 +191,10 @@ struct WorkspaceDetailView: View {
         .disabled(startingAgent)
         .help(String(localized: "Neuer Tab mit Agent"))
         .task(id: connection.id) { agentKinds = await connection.agentKinds() }
+    }
+
+    private func closeTarget(_ tab: TabItem, on connection: HostConnection) -> CloseTarget {
+        CloseTarget(connection: connection, kind: .tab(tabID: tab.tabId), name: tab.label, agentState: tab.agentState)
     }
 
     private func panePicker(_ tab: TabItem) -> some View {
