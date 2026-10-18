@@ -189,6 +189,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- QR scanner on iPhone and iPad no longer stays black: the app asks for
+  camera access first and starts the scanner once it is on screen; if the
+  camera cannot start, the reason is shown. While the iPad is remote
+  controlled from a Mac, iPadOS still shows no camera picture.
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
 - Pane view no longer stays black after switching panes: a fresh scroll view
   per pane, a plain stack instead of a lazy one, and the view starts at the
