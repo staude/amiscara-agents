@@ -15,6 +15,8 @@ struct InputBar: View {
     @State private var attachments: [ImageAttachment] = []
     @State private var pickedPhotos: [PhotosPickerItem] = []
     @State private var importingFiles = false
+    /// Something is dragged over the input bar.
+    @State private var dropTargeted = false
     @State private var choosingPhotos = false
     @FocusState private var composerFocused: Bool
     @State private var dictation = Dictation()
@@ -85,8 +87,21 @@ struct InputBar: View {
             pickedPhotos = []
             Task { await addPhotos(items) }
         }
-        .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $importingFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             addFiles(result)
+        }
+        // Files and screenshots dropped anywhere on the input bar (#116).
+        .onDrop(of: [.fileURL, .image, .item], isTargeted: $dropTargeted) { providers in
+            Task { await addDropped(providers) }
+            return true
+        }
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .allowsHitTesting(false)
+            }
         }
         // Presented from the view, not as a PhotosPicker inside the Menu,
         // which often does not open on iOS.
@@ -144,6 +159,14 @@ struct InputBar: View {
                                 Image(decorative: preview, scale: 1)
                                     .resizable()
                                     .scaledToFill()
+                            } else if let name = attachment.fileName {
+                                VStack(spacing: 2) {
+                                    Image(systemName: "doc").font(.title3)
+                                    Text(name).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
+                                }
+                                .foregroundStyle(.secondary)
+                                .padding(4)
+                                .background(.quaternary)
                             } else {
                                 Image(systemName: "photo").foregroundStyle(.secondary)
                             }
@@ -159,7 +182,7 @@ struct InputBar: View {
                         }
                         .buttonStyle(.plain)
                         .padding(2)
-                        .accessibilityLabel("Bild entfernen")
+                        .accessibilityLabel(attachment.fileName == nil ? "Bild entfernen" : "Datei entfernen")
                     }
                 }
             }
@@ -182,7 +205,7 @@ struct InputBar: View {
             }
             .menuIndicator(.hidden)
             .fixedSize()
-            .help(String(localized: "Bild anhängen"))
+            .help(String(localized: "Bild oder Datei anhängen (auch per Drag & Drop)"))
         } else {
             Button {
                 error = uploadOffMessage
@@ -266,15 +289,37 @@ struct InputBar: View {
     private func addFiles(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result else { return }
         for url in urls {
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard let data = try? Data(contentsOf: url),
-                  let attachment = ImageAttachment.make(data: data, type: UTType(filenameExtension: url.pathExtension))
-            else {
-                error = String(localized: "\(url.lastPathComponent) ist kein lesbares Bild.")
-                continue
-            }
+            add(Result { try ImageAttachment.content(fileAt: url) })
+        }
+    }
+
+    /// A file's content: attached, or its text added to the prompt.
+    private func add(_ result: Result<ImageAttachment.Content, Error>) {
+        switch result {
+        case .success(.attachment(let attachment)):
             attachments.append(attachment)
+        case .success(.text(let clipped)):
+            let current = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            text = current.isEmpty ? clipped : current + "\n" + clipped
+        case .failure(let failure):
+            error = failure.localizedDescription
+        }
+    }
+
+    /// Dropped files and images, under the same per-host upload switch as
+    /// the paperclip.
+    private func addDropped(_ providers: [NSItemProvider]) async {
+        guard connection.config.uploadAllowed else {
+            error = uploadOffMessage
+            return
+        }
+        error = nil
+        for provider in providers {
+            do {
+                add(.success(try await ImageAttachment.content(dropped: provider)))
+            } catch {
+                add(.failure(error))
+            }
         }
     }
 
