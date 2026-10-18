@@ -257,6 +257,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   tvOS, so `docs/icon/A/tvicon.swift` draws concept A as a three-layer image
   stack (background, panes, `>_` with dot) and the Top Shelf images into the
   asset catalog.
+- Apple TV input and management (#129): arrow keys left and right in the key
+  bar, quick replies editable on the TV, "Neuer Space …" per host in the
+  Spaces tab, and "Agent benennen …" and "Neuer Worktree …" in the space's
+  "…" menu, next to renaming and closing tabs and spaces.
 
 ### Changed
 

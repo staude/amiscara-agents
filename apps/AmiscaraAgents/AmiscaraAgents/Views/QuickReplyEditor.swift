@@ -16,8 +16,8 @@ struct QuickReplyEditor: View {
                             TextField("Text", text: $reply.text, axis: .vertical)
                                 .lineLimit(1...4)
                                 .focused($focused, equals: reply.id)
-                            #if os(macOS)
-                            // iOS deletes in edit mode; the Mac has no such control.
+                            #if os(macOS) || os(tvOS)
+                            // iOS deletes in edit mode; Mac and TV have no such control.
                             Button {
                                 store.replies.removeAll { $0.id == reply.id }
                             } label: {
