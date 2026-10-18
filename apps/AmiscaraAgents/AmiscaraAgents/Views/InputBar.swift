@@ -354,6 +354,16 @@ struct InputBar: View {
             .textFieldStyle(.roundedBorder)
             .focused($composerFocused)
             .onSubmit(submit)
+            #if os(iOS)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Tastatur ausblenden", systemImage: "keyboard.chevron.compact.down") {
+                        composerFocused = false
+                    }
+                }
+            }
+            #endif
             Button(isAgent ? "Senden" : "Ausführen", systemImage: "paperplane.fill", action: submit)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)
                 .keyboardShortcut(.return, modifiers: .command)
@@ -410,13 +420,16 @@ struct InputBar: View {
         perform { try await connection.send(keys: keys, to: pane.paneId) }
     }
 
+    /// Runs a send; the composer gets its focus back only if it had it, so
+    /// a tap on the key bar does not bring up the keyboard on iOS.
     private func perform(_ action: @escaping @MainActor () async throws -> Void) {
+        let refocus = composerFocused
         sending = true
         error = nil
         Task {
             defer {
                 sending = false
-                composerFocused = true
+                if refocus { composerFocused = true }
             }
             do {
                 try await action()
