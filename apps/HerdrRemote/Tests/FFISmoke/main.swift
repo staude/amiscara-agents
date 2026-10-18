@@ -54,6 +54,26 @@ if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AA
 }
 print("ok   keys: \(key.fingerprint)")
 
+// "Add host" links (QR codes); the full checks are Rust unit tests.
+let hostKey = try generateSshKey(comment: "root@work").publicOpenssh
+let sent = AddHostLink(
+    name: "work", host: "work.staude.internal", port: 22, user: "frank",
+    socketPath: "/Users/frank/.config/herdr/herdr.sock", hostKey: hostKey
+)
+let linkText = try encodeAddHostLink(link: sent)
+guard linkText.hasPrefix("herdr-remote://add-host?v=1&"), URL(string: linkText) != nil else {
+    fail("add-host link: \(linkText)")
+}
+guard try decodeAddHostLink(text: linkText) == sent else { fail("add-host link round trip") }
+do {
+    _ = try decodeAddHostLink(text: linkText.replacingOccurrences(of: "user=frank", with: "user=-oX"))
+    fail("bad user in add-host link was accepted")
+} catch FfiError.InvalidLink(let message) {
+    guard message.contains("Benutzer") else { fail("unexpected message: \(message)") }
+}
+guard try publicKeyFingerprint(publicOpenssh: hostKey).hasPrefix("SHA256:") else { fail("host key fingerprint") }
+print("ok   add-host link: \(linkText.count) chars")
+
 // Live session.
 let probe = Probe()
 let socket = CommandLine.arguments.dropFirst().first
@@ -126,6 +146,20 @@ follow.setLive(live: true)
 Thread.sleep(forTimeInterval: 0.5)
 if let error = probe.lock.withLock({ probe.paneError }) { fail("pane error after switching to live: \(error)") }
 print("ok   pane \(pane): switched to live pace")
+guard content.historyLines == 0 else { fail("follow starts with history") }
+
+// History: a recent read (ANSI, read-only) replaces the visible screen.
+follow.setHistoryLines(lines: 100_000)
+let gotHistory = wait(5) { probe.lock.withLock { probe.content?.historyLines == maxHistoryLines() } }
+guard gotHistory, let history = probe.lock.withLock({ probe.content }) else {
+    fail("no history for \(pane): \(probe.paneError ?? "-")")
+}
+guard history.lines.count <= Int(maxHistoryLines()) else { fail("history above the cap") }
+print("ok   history \(pane): \(history.lines.count) lines, more: \(history.truncated)")
+follow.setHistoryLines(lines: 0)
+guard wait(5, until: { probe.lock.withLock { probe.content?.historyLines == 0 } }) else {
+    fail("history did not switch back to the screen")
+}
 follow.stop()
 session.stop()
 

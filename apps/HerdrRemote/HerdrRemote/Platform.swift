@@ -38,6 +38,27 @@ enum Platform {
         #endif
     }
 
+    /// Login name on this Mac, the SSH user other devices use for it.
+    static var userName: String {
+        #if os(macOS)
+        NSUserName()
+        #else
+        ""
+        #endif
+    }
+
+    /// This Mac's ed25519 SSH host key as one OpenSSH line, if sshd has one
+    /// and the file is readable (it is world-readable by default). Remote
+    /// Login must be on for other devices to use it.
+    static func localHostKey() -> String? {
+        #if os(macOS)
+        let line = try? String(contentsOfFile: "/etc/ssh/ssh_host_ed25519_key.pub", encoding: .utf8)
+        return line?.trimmingCharacters(in: .whitespacesAndNewlines)
+        #else
+        nil
+        #endif
+    }
+
     @MainActor
     static func copy(_ text: String) {
         #if os(macOS)

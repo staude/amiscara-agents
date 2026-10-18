@@ -64,7 +64,7 @@ struct PaneDetailView: View {
     @ViewBuilder
     private func screen(connection: HostConnection) -> some View {
         if let content = model.content {
-            TerminalScreenView(content: content)
+            TerminalScreenView(content: content, history: model)
                 .terminalZoomGesture()
                 .overlay(alignment: .top) {
                     if let error = model.error {

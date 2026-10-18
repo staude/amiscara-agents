@@ -98,7 +98,7 @@ private struct PaneTile: View {
     @ViewBuilder
     private var screen: some View {
         if let content = model.content {
-            TerminalScreenView(content: content, fitColumns: columns)
+            TerminalScreenView(content: content, history: isSelected ? model : nil, fitColumns: columns)
                 .overlay(alignment: .top) {
                     if let error = model.error {
                         Banner(text: error, systemImage: "exclamationmark.triangle")
