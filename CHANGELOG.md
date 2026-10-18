@@ -176,6 +176,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   worktrees still nested; the switch applies without reconnecting. Core:
   `spaces::arrange(_, by_name)`, FFI `HostSession.start(..., group_spaces_by_name)`
   and `set_group_spaces_by_name` (#86).
+- Close tabs and spaces: "Tab schließen …" in the tab's context menu,
+  "Space schließen …" in the space row's, both also in the ✨ menu next to
+  the tab "+" (long presses are unreliable on iPad). Always confirmed, with
+  a warning when an agent inside is working or waiting. A repository's
+  space closes together with its linked worktree spaces, which herdr
+  requires; the checkouts stay. After closing the shown tab, herdr's
+  active tab is shown. Core: `actions::close_tab`, `close_workspace` (#93).
 
 ### Changed
 
@@ -189,6 +196,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- QR scanner on iPhone and iPad no longer stays black: the app asks for
+  camera access first and starts the scanner once it is on screen; if the
+  camera cannot start, the reason is shown. While the iPad is remote
+  controlled from a Mac, iPadOS still shows no camera picture.
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).
 - Pane view no longer stays black after switching panes: a fresh scroll view
   per pane, a plain stack instead of a lazy one, and the view starts at the
@@ -207,5 +218,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Host status is a button on all platforms: it shows the state, the full error,
   a hint for common causes (VPN off, SSH off, socket missing, key not
   authorized) and "Jetzt verbinden"; tooltips never showed on iPad (#22).
+- The QR code for "Dieser Mac" warns when the host name is a short name
+  like "work": the Mac may resolve it through a search domain, iPhone and
+  iPad often do not, so the scanned host could not connect.
 - Dictation keeps what was said before a pause: the recognizer starts its
   transcription over after each utterance, which replaced the beginning (#98).

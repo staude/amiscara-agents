@@ -155,6 +155,20 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    func closeTab(_ tabID: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.closeTab(tabId: tabID)
+        }.value
+    }
+
+    func closeSpace(_ workspaceID: String, withWorktrees: Bool) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.closeWorkspace(workspaceId: workspaceID, withWorktrees: withWorktrees)
+        }.value
+    }
+
     /// An empty name removes the agent's name.
     func renameAgent(in paneID: String, to name: String) async throws {
         let session = try writableSession()

@@ -19,6 +19,7 @@ struct HostSidebar: View {
     @State private var newSpaceOn: HostConnection?
     @State private var showingQR: HostConfig?
     @State private var renaming: RenameTarget?
+    @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
@@ -76,6 +77,7 @@ struct HostSidebar: View {
         .sheet(item: $renaming) { target in
             RenameView(target: target)
         }
+        .closeConfirmation($closing)
         .sheet(item: $newSpaceOn) { connection in
             NewSpaceView(connection: connection) { created in
                 selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
@@ -188,6 +190,9 @@ struct HostSidebar: View {
                     Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
                         newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
                     }
+                }
+                Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
+                    closing = .space(entry.workspace, on: connection)
                 }
             }
     }
