@@ -13,12 +13,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
+herdr-core = { version = "0.1.0", path = "../../../crates/herdr-core" }
 herdr-proto = { version = "0.1.0", path = "../../../crates/herdr-proto" }
 herdr-session = { version = "0.1.0", path = "../../../crates/herdr-session" }
 herdr-transport = { version = "0.1.0", path = "../../../crates/herdr-transport" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2.12", features = [] }
+tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2.7"
 tauri-plugin-deep-link = "2.6"
 thiserror = "2"
 uuid = { version = "1", features = ["v4"] }
@@ -27,9 +29,11 @@ uuid = { version = "1", features = ["v4"] }
 # D-Bus, no libdbus), Keychain for development on the Mac.
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3.6", features = ["windows-native"] }
+tauri-winrt-notification = "0.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3.6", features = ["async-secret-service", "tokio", "crypto-rust"] }
+notify-rust = "4.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3.6", features = ["apple-native"] }

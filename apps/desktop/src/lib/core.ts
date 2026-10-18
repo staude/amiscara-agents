@@ -59,6 +59,31 @@ export function upload(
   return invoke<string>("upload", data, { headers });
 }
 
+/** A new space or tab: its first pane. */
+export interface Created {
+  workspaceId: string;
+  tabId: string;
+  paneId: string;
+}
+
+export const setVisiblePane = (hostId: string | null, paneId: string | null) =>
+  invoke<void>("set_visible_pane", { hostId, paneId });
+export const agentKinds = (hostId: string) => invoke<string[]>("agent_kinds", { hostId });
+export const createWorkspace = (hostId: string, label: string, directory: string) =>
+  invoke<Created>("create_workspace", { hostId, label, directory });
+export const createTab = (hostId: string, workspaceId: string) =>
+  invoke<Created>("create_tab", { hostId, workspaceId });
+export const createWorktree = (hostId: string, workspaceId: string, branch: string, base: string, label: string) =>
+  invoke<Created>("create_worktree", { hostId, workspaceId, branch, base, label });
+export const startAgent = (hostId: string, paneId: string, kind: string) =>
+  invoke<string>("start_agent", { hostId, paneId, kind });
+export const rename = (hostId: string, kind: "space" | "tab" | "agent", id: string, name: string) =>
+  invoke<void>("rename", { hostId, kind, id, name });
+export const close = (hostId: string, kind: "space" | "tab", id: string, withWorktrees: boolean) =>
+  invoke<void>("close", { hostId, kind, id, withWorktrees });
+export const autostart = () => invoke<boolean>("autostart");
+export const setAutostart = (on: boolean) => invoke<void>("set_autostart", { on });
+
 /** A running pane follower, see `follow_pane` in src-tauri. */
 export interface Follower {
   stop(): void;
@@ -96,6 +121,15 @@ export function onSessionUpdate(
 ): Promise<UnlistenFn> {
   return listen<{ hostId: string; generation: number; update: SessionUpdate }>("session-update", (event) =>
     handler(event.payload.hostId, event.payload.generation, event.payload.update),
+  );
+}
+
+/** The tray menu, a notification or a link asks to show a pane. */
+export function onOpenPane(
+  handler: (target: { hostId: string; workspaceId: string; paneId: string }) => void,
+): Promise<UnlistenFn> {
+  return listen<{ hostId: string; workspaceId: string; paneId: string }>("open-pane", (event) =>
+    handler(event.payload),
   );
 }
 

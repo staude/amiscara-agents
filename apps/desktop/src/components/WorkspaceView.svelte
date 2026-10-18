@@ -1,5 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import * as core from "../lib/core";
+  import { canWrite, closeSpace, openMenu, repositoryOf, ui, type MenuItem } from "../lib/manage.svelte";
+  import { nav } from "../lib/nav.svelte";
   import { model } from "../lib/state.svelte";
   import type { HostConfig, TabItem, WorkspaceItem } from "../lib/types";
   import Conversation from "./Conversation.svelte";
@@ -12,6 +15,83 @@
   let tabId = $state<string | null>(null);
   let paneId = $state<string | null>(null);
   let conversationFor = $state<string | null>(null);
+  let tabError = $state<string | null>(null);
+  let agentKinds = $state<string[]>([]);
+
+  $effect(() => {
+    core.agentKinds(host.id).then((kinds) => (agentKinds = kinds)).catch(() => {});
+  });
+
+  // Ctrl+Shift+[ and ]: the neighbouring tab, wrapping around like herdr.
+  $effect(() => {
+    const step = (delta: number) => {
+      const tabs = workspace.tabs;
+      if (tabs.length < 2) return;
+      const at = Math.max(0, tabs.findIndex((t) => t.tabId === tabId));
+      selectTab(tabs[(at + (delta % tabs.length) + tabs.length) % tabs.length]);
+    };
+    nav.stepTab = step;
+    return () => {
+      if (nav.stepTab === step) nav.stepTab = null;
+    };
+  });
+
+  // The pane on screen gets no notifications while the window has focus.
+  $effect(() => {
+    void core.setVisiblePane(host.id, paneId);
+    return () => void core.setVisiblePane(null, null);
+  });
+
+  /** Creates a tab and shows it; with `agent` that agent starts in it. */
+  async function newTab(agent: string | null = null) {
+    tabError = null;
+    try {
+      const created = await core.createTab(host.id, workspace.workspaceId);
+      tabId = created.tabId;
+      paneId = created.paneId;
+      if (agent) await core.startAgent(host.id, created.paneId, agent);
+    } catch (err) {
+      tabError = core.errorText(err);
+    }
+  }
+
+  function tabMenu(item: TabItem): (MenuItem | null)[] {
+    return [
+      {
+        label: "Umbenennen …",
+        disabled: !canWrite(host.id),
+        action: () => (ui.dialog = { kind: "rename", hostId: host.id, target: "tab", id: item.tabId, current: item.label }),
+      },
+      null,
+      { label: "Tab schließen …", danger: true, disabled: !canWrite(host.id), action: () => closeTab(item) },
+    ];
+  }
+
+  function closeTab(item: TabItem) {
+    ui.dialog = {
+      kind: "close",
+      hostId: host.id,
+      target: "tab",
+      id: item.tabId,
+      name: item.label,
+      agentState: item.agentState,
+      worktrees: 0,
+    };
+  }
+
+  /** "New tab with agent", worktree and close, also without right click. */
+  function moreMenu(event: MouseEvent) {
+    const repo = repositoryOf(workspace, model.updates[host.id]?.workspaces ?? []);
+    openMenu(event, [
+      ...agentKinds.map((kind) => ({ label: `Neuer Tab mit ${kind}`, action: () => void newTab(kind) })),
+      null,
+      ...(repo
+        ? [{ label: "Neuer Worktree …", action: () => (ui.dialog = { kind: "newWorktree", hostId: host.id, repository: repo }) }]
+        : []),
+      ...(tab ? [{ label: "Tab schließen …", danger: true, action: () => tab && closeTab(tab) }] : []),
+      { label: "Space schließen …", danger: true, action: () => closeSpace(host.id, workspace) },
+    ]);
+  }
 
   // An agent picks its own tab and pane; a space opens on herdr's active tab.
   // Only a new selection does this, not every update of the space.
@@ -54,16 +134,26 @@
 <section class="space">
   <nav class="tabs">
     {#each workspace.tabs as item (item.tabId)}
-      <button class="tab" class:current={item.tabId === tabId} onclick={() => selectTab(item)}>
+      <button
+        class="tab"
+        class:current={item.tabId === tabId}
+        onclick={() => selectTab(item)}
+        oncontextmenu={(e) => openMenu(e, tabMenu(item))}
+      >
         {item.label}
         {#if item.agentState !== "idle" && item.agentState !== "unknown"}<StatusDot state={item.agentState} />{/if}
       </button>
     {/each}
+    {#if canWrite(host.id)}
+      <button class="tool" title="Neuer Tab" onclick={() => newTab()}>+</button>
+      <button class="tool" title="Neuer Tab mit Agent, Worktree, Schließen" onclick={moreMenu}>✦</button>
+    {/if}
     <span class="spacer"></span>
     <span class="where">
       {workspace.worktreeName ?? workspace.name}{workspace.group ? ` (${workspace.group})` : ""} · {host.name}
     </span>
   </nav>
+  {#if tabError}<p class="tab-error">{tabError}</p>{/if}
 
   <div class="panes">
     {#if tab && layout}
@@ -142,6 +232,18 @@
   }
   .spacer {
     flex: 1;
+  }
+  .tool {
+    border: none;
+    background: none;
+    padding: 2px 8px;
+    color: var(--secondary);
+  }
+  .tab-error {
+    color: var(--danger);
+    font-size: 12px;
+    margin: 4px 10px;
+    user-select: text;
   }
   .where {
     color: var(--secondary);

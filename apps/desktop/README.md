@@ -44,11 +44,43 @@ not part of the build.
   sidebar, or opened from elsewhere (the installers register the scheme, a
   dev build registers it on start).
 
+## Tray and notifications
+
+Closing the window keeps the app in the tray (Windows notification area,
+Linux status icon) with its sessions, so notifications keep coming; "Beenden"
+in the tray menu quits. "Mit dem System starten" in the settings (⚙) starts
+it in the tray without a window (`--hidden`). There is no push as on the
+Apple devices: the app has to run.
+
+Toasts on Windows need the Start menu entry the installer creates; a dev
+build shows them under PowerShell's name. On Linux a notification server
+with actions (GNOME, KDE, most others) shows the answer buttons.
+
+## Keyboard
+
+| Keys | Action |
+|---|---|
+| Ctrl+K | Quick switcher for spaces and agents |
+| Ctrl+1 … 9 | Space by position on the current host |
+| Ctrl+Shift+[ / ], Ctrl+PageUp/Down | Previous / next tab |
+| Ctrl+F, F3, Shift+F3 | Search in the pane |
+| Ctrl+plus / minus / 0 | Terminal font size |
+| Ctrl+Alt+1 … 3 | Answer a waiting agent |
+| Ctrl+Alt+arrows, Ctrl+., Ctrl+Shift+Enter | Arrow keys, Esc, Enter to the pane |
+
+Ctrl+Alt shortcuts are ignored for keys typed with AltGr.
+
+## Links
+
+- `amiscara-agents://add-host?v=1&...`: add a host (see `herdr_session::link`).
+- `amiscara-agents://open?host=<host id>&workspace=<id>&pane=<id>`: open a pane.
+
 ## Icon
 
 `icon.svg` is the dark variant of the app icon (`docs/icon/A`) without
 glass. `npm run icons` renders it (needs `rsvg-convert`) and writes
-`src-tauri/icons`.
+`src-tauri/icons`, including the tray icons (`icon-waiting.svg` adds the
+amber badge).
 
 ## Deploy
 

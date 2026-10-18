@@ -20,10 +20,16 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::AppError;
 use crate::hosts::{self, Auth, HostConfig, HostKind, HostStore, QuickReplies};
+use crate::notify::{self, Notice};
+use crate::tray::{self, WaitingAgents};
 
 pub struct AppState {
     store: Mutex<HostStore>,
     quick_replies: Mutex<QuickReplies>,
+    waiting: Mutex<WaitingAgents>,
+    /// The pane the window shows; it gets no notification while the
+    /// window has the focus.
+    visible: Mutex<Option<(String, String)>>,
     sessions: Mutex<HashMap<String, Arc<Session>>>,
     follows: Mutex<HashMap<u64, PaneFollow>>,
     next_follow: AtomicU64,
@@ -37,6 +43,8 @@ impl AppState {
         Self {
             store: Mutex::new(store),
             quick_replies: Mutex::new(quick_replies),
+            waiting: Mutex::new(WaitingAgents::default()),
+            visible: Mutex::new(None),
             sessions: Mutex::new(HashMap::new()),
             follows: Mutex::new(HashMap::new()),
             next_follow: AtomicU64::new(1),
@@ -68,6 +76,23 @@ impl AppState {
                 "not connected to herdr".into(),
             ))
         })
+    }
+
+    /// Whether the user looks at this pane right now.
+    fn is_watched(&self, app: &AppHandle, host_id: &str, pane_id: &str) -> bool {
+        let shown = self
+            .visible
+            .lock()
+            .map(|visible| {
+                visible
+                    .as_ref()
+                    .is_some_and(|(host, pane)| host == host_id && pane == pane_id)
+            })
+            .unwrap_or(false);
+        shown
+            && app.get_webview_window("main").is_some_and(|window| {
+                window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false)
+            })
     }
 
     fn stop_session(&self, host_id: &str) {
@@ -167,8 +192,17 @@ fn new_key(host: &HostConfig) -> Result<String, AppError> {
 }
 
 #[tauri::command]
-pub fn delete_host(state: State<'_, AppState>, host_id: String) -> Result<(), AppError> {
+pub fn delete_host(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: String,
+) -> Result<(), AppError> {
     state.stop_session(&host_id);
+    let mut waiting = state.waiting.lock().unwrap_or_else(|p| p.into_inner());
+    if waiting.remove(&host_id) {
+        tray::refresh(&app, &waiting);
+    }
+    drop(waiting);
     hosts::delete_private_key(&host_id)?;
     state.store().remove(&host_id)
 }
@@ -312,6 +346,8 @@ fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), App
     if let Some(old) = sessions.remove(&host.id) {
         old.stop();
     }
+    let host_name = host.name.clone();
+    let notify_on = host.notify.unwrap_or(true);
     let session = Session::start(endpoint, host.group_spaces_by_name(), move |update| {
         let _ = emitter.emit(
             "session-update",
@@ -321,6 +357,19 @@ fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), App
                 update: &update,
             },
         );
+        let state = emitter.state::<AppState>();
+        let mut waiting = state.waiting.lock().unwrap_or_else(|p| p.into_inner());
+        if waiting.set(&host_id, &host_name, &update.board) {
+            tray::refresh(&emitter, &waiting);
+        }
+        drop(waiting);
+        if notify_on {
+            for item in &update.attention {
+                if !state.is_watched(&emitter, &host_id, &item.pane_id) {
+                    notify::show(&emitter, Notice::new(&host_id, &host_name, item));
+                }
+            }
+        }
     })?;
     sessions.insert(host.id.clone(), Arc::new(session));
     Ok(())
@@ -544,25 +593,264 @@ pub fn save_quick_replies(
         .set(replies)
 }
 
-/// Hands an opened `amiscara-agents://add-host` link to the window.
+/// Prefix of the link that opens a pane: `amiscara-agents://open?host=<id>
+/// &workspace=<id>&pane=<id>`, e.g. from a script or another app.
+const OPEN_PREFIX: &str = "amiscara-agents://open?";
+
+/// Hands opened `amiscara-agents://` links to the window: add-host links
+/// for confirmation, open links straight to their pane.
 pub fn open_links(app: &AppHandle, urls: impl IntoIterator<Item = String>) {
     for url in urls {
-        if url
-            .get(..herdr_session::ADD_HOST_PREFIX.len())
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(herdr_session::ADD_HOST_PREFIX))
-        {
+        let starts = |prefix: &str| {
+            url.get(..prefix.len())
+                .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+        };
+        if starts(herdr_session::ADD_HOST_PREFIX) {
             let _ = app.emit("add-host-link", url);
+        } else if starts(OPEN_PREFIX) {
+            let query = &url[OPEN_PREFIX.len()..];
+            let field = |name: &str| {
+                query.split('&').find_map(|pair| {
+                    let (key, value) = pair.split_once('=')?;
+                    (key == name).then(|| percent_decode(value))
+                })
+            };
+            if let (Some(host), Some(pane)) = (field("host"), field("pane")) {
+                open_pane(app, &host, &field("workspace").unwrap_or_default(), &pane);
+            }
         }
     }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.set_focus();
+    tray::show_window(app);
+}
+
+/// Fronts the window and selects a pane (tray menu, notification, link).
+pub fn open_pane(app: &AppHandle, host_id: &str, workspace_id: &str, pane_id: &str) {
+    tray::show_window(app);
+    let _ = app.emit(
+        "open-pane",
+        serde_json::json!({ "hostId": host_id, "workspaceId": workspace_id, "paneId": pane_id }),
+    );
+}
+
+/// Sends an answer key chosen on a notification.
+#[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+pub fn answer(app: &AppHandle, host_id: &str, pane_id: &str, key: String) {
+    let app = app.clone();
+    let host_id = host_id.to_owned();
+    let pane_id = pane_id.to_owned();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        if input_allowed(&state, &host_id).is_err() {
+            return;
+        }
+        if let Ok(session) = state.session(&host_id) {
+            let _ = session.send_keys(&pane_id, &[key]).await;
+        }
+    });
+}
+
+/// The pane the window shows, or none; for leaving out its notifications.
+#[tauri::command]
+pub fn set_visible_pane(
+    state: State<'_, AppState>,
+    host_id: Option<String>,
+    pane_id: Option<String>,
+) {
+    if let Ok(mut visible) = state.visible.lock() {
+        *visible = host_id.zip(pane_id);
     }
+}
+
+/// A new space or tab: its first pane.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Created {
+    workspace_id: String,
+    tab_id: String,
+    pane_id: String,
+}
+
+impl From<herdr_core::actions::Created> for Created {
+    fn from(created: herdr_core::actions::Created) -> Self {
+        Self {
+            workspace_id: created.workspace_id,
+            tab_id: created.tab_id,
+            pane_id: created.pane_id,
+        }
+    }
+}
+
+/// `~` and paths below it on the host, made absolute: herdr wants absolute
+/// directories. The home is taken from the socket path when it has the
+/// default form, else the macOS default for the login.
+fn absolute_path(host: &HostConfig, input: &str) -> String {
+    let input = input.trim();
+    let home = match host.kind {
+        HostKind::Local => std::env::var("HOME").unwrap_or_default(),
+        HostKind::Ssh => host
+            .socket_path
+            .strip_suffix("/.config/herdr/herdr.sock")
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("/Users/{}", host.user)),
+    };
+    if input.is_empty() || input == "~" {
+        home
+    } else if let Some(rest) = input.strip_prefix("~/") {
+        format!("{home}/{rest}")
+    } else if input.starts_with('/') {
+        input.to_owned()
+    } else {
+        format!("{home}/{input}")
+    }
+}
+
+/// Session of a host that takes input; the check every write goes through.
+fn writable(state: &AppState, host_id: &str) -> Result<Arc<Session>, AppError> {
+    input_allowed(state, host_id)?;
+    state.session(host_id)
+}
+
+/// Agent kinds the host's herdr can start, the usual ones first.
+#[tauri::command]
+pub async fn agent_kinds(
+    state: State<'_, AppState>,
+    host_id: String,
+) -> Result<Vec<String>, AppError> {
+    Ok(state.session(&host_id)?.agent_kinds().await)
+}
+
+/// A space with a shell in `directory` (`~` allowed).
+#[tauri::command]
+pub async fn create_workspace(
+    state: State<'_, AppState>,
+    host_id: String,
+    label: String,
+    directory: String,
+) -> Result<Created, AppError> {
+    let host = state.store().get(&host_id)?;
+    let session = writable(&state, &host_id)?;
+    let label = label.trim();
+    let cwd = absolute_path(&host, &directory);
+    Ok(session
+        .create_workspace((!label.is_empty()).then_some(label), &cwd)
+        .await?
+        .into())
+}
+
+#[tauri::command]
+pub async fn create_tab(
+    state: State<'_, AppState>,
+    host_id: String,
+    workspace_id: String,
+) -> Result<Created, AppError> {
+    let session = writable(&state, &host_id)?;
+    Ok(session.create_tab(&workspace_id, None).await?.into())
+}
+
+/// A worktree of the space's repository as a new space; empty fields are
+/// left to herdr.
+#[tauri::command]
+pub async fn create_worktree(
+    state: State<'_, AppState>,
+    host_id: String,
+    workspace_id: String,
+    branch: String,
+    base: String,
+    label: String,
+) -> Result<Created, AppError> {
+    let session = writable(&state, &host_id)?;
+    let field = |text: String| {
+        let text = text.trim().to_owned();
+        (!text.is_empty()).then_some(text)
+    };
+    let worktree = herdr_core::actions::NewWorktree {
+        branch: field(branch),
+        base: field(base),
+        label: field(label),
+        path: None,
+    };
+    Ok(session
+        .create_worktree(&workspace_id, &worktree)
+        .await?
+        .into())
+}
+
+#[tauri::command]
+pub async fn start_agent(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+    kind: String,
+) -> Result<String, AppError> {
+    let session = writable(&state, &host_id)?;
+    Ok(session.start_agent(&pane_id, &kind, None).await?)
+}
+
+/// Renames a space, tab or agent (`kind`: `space`, `tab`, `agent`); an
+/// agent's empty name removes it.
+#[tauri::command]
+pub async fn rename(
+    state: State<'_, AppState>,
+    host_id: String,
+    kind: String,
+    id: String,
+    name: String,
+) -> Result<(), AppError> {
+    let session = writable(&state, &host_id)?;
+    let name = name.trim();
+    match kind.as_str() {
+        "space" => session.rename_workspace(&id, name).await?,
+        "tab" => session.rename_tab(&id, name).await?,
+        "agent" => {
+            session
+                .rename_agent(&id, (!name.is_empty()).then_some(name))
+                .await?
+        }
+        other => return Err(AppError::Config(format!("unknown kind {other}"))),
+    }
+    Ok(())
+}
+
+/// Closes a tab, or a space (with its linked worktree spaces when asked).
+#[tauri::command]
+pub async fn close(
+    state: State<'_, AppState>,
+    host_id: String,
+    kind: String,
+    id: String,
+    with_worktrees: bool,
+) -> Result<(), AppError> {
+    let session = writable(&state, &host_id)?;
+    match kind.as_str() {
+        "space" => session.close_workspace(&id, with_worktrees).await?,
+        "tab" => session.close_tab(&id).await?,
+        other => return Err(AppError::Config(format!("unknown kind {other}"))),
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn autostart(app: AppHandle) -> bool {
+    use tauri_plugin_autostart::ManagerExt;
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, on: bool) -> Result<(), AppError> {
+    use tauri_plugin_autostart::ManagerExt;
+    let manager = app.autolaunch();
+    let result = if on {
+        manager.enable()
+    } else {
+        manager.disable()
+    };
+    result.map_err(|err| AppError::Config(format!("Autostart: {err}")))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::percent_decode;
+    use super::{absolute_path, percent_decode};
+    use crate::hosts::HostConfig;
 
     #[test]
     fn percent_decoding_matches_encode_uri_component() {
@@ -572,5 +860,17 @@ mod tests {
         );
         assert_eq!(percent_decode("a%2"), "a%2");
         assert_eq!(percent_decode("100%"), "100%");
+    }
+
+    #[test]
+    fn paths_below_the_home_of_the_host() {
+        let host: HostConfig = serde_json::from_str(
+            r#"{"id":"a","name":"w","kind":"ssh","user":"frank","socketPath":"/home/frank/.config/herdr/herdr.sock"}"#,
+        )
+        .expect("host");
+        assert_eq!(absolute_path(&host, "~"), "/home/frank");
+        assert_eq!(absolute_path(&host, "~/dev/x"), "/home/frank/dev/x");
+        assert_eq!(absolute_path(&host, "dev"), "/home/frank/dev");
+        assert_eq!(absolute_path(&host, "/srv"), "/srv");
     }
 }

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { prepare, release, shellQuoted, type Attachment } from "../lib/attachments";
   import * as core from "../lib/core";
+  import { nav, type KeySender } from "../lib/nav.svelte";
   import { model } from "../lib/state.svelte";
   import type { HostConfig, PaneItem } from "../lib/types";
   import QuickReplyEditor from "./QuickReplyEditor.svelte";
@@ -43,6 +44,16 @@
   }
 
   const sendKeys = (keys: string[]) => perform(() => core.sendKeys(host.id, pane.paneId, keys));
+
+  // Keyboard shortcuts for the key bar and answers, see App.svelte.
+  $effect(() => {
+    if (!live) return;
+    const sender: KeySender = { send: (keys) => void sendKeys(keys), blocked: isBlocked };
+    nav.keySender = sender;
+    return () => {
+      if (nav.keySender === sender) nav.keySender = null;
+    };
+  });
   const sendReply = (reply: string) => perform(() => core.submit(host.id, pane.paneId, reply, isAgent));
 
   function submit() {
@@ -123,14 +134,14 @@
   }
 
   const KEYS: [string, string, string][] = [
-    ["Esc", "esc", "Escape"],
+    ["Esc", "esc", "Escape (Strg+.)"],
     ["Tab", "tab", "Tab"],
     ["⌃C", "ctrl+c", "Strg+C"],
-    ["↑", "up", "Pfeil nach oben"],
-    ["↓", "down", "Pfeil nach unten"],
-    ["←", "left", "Pfeil nach links"],
-    ["→", "right", "Pfeil nach rechts"],
-    ["↩", "enter", "Enter"],
+    ["↑", "up", "Pfeil nach oben (Strg+Alt+↑)"],
+    ["↓", "down", "Pfeil nach unten (Strg+Alt+↓)"],
+    ["←", "left", "Pfeil nach links (Strg+Alt+←)"],
+    ["→", "right", "Pfeil nach rechts (Strg+Alt+→)"],
+    ["↩", "enter", "Enter (Strg+Umschalt+Enter)"],
   ];
 </script>
 
@@ -148,9 +159,9 @@
         <span class="waiting">✋ Wartet auf Antwort</span>
         <span class="spacer"></span>
         {#each ["1", "2", "3"] as key (key)}
-          <button title="Option {key} wählen" onclick={() => sendKeys([key])}>{key}</button>
+          <button title="Option {key} wählen (Strg+Alt+{key})" onclick={() => sendKeys([key])}>{key}</button>
         {/each}
-        <button class="confirm" onclick={() => sendKeys(["enter"])}>↩ Bestätigen</button>
+        <button class="confirm" title="Strg+Umschalt+Enter" onclick={() => sendKeys(["enter"])}>↩ Bestätigen</button>
         <button onclick={() => sendKeys(["esc"])}>Abbrechen</button>
       </div>
     {/if}

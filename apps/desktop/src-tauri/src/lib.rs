@@ -4,6 +4,8 @@
 mod app;
 mod error;
 mod hosts;
+mod notify;
+mod tray;
 
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -20,6 +22,11 @@ pub fn run() {
     }));
     builder
         .plugin(tauri_plugin_deep_link::init())
+        // Started with the system: straight to the tray, see `setup`.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![HIDDEN_ARG]),
+        ))
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             let replies = hosts::QuickReplies::load(dir.clone());
@@ -33,7 +40,21 @@ pub fn run() {
             app.deep_link().on_open_url(move |event| {
                 app::open_links(&handle, event.urls().iter().map(ToString::to_string));
             });
+            tray::create(app.handle())?;
+            if std::env::args().any(|arg| arg == HIDDEN_ARG)
+                && let Some(window) = app.get_webview_window("main")
+            {
+                window.hide()?;
+            }
             Ok(())
+        })
+        // Closing the window keeps the app in the tray with its sessions;
+        // "Beenden" in the tray menu quits.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             app::app_info,
@@ -60,11 +81,24 @@ pub fn run() {
             app::upload,
             app::quick_replies,
             app::save_quick_replies,
+            app::set_visible_pane,
+            app::agent_kinds,
+            app::create_workspace,
+            app::create_tab,
+            app::create_worktree,
+            app::start_agent,
+            app::rename,
+            app::close,
+            app::autostart,
+            app::set_autostart,
             pending_links,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|err| panic!("cannot run the app: {err}"));
 }
+
+/// Passed by the autostart entry: start in the tray without a window.
+const HIDDEN_ARG: &str = "--hidden";
 
 /// Links the app was started with, read once by the window when it loads.
 #[tauri::command]
