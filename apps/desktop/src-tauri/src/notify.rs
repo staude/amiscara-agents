@@ -146,6 +146,7 @@ pub fn show(app: &AppHandle, notice: Notice) {
 }
 
 /// `&`, `<` and `>` as entities, for the markup of a notification body.
+#[cfg(any(target_os = "linux", test))]
 fn markup_escaped(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
