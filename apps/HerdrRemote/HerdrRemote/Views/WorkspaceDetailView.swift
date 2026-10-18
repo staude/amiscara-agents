@@ -8,6 +8,7 @@ struct WorkspaceDetailView: View {
     @State private var tabID: String?
     @State private var paneID: String?
     @State private var tabError: String?
+    @State private var renaming: RenameTarget?
 
     var body: some View {
         Group {
@@ -36,6 +37,9 @@ struct WorkspaceDetailView: View {
                     description: Text("Wählen Sie links einen Space oder einen Agent.")
                 )
             }
+        }
+        .sheet(item: $renaming) { target in
+            RenameView(target: target)
         }
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
@@ -73,6 +77,9 @@ struct WorkspaceDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .renameAction(available: RenameTarget.available(on: connection)) {
+                        renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                    }
                 }
                 if connection.config.inputAllowed && connection.isLive {
                     Button("Neuer Tab", systemImage: "plus") {
@@ -91,7 +98,7 @@ struct WorkspaceDetailView: View {
     private func panePicker(_ tab: TabItem) -> some View {
         Picker("Pane", selection: Binding(get: { paneID ?? "" }, set: { paneID = $0 })) {
             ForEach(tab.panes, id: \.paneId) { pane in
-                Text(pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
+                Text(pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
             }
         }
         .pickerStyle(.segmented)

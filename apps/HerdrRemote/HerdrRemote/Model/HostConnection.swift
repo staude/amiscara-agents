@@ -91,6 +91,29 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    func renameSpace(_ workspaceID: String, to label: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.renameWorkspace(workspaceId: workspaceID, label: label)
+        }.value
+    }
+
+    func renameTab(_ tabID: String, to label: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.renameTab(tabId: tabID, label: label)
+        }.value
+    }
+
+    /// An empty name removes the agent's name.
+    func renameAgent(in paneID: String, to name: String) async throws {
+        let session = try writableSession()
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        try await Task.detached {
+            try session.renameAgent(paneId: paneID, name: trimmed.isEmpty ? nil : trimmed)
+        }.value
+    }
+
     /// herdr does not expand `~` and silently falls back to the home
     /// directory for paths it cannot use, so the app sends absolute paths.
     /// Remote hosts are assumed to be Macs (`/Users/<user>`), as for the
