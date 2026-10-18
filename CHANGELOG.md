@@ -107,6 +107,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
+- Mac menu bar item with the number of waiting agents over all hosts and a
+  menu to jump to one; it opens the main window if it is closed. Hosts stay
+  connected and notifications keep coming while the window is closed (#62).
 
 ### Fixed
 
