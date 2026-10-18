@@ -196,6 +196,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   entries. Over SSH it needs SFTP like image uploads. Core:
   `herdr_core::claude`, transport `list_files` and `read_file_range`,
   `herdr-spike history <pane>`.
+- Widgets for iPhone, iPad and Mac (#106): waiting agents as a number
+  (small), the agents of all hosts, waiting first (medium, large), and on
+  the iOS lock screen. A tap opens the pane (`amiscara-agents://open?...`).
+  The app writes the board into an App Group (`Shared/WidgetSnapshot.swift`)
+  when it changes and at least every five minutes; widgets hold no
+  connection, so on iOS they show the state of the app's last run, with
+  its age.
 
 ### Changed
 
