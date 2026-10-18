@@ -12,6 +12,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 herdr-core = { version = "0.1.0", path = "../herdr-core" }
 herdr-proto = { version = "0.1.0", path = "../herdr-proto" }
 herdr-transport = { version = "0.1.0", path = "../herdr-transport" }
+herdr-session = { version = "0.1.0", path = "../herdr-session" }
 thiserror = "2.0.21"
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "sync", "time", "macros"] }
 uniffi = "0.32.2"

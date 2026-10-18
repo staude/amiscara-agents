@@ -4,8 +4,10 @@ members = [
     "crates/herdr-core",
     "crates/herdr-transport",
     "crates/herdr-spike",
+    "crates/herdr-session",
     "crates/herdr-ffi",
     "crates/uniffi-bindgen",
+    "apps/desktop/src-tauri",
 ]
 resolver = "3"
 

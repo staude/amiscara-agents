@@ -275,6 +275,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   own Mac app) wrote within the last minute with the same title and text,
   so no push comes twice. Switch "Auch für SSH-Hosts senden" in the push
   settings of "Dieser Mac", on by default.
+- Desktop app for Windows and Linux, first step (#142): Tauri 2 with Svelte
+  and TypeScript in `apps/desktop`, Rust crate `amiscara-desktop`. The window
+  opens with an empty host list; CI builds and bundles it on Windows (NSIS,
+  MSI) and Linux (deb, AppImage).
 
 ### Changed
 
@@ -285,6 +289,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `~/.amiscara-agents/uploads/`, generated key comments `amiscara-agents <device>`.
   Hosts, keys and quick replies are stored under the new names; hosts have to be
   added again. The Rust crates keep their `herdr-*` names.
+- New crate `herdr-session` with the live session (reconnects, updates for
+  the view, pane followers, actions, uploads, Claude history, key lines),
+  shared by `herdr-ffi` and the desktop app (#142). The Swift API is unchanged.
 
 ### Fixed
 

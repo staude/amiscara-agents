@@ -9,16 +9,12 @@
 mod add_host;
 mod convert;
 
-use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::sync::{Arc, OnceLock};
 
-use herdr_core::pane::{self, Pacing};
-use herdr_core::sync::{self, SyncState};
-use herdr_core::{actions, claude};
-use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError, keys};
+use herdr_core::{actions, pane};
+use herdr_session::SessionError;
+use herdr_transport::{TransportError, keys};
 use tokio::runtime::Runtime;
-use tokio::sync::watch;
-use tokio::task::JoinHandle;
 
 pub use add_host::{
     ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, decode_add_host_link, encode_add_host_link,
@@ -26,8 +22,10 @@ pub use add_host::{
 };
 pub use convert::{
     AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot,
-    SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
+    SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor,
+    TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
+pub use herdr_session::UPLOAD_DIR;
 
 uniffi::setup_scaffolding!();
 
@@ -61,70 +59,16 @@ pub enum FfiError {
     Files(String),
 }
 
-impl From<claude::ClaudeError> for FfiError {
-    fn from(err: claude::ClaudeError) -> Self {
+impl From<SessionError> for FfiError {
+    fn from(err: SessionError) -> Self {
         match err {
-            claude::ClaudeError::Transport(TransportError::Files(message)) => Self::Files(message),
-            claude::ClaudeError::Transport(other) => Self::NotConnected(other.to_string()),
-            other => Self::Files(other.to_string()),
-        }
-    }
-}
-
-/// Who wrote an entry of a Claude Code conversation.
-#[derive(Debug, Clone, Copy, uniffi::Enum)]
-pub enum TranscriptKind {
-    User,
-    Assistant,
-    Tool,
-}
-
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct TranscriptEntry {
-    pub kind: TranscriptKind,
-    pub text: String,
-    /// ISO 8601, as Claude Code wrote it.
-    pub timestamp: Option<String>,
-}
-
-/// Where to continue a conversation backwards, from a [`TranscriptPage`].
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct TranscriptCursor {
-    pub session_path: String,
-    pub start: u64,
-}
-
-/// Part of a Claude Code conversation, oldest entry first.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct TranscriptPage {
-    /// The session file below the host's home directory; pass it back with
-    /// `start` to load the entries before this page.
-    pub session_path: String,
-    pub entries: Vec<TranscriptEntry>,
-    /// Byte offset this page starts at; 0 means the conversation's start.
-    pub start: u64,
-}
-
-impl From<claude::Entry> for TranscriptEntry {
-    fn from(entry: claude::Entry) -> Self {
-        Self {
-            kind: match entry.kind {
-                claude::EntryKind::User => TranscriptKind::User,
-                claude::EntryKind::Assistant => TranscriptKind::Assistant,
-                claude::EntryKind::Tool => TranscriptKind::Tool,
-            },
-            text: entry.text,
-            timestamp: entry.timestamp,
-        }
-    }
-}
-
-impl From<actions::ActionError> for FfiError {
-    fn from(err: actions::ActionError) -> Self {
-        match err {
-            actions::ActionError::AgentBlocked => Self::AgentBlocked(err.to_string()),
-            actions::ActionError::Rejected { .. } => Self::Rejected(err.to_string()),
-            actions::ActionError::Transport(_) => Self::NotConnected(err.to_string()),
+            SessionError::Key(message) => Self::Key(message),
+            SessionError::Unsupported(message) => Self::Unsupported(message),
+            SessionError::NotConnected(message) => Self::NotConnected(message),
+            SessionError::AgentBlocked(message) => Self::AgentBlocked(message),
+            SessionError::Rejected(message) => Self::Rejected(message),
+            SessionError::Upload(message) => Self::Upload(message),
+            SessionError::Files(message) => Self::Files(message),
         }
     }
 }
@@ -147,6 +91,29 @@ pub enum Endpoint {
         /// Absolute path of `herdr.sock` on the server.
         socket_path: String,
     },
+}
+
+impl From<Endpoint> for herdr_session::Endpoint {
+    fn from(endpoint: Endpoint) -> Self {
+        match endpoint {
+            Endpoint::Local { socket_path } => Self::Local { socket_path },
+            Endpoint::Ssh {
+                host,
+                port,
+                user,
+                private_key_openssh,
+                pinned_host_key,
+                socket_path,
+            } => Self::Ssh {
+                host,
+                port,
+                user,
+                private_key_openssh,
+                pinned_host_key,
+                socket_path,
+            },
+        }
+    }
 }
 
 /// A key pair in OpenSSH text form.
@@ -200,39 +167,11 @@ pub fn authorized_keys_line(
     allow_sftp: bool,
     socket_path: Option<String>,
 ) -> Result<String, FfiError> {
-    let key = keys::parse_public(public_openssh.trim()).map_err(key_error)?;
-    let line = key
-        .to_openssh()
-        .map_err(|err| FfiError::Key(err.to_string()))?;
-    Ok(format!(
-        "{} {line}",
-        gate_options(allow_sftp, socket_path.as_deref())?
-    ))
-}
-
-/// The options part of an `authorized_keys` line, see
-/// [`authorized_keys_line`].
-fn gate_options(allow_sftp: bool, socket_path: Option<&str>) -> Result<String, FfiError> {
-    let socket = match socket_path.map(str::trim).filter(|path| !path.is_empty()) {
-        None => "$HOME/.config/herdr/herdr.sock",
-        Some(path)
-            if path.starts_with('/')
-                && !path
-                    .chars()
-                    .any(|ch| matches!(ch, '"' | '\\' | '$' | '`' | '\'') || ch.is_control()) =>
-        {
-            path
-        }
-        Some(path) => return Err(FfiError::Key(format!("unsuitable socket path {path:?}"))),
-    };
-    let files = if allow_sftp {
-        "exec /usr/libexec/sftp-server"
-    } else {
-        "exit 1"
-    };
-    Ok(format!(
-        "restrict,command=\"case \\\"$SSH_ORIGINAL_COMMAND\\\" in *sftp*) {files} ;; *) exec nc -U \\\"{socket}\\\" ;; esac\""
-    ))
+    Ok(herdr_session::authorized_keys_line(
+        &public_openssh,
+        allow_sftp,
+        socket_path.as_deref(),
+    )?)
 }
 
 /// A new space or tab: its first pane.
@@ -275,9 +214,6 @@ impl From<NewWorktree> for actions::NewWorktree {
     }
 }
 
-/// Where uploads land, relative to the login's home directory.
-pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
-
 /// Default `herdr.sock` path for a user on a macOS host.
 #[uniffi::export]
 pub fn default_remote_socket(user: String) -> String {
@@ -311,11 +247,7 @@ pub trait PaneObserver: Send + Sync {
 /// One live host: keeps the session state current until stopped or dropped.
 #[derive(uniffi::Object)]
 pub struct HostSession {
-    state: Mutex<Option<watch::Receiver<SyncState>>>,
-    /// Whether spaces are grouped by their "Bereich/Name" labels. A change
-    /// rebuilds the last update, so the app needs no reconnect.
-    group_by_name: watch::Sender<bool>,
-    forward: JoinHandle<()>,
+    session: herdr_session::Session,
 }
 
 #[uniffi::export]
@@ -329,84 +261,40 @@ impl HostSession {
         observer: Box<dyn SessionObserver>,
         group_spaces_by_name: bool,
     ) -> Result<Arc<Self>, FfiError> {
-        let connector = Connector::new(endpoint)?;
-        let runtime = runtime();
-        let _entered = runtime.enter();
-        let rx = sync::spawn(move || {
-            let connector = connector.clone();
-            async move { connector.connect().await }
-        });
-        let mut updates = rx.clone();
-        let (group_by_name, mut grouping) = watch::channel(group_spaces_by_name);
-        let forward = runtime.spawn(async move {
-            // The state the last update was based on, to report what changed.
-            let mut previous: Option<Arc<herdr_core::SessionState>> = None;
-            loop {
-                let state = updates.borrow_and_update().clone();
-                let by_name = *grouping.borrow_and_update();
-                let update = convert::session_update(&state, previous.as_deref(), by_name);
-                if state.session.is_some() {
-                    previous = state.session.clone();
-                }
+        let _entered = runtime().enter();
+        let session =
+            herdr_session::Session::start(endpoint.into(), group_spaces_by_name, move |update| {
                 observer.on_update(update);
-                // A changed setting alone rebuilds the same state; its
-                // attention is then empty, so nothing is notified twice.
-                tokio::select! {
-                    changed = updates.changed() => {
-                        if changed.is_err() {
-                            return;
-                        }
-                    }
-                    Ok(()) = grouping.changed() => {}
-                }
-            }
-        });
-        Ok(Arc::new(Self {
-            state: Mutex::new(Some(rx)),
-            group_by_name,
-            forward,
-        }))
+            })?;
+        Ok(Arc::new(Self { session }))
     }
 
     /// Switches grouping by "Bereich/Name" on or off; the observer gets a
     /// rebuilt update right away, without reconnecting.
     pub fn set_group_spaces_by_name(&self, on: bool) {
-        self.group_by_name.send_if_modified(|current| {
-            let changed = *current != on;
-            *current = on;
-            changed
-        });
+        self.session.set_group_spaces_by_name(on);
     }
 
     /// Ends the session and closes the connection. Pane followers stop too.
     pub fn stop(&self) {
-        self.forward.abort();
-        if let Ok(mut state) = self.state.lock() {
-            state.take();
-        }
+        self.session.stop();
     }
 
     /// Sends a prompt to the agent in a pane, followed by Enter. Blocks for
     /// one round trip; call it off the main thread.
     pub fn send_prompt(&self, pane_id: String, text: String) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::send_prompt(&conn, &pane_id, &text))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.send_prompt(&pane_id, &text))?)
     }
 
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.
     /// Blocks for one round trip; call it off the main thread.
     pub fn send_keys(&self, pane_id: String, keys: Vec<String>) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::send_keys(&conn, &pane_id, &keys))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.send_keys(&pane_id, &keys))?)
     }
 
     /// Types text into a pane without Enter. Blocks for one round trip.
     pub fn send_text(&self, pane_id: String, text: String) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::send_text(&conn, &pane_id, &text))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.send_text(&pane_id, &text))?)
     }
 
     /// Creates a space with a shell in `cwd` (absolute path) and returns
@@ -416,9 +304,8 @@ impl HostSession {
         label: Option<String>,
         cwd: String,
     ) -> Result<Created, FfiError> {
-        let conn = self.connection()?;
         Ok(runtime()
-            .block_on(actions::create_workspace(&conn, label.as_deref(), &cwd))?
+            .block_on(self.session.create_workspace(label.as_deref(), &cwd))?
             .into())
     }
 
@@ -428,9 +315,8 @@ impl HostSession {
         workspace_id: String,
         cwd: Option<String>,
     ) -> Result<Created, FfiError> {
-        let conn = self.connection()?;
         Ok(runtime()
-            .block_on(actions::create_tab(&conn, &workspace_id, cwd.as_deref()))?
+            .block_on(self.session.create_tab(&workspace_id, cwd.as_deref()))?
             .into())
     }
 
@@ -442,13 +328,11 @@ impl HostSession {
         workspace_id: String,
         worktree: NewWorktree,
     ) -> Result<Created, FfiError> {
-        let conn = self.connection()?;
         Ok(runtime()
-            .block_on(actions::create_worktree(
-                &conn,
-                &workspace_id,
-                &worktree.into(),
-            ))?
+            .block_on(
+                self.session
+                    .create_worktree(&workspace_id, &worktree.into()),
+            )?
             .into())
     }
 
@@ -462,27 +346,13 @@ impl HostSession {
         kind: String,
         name: Option<String>,
     ) -> Result<String, FfiError> {
-        let conn = self.connection()?;
-        Ok(runtime()
-            .block_on(actions::start_agent(
-                &conn,
-                &pane_id,
-                &kind,
-                name.as_deref(),
-            ))?
-            .name)
+        Ok(runtime().block_on(self.session.start_agent(&pane_id, &kind, name.as_deref()))?)
     }
 
     /// Agent kinds the server can start, the usual ones first. Never fails:
     /// without an answer it returns the kinds herdr 0.9 knows.
     pub fn agent_kinds(&self) -> Vec<String> {
-        match self.connection() {
-            Ok(conn) => runtime().block_on(actions::agent_kinds(&conn)),
-            Err(_) => actions::AGENT_KINDS
-                .iter()
-                .map(|k| (*k).to_string())
-                .collect(),
-        }
+        runtime().block_on(self.session.agent_kinds())
     }
 
     /// The newest part of the Claude Code conversation in a pane, read from
@@ -494,50 +364,22 @@ impl HostSession {
         pane_id: String,
         before: Option<TranscriptCursor>,
     ) -> Result<TranscriptPage, FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(async {
-            let (session, end) = match before {
-                Some(cursor) => (
-                    claude::Session {
-                        path: cursor.session_path,
-                        size: cursor.start,
-                    },
-                    cursor.start,
-                ),
-                None => {
-                    let session = claude::find_session(&conn, &pane_id).await?;
-                    let end = session.size;
-                    (session, end)
-                }
-            };
-            let page = claude::read_back(&conn, &session, end).await?;
-            Ok(TranscriptPage {
-                session_path: session.path,
-                entries: page.entries.into_iter().map(Into::into).collect(),
-                start: page.start,
-            })
-        })
+        Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
     }
 
     /// Renames a space. Blocks for one round trip.
     pub fn rename_workspace(&self, workspace_id: String, label: String) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::rename_workspace(&conn, &workspace_id, &label))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.rename_workspace(&workspace_id, &label))?)
     }
 
     /// Renames a tab. Blocks for one round trip.
     pub fn rename_tab(&self, tab_id: String, label: String) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::rename_tab(&conn, &tab_id, &label))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.rename_tab(&tab_id, &label))?)
     }
 
     /// Closes a tab and what runs in it. Blocks for one round trip.
     pub fn close_tab(&self, tab_id: String) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::close_tab(&conn, &tab_id))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.close_tab(&tab_id))?)
     }
 
     /// Closes a space with all its tabs; `with_worktrees` also closes the
@@ -548,27 +390,14 @@ impl HostSession {
         workspace_id: String,
         with_worktrees: bool,
     ) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::close_workspace(
-            &conn,
-            &workspace_id,
-            with_worktrees,
-        ))?;
-        Ok(())
+        Ok(runtime().block_on(self.session.close_workspace(&workspace_id, with_worktrees))?)
     }
 
     /// Names the agent in a pane; `None` or an empty name removes the name.
     /// herdr does not announce names with an event, so a fresh snapshot
     /// follows. Blocks for one round trip.
     pub fn rename_agent(&self, pane_id: String, name: Option<String>) -> Result<(), FfiError> {
-        let conn = self.connection()?;
-        runtime().block_on(actions::rename_agent(&conn, &pane_id, name.as_deref()))?;
-        if let Ok(state) = self.state.lock()
-            && let Some(rx) = state.as_ref()
-        {
-            rx.borrow().request_snapshot();
-        }
-        Ok(())
+        Ok(runtime().block_on(self.session.rename_agent(&pane_id, name.as_deref()))?)
     }
 
     /// Lets another device of the user (an Apple TV, #127) in: adds the
@@ -580,70 +409,21 @@ impl HostSession {
         public_openssh: String,
         comment: String,
     ) -> Result<bool, FfiError> {
-        // Options, key type and key, without the key's own comment: the
-        // line ends with one comment naming the device.
-        let key = keys::parse_public(public_openssh.trim()).map_err(key_error)?;
-        let typed = key
-            .to_openssh()
-            .map_err(|err| FfiError::Key(err.to_string()))?;
-        let mut fields = typed.split_whitespace();
-        let (Some(kind), Some(blob)) = (fields.next(), fields.next()) else {
-            return Err(FfiError::Key("no key in line".into()));
-        };
-        let base = format!("{} {kind} {blob}", gate_options(false, None)?);
-        let blob = blob.to_owned();
-        let comment: String = comment
-            .chars()
-            .map(|ch| {
-                if ch.is_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                    ch
-                } else {
-                    '-'
-                }
-            })
-            .collect();
-        let line = format!("{base} amiscara-agents-{comment}");
-        let conn = self.connection()?;
-        runtime()
-            .block_on(conn.add_authorized_key(&line, &blob))
-            .map_err(|err| match err {
-                TransportError::Upload(message) => FfiError::Upload(message),
-                other => FfiError::NotConnected(other.to_string()),
-            })
+        Ok(runtime().block_on(self.session.authorize_device_key(&public_openssh, &comment))?)
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
     /// made unique and safe (`file-<time>-<name>`), and returns the absolute
     /// path. The name helps the agent tell what the file is.
     pub fn upload_named_file(&self, data: Vec<u8>, file_name: String) -> Result<String, FfiError> {
-        let conn = self.connection()?;
-        let name = named_upload(&file_name);
-        runtime()
-            .block_on(conn.upload(UPLOAD_DIR, &name, &data))
-            .map_err(|err| match err {
-                TransportError::Upload(message) => FfiError::Upload(message),
-                other => FfiError::NotConnected(other.to_string()),
-            })
+        Ok(runtime().block_on(self.session.upload_named_file(&data, &file_name))?)
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path. Blocks
     /// until the upload is done; call it off the main thread.
     pub fn upload_file(&self, data: Vec<u8>, file_extension: String) -> Result<String, FfiError> {
-        let ext = file_extension.trim_start_matches('.').to_ascii_lowercase();
-        if ext.is_empty() || ext.len() > 5 || !ext.chars().all(|c| c.is_ascii_alphanumeric()) {
-            return Err(FfiError::Upload(format!(
-                "invalid file extension {file_extension:?}"
-            )));
-        }
-        let conn = self.connection()?;
-        let name = upload_name(&ext);
-        runtime()
-            .block_on(conn.upload(UPLOAD_DIR, &name, &data))
-            .map_err(|err| match err {
-                TransportError::Upload(message) => FfiError::Upload(message),
-                other => FfiError::NotConnected(other.to_string()),
-            })
+        Ok(runtime().block_on(self.session.upload_file(&data, &file_extension))?)
     }
 
     /// Follows the visible screen of a pane until the returned handle is
@@ -662,121 +442,29 @@ impl HostSession {
         live: bool,
         observer: Box<dyn PaneObserver>,
     ) -> Arc<PaneFollow> {
-        let state = self.state.lock().ok().and_then(|state| state.clone());
-        let (pacing_tx, pacing) = watch::channel(pacing_for(live));
-        let (history_tx, history) = watch::channel(0);
-        let (stop_tx, mut stop) = watch::channel(false);
-        runtime().spawn(async move {
-            let Some(mut state) = state else {
-                return;
-            };
-            loop {
-                let connection = state.borrow_and_update().connection.clone();
-                if let Some(conn) = connection
-                    && let Err(message) = follow_once(
-                        &conn,
-                        &pane_id,
-                        pacing.clone(),
-                        history.clone(),
-                        stop.clone(),
-                        observer.as_ref(),
-                    )
-                    .await
-                {
-                    observer.on_error(message);
-                }
-                if *stop.borrow() {
-                    return;
-                }
-                // Wait for a new connection, or retry after a pause on the same one.
-                tokio::select! {
-                    changed = state.changed() => if changed.is_err() { return },
-                    () = tokio::time::sleep(Duration::from_secs(2)) => {}
-                    _ = stop.wait_for(|stopped| *stopped) => return,
-                }
-            }
-        });
         Arc::new(PaneFollow {
-            stop: stop_tx,
-            pacing: pacing_tx,
-            history: history_tx,
+            follow: self.session.follow_pane(pane_id, live, Sink(observer)),
         })
     }
 }
 
-impl HostSession {
-    fn connection(&self) -> Result<Arc<Connection>, FfiError> {
-        self.state
-            .lock()
-            .ok()
-            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().connection.clone()))
-            .ok_or_else(|| FfiError::NotConnected("not connected to herdr".into()))
+/// Hands what a follower reads to the app's observer.
+struct Sink(Box<dyn PaneObserver>);
+
+impl herdr_session::PaneSink for Sink {
+    fn on_content(&self, content: PaneContent) {
+        self.0.on_content(content);
+    }
+
+    fn on_error(&self, message: String) {
+        self.0.on_error(message);
     }
 }
-
-impl Drop for HostSession {
-    fn drop(&mut self) {
-        self.forward.abort();
-    }
-}
-
-fn pacing_for(live: bool) -> Pacing {
-    if live {
-        Pacing::default()
-    } else {
-        Pacing::background()
-    }
-}
-
-async fn follow_once(
-    conn: &Connection,
-    pane_id: &str,
-    pacing: watch::Receiver<Pacing>,
-    history: watch::Receiver<u32>,
-    mut stop: watch::Receiver<bool>,
-    observer: &dyn PaneObserver,
-) -> Result<(), String> {
-    let (tx, mut rx) = watch::channel(None);
-    let follow = pane::follow_with_history(conn, pane_id, pacing, history, &tx);
-    tokio::pin!(follow);
-    // Owns `rx`: when it ends, the follower sees nobody watching and returns
-    // at its next pause.
-    let forward = async move {
-        loop {
-            tokio::select! {
-                changed = rx.changed() => {
-                    if changed.is_err() {
-                        return;
-                    }
-                    let screen = rx.borrow_and_update().clone();
-                    if let Some(screen) = screen {
-                        observer.on_content(convert::pane_content(&screen));
-                    }
-                }
-                _ = stop.wait_for(|stopped| *stopped) => return,
-            }
-        }
-    };
-    tokio::select! {
-        result = &mut follow => return result.map_err(|err| err.to_string()),
-        () = forward => {}
-    }
-    // Stopped. Let a request in flight finish instead of dropping it: an
-    // SSH request dropped half way left the session unable to open new
-    // channels, so every later read hung (#107).
-    let _ = tokio::time::timeout(STOP_GRACE, follow).await;
-    Ok(())
-}
-
-/// How long a stopped pane follower may take to finish its request.
-const STOP_GRACE: Duration = Duration::from_secs(10);
 
 /// Handle for [`HostSession::follow_pane`].
 #[derive(uniffi::Object)]
 pub struct PaneFollow {
-    stop: watch::Sender<bool>,
-    pacing: watch::Sender<Pacing>,
-    history: watch::Sender<u32>,
+    follow: herdr_session::PaneFollow,
 }
 
 #[uniffi::export]
@@ -784,142 +472,21 @@ impl PaneFollow {
     /// Ends following once a request in flight has finished; no content is
     /// reported after this.
     pub fn stop(&self) {
-        self.stop.send_replace(true);
+        self.follow.stop();
     }
 
     /// Switches between the fast pace of the selected pane and the slow one
     /// of a pane beside it. Switching reads the pane once right away.
     pub fn set_live(&self, live: bool) {
-        let pacing = pacing_for(live);
-        self.pacing.send_if_modified(|current| {
-            let changed = *current != pacing;
-            *current = pacing;
-            changed
-        });
+        self.follow.set_live(live);
     }
 
     /// Shows the last `lines` rows including scrollback instead of only the
     /// visible screen; 0 goes back to the screen. Capped at
     /// [`max_history_lines`]. Content with the new value follows at once.
     pub fn set_history_lines(&self, lines: u32) {
-        self.history
-            .send_replace(lines.min(pane::MAX_HISTORY_LINES));
+        self.follow.set_history_lines(lines);
     }
-}
-
-impl Drop for PaneFollow {
-    fn drop(&mut self) {
-        self.stop.send_replace(true);
-    }
-}
-
-/// Everything needed to (re)connect, checked once up front.
-#[derive(Clone)]
-enum Connector {
-    #[cfg(unix)]
-    Local(std::path::PathBuf),
-    Ssh {
-        target: SshTarget,
-        socket: String,
-    },
-}
-
-impl Connector {
-    fn new(endpoint: Endpoint) -> Result<Self, FfiError> {
-        match endpoint {
-            #[cfg(unix)]
-            Endpoint::Local { socket_path } => {
-                let path = match socket_path {
-                    Some(path) => std::path::PathBuf::from(path),
-                    None => Connection::default_local_socket().ok_or_else(|| {
-                        FfiError::Unsupported("no home directory for the local socket".into())
-                    })?,
-                };
-                Ok(Self::Local(path))
-            }
-            #[cfg(not(unix))]
-            Endpoint::Local { .. } => Err(FfiError::Unsupported(
-                "a local herdr socket needs a Unix system".into(),
-            )),
-            Endpoint::Ssh {
-                host,
-                port,
-                user,
-                private_key_openssh,
-                pinned_host_key,
-                socket_path,
-            } => {
-                let key = keys::parse_private(&private_key_openssh).map_err(key_error)?;
-                Ok(Self::Ssh {
-                    target: SshTarget {
-                        host,
-                        port,
-                        user,
-                        identity: Identity::Key(Arc::new(key)),
-                        host_key: HostKeyPolicy::Pinned(pinned_host_key),
-                    },
-                    socket: socket_path,
-                })
-            }
-        }
-    }
-
-    async fn connect(&self) -> Result<Connection, TransportError> {
-        match self {
-            #[cfg(unix)]
-            Self::Local(path) => Ok(Connection::local(path.clone())),
-            Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
-        }
-    }
-}
-
-/// `file-<secs>-<nanos>-<name>`. The name keeps only letters, digits, `.`,
-/// `_` and `-` (everything else becomes `_`), so the path the app appends
-/// to a prompt or shell command carries no whitespace or shell characters;
-/// no leading dots, at most 120 characters (the end, with the extension).
-fn named_upload(file_name: &str) -> String {
-    let cleaned: String = file_name
-        .trim()
-        .chars()
-        .map(|ch| {
-            if ch.is_alphanumeric() || matches!(ch, '.' | '_' | '-') {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let cleaned = cleaned.trim_start_matches('.');
-    let chars: Vec<char> = cleaned.chars().collect();
-    let name: String = if chars.len() > 120 {
-        chars[chars.len() - 120..].iter().collect()
-    } else {
-        cleaned.to_owned()
-    };
-    let name = if name.is_empty() {
-        "datei".to_owned()
-    } else {
-        name
-    };
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    format!("file-{}-{:09}-{name}", now.as_secs(), now.subsec_nanos())
-}
-
-/// `img-<unix seconds>-<nanos>.<ext>` for images, `file-…` for anything
-/// else: sortable, unique enough for one device uploading by hand, and a
-/// listing of the upload folder says what is what.
-fn upload_name(ext: &str) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    let image = matches!(
-        ext,
-        "png" | "jpg" | "jpeg" | "gif" | "webp" | "heic" | "tif" | "tiff"
-    );
-    let prefix = if image { "img" } else { "file" };
-    format!("{prefix}-{}-{:09}.{ext}", now.as_secs(), now.subsec_nanos())
 }
 
 fn key_error(err: TransportError) -> FfiError {
@@ -936,60 +503,4 @@ fn runtime() -> &'static Runtime {
             .build()
             .unwrap_or_else(|err| panic!("cannot start the tokio runtime: {err}"))
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::named_upload;
-
-    #[test]
-    fn key_lines_allow_only_the_herdr_socket() {
-        let key = super::generate_ssh_key("t".into())
-            .expect("key")
-            .public_openssh;
-        let line = super::authorized_keys_line(key.clone(), false, None).expect("line");
-        assert!(line.starts_with(r#"restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#), "{line}");
-        assert!(!line.contains("port-forwarding"));
-        let files = super::authorized_keys_line(key.clone(), true, Some("/srv/herdr.sock".into()))
-            .expect("line");
-        assert!(
-            files.contains("*sftp*) exec /usr/libexec/sftp-server ;;")
-                && files.contains(r#"nc -U \"/srv/herdr.sock\""#),
-            "{files}"
-        );
-        for bad in ["relative.sock", "/a\"b", "/$HOME/x", "/a`id`"] {
-            assert!(
-                super::authorized_keys_line(key.clone(), false, Some(bad.into())).is_err(),
-                "{bad}"
-            );
-        }
-    }
-
-    #[test]
-    fn named_uploads_are_safe_and_keep_the_name() {
-        let name = named_upload("Rechnung März.xlsx");
-        assert!(
-            name.starts_with("file-") && name.ends_with("-Rechnung_März.xlsx"),
-            "{name}"
-        );
-        let name = named_upload("x;rm -rf ~ $(id) `id` 'a'\"b\".txt");
-        assert!(
-            name.chars()
-                .all(|ch| ch.is_alphanumeric() || matches!(ch, '.' | '_' | '-')),
-            "{name}"
-        );
-        let name = named_upload("../../.ssh/authorized_keys");
-        assert!(
-            !name.contains('/') && name.ends_with("-_.._.ssh_authorized_keys"),
-            "{name}"
-        );
-        assert!(named_upload(".hidden").ends_with("-hidden"));
-        assert!(named_upload("  ").ends_with("-datei"));
-        let long = format!("{}.textClipping", "x".repeat(200));
-        let name = named_upload(&long);
-        assert!(
-            name.ends_with(".textClipping") && name.len() < 160,
-            "{name}"
-        );
-    }
 }

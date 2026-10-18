@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Desktop icon from docs/icon/A (dark), flat: Windows and Linux have no glass layers. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B2A2E"/>
+      <stop offset="1" stop-color="#04161A"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="url(#bg)"/>
+  <rect x="327" y="200" width="560" height="430" rx="72" fill="#2BB3A3" fill-opacity="0.22"/>
+  <rect x="232" y="295" width="560" height="430" rx="72" fill="#2FD1A5" fill-opacity="0.34"/>
+  <rect x="137" y="390" width="560" height="430" rx="72" fill="#14A08C" fill-opacity="0.88"/>
+  <path d="M257 520 L352 605 L257 690" fill="none" stroke="#F2FFFB" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="407" y="667" width="140" height="46" rx="23" fill="#F2FFFB"/>
+  <circle cx="805" cy="282" r="38" fill="#FF9F0A"/>
+</svg>
