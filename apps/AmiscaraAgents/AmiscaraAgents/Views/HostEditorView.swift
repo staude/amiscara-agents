@@ -83,6 +83,14 @@ struct HostEditorView: View {
                 if config.kind == .local {
                     CloudPushSection(sender: store.cloudPush)
                 }
+                #else
+                if let status = CloudPushSubscriptions.shared.status {
+                    Section("Push über iCloud") {
+                        Label(status, systemImage: CloudPushSubscriptions.shared.active ? "checkmark.icloud" : "exclamationmark.icloud")
+                            .foregroundStyle(CloudPushSubscriptions.shared.active ? Color.secondary : Color.orange)
+                            .textSelection(.enabled)
+                    }
+                }
                 #endif
 
                 Section {

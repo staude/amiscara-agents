@@ -146,15 +146,38 @@ final class CloudPushSender {
 #endif
 
 #if os(iOS)
-/// Subscribes this device to the events the Mac writes.
-enum CloudPushSubscriptions {
-    static func install() async {
-        guard (try? await CloudPush.container.accountStatus()) == .available else { return }
+/// Subscribes this device to the events the Mac writes. Installed at every
+/// launch and return to the foreground: saving the same subscriptions again
+/// is harmless, and a first attempt can fail while a new container is not
+/// ready yet or iCloud is signed out.
+@MainActor
+@Observable
+final class CloudPushSubscriptions {
+    static let shared = CloudPushSubscriptions()
+
+    /// For the host settings: whether pushes can arrive, or why not.
+    private(set) var status: String?
+    private(set) var active = false
+
+    func install() async {
+        let account = try? await CloudPush.container.accountStatus()
+        guard account == .available else {
+            active = false
+            status = String(localized: "Nicht bei iCloud angemeldet. Mac und iPhone brauchen dieselbe Apple-ID.")
+            return
+        }
         let subscriptions = [
-            subscription(CloudPush.waitingType, waiting: true),
-            subscription(CloudPush.doneType, waiting: false),
+            Self.subscription(CloudPush.waitingType, waiting: true),
+            Self.subscription(CloudPush.doneType, waiting: false),
         ]
-        _ = try? await CloudPush.container.privateCloudDatabase.modifySubscriptions(saving: subscriptions, deleting: [])
+        do {
+            _ = try await CloudPush.container.privateCloudDatabase.modifySubscriptions(saving: subscriptions, deleting: [])
+            active = true
+            status = String(localized: "Aktiv: „wartet“ und „fertig“ kommen über iCloud, wenn die Mac-App auf dem Host läuft.")
+        } catch {
+            active = false
+            status = String(localized: "iCloud-Abo fehlgeschlagen: \(error.localizedDescription)")
+        }
     }
 
     private static func subscription(_ type: String, waiting: Bool) -> CKQuerySubscription {
@@ -190,7 +213,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         application.registerForRemoteNotifications()
-        Task { await CloudPushSubscriptions.install() }
+        Task { await CloudPushSubscriptions.shared.install() }
         return true
     }
 }

@@ -127,8 +127,10 @@ extension Notifier: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         // While the app runs it posts its own notification for the pane;
-        // the push through iCloud would only repeat it.
-        if notification.request.trigger is UNPushNotificationTrigger {
+        // the push through iCloud would only repeat it. A test push names
+        // no pane and always shows.
+        if notification.request.trigger is UNPushNotificationTrigger,
+           CloudPush.target(of: notification.request.content.userInfo)?.paneID.isEmpty != true {
             return []
         }
         return [.banner, .list, .sound]
