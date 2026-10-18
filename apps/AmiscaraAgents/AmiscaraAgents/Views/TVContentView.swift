@@ -42,6 +42,8 @@ private struct TVSpaceScreen: View {
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
+    /// The space a new tab with an agent is chosen for.
+    @State private var choosingAgent = false
 
     private enum Focus: Hashable { case tabs }
     @FocusState private var focus: Focus?
@@ -100,14 +102,21 @@ private struct TVSpaceScreen: View {
             if connection.config.inputAllowed && connection.isLive {
                 Button("Neuer Tab", systemImage: "plus") { newTab(in: workspace, on: connection) }
                     .labelStyle(.iconOnly)
-                Menu {
+                // A dialog rather than a menu: it works reliably with the
+                // remote, and the kinds can still be loading when it opens.
+                Button("Neuer Tab mit Agent", systemImage: "sparkles") {
+                    Task {
+                        if agentKinds.isEmpty { agentKinds = await connection.agentKinds() }
+                        choosingAgent = true
+                    }
+                }
+                .labelStyle(.iconOnly)
+                .confirmationDialog("Neuer Tab mit Agent", isPresented: $choosingAgent, titleVisibility: .visible) {
                     ForEach(agentKinds, id: \.self) { kind in
                         Button(kind) { newTab(in: workspace, on: connection, agent: kind) }
                     }
-                } label: {
-                    Label("Agent starten", systemImage: "sparkles")
+                    Button("Abbrechen", role: .cancel) {}
                 }
-                .labelStyle(.iconOnly)
                 // A segment has no menu on long press: tab and space
                 // actions live here.
                 Menu {
