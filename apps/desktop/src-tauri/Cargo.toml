@@ -1,0 +1,22 @@
+[package]
+name = "amiscara-desktop"
+description = "Amiscara Agents for Windows and Linux (Tauri)"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "amiscara_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+herdr-proto = { version = "0.1.0", path = "../../../crates/herdr-proto" }
+herdr-session = { version = "0.1.0", path = "../../../crates/herdr-session" }
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.12", features = [] }
+
+[lints]
+workspace = true

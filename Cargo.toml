@@ -7,6 +7,7 @@ members = [
     "crates/herdr-session",
     "crates/herdr-ffi",
     "crates/uniffi-bindgen",
+    "apps/desktop/src-tauri",
 ]
 resolver = "3"
 
