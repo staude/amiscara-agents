@@ -91,13 +91,10 @@ jobs:
       - run: cargo test -p amiscara-desktop --locked
       # Bundles for Windows (NSIS, MSI) and Linux (deb, AppImage); the Mac
       # only checks that the app builds, it ships the SwiftUI app.
-      # The bundles include signed update files; the key is a secret, which
-      # pull requests from forks do not get.
+      # Without signed update files: the updater key is only for the release
+      # workflow (environment desktop-release, tags desktop-v*).
       - if: runner.os != 'macOS'
-        run: npx tauri build
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
       - if: runner.os == 'macOS'
         run: npx tauri build --no-bundle
       - if: runner.os != 'macOS'

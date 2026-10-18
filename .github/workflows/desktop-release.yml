@@ -5,8 +5,9 @@ name: Desktop release
 # key and publishes them, with `latest.json` for the app's updater, in the
 # public repository staude/amiscara-agents-releases.
 #
-# Secrets: RELEASES_TOKEN (fine-grained token, Contents read and write on
-# amiscara-agents-releases), TAURI_SIGNING_PRIVATE_KEY and
+# Secrets of the environment `desktop-release`, which only `desktop-v*`
+# tags may use: RELEASES_TOKEN (fine-grained token, Contents read and write
+# on amiscara-agents-releases), TAURI_SIGNING_PRIVATE_KEY and
 # TAURI_SIGNING_PRIVATE_KEY_PASSWORD (updater key, see apps/desktop/README.md).
 
 on:
@@ -24,6 +25,7 @@ env:
 jobs:
   release:
     name: Create release
+    environment: desktop-release
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -57,6 +59,7 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: release
+    environment: desktop-release
     strategy:
       fail-fast: true
       matrix:
@@ -99,6 +102,7 @@ jobs:
   publish:
     name: Publish release
     needs: [release, build]
+    environment: desktop-release
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

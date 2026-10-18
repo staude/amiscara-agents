@@ -99,7 +99,8 @@ The workflow `.github/workflows/desktop-release.yml` checks that tag and
 version match, drafts the release, builds Windows (NSIS, MSI) and Linux
 (AppImage, deb) with `tauri-action`, signs the update files and publishes.
 
-Secrets of this repository:
+Secrets of the GitHub environment `desktop-release`, which only tags
+`desktop-v*` may use (normal CI builds get no key and make no update files):
 
 - `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the
   updater key, created with `npx tauri signer generate`; the private key is
