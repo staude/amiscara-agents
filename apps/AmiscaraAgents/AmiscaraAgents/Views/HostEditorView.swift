@@ -200,7 +200,7 @@ struct HostEditorView: View {
         Section {
             Toggle("Bilder hochladen (SFTP)", isOn: $config.uploadAllowed)
             if let publicKey = config.publicKey {
-                let line = (try? authorizedKeysLine(publicOpenssh: publicKey, allowSftp: config.uploadAllowed)) ?? publicKey
+                let line = (try? authorizedKeysLine(publicOpenssh: publicKey, allowSftp: config.uploadAllowed, socketPath: config.socketPath.isEmpty ? nil : config.socketPath)) ?? publicKey
                 Text(line)
                     .font(.system(.caption, design: .monospaced))
                     .selectableText()

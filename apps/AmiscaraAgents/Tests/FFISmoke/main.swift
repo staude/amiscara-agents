@@ -41,15 +41,16 @@ let key = try generateSshKey(comment: "ffi-smoke")
 guard key.publicOpenssh.hasPrefix("ssh-ed25519 "), key.fingerprint.hasPrefix("SHA256:") else {
     fail("generated key looks wrong")
 }
-let line = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: false)
-guard line.hasPrefix("restrict,port-forwarding,command=\"/usr/bin/false\" ssh-ed25519 ") else {
+// Only the herdr socket, no forwarding (#132); SFTP only with uploads on.
+let line = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: false, socketPath: nil)
+guard line.hasPrefix("restrict,command=\""), line.contains("*sftp*) exit 1 ;;"), !line.contains("port-forwarding") else {
     fail("authorized_keys line: \(line)")
 }
-let sftpLine = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: true)
-guard sftpLine.hasPrefix("restrict,port-forwarding,command=\"/usr/libexec/sftp-server\" ssh-ed25519 ") else {
+let sftpLine = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: true, socketPath: nil)
+guard sftpLine.contains("*sftp*) exec /usr/libexec/sftp-server ;;") else {
     fail("authorized_keys line with SFTP: \(sftpLine)")
 }
-if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AAAA x", allowSftp: false)) != nil {
+if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AAAA x", allowSftp: false, socketPath: nil)) != nil {
     fail("multi-line public key was accepted")
 }
 print("ok   keys: \(key.fingerprint)")

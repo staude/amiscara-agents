@@ -207,6 +207,11 @@ enum Inner {
     Ssh {
         handle: Handle<HostKeyCheck>,
         socket_path: String,
+        /// Set once sshd refused a streamlocal channel: the key's line has no
+        /// `port-forwarding` but a forced command that connects every
+        /// session to `herdr.sock` (#132). Requests then go over a session
+        /// channel running `herdr`.
+        gated: std::sync::atomic::AtomicBool,
     },
 }
 
@@ -272,6 +277,7 @@ impl Connection {
             inner: Inner::Ssh {
                 handle,
                 socket_path,
+                gated: std::sync::atomic::AtomicBool::new(false),
             },
             next_id: AtomicU64::new(1),
         })
@@ -284,10 +290,23 @@ impl Connection {
             Inner::Ssh {
                 handle,
                 socket_path,
+                gated,
             } => {
-                let channel = handle
-                    .channel_open_direct_streamlocal(socket_path.clone())
-                    .await?;
+                if !gated.load(Ordering::Relaxed) {
+                    match handle
+                        .channel_open_direct_streamlocal(socket_path.clone())
+                        .await
+                    {
+                        Ok(channel) => return Ok(Box::new(channel.into_stream())),
+                        // No port forwarding for this key: try the gate.
+                        Err(russh::Error::ChannelOpenFailure(_)) => {
+                            gated.store(true, Ordering::Relaxed)
+                        }
+                        Err(err) => return Err(err.into()),
+                    }
+                }
+                let channel = handle.channel_open_session().await?;
+                channel.exec(true, "herdr").await?;
                 Ok(Box::new(channel.into_stream()))
             }
         }

@@ -181,29 +181,57 @@ pub fn describe_ssh_key(private_openssh: String) -> Result<SshKey, FfiError> {
     Ok(keys::describe(&key).map_err(key_error)?.into())
 }
 
-/// The `authorized_keys` line for a client key. Without SFTP: no shell, no
-/// commands, no PTY, no agent or X11 forwarding. With SFTP every session runs
-/// `sftp-server` instead of failing, which allows uploads but also gives the
-/// key read and write access to all files of the user.
+/// The `authorized_keys` line for a client key (#132): no forwarding at all
+/// (`restrict`), and a forced command that connects every session to the
+/// herdr socket. With `allow_sftp`, an SFTP request runs `sftp-server`
+/// instead (uploads, history), which can read and write all files of the
+/// user; without it SFTP is refused. The apps reach herdr through a session
+/// running `herdr` once sshd refuses their streamlocal channel.
 ///
-/// `port-forwarding` is needed for the streamlocal channel to `herdr.sock`,
-/// but it also allows TCP forwarding through the server. `permitopen` cannot
-/// narrow that: sshd applies it to streamlocal as well and then refuses the
-/// socket (tested with OpenSSH 10.3). Closing TCP forwarding needs
-/// `AllowTcpForwarding no` in `sshd_config`, which affects every login.
+/// `socket_path`: the host's `herdr.sock` when it is not the default
+/// `$HOME/.config/herdr/herdr.sock`; absolute, without quotes or `$`.
+///
+/// Lines from before used `restrict,port-forwarding` for streamlocal, which
+/// also allowed TCP forwarding (`permitopen` cannot narrow it, it refuses
+/// streamlocal too); they keep working.
 #[uniffi::export]
-pub fn authorized_keys_line(public_openssh: String, allow_sftp: bool) -> Result<String, FfiError> {
+pub fn authorized_keys_line(
+    public_openssh: String,
+    allow_sftp: bool,
+    socket_path: Option<String>,
+) -> Result<String, FfiError> {
     let key = keys::parse_public(public_openssh.trim()).map_err(key_error)?;
     let line = key
         .to_openssh()
         .map_err(|err| FfiError::Key(err.to_string()))?;
-    let command = if allow_sftp {
-        "/usr/libexec/sftp-server"
+    Ok(format!(
+        "{} {line}",
+        gate_options(allow_sftp, socket_path.as_deref())?
+    ))
+}
+
+/// The options part of an `authorized_keys` line, see
+/// [`authorized_keys_line`].
+fn gate_options(allow_sftp: bool, socket_path: Option<&str>) -> Result<String, FfiError> {
+    let socket = match socket_path.map(str::trim).filter(|path| !path.is_empty()) {
+        None => "$HOME/.config/herdr/herdr.sock",
+        Some(path)
+            if path.starts_with('/')
+                && !path
+                    .chars()
+                    .any(|ch| matches!(ch, '"' | '\\' | '$' | '`' | '\'') || ch.is_control()) =>
+        {
+            path
+        }
+        Some(path) => return Err(FfiError::Key(format!("unsuitable socket path {path:?}"))),
+    };
+    let files = if allow_sftp {
+        "exec /usr/libexec/sftp-server"
     } else {
-        "/usr/bin/false"
+        "exit 1"
     };
     Ok(format!(
-        "restrict,port-forwarding,command=\"{command}\" {line}"
+        "restrict,command=\"case \\\"$SSH_ORIGINAL_COMMAND\\\" in *sftp*) {files} ;; *) exec nc -U \\\"{socket}\\\" ;; esac\""
     ))
 }
 
@@ -554,12 +582,15 @@ impl HostSession {
     ) -> Result<bool, FfiError> {
         // Options, key type and key, without the key's own comment: the
         // line ends with one comment naming the device.
-        let full = authorized_keys_line(public_openssh, false)?;
-        let fields: Vec<&str> = full.split_whitespace().take(3).collect();
-        let [_, _, blob] = fields[..] else {
+        let key = keys::parse_public(public_openssh.trim()).map_err(key_error)?;
+        let typed = key
+            .to_openssh()
+            .map_err(|err| FfiError::Key(err.to_string()))?;
+        let mut fields = typed.split_whitespace();
+        let (Some(kind), Some(blob)) = (fields.next(), fields.next()) else {
             return Err(FfiError::Key("no key in line".into()));
         };
-        let base = fields.join(" ");
+        let base = format!("{} {kind} {blob}", gate_options(false, None)?);
         let blob = blob.to_owned();
         let comment: String = comment
             .chars()
@@ -910,6 +941,29 @@ fn runtime() -> &'static Runtime {
 #[cfg(test)]
 mod tests {
     use super::named_upload;
+
+    #[test]
+    fn key_lines_allow_only_the_herdr_socket() {
+        let key = super::generate_ssh_key("t".into())
+            .expect("key")
+            .public_openssh;
+        let line = super::authorized_keys_line(key.clone(), false, None).expect("line");
+        assert!(line.starts_with(r#"restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#), "{line}");
+        assert!(!line.contains("port-forwarding"));
+        let files = super::authorized_keys_line(key.clone(), true, Some("/srv/herdr.sock".into()))
+            .expect("line");
+        assert!(
+            files.contains("*sftp*) exec /usr/libexec/sftp-server ;;")
+                && files.contains(r#"nc -U \"/srv/herdr.sock\""#),
+            "{files}"
+        );
+        for bad in ["relative.sock", "/a\"b", "/$HOME/x", "/a`id`"] {
+            assert!(
+                super::authorized_keys_line(key.clone(), false, Some(bad.into())).is_err(),
+                "{bad}"
+            );
+        }
+    }
 
     #[test]
     fn named_uploads_are_safe_and_keep_the_name() {

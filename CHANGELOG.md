@@ -288,6 +288,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Device keys reach only the herdr socket (#132): new `authorized_keys`
+  lines (host editor, Apple TV pairing) use `restrict` without
+  `port-forwarding` and a forced command that connects every session to
+  `herdr.sock` with `nc -U` (SFTP only for keys with uploads on). A stolen
+  key can no longer forward TCP through the host. The transport tries the
+  streamlocal channel first and switches to a session running `herdr` when
+  sshd refuses it, so old lines keep working; `authorizedKeysLine` takes the
+  host's socket path.
 - Apple TV: "Neuer Tab mit Agent" opens a dialog with the agent kinds
   instead of a menu that could be empty or unreachable with the remote.
 - Uploaded file names keep only letters, digits, `.`, `_` and `-`, and in a
