@@ -226,3 +226,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
   button above the keyboard hides it (#97).
 - Dictation keeps what was said before a pause: the recognizer starts its
   transcription over after each utterance, which replaced the beginning (#98).
+- History for full-screen programs such as Claude Code: when herdr has no
+  rows above the screen, the pane says so instead of seeming to load
+  nothing (#101).

@@ -12,6 +12,9 @@ final class PaneModel {
     /// History rows asked for; 0 shows only the visible screen.
     private(set) var historyLines: UInt32 = 0
     @ObservationIgnored private var follow: PaneFollow?
+    /// Rows of the last screen-only read, to tell whether history brought
+    /// anything above it.
+    @ObservationIgnored private var screenRows = 0
     @ObservationIgnored private(set) var paneID: String?
     @ObservationIgnored private var live = true
 
@@ -23,6 +26,13 @@ final class PaneModel {
     /// Whether a requested history step has not arrived yet.
     var isLoadingHistory: Bool {
         historyLines > (content?.historyLines ?? 0)
+    }
+
+    /// History was read, but herdr has nothing above the screen: full-screen
+    /// programs such as Claude Code redraw in place, nothing scrolls off.
+    var hasNoHistory: Bool {
+        guard let content, !isLoadingHistory, content.historyLines > 0, !content.truncated else { return false }
+        return screenRows > 0 && content.lines.count <= screenRows
     }
 
     /// Whether another load can bring older rows.
@@ -57,14 +67,16 @@ final class PaneModel {
         content = nil
         error = nil
         historyLines = 0
+        screenRows = 0
         self.paneID = paneID
         guard let paneID, let connection else { return }
         let bridge = PaneBridge(
             content: { [weak self] content in
                 Task { @MainActor in
-                    guard self?.paneID == content.paneId else { return }
-                    self?.content = content
-                    self?.error = nil
+                    guard let self, self.paneID == content.paneId else { return }
+                    if content.historyLines == 0 { self.screenRows = content.lines.count }
+                    self.content = content
+                    self.error = nil
                 }
             },
             error: { [weak self] message in
