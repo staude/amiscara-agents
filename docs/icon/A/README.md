@@ -1,6 +1,6 @@
 # App-Icon Amiscara Agents – Konzept A „Stacked panes“
 
-Entscheidung in [#82](https://github.com/staude/herdr-remote-core/issues/82): drei Glasscheiben wie Terminal-Panes, `>_` auf der vorderen, ein Amber-Punkt oben rechts („Agent wartet“).
+Entscheidung in [#82](https://github.com/staude/amiscara-agents/issues/82): drei Glasscheiben wie Terminal-Panes, `>_` auf der vorderen, ein Amber-Punkt oben rechts („Agent wartet“).
 
 ## Ebenen für Icon Composer
 

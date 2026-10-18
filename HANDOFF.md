@@ -1,4 +1,4 @@
-# Übergabe: Herdr Remote, Stand 2026-10-17
+# Übergabe: Amiscara Agents (ehemals Herdr Remote), Stand 2026-10-18
 
 Diese Datei fasst die Session zusammen, in der das Projekt entstanden ist (Claude-Desktop-App auf work). Eine neue Session liest sie zuerst und arbeitet von hier aus weiter.
 
@@ -7,6 +7,8 @@ Diese Datei fasst die Session zusammen, in der das Projekt entstanden ist (Claud
 Grafische Oberfläche für herdr (Agent-Multiplexer im Terminal, https://herdr.dev). Der herdr-Server auf work bleibt unverändert, die App ist ein weiterer Client. Bedienung auf iPad, iPhone, Mac und Windows mit Maus, Touch und Tastatur. Die Verfügbarkeit auf mehreren Plattformen ist das Alleinstellungsmerkmal.
 
 Konzept und Entscheidungen: Vault-Notiz `/Users/staude/Obsidian/Frank/02 Projekte/Herdr Remote.md`.
+
+Name seit 2026-10-18: **Amiscara Agents** (#81), Teil der Amiscara-Familie. App-Ordner `apps/AmiscaraAgents`, Schemes `AmiscaraAgents` und `AmiscaraAgents-iOS`, Bundle-ID `net.staude.amiscara.agents`, QR-Schema `amiscara-agents://`, Uploads nach `~/.amiscara-agents/uploads` (#85). Die Abschnitte unten nennen teils noch die alten Namen (`apps/HerdrRemote`, `net.staude.herdrremote`, `~/.herdr-remote`), weil sie den Stand ihres Tages beschreiben.
 
 ## Entscheidungen
 
@@ -67,15 +69,23 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
     - Ist eine Hardware-Tastatur gemeldet (z. B. Mac-Tastatur über die Freigabe), blendet iPadOS keine Bildschirmtastatur ein.
     - `scripts/install-ios.sh` installiert per WLAN ohne Freigabe; das iPad muss entsperrt und wach sein. Vorschau-Stände aus mehreren offenen PRs über einen lokalen Wegwerf-Branch.
 11. **Benachrichtigungen (#40, gemergt):** lokale Mitteilungen bei „wartet“ und „fertig“, Tipp öffnet die Pane, Badge = wartende Agents. Erkennung in `SessionState::attention_since`. Auf iOS nur, solange die App läuft; echte Push-Nachrichten brauchen einen Sender auf dem Host.
-12. **Zeilen unter den Spaces (#42):** Branch wie in herdr über das Verzeichnis der fokussierten Pane und `worktree.list`, alle 30 s aufgefrischt; `tokens` aus `workspace.report_metadata` als weitere Zeile. Die Zeilenaufteilung aus herdrs `config.toml` (`[sidebar.spaces] rows`) liefert die API nicht. Ahead/behind fehlt in der API: Vorschlag upstream als herdrdev/herdr#5362 (17.10.2026). Sobald herdr das liefert, `WorkspaceInfo.ahead_behind` übernehmen.
+12. **Zeilen unter den Spaces (#42):** Branch wie in herdr über das Verzeichnis der fokussierten Pane und `worktree.list`, alle 30 s aufgefrischt; `tokens` aus `workspace.report_metadata` als weitere Zeile. Die Zeilenaufteilung aus herdrs `config.toml` (`[sidebar.spaces] rows`) liefert die API nicht. Ahead/behind fehlt in der API: Vorschlag upstream als herdrdev/herdr#5362 (17.10.2026), von einem Bot als „not planned“ geschlossen, neu eingereicht als Ideas-Diskussion herdrdev/herdr#5372 (18.10.2026). Verfolgt in #79. Sobald herdr das liefert, `WorkspaceInfo.ahead_behind` übernehmen. Alternative ohne herdr-Änderung: ein kleines herdr-Plugin auf dem Host schreibt Ahead/Behind per `workspace report-metadata` als Token (Muster aus herdrdev/herdr#2988).
 13. **Agents wie in herdr (#44):** erste Zeile „Space · Tab“, Tab-Nummer nur bei mehreren Tabs, zweite Zeile nur der Agent; Schalter „grouped“ (Standard wie in herdr) / „nach Status“. Lookups aus Serverdaten mit `uniquingKeysWith`, damit doppelte IDs die App nicht abstürzen lassen.
 14. **Diktat und Bildschirmfreigabe (#46, geklärt per sysdiagnose):** Solange das iPad vom Mac aus ferngesteuert wird, setzt iPadOS `IsInputMutedBecauseDeviceIsRemoteControlled` bzw. `IsRecordingMutedForRemoteDevice` für jede App, auch für Signal. Nur das Systemdiktat geht. Ohne Wirkung probiert: andere Modi, Sprachverarbeitung, Aufnahme in eine Datei. Die App erkennt die Stille nach 1,5 s und nennt den Grund.
 15. **Spaces und Agents auf- und zuklappbar (#47):** zugeklappt mit Anzahl, bei Agents auch „x wartet“; Zustand pro Gerät.
 16. **Schwarze Pane nach dem Wechsel (#50):** eigene Scroll-Ansicht pro Pane, normaler statt „lazy“ Stapel, Start am unteren Rand. herdr lieferte den Inhalt immer; nichts an den Agent senden, um neu zu zeichnen.
-17. Danach: Release (Developer-ID-Zertifikat und notarytool-Profil legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone, Windows mit Tauri, Push-Nachrichten fürs iPhone, Abstand zum Upstream sobald herdr#5362 umgesetzt ist.
+17. **Nacht-Welle 17./18.10. (Issues #53 bis #65, PRs #66 bis #78):** acht Agents parallel, je Issue ein PR, danach nacheinander gemergt (jeweils `main` per Merge-Commit eingeholt, beide Schemes gebaut, CI grün abgewartet, Squash-Merge).
+    - Schnellantworten über der Tastenleiste (#54), Bilder aus der Zwischenablage (#56), Verlauf zurückscrollen bis 1000 Zeilen (#53; herdr hat für Vollbild-Agents wie Claude keinen Verlauf), Suche mit ⌘F/⌘G als Menübefehle (#55), Agent in neuem Space oder Tab starten (#57, `agent.start` kennt nur herdrs feste Agent-Arten), Worktree anlegen (#58, im ✨-Menü), Umbenennen (#59, Agent-Namen kommen nur über den Snapshot), ⌘K und Tastenkürzel (#60), geteilte Tabs nebeneinander auf Mac und iPad (#61, nur die gewählte Pane schnell abgefragt), Menüleiste auf dem Mac (#62), Kurzbefehle und Siri (#64, nur entsperrt), Host per QR-Code (#63, Schlüssel erst nach Bestätigung des Fingerabdrucks gepinnt), Schrift zoomen (#65).
+    - Sicherheitsbefunde aus der automatischen Prüfung sind in #64 und #63 behoben.
+    - Die Oberflächen sind gebaut und per Smoke-Test geprüft, aber nicht durchgeklickt. Was zu probieren ist, steht in jedem PR.
+18. **Spaces nach Namen gruppieren (#80, PR #83):** `Privat/Dorfkino` steht unter der Gruppe „Privat“. Logik in `crates/herdr-core/src/spaces.rs`. herdr selbst kennt keine Ordner (Wunsch upstream: herdrdev/herdr#1953). Abschaltbar pro Host: #86.
+19. **Name Amiscara Agents (#81, #84, PR #85):** Schritt 1 (alles im Repo) ist gemergt. Aus #84 Schritt 2: GitHub-Repo heißt seit 18.10. `staude/amiscara-agents` (alte URL leitet weiter). Offen: Ordner `~/dev/herdr-remote/herdr-remote-core` → `~/dev/amiscara/amiscara-agents` (Claude-Projektgedächtnis an den neuen Pfad mitnehmen, `git worktree repair`), Schritt 3, Hosts auf den Geräten neu einrichten (alte App löschen, neue `authorized_keys`-Zeilen, alte `herdr-remote …`-Zeilen entfernen).
+20. Danach: App-Icon (#82): Konzept A „Gestapelte Panes“ ist gewählt, Skizzen und Ebenen liegen in `docs/icon/` (PR #87, Akzentfarbe `#0E7C74` hell, `#2FD1A5` dunkel). Offen: `.icon` in Icon Composer bauen, in `project.yml` einbinden, `AccentColor` setzen. Weiter: Release (Developer-ID-Zertifikat und notarytool-Profil `AmiscaraAgents` legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone, Windows mit Tauri, Push-Nachrichten fürs iPhone, Abstand zum Upstream (#79).
 
 ## Hinweise für die nächste Session
 
 - Git-Identität ist gesetzt (`Frank Neumann-Staude <frank@staude.net>`).
 - Vault-Regeln aus `/Users/staude/Obsidian/Frank/CLAUDE.md` beachten (Schreibstil ohne Em-Dash, Rückfragen per AskUserQuestion, Daily Note mit frischem `date`).
 - Gegen den laufenden herdr-Server nur lesende Methoden nutzen, solange Frank nichts anderes sagt. Dort laufen echte Agent-Sitzungen.
+- PRs nie selbst mergen. Ausnahme nur, wenn Frank es für bestimmte PRs ausdrücklich sagt (so am 18.10. für #69 bis #78, #83 und #85).
+- Im Repo liegt eine ungetrackte `AGENTS.md`, eine Kopie von `CLAUDE.md`, die nicht aus diesen Sessions stammt.
