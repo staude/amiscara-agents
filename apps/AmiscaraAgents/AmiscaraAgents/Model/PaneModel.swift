@@ -13,6 +13,8 @@ final class PaneModel {
     private(set) var historyLines: UInt32 = 0
     @ObservationIgnored private var follow: PaneFollow?
     @ObservationIgnored private(set) var paneID: String?
+    /// `HostConnection.generation` the follower belongs to.
+    @ObservationIgnored private var generation: Int?
     @ObservationIgnored private var live = true
 
     /// Each load asks for the next step; herdr returns at most
@@ -47,7 +49,7 @@ final class PaneModel {
     /// `live: false` reads the pane only every few seconds; for a pane shown
     /// beside the selected one, since every read costs a round trip.
     func show(paneID: String?, on connection: HostConnection?, live: Bool = true) {
-        guard paneID != self.paneID else {
+        guard paneID != self.paneID || connection?.generation != generation else {
             setLive(live)
             return
         }
@@ -58,6 +60,7 @@ final class PaneModel {
         error = nil
         historyLines = 0
         self.paneID = paneID
+        generation = connection?.generation
         guard let paneID, let connection else { return }
         let bridge = PaneBridge(
             content: { [weak self] content in

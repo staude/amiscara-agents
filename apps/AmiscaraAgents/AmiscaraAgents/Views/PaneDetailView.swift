@@ -36,6 +36,11 @@ struct PaneDetailView: View {
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
             search.matchIndex = nil
         }
+        // A new session (e.g. after coming back to the foreground) ended the
+        // old follower.
+        .onChange(of: store.connection(for: selection?.hostID)?.generation) {
+            model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
+        }
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
         .onDisappear { model.stop() }
     }

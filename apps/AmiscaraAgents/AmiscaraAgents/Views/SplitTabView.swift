@@ -83,6 +83,7 @@ private struct PaneTile: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .onAppear { model.show(paneID: paneID, on: connection, live: isSelected) }
+        .onChange(of: connection.generation) { model.show(paneID: paneID, on: connection, live: isSelected) }
         .onChange(of: isSelected) { _, selected in
             model.setLive(selected)
             if !selected { search.close() }

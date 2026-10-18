@@ -207,3 +207,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Host status is a button on all platforms: it shows the state, the full error,
   a hint for common causes (VPN off, SSH off, socket missing, key not
   authorized) and "Jetzt verbinden"; tooltips never showed on iPad (#22).
+- The open pane no longer keeps loading after the host reconnects, e.g. when
+  the app comes back to the foreground: it follows the pane again on the
+  new session (#104).
