@@ -126,6 +126,32 @@ func topShelf(_ name: String, w: Int, h: Int) {
     json(["images": images, "info": info], to: set.appending(path: "Contents.json"))
 }
 
+/// Full-screen backdrops for the Top Shelf, one per agent state: the
+/// extension only picks one, since drawing at run time exceeds its memory.
+func shelfBackdrop(state: String, colour: CGColor) {
+    let w = 1920, h = 1080
+    let base = render(.flat, w: w, h: h, fill: 0.62, offsetX: 0.2)
+    let ctx = CGContext(
+        data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB)!,
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    ctx.draw(base, in: CGRect(x: 0, y: 0, width: w, height: h))
+    // A bar in the state colour along the top edge (y up here).
+    ctx.setFillColor(colour)
+    ctx.fill(CGRect(x: 0, y: h - 18, width: w, height: 18))
+    let dir = root.appending(path: "apps/AmiscaraAgents/TopShelf/Resources")
+    let url = dir.appending(path: "shelf-\(state).jpg")
+    try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(dest, ctx.makeImage()!, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+    CGImageDestinationFinalize(dest)
+}
+
+shelfBackdrop(state: "blocked", colour: color(0xFF9F0A))
+shelfBackdrop(state: "working", colour: color(0x0A84FF))
+shelfBackdrop(state: "done", colour: color(0x30D158))
+
 imageStack("App Icon", sizes: [("1x", 400, 240), ("2x", 800, 480)])
 imageStack("App Icon - App Store", sizes: [("1x", 1280, 768)])
 topShelf("Top Shelf Image", w: 1920, h: 720)
