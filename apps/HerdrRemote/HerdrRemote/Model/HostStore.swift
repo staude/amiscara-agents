@@ -30,13 +30,20 @@ final class HostStore {
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
             self.notifier.notify(update.attention, on: connection.config)
-            self.notifier.updateBadge(waiting: self.connections
-                .filter(\.config.notificationsOn)
-                .flatMap { $0.update?.board ?? [] }
-                .filter { $0.agentState == .blocked }
+            self.notifier.updateBadge(waiting: self.waitingAgents
+                .filter(\.connection.config.notificationsOn)
                 .count)
         }
         return connection
+    }
+
+    /// Agents waiting for an answer, over all hosts in sidebar order.
+    var waitingAgents: [(connection: HostConnection, agent: BoardItem)] {
+        connections.flatMap { connection in
+            (connection.update?.board ?? [])
+                .filter { $0.agentState == .blocked }
+                .map { (connection: connection, agent: $0) }
+        }
     }
 
     func connection(for id: UUID?) -> HostConnection? {

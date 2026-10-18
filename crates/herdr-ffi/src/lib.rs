@@ -281,6 +281,34 @@ impl HostSession {
             .into())
     }
 
+    /// Renames a space. Blocks for one round trip.
+    pub fn rename_workspace(&self, workspace_id: String, label: String) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::rename_workspace(&conn, &workspace_id, &label))?;
+        Ok(())
+    }
+
+    /// Renames a tab. Blocks for one round trip.
+    pub fn rename_tab(&self, tab_id: String, label: String) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::rename_tab(&conn, &tab_id, &label))?;
+        Ok(())
+    }
+
+    /// Names the agent in a pane; `None` or an empty name removes the name.
+    /// herdr does not announce names with an event, so a fresh snapshot
+    /// follows. Blocks for one round trip.
+    pub fn rename_agent(&self, pane_id: String, name: Option<String>) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime().block_on(actions::rename_agent(&conn, &pane_id, name.as_deref()))?;
+        if let Ok(state) = self.state.lock()
+            && let Some(rx) = state.as_ref()
+        {
+            rx.borrow().request_snapshot();
+        }
+        Ok(())
+    }
+
     /// Uploads a file (e.g. an image for a prompt) to `~/.herdr-remote/uploads`
     /// on the host under a fresh name and returns its absolute path. Blocks
     /// until the upload is done; call it off the main thread.

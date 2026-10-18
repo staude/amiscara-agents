@@ -110,6 +110,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Search in the pane view: ⌘F (or the magnifier) opens a search bar, matches
   are highlighted in the shown lines (ignoring case and accents), Return or
   ⌘G jumps to the next, ⇧⌘G to the previous, Esc closes (#55).
+- Rename spaces, tabs and agents from the app (context menu or swipe on a
+  space or agent row, context menu on a tab), only with input allowed.
+  Agent names come from the snapshot's `agents` list; after `agent.rename`
+  the sync driver takes a fresh snapshot (`SyncState::request_snapshot`) (#59).
+- Mac menu bar item with the number of waiting agents over all hosts and a
+  menu to jump to one; it opens the main window if it is closed. Hosts stay
+  connected and notifications keep coming while the window is closed (#62).
 
 ### Fixed
 
