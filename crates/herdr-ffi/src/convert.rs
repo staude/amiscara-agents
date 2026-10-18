@@ -1,7 +1,10 @@
 //! Plain records for the app, built from the core types.
 
+use std::collections::HashMap;
+
 use herdr_core::SessionState;
 use herdr_core::pane::PaneScreen;
+use herdr_core::spaces;
 use herdr_core::sync::{SyncState, SyncStatus};
 use herdr_core::terminal::{Color, Span};
 use herdr_proto::{AgentStatus, PaneInfo, TabLayout};
@@ -34,6 +37,9 @@ pub struct SessionUpdate {
     pub protocol_supported: bool,
     pub focused_pane_id: Option<String>,
     pub workspaces: Vec<WorkspaceItem>,
+    /// The spaces in sidebar order: herdr's, with linked worktrees under
+    /// their repository and spaces of one name group next to each other.
+    pub space_order: Vec<SpaceSlot>,
     /// Agent panes, most urgent first.
     pub board: Vec<BoardItem>,
     /// Agents that started waiting or finished since the previous update;
@@ -41,11 +47,26 @@ pub struct SessionUpdate {
     pub attention: Vec<BoardItem>,
 }
 
+/// One place in the sidebar's list of spaces.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SpaceSlot {
+    pub workspace_id: String,
+    /// A linked worktree shown indented under its repository's space.
+    pub nested: bool,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct WorkspaceItem {
     pub workspace_id: String,
     pub number: u32,
+    /// The full name as herdr shows it, e.g. `Privat/Dorfkino`.
     pub label: String,
+    /// The name without its group, e.g. `Dorfkino`; the full label when the
+    /// space forms no group (no `/`, or a linked worktree).
+    pub name: String,
+    /// The sidebar group from the name's part before the first `/`, e.g.
+    /// `Privat`. A linked worktree gets its repository space's group.
+    pub group: Option<String>,
     pub focused: bool,
     pub agent_state: AgentState,
     pub active_tab_id: String,
@@ -120,6 +141,9 @@ pub struct BoardItem {
     pub workspace_id: String,
     pub tab_id: String,
     pub workspace_label: String,
+    /// Short name and group of the space, as in [`WorkspaceItem`].
+    pub workspace_name: String,
+    pub workspace_group: Option<String>,
     pub tab_label: String,
     pub agent: String,
     /// Custom name from `agent.rename`, e.g. `reviewer`.
@@ -201,10 +225,35 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
             protocol_supported: true,
             focused_pane_id: None,
             workspaces: Vec::new(),
+            space_order: Vec::new(),
             board: Vec::new(),
             attention: Vec::new(),
         };
     };
+
+    let arranged = spaces::arrange(&session.workspaces);
+    let names: HashMap<&str, (&str, Option<&str>)> = arranged
+        .iter()
+        .map(|p| (p.workspace.workspace_id.as_str(), (p.name(), p.group)))
+        .collect();
+    let short_name = |workspace_id: &str, label: &str| -> String {
+        names
+            .get(workspace_id)
+            .map_or(label, |(name, _)| name)
+            .to_owned()
+    };
+    let group_of = |workspace_id: &str| -> Option<String> {
+        names
+            .get(workspace_id)
+            .and_then(|(_, group)| group.map(str::to_owned))
+    };
+    let space_order = arranged
+        .iter()
+        .map(|p| SpaceSlot {
+            workspace_id: p.workspace.workspace_id.clone(),
+            nested: p.nested,
+        })
+        .collect();
 
     let workspaces = session
         .workspaces
@@ -213,6 +262,8 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
             workspace_id: ws.workspace_id.clone(),
             number: ws.number,
             label: ws.label.clone(),
+            name: short_name(&ws.workspace_id, &ws.label),
+            group: group_of(&ws.workspace_id),
             focused: ws.focused,
             agent_state: ws.agent_status.into(),
             active_tab_id: ws.active_tab_id.clone(),
@@ -276,6 +327,11 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
                 .workspace
                 .map(|ws| ws.label.clone())
                 .unwrap_or_default(),
+            workspace_name: short_name(
+                &entry.pane.workspace_id,
+                entry.workspace.map_or("", |ws| ws.label.as_str()),
+            ),
+            workspace_group: group_of(&entry.pane.workspace_id),
             tab_label: entry.tab.map(|tab| tab.label.clone()).unwrap_or_default(),
             agent: entry
                 .pane
@@ -309,6 +365,7 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
         protocol_supported: session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
         focused_pane_id: session.focused_pane_id.clone(),
         workspaces,
+        space_order,
         board,
     }
 }

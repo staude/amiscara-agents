@@ -157,6 +157,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab
   only the selected pane loads history. Core:
   `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
+- Space groups by name: `Privat/Dorfkino` shows as "Dorfkino" under a
+  foldable group row "Privat" with its number of spaces and waiting agents;
+  folding is kept per device. Split at the first `/`, trimmed; linked
+  worktrees stay under their repository and never form a group. ⌘K, ⌘1-⌘9,
+  agent rows, notifications, menu bar and Siri show the short name with the
+  group. Core: `herdr_core::spaces` (parsing and sidebar order), FFI
+  `SessionUpdate.spaceOrder`, `WorkspaceItem.name`/`group`,
+  `BoardItem.workspaceName`/`workspaceGroup` (#80).
 
 ### Fixed
 

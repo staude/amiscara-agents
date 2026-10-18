@@ -30,8 +30,8 @@ struct MenuBarMenu: View {
                 } label: {
                     Text(entry.agent.agent.isEmpty ? String(localized: "Agent") : entry.agent.agent)
                     Text(showHosts
-                        ? "\(entry.connection.config.name) · \(entry.agent.workspaceLabel) · Tab \(entry.agent.tabLabel)"
-                        : "\(entry.agent.workspaceLabel) · Tab \(entry.agent.tabLabel)")
+                        ? "\(entry.connection.config.name) · \(entry.agent.spacePlace) · Tab \(entry.agent.tabLabel)"
+                        : "\(entry.agent.spacePlace) · Tab \(entry.agent.tabLabel)")
                 }
             }
         }
