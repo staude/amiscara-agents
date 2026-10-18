@@ -98,7 +98,7 @@ struct HostEditorView: View {
                 }
 
                 if let error {
-                    Text(error).foregroundStyle(.red)
+                    Text(error).foregroundStyle(.red).textSelection(.enabled)
                 }
             }
             .formStyle(.grouped)

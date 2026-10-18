@@ -47,6 +47,7 @@ struct InputBar: View {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.callout)
                     .foregroundStyle(.red)
+                    .textSelection(.enabled)
             }
         }
         .padding(10)
