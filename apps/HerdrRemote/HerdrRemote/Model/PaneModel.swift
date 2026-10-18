@@ -1,7 +1,8 @@
 import Foundation
 import Observation
 
-/// The live screen of the pane shown in the detail view.
+/// The live screen of the pane shown in the detail view, or of one pane of
+/// a split tab.
 @MainActor
 @Observable
 final class PaneModel {
@@ -9,9 +10,16 @@ final class PaneModel {
     private(set) var error: String?
     @ObservationIgnored private var follow: PaneFollow?
     @ObservationIgnored private(set) var paneID: String?
+    @ObservationIgnored private var live = true
 
-    func show(paneID: String?, on connection: HostConnection?) {
-        guard paneID != self.paneID else { return }
+    /// `live: false` reads the pane only every few seconds; for a pane shown
+    /// beside the selected one, since every read costs a round trip.
+    func show(paneID: String?, on connection: HostConnection?, live: Bool = true) {
+        guard paneID != self.paneID else {
+            setLive(live)
+            return
+        }
+        self.live = live
         follow?.stop()
         follow = nil
         content = nil
@@ -30,7 +38,14 @@ final class PaneModel {
                 Task { @MainActor in self?.error = message }
             }
         )
-        follow = connection.followPane(paneID, observer: bridge)
+        follow = connection.followPane(paneID, live: live, observer: bridge)
+    }
+
+    /// Switches the pace without restarting; the pane is read once right away.
+    func setLive(_ live: Bool) {
+        guard live != self.live else { return }
+        self.live = live
+        follow?.setLive(live: live)
     }
 
     func stop() {

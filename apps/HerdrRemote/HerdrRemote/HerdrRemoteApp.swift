@@ -1,12 +1,21 @@
+import AppIntents
 import SwiftUI
 
 @main
 struct HerdrRemoteApp: App {
-    @State private var store = HostStore()
+    @State private var store: HostStore
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        let store = HostStore()
+        _store = State(initialValue: store)
+        // Shortcuts and Siri run in this process and read the same store.
+        AppDependencyManager.shared.add(dependency: store)
+    }
+
     var body: some Scene {
-        WindowGroup {
+        // The id lets the menu bar item open a window (MainWindow.id).
+        WindowGroup(id: "main") {
             ContentView()
                 .environment(store)
                 #if os(macOS)
@@ -21,6 +30,16 @@ struct HerdrRemoteApp: App {
                 store.reconnectStale()
             }
         }
+        .commands { TerminalZoomCommands() }
+        #if os(macOS)
+        // Owned by the app like the store, so hosts stay connected and
+        // notifications keep coming while the window is closed.
+        MenuBarExtra {
+            MenuBarMenu(store: store)
+        } label: {
+            MenuBarLabel(store: store)
+        }
+        #endif
     }
 }
 
