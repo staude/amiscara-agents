@@ -543,6 +543,44 @@ impl HostSession {
         Ok(())
     }
 
+    /// Lets another device of the user (an Apple TV, #127) in: adds the
+    /// restricted line for `public_openssh` (no shell, no files, only the
+    /// herdr socket) with `comment` to `~/.ssh/authorized_keys` on the host.
+    /// Returns false when the key was there already. Needs SFTP.
+    pub fn authorize_device_key(
+        &self,
+        public_openssh: String,
+        comment: String,
+    ) -> Result<bool, FfiError> {
+        // Options, key type and key, without the key's own comment: the
+        // line ends with one comment naming the device.
+        let full = authorized_keys_line(public_openssh, false)?;
+        let fields: Vec<&str> = full.split_whitespace().take(3).collect();
+        let [_, _, blob] = fields[..] else {
+            return Err(FfiError::Key("no key in line".into()));
+        };
+        let base = fields.join(" ");
+        let blob = blob.to_owned();
+        let comment: String = comment
+            .chars()
+            .map(|ch| {
+                if ch.is_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+                    ch
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let line = format!("{base} amiscara-agents-{comment}");
+        let conn = self.connection()?;
+        runtime()
+            .block_on(conn.add_authorized_key(&line, &blob))
+            .map_err(|err| match err {
+                TransportError::Upload(message) => FfiError::Upload(message),
+                other => FfiError::NotConnected(other.to_string()),
+            })
+    }
+
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
     /// made unique and safe (`file-<time>-<name>`), and returns the absolute
     /// path. The name helps the agent tell what the file is.

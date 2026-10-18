@@ -407,6 +407,51 @@ impl Connection {
         }
     }
 
+    /// Adds `line` to `~/.ssh/authorized_keys` unless a line already holds
+    /// `key_blob` (the base64 part of the key); returns whether it was added.
+    /// The previous file is kept as `authorized_keys.bak-amiscara`, the new
+    /// one gets mode 0600 (`.ssh` 0700). Over SSH this needs SFTP.
+    pub async fn add_authorized_key(
+        &self,
+        line: &str,
+        key_blob: &str,
+    ) -> Result<bool, TransportError> {
+        if line.contains('\n') || key_blob.is_empty() || !line.contains(key_blob) {
+            return Err(TransportError::Upload(
+                "invalid authorized_keys line".into(),
+            ));
+        }
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                use std::os::unix::fs::PermissionsExt;
+
+                let dir = local_home_path(".ssh")?;
+                tokio::fs::DirBuilder::new()
+                    .mode(0o700)
+                    .recursive(true)
+                    .create(&dir)
+                    .await?;
+                let path = dir.join("authorized_keys");
+                let current = match tokio::fs::read_to_string(&path).await {
+                    Ok(text) => text,
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+                    Err(err) => return Err(err.into()),
+                };
+                let Some(next) = with_authorized_key(&current, line, key_blob) else {
+                    return Ok(false);
+                };
+                let backup = dir.join("authorized_keys.bak-amiscara");
+                tokio::fs::write(&backup, &current).await?;
+                tokio::fs::set_permissions(&backup, std::fs::Permissions::from_mode(0o600)).await?;
+                tokio::fs::write(&path, next).await?;
+                tokio::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).await?;
+                Ok(true)
+            }
+            Inner::Ssh { handle, .. } => sftp_add_authorized_key(handle, line, key_blob).await,
+        }
+    }
+
     /// Files in `dir` below the login's home directory, without
     /// subdirectories. Over SSH this needs SFTP like [`Connection::upload`].
     pub async fn list_files(&self, dir: &str) -> Result<Vec<RemoteFile>, TransportError> {
@@ -586,6 +631,75 @@ async fn sftp_list(
     Ok(files)
 }
 
+/// `current` with `line` appended, or `None` when the key is there already.
+fn with_authorized_key(current: &str, line: &str, key_blob: &str) -> Option<String> {
+    if current
+        .lines()
+        .any(|existing| existing.split_whitespace().any(|field| field == key_blob))
+    {
+        return None;
+    }
+    let mut next = current.to_owned();
+    if !next.is_empty() && !next.ends_with('\n') {
+        next.push('\n');
+    }
+    next.push_str(line);
+    next.push('\n');
+    Some(next)
+}
+
+async fn sftp_add_authorized_key(
+    handle: &Handle<HostKeyCheck>,
+    line: &str,
+    key_blob: &str,
+) -> Result<bool, TransportError> {
+    let sftp = sftp_session(handle, TransportError::Upload).await?;
+    let failed = |err: russh_sftp::client::error::Error| TransportError::Upload(err.to_string());
+    let mode = |bits: u32| FileAttributes {
+        permissions: Some(bits),
+        ..FileAttributes::empty()
+    };
+    let home = sftp.canonicalize(".").await.map_err(failed)?;
+    let dir = format!("{}/.ssh", home.trim_end_matches('/'));
+    if !sftp.try_exists(dir.as_str()).await.map_err(failed)? {
+        sftp.create_dir(dir.as_str()).await.map_err(failed)?;
+        sftp.set_metadata(dir.as_str(), mode(0o700))
+            .await
+            .map_err(failed)?;
+    }
+    let path = format!("{dir}/authorized_keys");
+    let current = if sftp.try_exists(path.as_str()).await.map_err(failed)? {
+        String::from_utf8(sftp.read(path.as_str()).await.map_err(failed)?)
+            .map_err(|_| TransportError::Upload("authorized_keys is not text".into()))?
+    } else {
+        String::new()
+    };
+    let Some(next) = with_authorized_key(&current, line, key_blob) else {
+        sftp.close().await.map_err(failed)?;
+        return Ok(false);
+    };
+    for (target, content) in [
+        (format!("{dir}/authorized_keys.bak-amiscara"), current),
+        (path, next),
+    ] {
+        let mut file = sftp
+            .open_with_flags_and_attributes(
+                target.as_str(),
+                OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
+                mode(0o600),
+            )
+            .await
+            .map_err(failed)?;
+        file.write_all(content.as_bytes()).await?;
+        file.shutdown().await?;
+        sftp.set_metadata(target.as_str(), mode(0o600))
+            .await
+            .map_err(failed)?;
+    }
+    sftp.close().await.map_err(failed)?;
+    Ok(true)
+}
+
 async fn sftp_upload(
     handle: &Handle<HostKeyCheck>,
     dir: &str,
@@ -690,4 +804,28 @@ async fn authenticate_with_agent(
         }
     }
     Ok(false)
+}
+
+#[cfg(test)]
+mod authorized_keys_tests {
+    use super::with_authorized_key;
+
+    #[test]
+    fn appends_once() {
+        let line = "restrict ssh-ed25519 AAAAkey tv";
+        assert_eq!(
+            with_authorized_key("", line, "AAAAkey").as_deref(),
+            Some("restrict ssh-ed25519 AAAAkey tv\n")
+        );
+        assert_eq!(
+            with_authorized_key("ssh-ed25519 AAAAother a", line, "AAAAkey").as_deref(),
+            Some("ssh-ed25519 AAAAother a\nrestrict ssh-ed25519 AAAAkey tv\n")
+        );
+        assert_eq!(
+            with_authorized_key("x ssh-ed25519 AAAAkey old\n", line, "AAAAkey"),
+            None
+        );
+        // A blob that is only part of another key does not count.
+        assert!(with_authorized_key("ssh-ed25519 AAAAkeyLONGER a\n", line, "AAAAkey").is_some());
+    }
 }

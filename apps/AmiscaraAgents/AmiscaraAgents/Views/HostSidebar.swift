@@ -524,7 +524,7 @@ private struct SpaceGroupRow: View {
 /// custom values from plugins or agents. A linked worktree is indented and
 /// named after its branch; in a name group the row shows the short name
 /// and is indented under the group.
-private struct SpaceRow: View {
+struct SpaceRow: View {
     let workspace: WorkspaceItem
     let nested: Bool
     var grouped = false
@@ -723,15 +723,31 @@ private struct HostHeader<Actions: View>: View {
 
 struct NoHostsView: View {
     @Binding var editing: HostConfig?
+    #if os(tvOS)
+    @State private var pairing = false
+    #endif
 
     var body: some View {
         ContentUnavailableView {
             Label("Keine Hosts", systemImage: "server.rack")
         } description: {
+            #if os(tvOS)
+            Text("Koppeln Sie dieses Apple TV mit Amiscara Agents auf Ihrem iPhone. Das iPhone gibt ihm Zugang zu Ihren Hosts.")
+            #else
             Text("Fügen Sie einen Rechner hinzu, auf dem herdr läuft.")
+            #endif
         } actions: {
-            AddHostButton(editing: $editing)
+            #if os(tvOS)
+            Button("Mit iPhone koppeln", systemImage: "iphone") { pairing = true }
                 .buttonStyle(.borderedProminent)
+            #endif
+            AddHostButton(editing: $editing)
+                #if !os(tvOS)
+                .buttonStyle(.borderedProminent)
+                #endif
         }
+        #if os(tvOS)
+        .fullScreenCover(isPresented: $pairing) { TVPairingView() }
+        #endif
     }
 }

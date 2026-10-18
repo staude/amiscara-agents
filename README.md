@@ -87,6 +87,34 @@ Under the pane it sends prompts to agents, text to shells and keys such as
 Enter, Esc or 1/2/3 to answer an agent waiting for approval. Each host has a
 switch to keep it read-only.
 
+### Apple TV
+
+Scheme `AmiscaraAgents-tvOS` (tvOS 26, same sources), installed with
+`scripts/install-ios.sh` like the other devices; the Apple TV must be paired
+with Xcode once (Window → Devices and Simulators). On the TV a tab bar holds
+**Agents** (all agents as cards, waiting first), **Spaces** and **Hosts**;
+swipes on the Siri Remote scroll a focused pane, the back button returns.
+Camera, clipboard, files, the app's own dictation, widgets, notifications and
+keyboard shortcuts do not exist on tvOS and are left out there.
+
+**Pairing:** under Hosts → „Mit iPhone koppeln“ the TV shows a QR code with
+its own public key. Scanning it with the iPhone camera opens the app there;
+it adds a restricted line (`restrict,port-forwarding,command="/usr/bin/false"`,
+herdr socket only, no shell, no files) to `~/.ssh/authorized_keys` on the
+chosen hosts over SFTP, keeping the old file as `authorized_keys.bak-amiscara`,
+and leaves the host data for the TV in the private iCloud database. The TV's
+private key never leaves it. iPhone and TV need the same Apple ID.
+
+**Network:** the Apple TV reaches a host **only directly in the home network**
+(plain IP or Bonjour name). There is no NetBird (or other VPN client) for
+tvOS, so addresses that only work through the VPN, such as
+`work.staude.internal` or `100.x` Tailnet IPs, do not work on the TV. The Mac
+app on a host therefore publishes its Bonjour name (`<LocalHostName>.local`)
+in iCloud under its SSH host key, and the TV connects through it; the pinned
+host key is still checked. For hosts without a running Mac app (e.g. a Linux
+server) set an address the TV can reach by hand in the host settings on the
+TV.
+
 ### Organizing spaces: `Bereich/Name`
 
 herdr has no folders above spaces. The app groups spaces by name instead:
