@@ -37,3 +37,13 @@ Der Punkt nutzt dasselbe Systemorange wie `.blocked` in der Sidebar (`StatusStyl
 - Dunkel `#2FD1A5` (Kontrast auf `#1C1C1E` ca. 8,7 : 1)
 
 `preview-tinted.svg` ist eine grobe Vorschau der Tinted-Erscheinung.
+
+## App-Icon bauen
+
+`python3 appicon.py` schreibt `apps/AmiscaraAgents/AmiscaraAgents/AppIcon.icon` (Ebenen aus `layers.py`, Farben hell und dunkel wie oben, vier Gruppen von vorn nach hinten: Punkt, vordere Scheibe mit `>_`, mittlere, hintere) und die `AccentColor`. Getönt und klar leitet das System ab. Die Datei lässt sich in Icon Composer öffnen und dort feinjustieren; wer dort ändert, übernimmt die Werte danach in `appicon.py` oder generiert nicht mehr neu.
+
+`preview-appicon.png`: oben iOS hell, iOS dunkel, macOS dunkel, getönt hell; unten getönt dunkel, klar hell, klar dunkel. Gerendert mit `ictool` aus Icon Composer:
+
+```
+ictool AppIcon.icon --export-image --output-file out.png --platform iOS --rendition Dark --width 256 --height 256 --scale 1
+```
