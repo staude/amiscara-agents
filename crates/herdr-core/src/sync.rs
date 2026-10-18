@@ -22,7 +22,7 @@ use herdr_proto::{
 };
 use herdr_transport::{Connection, Subscription, TransportError};
 use serde_json::{Value, json};
-use tokio::sync::{mpsc, watch};
+use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep, sleep_until};
 
@@ -69,6 +69,16 @@ pub struct SyncState {
     pub status: SyncStatus,
     pub session: Option<Arc<SessionState>>,
     pub connection: Option<Arc<Connection>>,
+    /// Asks the driver for a fresh snapshot, for changes herdr announces
+    /// without the data (an agent's new name). Shared by all clones.
+    pub refresh: Arc<Notify>,
+}
+
+impl SyncState {
+    /// Takes a fresh snapshot soon; harmless while not connected.
+    pub fn request_snapshot(&self) {
+        self.refresh.notify_one();
+    }
 }
 
 impl std::fmt::Debug for SyncState {
@@ -87,6 +97,7 @@ impl Default for SyncState {
             status: SyncStatus::Connecting,
             session: None,
             connection: None,
+            refresh: Arc::new(Notify::new()),
         }
     }
 }
@@ -213,6 +224,7 @@ async fn follow_inner(
     *attempt = 0;
     publish(tx, SyncStatus::Live, &state);
 
+    let refresh = Arc::clone(&tx.borrow().refresh);
     let mut resnapshot_at: Option<Instant> = None;
     let mut branch_refresh =
         tokio::time::interval_at(Instant::now() + BRANCH_REFRESH, BRANCH_REFRESH);
@@ -239,6 +251,10 @@ async fn follow_inner(
                     state = fresh;
                     publish(tx, SyncStatus::Live, &state);
                 }
+                continue;
+            }
+            () = refresh.notified() => {
+                resnapshot_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
                 continue;
             }
             () = tx.closed() => return Err(SyncError::Unobserved),

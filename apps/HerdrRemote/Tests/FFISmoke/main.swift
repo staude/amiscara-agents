@@ -94,6 +94,18 @@ let branchesSeen = wait(5) {
     probe.lock.withLock { probe.update?.workspaces.contains { $0.branch != nil } ?? false }
 }
 let spaces = probe.lock.withLock { probe.update?.workspaces ?? [] }
+// Every tab comes with herdr's layout, covering exactly its panes.
+for tab in spaces.flatMap(\.tabs) {
+    guard let layout = tab.layout else { fail("tab \(tab.tabId) has no layout") }
+    guard Set(layout.panes.map(\.paneId)) == Set(tab.panes.map(\.paneId)) else {
+        fail("layout of \(tab.tabId) names other panes than the tab")
+    }
+    guard layout.panes.allSatisfy({ $0.x + $0.width <= layout.columns && $0.y + $0.height <= layout.rows }) else {
+        fail("layout of \(tab.tabId) has a pane outside the area")
+    }
+}
+let splitTabs = spaces.flatMap(\.tabs).filter { ($0.layout?.panes.count ?? 0) > 1 }.count
+print("ok   layouts: \(spaces.flatMap(\.tabs).count) tabs, \(splitTabs) split")
 print("ok   spaces: " + spaces.map { "\($0.worktreeName.map { "└" + $0 } ?? $0.label)=\($0.branch ?? "-")" }.joined(separator: ", "))
 if !branchesSeen { print("info no branch found for any space") }
 
@@ -121,13 +133,19 @@ try? FileManager.default.removeItem(atPath: localPath)
 if (try? session.uploadFile(data: payload, fileExtension: "../x")) != nil { fail("bad extension accepted") }
 print("ok   upload local: \(localPath)")
 
-let follow = session.followPane(paneId: pane, observer: probe)
+// The slow pace of a pane beside the selected one still delivers the first
+// screen at once; switching to live keeps the same follow.
+let follow = session.followPanePaced(paneId: pane, live: false, observer: probe)
 let gotContent = wait(5) { probe.lock.withLock { probe.content != nil } }
 guard gotContent, let content = probe.lock.withLock({ probe.content }) else {
     fail("no content for \(pane): \(probe.paneError ?? "-")")
 }
 let spans = content.lines.reduce(0) { $0 + $1.spans.count }
-print("ok   pane \(pane): \(content.lines.count) lines, \(spans) spans")
+print("ok   pane \(pane): \(content.lines.count) lines, \(spans) spans (background pace)")
+follow.setLive(live: true)
+Thread.sleep(forTimeInterval: 0.5)
+if let error = probe.lock.withLock({ probe.paneError }) { fail("pane error after switching to live: \(error)") }
+print("ok   pane \(pane): switched to live pace")
 follow.stop()
 session.stop()
 
@@ -195,18 +213,21 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     // Attention: simulate an agent with pane.report_agent (herdr's own
     // integration call) and expect one notice for "blocked" and one for "done".
     func report(_ state: String) throws {
+        raw("{\"id\":\"smoke\",\"method\":\"pane.report_agent\",\"params\":{\"pane_id\":\"\(tab.paneId)\",\"source\":\"ffi-smoke\",\"agent\":\"claude\",\"state\":\"\(state)\"}}\n")
+    }
+    /// Sends one request line to the test session and waits for the answer.
+    func raw(_ line: String) {
         let socket = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         defer { close(socket) }
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
-        withUnsafeMutableBytes(of: &address.sun_path) { raw in
-            _ = writeSocket.utf8CString.withUnsafeBytes { raw.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(raw.count - 1))) }
+        withUnsafeMutableBytes(of: &address.sun_path) { path in
+            _ = writeSocket.utf8CString.withUnsafeBytes { path.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(path.count - 1))) }
         }
         let size = socklen_t(MemoryLayout<sockaddr_un>.size)
         guard withUnsafePointer(to: &address, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(socket, $0, size) } }) == 0 else {
             fail("cannot reach the test socket")
         }
-        let line = "{\"id\":\"smoke\",\"method\":\"pane.report_agent\",\"params\":{\"pane_id\":\"\(tab.paneId)\",\"source\":\"ffi-smoke\",\"agent\":\"claude\",\"state\":\"\(state)\"}}\n"
         _ = line.withCString { send(socket, $0, strlen($0), 0) }
         var reply = [UInt8](repeating: 0, count: 4096)
         _ = recv(socket, &reply, reply.count, 0)
@@ -224,6 +245,50 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     guard notices.count == 2 else { fail("expected 2 notices, got \(notices.map(\.agentState))") }
     print("ok   attention: blocked and done, once each")
     print("ok   create: space \(space.workspaceId) with tab \(tab.tabId)")
+
+    // Split the new tab side by side; the layout must follow with two
+    // frames next to each other.
+    raw("{\"id\":\"smoke\",\"method\":\"pane.split\",\"params\":{\"target_pane_id\":\"\(tab.paneId)\",\"direction\":\"right\",\"cwd\":\"/tmp\"}}\n")
+    let split = wait(5) {
+        probe.lock.withLock {
+            let layout = probe.update?.workspaces.flatMap(\.tabs).first { $0.tabId == tab.tabId }?.layout
+            guard let layout, layout.panes.count == 2 else { return false }
+            let (left, right) = (layout.panes[0], layout.panes[1])
+            return left.x == 0 && right.x == left.width && left.y == right.y && left.width + right.width == layout.columns
+        }
+    }
+    guard split else { fail("split layout for \(tab.tabId) did not arrive") }
+    print("ok   layout: \(tab.tabId) split side by side")
+    // Renames: space and tab arrive as events, the agent name with the
+    // snapshot the session takes after the rename.
+    let agentName = "smoke-\(UInt32.random(in: 1000...9999))"
+    try session.renameWorkspace(workspaceId: space.workspaceId, label: "smoke-renamed")
+    try session.renameTab(tabId: tab.tabId, label: "smoke-tab")
+    try session.renameAgent(paneId: tab.paneId, name: agentName)
+    let renamed = wait(5) {
+        probe.lock.withLock {
+            guard let update = probe.update,
+                  let ws = update.workspaces.first(where: { $0.workspaceId == space.workspaceId }) else { return false }
+            return ws.label == "smoke-renamed"
+                && ws.tabs.contains { $0.tabId == tab.tabId && $0.label == "smoke-tab" }
+                && update.board.contains { $0.paneId == tab.paneId && $0.name == agentName }
+        }
+    }
+    guard renamed else { fail("renames did not arrive: \(String(describing: probe.update?.board.map(\.name)))") }
+    do {
+        try session.renameAgent(paneId: tab.paneId, name: "Not Valid")
+        fail("invalid agent name was accepted")
+    } catch FfiError.Rejected(let message) where message.contains("invalid_agent_name") {}
+    do {
+        try session.renameWorkspace(workspaceId: space.workspaceId, label: "  ")
+        fail("empty space name was accepted")
+    } catch FfiError.Rejected {}
+    try session.renameAgent(paneId: tab.paneId, name: nil)
+    let cleared = wait(5) {
+        probe.lock.withLock { probe.update?.board.contains { $0.paneId == tab.paneId && $0.name == nil } ?? false }
+    }
+    guard cleared else { fail("agent name was not removed") }
+    print("ok   rename: space, tab and agent \(agentName), then the name removed")
     do {
         _ = try session.createTab(workspaceId: "w999", cwd: nil)
         fail("tab in unknown space was accepted")

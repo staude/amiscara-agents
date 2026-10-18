@@ -17,6 +17,7 @@ struct HostSidebar: View {
     @Binding var editing: HostConfig?
     @State private var newSpaceOn: HostConnection?
     @State private var showingQR: HostConfig?
+    @State private var renaming: RenameTarget?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
     /// Folded sections as "hostID/spaces" or "hostID/agents", one per line;
@@ -64,6 +65,9 @@ struct HostSidebar: View {
         .sheet(item: $showingQR) { config in
             HostQRView(config: config)
         }
+        .sheet(item: $renaming) { target in
+            RenameView(target: target)
+        }
         .sheet(item: $newSpaceOn) { connection in
             NewSpaceView(connection: connection) { created in
                 selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
@@ -103,6 +107,13 @@ struct HostSidebar: View {
             ForEach(SpaceOrder.arrange(update.workspaces), id: \.workspace.workspaceId) { entry in
                 SpaceRow(workspace: entry.workspace, nested: entry.nested)
                     .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
+                    .renameAction(available: RenameTarget.available(on: connection)) {
+                        renaming = RenameTarget(
+                            connection: connection,
+                            kind: .space(workspaceID: entry.workspace.workspaceId),
+                            current: entry.workspace.label
+                        )
+                    }
             }
         }
         if !update.board.isEmpty {
@@ -128,6 +139,13 @@ struct HostSidebar: View {
                 ForEach(AgentOrder.sorted(update, by: agentOrder), id: \.agent.paneId) { entry in
                     AgentRow(agent: entry.agent, tabNumber: entry.tabNumber)
                         .tag(SpaceRef(hostID: connection.id, workspaceID: entry.agent.workspaceId, paneID: entry.agent.paneId))
+                        .renameAction(available: RenameTarget.available(on: connection), label: "Agent benennen …") {
+                            renaming = RenameTarget(
+                                connection: connection,
+                                kind: .agent(paneID: entry.agent.paneId),
+                                current: entry.agent.name ?? ""
+                            )
+                        }
                 }
             }
         }
@@ -330,11 +348,35 @@ private struct AgentRow: View {
                             .foregroundStyle(agent.agentState.color)
                     }
                 }
-                Text(agent.agent)
+                Text(agent.name.map { "\($0) · \(agent.agent)" } ?? agent.agent)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+        }
+    }
+}
+
+extension View {
+    /// "Umbenennen" in the context menu and as a swipe action, for rows and
+    /// tab buttons. Without input allowed there is nothing to offer.
+    @ViewBuilder
+    func renameAction(
+        available: Bool,
+        label: LocalizedStringKey = "Umbenennen …",
+        action: @escaping () -> Void
+    ) -> some View {
+        if available {
+            self
+                .contextMenu {
+                    Button(label, systemImage: "pencil", action: action)
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(label, systemImage: "pencil", action: action)
+                        .tint(.accentColor)
+                }
+        } else {
+            self
         }
     }
 }
