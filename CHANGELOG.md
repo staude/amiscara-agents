@@ -112,6 +112,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Keyboard shortcuts in the "Gehe zu" and "Tasten" menus: ⌘1 to ⌘9 for the
   spaces of the current host, ⇧⌘[ and ⇧⌘] for tabs, ⌘. Esc, ⌃C, ⇧⌘↩ Enter,
   ⌥⌘ arrows and ⌥⌘1 to ⌥⌘3 for the key bar (#60).
+- Shortcuts and Siri: "Welche Agents warten?" answers from the live state of
+  all hosts, "Agent öffnen" opens the app on a chosen agent; both read only
+  (#64).
 - Images can be pasted into the composer (⌘V, or "Aus Zwischenablage" under
   the paperclip) and are attached like picked photos; text paste is
   unchanged, and text wins when the clipboard holds both (#56).
@@ -133,6 +136,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Mac menu bar item with the number of waiting agents over all hosts and a
   menu to jump to one; it opens the main window if it is closed. Hosts stay
   connected and notifications keep coming while the window is closed (#62).
+- Start an agent in a new space or tab: "Agent starten" in the "Neuer Space"
+  sheet (last choice remembered) and a menu next to the tab "+". The core
+  calls `agent.start`, names the agent after its kind (`claude-2` when taken)
+  and waits a few seconds for a pane that is still starting its shell (#57).
 
 ### Fixed
 

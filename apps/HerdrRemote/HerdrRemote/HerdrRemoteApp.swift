@@ -1,9 +1,17 @@
+import AppIntents
 import SwiftUI
 
 @main
 struct HerdrRemoteApp: App {
-    @State private var store = HostStore()
+    @State private var store: HostStore
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let store = HostStore()
+        _store = State(initialValue: store)
+        // Shortcuts and Siri run in this process and read the same store.
+        AppDependencyManager.shared.add(dependency: store)
+    }
 
     var body: some Scene {
         // The id lets the menu bar item open a window (MainWindow.id).
