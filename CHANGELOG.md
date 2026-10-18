@@ -221,5 +221,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The QR code for "Dieser Mac" warns when the host name is a short name
   like "work": the Mac may resolve it through a search domain, iPhone and
   iPad often do not, so the scanned host could not connect.
+- iOS keyboard: a tap on the key bar or a quick reply no longer brings the
+  keyboard back, the composer only gets its focus back if it had it, and a
+  button above the keyboard hides it (#97).
 - Dictation keeps what was said before a pause: the recognizer starts its
   transcription over after each utterance, which replaced the beginning (#98).
