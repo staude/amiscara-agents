@@ -28,7 +28,7 @@ enum Platform {
         #endif
     }
 
-    /// Shown in the comment of generated keys, e.g. "herdr-remote Franks iPad".
+    /// Shown in the comment of generated keys, e.g. "amiscara-agents Franks iPad".
     @MainActor
     static var deviceName: String {
         #if os(macOS)

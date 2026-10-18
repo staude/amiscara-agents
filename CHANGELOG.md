@@ -163,6 +163,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the next, ⇧⌘G to the previous, Esc closes. In a split tab it searches the
   selected pane (#55).
 
+### Changed
+
+- Renamed the app to Amiscara Agents (#84): `apps/AmiscaraAgents` with targets
+  and schemes `AmiscaraAgents` and `AmiscaraAgents-iOS`, bundle ID
+  `net.staude.amiscara.agents`, QR and link scheme `amiscara-agents://add-host`
+  (the old `herdr-remote://` is no longer accepted), uploads in
+  `~/.amiscara-agents/uploads/`, generated key comments `amiscara-agents <device>`.
+  Hosts, keys and quick replies are stored under the new names; hosts have to be
+  added again. The Rust crates keep their `herdr-*` names.
+
 ### Fixed
 
 - Windows build: the SSH agent connects through the OpenSSH named pipe (#3).

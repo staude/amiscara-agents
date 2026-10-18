@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Herdr Remote</string>
+	<string>Amiscara Agents</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,10 +22,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>net.staude.herdrremote.add-host</string>
+			<string>net.staude.amiscara.agents.add-host</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>herdr-remote</string>
+				<string>amiscara-agents</string>
 			</array>
 		</dict>
 	</array>
@@ -40,7 +40,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Frank Neumann-Staude</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Herdr Remote verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft.</string>
+	<string>Amiscara Agents verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Zum Diktieren von Prompts direkt in das Eingabefeld.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

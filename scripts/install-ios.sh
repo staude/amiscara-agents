@@ -64,15 +64,15 @@ name="${candidates#*$'\t'}"
 # The .xcodeproj is generated and not checked in; after a branch switch it
 # may still list files that no longer exist.
 command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
-(cd apps/HerdrRemote && xcodegen generate --quiet)
+(cd apps/AmiscaraAgents && xcodegen generate --quiet)
 
-step "Build HerdrRemote-iOS ($configuration) for $name"
+step "Build AmiscaraAgents-iOS ($configuration) for $name"
 derived="target/xcode-device"
-xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote-iOS \
+xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents-iOS \
     -configuration "$configuration" -destination "id=$udid" \
     -derivedDataPath "$derived" -allowProvisioningUpdates -quiet build
 
-app="$derived/Build/Products/$configuration-iphoneos/HerdrRemote.app"
+app="$derived/Build/Products/$configuration-iphoneos/AmiscaraAgents.app"
 [[ -d "$app" ]] || die "build product missing: $app"
 
 step "Install on $name"
@@ -81,6 +81,6 @@ xcrun devicectl device install app --device "$udid" "$app" >/dev/null
 if $launch; then
     step "Launch"
     xcrun devicectl device process launch --device "$udid" --terminate-existing \
-        net.staude.herdrremote >/dev/null
+        net.staude.amiscara.agents >/dev/null
 fi
 step "Done"

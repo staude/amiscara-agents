@@ -12,15 +12,17 @@ Die App wird außerhalb des App Stores verteilt: mit Developer ID signiert, von 
 
    Das vorhandene „Apple Development“-Zertifikat reicht nur für lokale Testbuilds.
 
-2. **App-spezifisches Passwort** auf appleid.apple.com erzeugen (Anmelden und Sicherheit, App-spezifische Passwörter), Name z. B. `notarytool HerdrRemote`.
+2. **App-spezifisches Passwort** auf appleid.apple.com erzeugen (Anmelden und Sicherheit, App-spezifische Passwörter), Name z. B. `notarytool AmiscaraAgents`.
 
 3. **Notarisierungsprofil speichern.** Das Passwort landet im Schlüsselbund, nicht im Repo:
 
    ```sh
-   xcrun notarytool store-credentials HerdrRemote \
+   xcrun notarytool store-credentials AmiscaraAgents \
        --apple-id <apple-id> --team-id 7N2W4T6UPV
-   xcrun notarytool history --keychain-profile HerdrRemote
+   xcrun notarytool history --keychain-profile AmiscaraAgents
    ```
+
+   Ein Profil aus der Zeit vor der Umbenennung (`HerdrRemote`) funktioniert weiter mit `NOTARY_PROFILE=HerdrRemote scripts/release.sh`.
 
 ## Release bauen
 
@@ -38,7 +40,7 @@ scripts/release.sh             # oder --install für /Applications
 4. Notarisierung (`notarytool submit --wait`) und `stapler staple`
 5. Prüfung: `codesign -dv`, `spctl -a -t exec`, `stapler validate`
 
-Ergebnis: `target/release-app/HerdrRemote-<version>-<build>.zip`.
+Ergebnis: `target/release-app/AmiscaraAgents-<version>-<build>.zip`.
 
 ## Warum keine Sandbox
 

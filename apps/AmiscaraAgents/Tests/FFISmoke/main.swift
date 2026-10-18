@@ -61,7 +61,7 @@ let sent = AddHostLink(
     socketPath: "/Users/frank/.config/herdr/herdr.sock", hostKey: hostKey
 )
 let linkText = try encodeAddHostLink(link: sent)
-guard linkText.hasPrefix("herdr-remote://add-host?v=1&"), URL(string: linkText) != nil else {
+guard linkText.hasPrefix("amiscara-agents://add-host?v=1&"), URL(string: linkText) != nil else {
     fail("add-host link: \(linkText)")
 }
 guard try decodeAddHostLink(text: linkText) == sent else { fail("add-host link round trip") }
@@ -124,8 +124,8 @@ func checkPrivate(_ path: String) {
     }
 }
 
-// Upload on the local host writes straight into ~/.herdr-remote/uploads.
-let payload = Data("herdr-remote smoke \(UUID().uuidString)".utf8)
+// Upload on the local host writes straight into ~/.amiscara-agents/uploads.
+let payload = Data("amiscara-agents smoke \(UUID().uuidString)".utf8)
 let localPath = try session.uploadFile(data: payload, fileExtension: "txt")
 guard FileManager.default.contents(atPath: localPath) == payload else { fail("local upload content: \(localPath)") }
 checkPrivate(localPath)
@@ -186,7 +186,7 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
         fail("test session has no shell pane")
     }
     let follow = session.followPane(paneId: shell.paneId, observer: probe)
-    let marker = "herdr-remote-\(UInt32.random(in: 100_000...999_999))"
+    let marker = "amiscara-agents-\(UInt32.random(in: 100_000...999_999))"
     try session.sendText(paneId: shell.paneId, text: "echo \(marker)-ok")
     try session.sendKeys(paneId: shell.paneId, keys: ["enter"])
     let echoed = wait(5) {

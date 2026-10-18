@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Shows a host as a QR code (and link) for another device: host, port,
-/// user, socket and the trusted host key. Scanned in Herdr Remote on iPhone
+/// user, socket and the trusted host key. Scanned in Amiscara Agents on iPhone
 /// or iPad, it fills in the host editor with the key already pinned.
 ///
 /// "Dieser Mac" has no SSH data of its own: the user enters the name other
@@ -106,7 +106,7 @@ struct HostQRView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
         } footer: {
-            Text("In Herdr Remote auf iPhone oder iPad unter „Host hinzufügen“ scannen. Dort den Fingerabdruck mit dem hier angezeigten vergleichen und bestätigen. Danach die Schlüsselzeile des Geräts auf diesem Host in ~/.ssh/authorized_keys eintragen.")
+            Text("In Amiscara Agents auf iPhone oder iPad unter „Host hinzufügen“ scannen. Dort den Fingerabdruck mit dem hier angezeigten vergleichen und bestätigen. Danach die Schlüsselzeile des Geräts auf diesem Host in ~/.ssh/authorized_keys eintragen.")
         }
     }
 

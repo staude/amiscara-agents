@@ -20,10 +20,10 @@ struct QRScannerView: View {
                     ContentUnavailableView {
                         Label("Kamera nicht verfügbar", systemImage: "camera")
                     } description: {
-                        Text("Erlauben Sie Herdr Remote in den Einstellungen den Zugriff auf die Kamera. Alternativ können Sie den Link vom Mac kopieren und im Host-Editor einfügen.")
+                        Text("Erlauben Sie Amiscara Agents in den Einstellungen den Zugriff auf die Kamera. Alternativ können Sie den Link vom Mac kopieren und im Host-Editor einfügen.")
                     }
                 }
-                Text(problem ?? String(localized: "Richten Sie die Kamera auf den QR-Code, den Herdr Remote auf dem Mac zeigt."))
+                Text(problem ?? String(localized: "Richten Sie die Kamera auf den QR-Code, den Amiscara Agents auf dem Mac zeigt."))
                     .font(.callout)
                     .foregroundStyle(problem == nil ? Color.primary : Color.red)
                     .padding()

@@ -1,4 +1,4 @@
-name: HerdrRemote
+name: AmiscaraAgents
 options:
   bundleIdPrefix: net.staude
   deploymentTarget:
@@ -21,11 +21,11 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_EMIT_LOC_STRINGS: YES
 targets:
-  HerdrRemote:
+  AmiscaraAgents:
     type: application
     platform: macOS
     sources:
-      - path: HerdrRemote
+      - path: AmiscaraAgents
         excludes:
           - "**/.DS_Store"
           - Info-iOS.plist
@@ -39,16 +39,16 @@ targets:
         embed: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: net.staude.herdrremote
-        PRODUCT_NAME: HerdrRemote
-        INFOPLIST_FILE: HerdrRemote/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
+        PRODUCT_NAME: AmiscaraAgents
+        INFOPLIST_FILE: AmiscaraAgents/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
     entitlements:
-      path: HerdrRemote/HerdrRemote.entitlements
+      path: AmiscaraAgents/AmiscaraAgents.entitlements
       properties:
         # Distributed with Developer ID, not through the App Store. The app
         # reaches ~/.config/herdr/herdr.sock and SSH hosts, which the
@@ -57,9 +57,9 @@ targets:
         # Dictation: the hardened runtime blocks the microphone otherwise.
         com.apple.security.device.audio-input: true
     info:
-      path: HerdrRemote/Info.plist
+      path: AmiscaraAgents/Info.plist
       properties:
-        CFBundleDisplayName: Herdr Remote
+        CFBundleDisplayName: Amiscara Agents
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
@@ -70,18 +70,18 @@ targets:
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
         CFBundleURLTypes:
           # "Add host" links, see crates/herdr-ffi/src/add_host.rs.
-          - CFBundleURLName: net.staude.herdrremote.add-host
+          - CFBundleURLName: net.staude.amiscara.agents.add-host
             CFBundleURLSchemes:
-              - herdr-remote
-  HerdrRemote-iOS:
+              - amiscara-agents
+  AmiscaraAgents-iOS:
     type: application
     platform: iOS
     sources:
-      - path: HerdrRemote
+      - path: AmiscaraAgents
         excludes:
           - "**/.DS_Store"
           - Info.plist
-          - HerdrRemote.entitlements
+          - AmiscaraAgents.entitlements
       - path: Generated/herdr_ffi.swift
         optional: true
     dependencies:
@@ -91,21 +91,21 @@ targets:
         embed: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: net.staude.herdrremote
-        PRODUCT_NAME: HerdrRemote
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
+        PRODUCT_NAME: AmiscaraAgents
         TARGETED_DEVICE_FAMILY: "1,2"
         # The Rust core is built for arm64 only; macOS 27 runs on Apple silicon.
         EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
-        INFOPLIST_FILE: HerdrRemote/Info-iOS.plist
+        INFOPLIST_FILE: AmiscaraAgents/Info-iOS.plist
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         ENABLE_PREVIEWS: YES
         SUPPORTS_MACCATALYST: NO
     info:
-      path: HerdrRemote/Info-iOS.plist
+      path: AmiscaraAgents/Info-iOS.plist
       properties:
-        CFBundleDisplayName: Herdr Remote
+        CFBundleDisplayName: Amiscara Agents
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.developer-tools
@@ -115,10 +115,10 @@ targets:
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
         NSCameraUsageDescription: "Zum Scannen des QR-Codes, mit dem Sie einen Host hinzufügen."
         CFBundleURLTypes:
-          - CFBundleURLName: net.staude.herdrremote.add-host
+          - CFBundleURLName: net.staude.amiscara.agents.add-host
             CFBundleURLSchemes:
-              - herdr-remote
-        NSLocalNetworkUsageDescription: "Herdr Remote verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft."
+              - amiscara-agents
+        NSLocalNetworkUsageDescription: "Amiscara Agents verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft."
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
@@ -150,18 +150,18 @@ aggregateTargets:
           - $(SRCROOT)/Generated/HerdrFFI.xcframework
           - $(SRCROOT)/Generated/herdr_ffi.swift
 schemes:
-  HerdrRemote:
+  AmiscaraAgents:
     build:
       targets:
-        HerdrRemote: all
+        AmiscaraAgents: all
     run:
       config: Debug
     archive:
       config: Release
-  HerdrRemote-iOS:
+  AmiscaraAgents-iOS:
     build:
       targets:
-        HerdrRemote-iOS: all
+        AmiscaraAgents-iOS: all
     run:
       config: Debug
     archive:

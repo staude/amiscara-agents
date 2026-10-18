@@ -53,7 +53,7 @@ struct HostSidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("Herdr Remote")
+        .navigationTitle("Amiscara Agents")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 AddHostButton(editing: $editing)

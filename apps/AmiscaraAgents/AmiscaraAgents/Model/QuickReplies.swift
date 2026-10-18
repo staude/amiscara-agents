@@ -33,7 +33,7 @@ final class QuickReplyStore {
     init(fileURL: URL? = nil) {
         let url = fileURL ?? FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appending(path: "HerdrRemote/quick-replies.json")
+            .appending(path: "AmiscaraAgents/quick-replies.json")
         self.fileURL = url
         if let data = try? Data(contentsOf: url),
            let stored = try? JSONDecoder().decode([QuickReply].self, from: data) {

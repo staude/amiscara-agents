@@ -5,7 +5,7 @@
 //! Format, version 1 (one line, fields in any order, each at most once):
 //!
 //! ```text
-//! herdr-remote://add-host?v=1&name=work&host=work.staude.internal&port=22
+//! amiscara-agents://add-host?v=1&name=work&host=work.staude.internal&port=22
 //!     &user=frank&socket=/Users/frank/.config/herdr/herdr.sock
 //!     &key=ssh-ed25519%20AAAAC3Nz...
 //! ```
@@ -23,13 +23,15 @@
 //! space: base64 in the key uses it. Unknown fields are refused, because a
 //! code is a trust anchor and must mean exactly what the scanning app shows.
 //! The link is also registered as a URL scheme, so it can be opened directly.
+//! The scheme was `herdr-remote://` before the app became Amiscara Agents;
+//! such links are refused, there were no users to keep them working for.
 
 use herdr_transport::keys;
 
 use crate::FfiError;
 
 /// Scheme and path of the link; the query follows.
-pub const ADD_HOST_PREFIX: &str = "herdr-remote://add-host?";
+pub const ADD_HOST_PREFIX: &str = "amiscara-agents://add-host?";
 /// The only format version this build understands.
 pub const ADD_HOST_VERSION: u32 = 1;
 
@@ -91,7 +93,7 @@ pub fn decode_add_host_link(text: String) -> Result<AddHostLink, FfiError> {
         .get(..ADD_HOST_PREFIX.len())
         .filter(|prefix| prefix.eq_ignore_ascii_case(ADD_HOST_PREFIX))
         .and_then(|_| text.get(ADD_HOST_PREFIX.len()..))
-        .ok_or_else(|| invalid("Das ist kein Herdr-Remote-Code zum Hinzufügen eines Hosts."))?;
+        .ok_or_else(|| invalid("Das ist kein Amiscara-Agents-Code zum Hinzufügen eines Hosts."))?;
 
     let mut version = None;
     let mut name = None;
@@ -133,7 +135,7 @@ pub fn decode_add_host_link(text: String) -> Result<AddHostLink, FfiError> {
         .map_err(|_| invalid("Die Versionsangabe im Code ist ungültig."))?;
     if version > ADD_HOST_VERSION {
         return Err(invalid(
-            "Der Code stammt von einer neueren App-Version. Bitte aktualisieren Sie Herdr Remote.",
+            "Der Code stammt von einer neueren App-Version. Bitte aktualisieren Sie Amiscara Agents.",
         ));
     }
     if version != ADD_HOST_VERSION {
@@ -358,7 +360,7 @@ mod tests {
     fn round_trip_keeps_every_field() -> Result<(), FfiError> {
         let link = sample();
         let text = encode_add_host_link(link.clone())?;
-        assert!(text.starts_with("herdr-remote://add-host?v=1&"));
+        assert!(text.starts_with("amiscara-agents://add-host?v=1&"));
         assert!(!text.contains(' '));
         assert_eq!(decode_add_host_link(text)?, link);
         Ok(())
@@ -397,7 +399,16 @@ mod tests {
     #[test]
     fn refuses_other_codes() {
         assert!(message(decode_add_host_link("https://example.com".into())).contains("kein"));
-        assert!(message(decode_add_host_link("herdr-remote://add-host".into())).contains("kein"));
+        assert!(
+            message(decode_add_host_link("amiscara-agents://add-host".into())).contains("kein")
+        );
+        // The pre-rename scheme with an otherwise valid link.
+        let old_scheme = encode_add_host_link(sample()).expect("encode").replacen(
+            "amiscara-agents://",
+            "herdr-remote://",
+            1,
+        );
+        assert!(message(decode_add_host_link(old_scheme)).contains("kein"));
         assert!(message(decode_add_host_link(String::new())).contains("kein"));
     }
 

@@ -36,7 +36,7 @@ struct MenuBarMenu: View {
             }
         }
         Divider()
-        Button("Herdr Remote öffnen") {
+        Button("Amiscara Agents öffnen") {
             if !MainWindow.bringToFront() {
                 openWindow(id: MainWindow.id)
                 NSApp.activate()
@@ -62,7 +62,7 @@ struct MenuBarLabel: View {
         }
         .accessibilityLabel(count > 0
             ? String(localized: "\(count) Agents warten")
-            : String(localized: "Herdr Remote"))
+            : String(localized: "Amiscara Agents"))
         .onChange(of: store.notifier.openRequest) { _, request in
             if request != nil { show() }
         }

@@ -114,7 +114,7 @@ struct WaitingAgentsIntent: AppIntent {
 /// "Öffne Agent …": opens the app on that agent's pane.
 struct OpenAgentIntent: OpenIntent {
     static let title: LocalizedStringResource = "Agent öffnen"
-    static let description = IntentDescription("Öffnet Herdr Remote beim gewählten Agent.")
+    static let description = IntentDescription("Öffnet Amiscara Agents beim gewählten Agent.")
     static let authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
 
     @Parameter(title: "Agent")

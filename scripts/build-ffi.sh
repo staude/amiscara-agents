@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds herdr-ffi for the apps: static libraries wrapped as
 # HerdrFFI.xcframework plus the generated Swift bindings, both in
-# apps/HerdrRemote/Generated (not checked in).
+# apps/AmiscaraAgents/Generated (not checked in).
 #
 # Usage: scripts/build-ffi.sh [debug|release] [macosx|iphoneos|iphonesimulator|all]
 #
@@ -55,7 +55,7 @@ for p in "${platforms[@]}"; do
 done
 
 work="target/ffi"
-out="apps/HerdrRemote/Generated"
+out="apps/AmiscaraAgents/Generated"
 rm -rf "$work"
 mkdir -p "$work/swift" "$work/headers" "$out"
 

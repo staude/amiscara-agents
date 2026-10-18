@@ -7,14 +7,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-gen="apps/HerdrRemote/Generated"
+gen="apps/AmiscaraAgents/Generated"
 lib="$gen/HerdrFFI.xcframework/macos-arm64"
 out="target/ffi-smoke"
 mkdir -p "$out"
 
 swiftc -O -swift-version 6 \
     -I "$lib/Headers" -L "$lib" -lherdr_ffi \
-    "$gen/herdr_ffi.swift" apps/HerdrRemote/Tests/FFISmoke/main.swift \
+    "$gen/herdr_ffi.swift" apps/AmiscaraAgents/Tests/FFISmoke/main.swift \
     -o "$out/ffi-smoke"
 
 "$out/ffi-smoke" "$@"

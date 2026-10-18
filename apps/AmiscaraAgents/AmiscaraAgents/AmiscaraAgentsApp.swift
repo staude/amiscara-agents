@@ -2,7 +2,7 @@ import AppIntents
 import SwiftUI
 
 @main
-struct HerdrRemoteApp: App {
+struct AmiscaraAgentsApp: App {
     @State private var store: HostStore
     @Environment(\.scenePhase) private var scenePhase
 

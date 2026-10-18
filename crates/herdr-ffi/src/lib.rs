@@ -1,4 +1,4 @@
-//! Swift (and later Kotlin) face of the herdr-remote core, via UniFFI.
+//! Swift (and later Kotlin) face of the Amiscara Agents core, via UniFFI.
 //!
 //! The apps start one [`HostSession`] per host and get every state change
 //! through a [`SessionObserver`]; an open pane is followed with
@@ -186,7 +186,7 @@ impl From<NewWorktree> for actions::NewWorktree {
 }
 
 /// Where uploads land, relative to the login's home directory.
-pub const UPLOAD_DIR: &str = ".herdr-remote/uploads";
+pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
 
 /// Default `herdr.sock` path for a user on a macOS host.
 #[uniffi::export]
@@ -397,7 +397,7 @@ impl HostSession {
         Ok(())
     }
 
-    /// Uploads a file (e.g. an image for a prompt) to `~/.herdr-remote/uploads`
+    /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path. Blocks
     /// until the upload is done; call it off the main thread.
     pub fn upload_file(&self, data: Vec<u8>, file_extension: String) -> Result<String, FfiError> {
