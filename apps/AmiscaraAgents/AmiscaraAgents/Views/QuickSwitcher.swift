@@ -24,21 +24,24 @@ struct SwitcherEntry: Identifiable {
         store.connections.flatMap { connection -> [SwitcherEntry] in
             guard let update = connection.update else { return [] }
             let host = connection.config.name
-            let spaces = SpaceOrder.arrange(update.workspaces).map { entry in
+            let spaces = SpaceOrder.arrange(update).map { entry in
                 let ws = entry.workspace
+                // A grouped space reads "Dorfkino" with "Privat" below; the
+                // full name "Privat/Dorfkino" still matches.
+                let subtitle = entry.nested ? ws.label : [ws.group, ws.branch].compactMap { $0 }.joined(separator: " · ")
                 return SwitcherEntry(
                     kind: .space,
                     target: SpaceRef(hostID: connection.id, workspaceID: ws.workspaceId),
-                    title: entry.nested ? (ws.branch ?? ws.worktreeName ?? ws.label) : ws.label,
-                    subtitle: entry.nested ? ws.label : ws.branch,
+                    title: entry.nested ? (ws.branch ?? ws.worktreeName ?? ws.label) : ws.name,
+                    subtitle: subtitle.isEmpty ? nil : subtitle,
                     hostName: host,
                     state: ws.agentState == .unknown ? nil : ws.agentState,
-                    fields: [ws.label, ws.branch, ws.worktreeName].compactMap { $0 }
+                    fields: [ws.name, ws.label, ws.branch, ws.worktreeName].compactMap { $0 }
                 )
             }
             let agents = AgentOrder.sorted(update, by: .grouped).map { entry in
                 let agent = entry.agent
-                let place = entry.tabNumber.map { "\(agent.workspaceLabel) · \($0)" } ?? agent.workspaceLabel
+                let place = entry.tabNumber.map { "\(agent.spacePlace) · \($0)" } ?? agent.spacePlace
                 return SwitcherEntry(
                     kind: .agent,
                     target: SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId),

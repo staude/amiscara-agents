@@ -4,10 +4,12 @@
 //! current by events, no I/O. [`sync`] drives it against a live server and
 //! publishes every change through a `watch` channel the apps can observe.
 //! [`terminal`] turns pane content into styled lines, [`pane`] keeps one
-//! open pane current.
+//! open pane current. [`spaces`] orders the sidebar and groups spaces by
+//! name.
 
 pub mod actions;
 pub mod pane;
+pub mod spaces;
 mod state;
 pub mod sync;
 pub mod terminal;

@@ -62,7 +62,7 @@ final class Notifier: NSObject {
         content.title = item.agentState == .blocked
             ? String(localized: "\(agent) wartet")
             : String(localized: "\(agent) ist fertig")
-        content.subtitle = "\(host.name) · \(item.workspaceLabel) · Tab \(item.tabLabel)"
+        content.subtitle = "\(host.name) · \(item.spacePlace) · Tab \(item.tabLabel)"
         content.body = item.title
         content.sound = item.agentState == .blocked ? .default : nil
         content.threadIdentifier = host.id.uuidString

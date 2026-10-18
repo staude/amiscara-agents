@@ -25,7 +25,7 @@ pub use add_host::{
     public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, SessionUpdate,
+    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot,
     SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
 };
 

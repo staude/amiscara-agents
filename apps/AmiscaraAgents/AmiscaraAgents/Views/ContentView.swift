@@ -67,7 +67,7 @@ struct ContentView: View {
         let connection = store.connection(for: selection?.hostID)
             ?? store.connections.first { !($0.update?.workspaces.isEmpty ?? true) }
         guard let connection, let update = connection.update else { return [] }
-        return SpaceOrder.arrange(update.workspaces).map { (connection.id, $0.workspace.workspaceId) }
+        return SpaceOrder.arrange(update).map { (connection.id, $0.workspace.workspaceId) }
     }
 
     /// ⌘1 to ⌘9, counted like the sidebar shows them.

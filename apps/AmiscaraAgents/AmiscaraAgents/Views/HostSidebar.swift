@@ -22,8 +22,9 @@ struct HostSidebar: View {
     @State private var newWorktreeFrom: WorktreeSource?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
-    /// Folded sections as "hostID/spaces" or "hostID/agents", one per line;
-    /// kept per device.
+    /// Folded sections as "hostID/spaces", "hostID/agents" or
+    /// "hostID/group/<Bereich>" for a name group, one per line; kept per
+    /// device.
     @AppStorage("collapsedSections") private var collapsedSections = ""
 
     private func isCollapsed(_ hostID: UUID, _ section: String) -> Bool {
@@ -116,22 +117,26 @@ struct HostSidebar: View {
             }
         }
         if !spacesFolded {
-            ForEach(SpaceOrder.arrange(update.workspaces), id: \.workspace.workspaceId) { entry in
-                SpaceRow(workspace: entry.workspace, nested: entry.nested)
-                    .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
-                    .renameAction(available: RenameTarget.available(on: connection)) {
-                        renaming = RenameTarget(
-                            connection: connection,
-                            kind: .space(workspaceID: entry.workspace.workspaceId),
-                            current: entry.workspace.label
-                        )
-                    } more: {
-                        if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
-                            Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
-                                newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
-                            }
+            ForEach(SpaceOrder.blocks(SpaceOrder.arrange(update))) { block in
+                switch block {
+                case .space(let entry):
+                    spaceRow(connection, update, entry, grouped: false)
+                case .group(let name, let entries):
+                    let key = "group/\(name)"
+                    let folded = isCollapsed(connection.id, key)
+                    let ids = Set(entries.map(\.workspace.workspaceId))
+                    SpaceGroupRow(
+                        name: name,
+                        spaces: entries.count,
+                        waiting: update.board.filter { $0.agentState == .blocked && ids.contains($0.workspaceId) }.count,
+                        collapsed: folded
+                    ) { toggle(connection.id, key) }
+                    if !folded {
+                        ForEach(entries, id: \.workspace.workspaceId) { entry in
+                            spaceRow(connection, update, entry, grouped: true)
                         }
                     }
+                }
             }
         }
         if !update.board.isEmpty {
@@ -168,6 +173,24 @@ struct HostSidebar: View {
             }
         }
     }
+
+    private func spaceRow(_ connection: HostConnection, _ update: SessionUpdate, _ entry: SpaceOrder.Entry, grouped: Bool) -> some View {
+        SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
+            .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
+            .renameAction(available: RenameTarget.available(on: connection)) {
+                renaming = RenameTarget(
+                    connection: connection,
+                    kind: .space(workspaceID: entry.workspace.workspaceId),
+                    current: entry.workspace.label
+                )
+            } more: {
+                if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
+                    Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
+                        newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                    }
+                }
+            }
+    }
 }
 
 /// Name and directory for a new space, optionally with an agent started
@@ -188,13 +211,17 @@ private struct NewSpaceView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name", text: $name, prompt: Text("z. B. kino-app"))
-                TextField("Verzeichnis", text: $directory, prompt: Text("~/dev/projekt"))
-                    .technicalInput()
-                if !directory.isEmpty {
-                    Text(connection.absolutePath(directory))
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+                Section {
+                    TextField("Name", text: $name, prompt: Text("z. B. Privat/Dorfkino"))
+                    TextField("Verzeichnis", text: $directory, prompt: Text("~/dev/projekt"))
+                        .technicalInput()
+                    if !directory.isEmpty {
+                        Text(connection.absolutePath(directory))
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text(SpaceNames.groupHint)
                 }
                 AgentPicker(connection: connection, kind: $agentKind)
                 if let error {
@@ -214,7 +241,7 @@ private struct NewSpaceView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 440, height: 300)
+        .frame(width: 440, height: 340)
         #endif
     }
 
@@ -349,32 +376,54 @@ struct NewWorktreeView: View {
     }
 }
 
-/// herdr's order: spaces by number, each linked worktree right after the
-/// first space of the same repository.
+/// The sidebar's order of spaces, worked out by the core: herdr's order,
+/// each linked worktree right after its repository's space, and spaces
+/// named "Bereich/Name" moved together behind the first of their group.
 enum SpaceOrder {
     struct Entry {
         let workspace: WorkspaceItem
         let nested: Bool
     }
 
-    static func arrange(_ workspaces: [WorkspaceItem]) -> [Entry] {
-        let sorted = workspaces.sorted { $0.number < $1.number }
-        let worktrees = sorted.filter { $0.worktreeName != nil }
-        var placed = Set<String>()
-        var result: [Entry] = []
-        for workspace in sorted where workspace.worktreeName == nil {
-            result.append(Entry(workspace: workspace, nested: false))
-            guard let repo = workspace.repoKey else { continue }
-            for worktree in worktrees where worktree.repoKey == repo && !placed.contains(worktree.workspaceId) {
-                result.append(Entry(workspace: worktree, nested: true))
-                placed.insert(worktree.workspaceId)
+    /// A run of the sidebar: one space outside any group, or a name group
+    /// with its spaces (worktrees included).
+    enum Block: Identifiable {
+        case space(Entry)
+        case group(String, [Entry])
+
+        var id: String {
+            switch self {
+            case .space(let entry): "space/\(entry.workspace.workspaceId)"
+            case .group(let name, _): "group/\(name)"
             }
         }
-        // Worktrees whose main checkout has no space of its own.
-        for worktree in worktrees where !placed.contains(worktree.workspaceId) {
-            result.append(Entry(workspace: worktree, nested: false))
+    }
+
+    static func arrange(_ update: SessionUpdate) -> [Entry] {
+        // The data comes from the server; duplicate ids must not crash the
+        // app (uniqueKeysWithValues traps), the first entry wins.
+        let byID = Dictionary(update.workspaces.map { ($0.workspaceId, $0) }, uniquingKeysWith: { first, _ in first })
+        return update.spaceOrder.compactMap { slot in
+            byID[slot.workspaceId].map { Entry(workspace: $0, nested: slot.nested) }
         }
-        return result
+    }
+
+    /// The core keeps a group's spaces adjacent, so a group ends where the
+    /// next space has another one.
+    static func blocks(_ entries: [Entry]) -> [Block] {
+        var blocks: [Block] = []
+        for entry in entries {
+            guard let group = entry.workspace.group else {
+                blocks.append(.space(entry))
+                continue
+            }
+            if case .group(let name, let members) = blocks.last, name == group {
+                blocks[blocks.count - 1] = .group(name, members + [entry])
+            } else {
+                blocks.append(.group(group, [entry]))
+            }
+        }
+        return blocks
     }
 }
 
@@ -421,12 +470,55 @@ private struct SubHeader: View {
     }
 }
 
+/// A name group ("Privat" for "Privat/Dorfkino") that folds its spaces.
+/// Like a folded section it keeps waiting agents visible.
+private struct SpaceGroupRow: View {
+    let name: String
+    let spaces: Int
+    let waiting: Int
+    let collapsed: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .rotationEffect(.degrees(collapsed ? 0 : 90))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 10)
+                Image(systemName: collapsed ? "folder" : "folder.fill")
+                    .foregroundStyle(.secondary)
+                Text(name)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                Spacer()
+                if waiting > 0 {
+                    Text("\(waiting) wartet")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(AgentState.blocked.color)
+                }
+                Text("\(spaces)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(collapsed ? "Gruppe \(name) aufklappen" : "Gruppe \(name) zuklappen")
+        .accessibilityValue(waiting > 0 ? "\(spaces) Spaces, \(waiting) wartet" : "\(spaces) Spaces")
+    }
+}
+
 /// A space the way herdr's sidebar shows it: name, then the branch, then
 /// custom values from plugins or agents. A linked worktree is indented and
-/// named after its branch.
+/// named after its branch; in a name group the row shows the short name
+/// and is indented under the group.
 private struct SpaceRow: View {
     let workspace: WorkspaceItem
     let nested: Bool
+    var grouped = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -454,11 +546,12 @@ private struct SpaceRow: View {
                 }
             }
         }
+        .padding(.leading, grouped ? 16 : 0)
     }
 
     private var title: String {
         if nested { return workspace.branch ?? workspace.worktreeName ?? workspace.label }
-        return workspace.label
+        return workspace.name
     }
 
     /// The branch line; a nested worktree already shows its branch as name.
@@ -468,7 +561,8 @@ private struct SpaceRow: View {
 }
 
 /// An agent the way herdr's sidebar shows it by default: state, space and
-/// tab number (only when the space has several tabs), then the agent.
+/// tab number (only when the space has several tabs), then the agent. A
+/// grouped space shows its short name with the group beside it.
 private struct AgentRow: View {
     let agent: BoardItem
     let tabNumber: String?
@@ -479,8 +573,15 @@ private struct AgentRow: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
-                    Text(tabNumber.map { "\(agent.workspaceLabel) · \($0)" } ?? agent.workspaceLabel)
+                    Text(tabNumber.map { "\(agent.workspaceName) · \($0)" } ?? agent.workspaceName)
                         .lineLimit(1)
+                        .layoutPriority(1)
+                    if let group = agent.workspaceGroup {
+                        Text(group)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     if agent.agentState != .idle {
                         Text(agent.agentState.label)
                             .font(.caption.weight(.medium))
@@ -554,7 +655,7 @@ enum AgentOrder: String {
     }
 
     static func sorted(_ update: SessionUpdate, by order: AgentOrder) -> [Entry] {
-        let spaces = SpaceOrder.arrange(update.workspaces).map(\.workspace)
+        let spaces = SpaceOrder.arrange(update).map(\.workspace)
         // The data comes from the server; duplicate ids must not crash the
         // app (uniqueKeysWithValues traps), the first entry wins.
         let spaceIndex = Dictionary(spaces.enumerated().map { ($1.workspaceId, $0) }, uniquingKeysWith: { first, _ in first })

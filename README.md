@@ -87,6 +87,27 @@ Under the pane it sends prompts to agents, text to shells and keys such as
 Enter, Esc or 1/2/3 to answer an agent waiting for approval. Each host has a
 switch to keep it read-only.
 
+### Organizing spaces: `Bereich/Name`
+
+herdr has no folders above spaces. The app groups spaces by name instead:
+everything before the first `/` is the group, the rest is the space's name.
+
+```
+Privat/Bürgertreff      → group "Privat":  Bürgertreff
+Privat/Dorfkino         →                  Dorfkino
+Arbeit/energieausweis   → group "Arbeit":  energieausweis
+```
+
+Each group is a foldable row with its number of spaces and waiting agents;
+folding is remembered per device. Groups appear where their first space is
+in herdr's order, spaces without `/` stay where they are. Spaces around the
+`/` are ignored (`Privat / Dorfkino`), a name with an empty part (`/Dorfkino`,
+`Privat/`) is not grouped. Linked worktrees stay under their repository, even
+when their branch looks like `feature/x`. The name lives on the server, so
+iPad, iPhone and Mac show the same groups without any sync; herdr itself
+simply shows the full name. Name a space this way when creating it or via
+"Umbenennen …".
+
 Images: the paperclip in the composer uploads pictures to
 `~/.amiscara-agents/uploads/` on the host and appends their paths to the prompt.
 For SSH hosts this needs the switch "Bilder hochladen (SFTP)" and the key line

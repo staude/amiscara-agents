@@ -108,6 +108,15 @@ let splitTabs = spaces.flatMap(\.tabs).filter { ($0.layout?.panes.count ?? 0) > 
 print("ok   layouts: \(spaces.flatMap(\.tabs).count) tabs, \(splitTabs) split")
 print("ok   spaces: " + spaces.map { "\($0.worktreeName.map { "└" + $0 } ?? $0.label)=\($0.branch ?? "-")" }.joined(separator: ", "))
 if !branchesSeen { print("info no branch found for any space") }
+// The sidebar order names every space once; a group's spaces are adjacent.
+let order = probe.lock.withLock { probe.update?.spaceOrder ?? [] }
+guard order.map(\.workspaceId).sorted() == spaces.map(\.workspaceId).sorted() else {
+    fail("space order \(order.map(\.workspaceId)) does not match the spaces")
+}
+let groupRuns = order.compactMap { slot in spaces.first { $0.workspaceId == slot.workspaceId }?.group }
+    .reduce(into: [String]()) { runs, group in if runs.last != group { runs.append(group) } }
+guard Set(groupRuns).count == groupRuns.count else { fail("groups split up in the space order: \(groupRuns)") }
+print("ok   space order: \(order.count) spaces, groups \(groupRuns.isEmpty ? "-" : groupRuns.joined(separator: ", "))")
 
 guard let pane = update.board.first?.paneId ?? panes.first?.paneId else {
     print("skip pane: server has no panes")
@@ -400,6 +409,32 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
             print("ok   worktree: \(what) refused (\(error))")
         }
     }
+
+    // Name groups: "Smoke / repo" and "Smoke/second" share the group
+    // "Smoke", which sits where its first space (the older "second") is.
+    // The worktree stays under its repository and inherits the group.
+    try session.renameWorkspace(workspaceId: repoSpace.workspaceId, label: "Smoke / repo")
+    try session.renameWorkspace(workspaceId: space.workspaceId, label: "Smoke/second")
+    let grouped = wait(5) {
+        probe.lock.withLock {
+            guard let update = probe.update else { return false }
+            let byID = Dictionary(update.workspaces.map { ($0.workspaceId, $0) }, uniquingKeysWith: { a, _ in a })
+            let ids = update.spaceOrder.map(\.workspaceId)
+            guard let repoAt = ids.firstIndex(of: repoSpace.workspaceId), repoAt > 0, repoAt + 1 < ids.count,
+                  let repo = byID[repoSpace.workspaceId], let second = byID[space.workspaceId],
+                  let tree = byID[worktree.workspaceId] else { return false }
+            return repo.name == "repo" && repo.group == "Smoke"
+                && second.name == "second" && second.group == "Smoke"
+                && tree.group == "Smoke" && tree.name == tree.label
+                && ids[repoAt + 1] == worktree.workspaceId && update.spaceOrder[repoAt + 1].nested
+                && ids[repoAt - 1] == space.workspaceId
+                && update.board.contains { $0.workspaceId == space.workspaceId && $0.workspaceGroup == "Smoke" && $0.workspaceName == "second" }
+        }
+    }
+    guard grouped else {
+        fail("name groups: \(String(describing: probe.update.map { u in u.spaceOrder.map { s in (s.workspaceId, u.workspaces.first { $0.workspaceId == s.workspaceId }.map { "\($0.group ?? "-")|\($0.name)" } ?? "?") } })), board \(String(describing: probe.update?.board.map { "\($0.workspaceId)|\($0.workspaceGroup ?? "-")|\($0.workspaceName)" }))")
+    }
+    print("ok   groups: Smoke = second, repo, \(worktree.workspaceId) nested")
     session.stop()
 }
 
