@@ -4,7 +4,7 @@
 
 Rust-Core für eine grafische herdr-Oberfläche auf iPad, iPhone, Mac und Windows. Spricht die Socket-API eines unveränderten herdr-Servers an, lokal oder per SSH-Streamlocal.
 
-Konzept: Vault `02 Projekte/Herdr Remote.md`. Aktueller Stand und nächste Schritte: `HANDOFF.md`.
+Konzept: Vault `02 Projekte/Amiscara Agents.md`. Aktueller Stand und nächste Schritte: `HANDOFF.md`.
 
 ## Setup & Start
 
