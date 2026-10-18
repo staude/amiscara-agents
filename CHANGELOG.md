@@ -239,6 +239,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
   shortcuts, text selection); `InputBarTV.swift` offers answers, keys,
   quick replies and a prompt field. `scripts/install-ios.sh` installs on an
   Apple TV as well; CI checks herdr-ffi for iOS and tvOS.
+- Apple TV pairing with the iPhone (#127): the TV makes its own SSH key and
+  shows a QR code; scanned with the iPhone camera, the app adds a
+  restricted line (herdr socket only, no shell, no files) to
+  `~/.ssh/authorized_keys` on the chosen hosts over SFTP (backup
+  `authorized_keys.bak-amiscara`) and leaves the host data for the TV in
+  the private iCloud database. The Mac app publishes its Bonjour name
+  (`work.local`) there under its host key, so the TV, which has no VPN on
+  tvOS, connects through the home network.
+- Apple TV layout (#128): tab bar with Agents (cards, waiting first),
+  Spaces and Hosts (pairing, adding, state and connection errors); the
+  Siri Remote scrolls a focused pane and loads older history at the top.
+  A space opens in its own screen: tabs as segments with new tab, start
+  agent and a "…" menu (rename and close tab or space), then pane picker,
+  header, terminal and input as focus rows.
+- Apple TV icon and Top Shelf images (part of #130): Icon Composer has no
+  tvOS, so `docs/icon/A/tvicon.swift` draws concept A as a three-layer image
+  stack (background, panes, `>_` with dot) and the Top Shelf images into the
+  asset catalog.
 
 ### Changed
 

@@ -8,15 +8,25 @@ struct ContentView: View {
     /// An opened "add host" link and the new host it is meant for.
     @State private var pendingImport: (hostID: UUID, link: String)?
     @State private var switching = false
+    #if os(iOS)
+    /// An Apple TV's pairing code, scanned with the camera (#127).
+    @State private var pairingTV: TVPairing.Link?
+    #endif
 
     var body: some View {
         // Two columns like herdr: spaces and agents on the left, the space
         // with its tabs on the right. On iPhone the sidebar is the start screen.
-        NavigationSplitView {
-            HostSidebar(selection: $selection, editing: $editing, switching: $switching)
-                .navigationSplitViewColumnWidth(min: 240, ideal: 280)
-        } detail: {
-            WorkspaceDetailView(selection: $selection)
+        Group {
+            #if os(tvOS)
+            TVContentView(editing: $editing)
+            #else
+            NavigationSplitView {
+                HostSidebar(selection: $selection, editing: $editing, switching: $switching)
+                    .navigationSplitViewColumnWidth(min: 240, ideal: 280)
+            } detail: {
+                WorkspaceDetailView(selection: $selection)
+            }
+            #endif
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in
             // A tapped notification, menu bar entry or shortcut opens its
@@ -46,6 +56,12 @@ struct ContentView: View {
             if pendingImport?.hostID != id { pendingImport = nil }
         }
         .onOpenURL { url in
+            #if os(iOS)
+            if let link = TVPairing.Link(url) {
+                pairingTV = link
+                return
+            }
+            #endif
             // amiscara-agents://open?... from a widget opens that pane.
             if let target = WidgetSnapshot.parseOpenURL(url) {
                 selection = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
@@ -60,6 +76,28 @@ struct ContentView: View {
         // Open links in the existing window instead of a new one.
         #if !os(tvOS)
         .handlesExternalEvents(preferring: ["amiscara-agents"], allowing: ["*"])
+        #endif
+        #if os(iOS)
+        .sheet(item: $pairingTV) { link in
+            TVPairSheet(link: link)
+        }
+        #endif
+        #if os(tvOS)
+        // Hosts the iPhone paired while the app was closed; then the home
+        // network names their Mac apps published (no VPN on tvOS).
+        .task {
+            await store.adoptPairedHosts()
+            await store.useHomeNetworkAddresses()
+        }
+        #endif
+        #if os(macOS)
+        // For Apple TVs in the home network; renewed hourly.
+        .task {
+            while !Task.isCancelled {
+                await store.publishHomeNetworkName()
+                try? await Task.sleep(for: .seconds(3600))
+            }
+        }
         #endif
         .sheet(item: keyPrompt) { connection in
             HostKeyView(connection: connection) {

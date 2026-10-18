@@ -224,6 +224,16 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Lets another device's key in on this host (#127); false when it was
+    /// there already. Needs SFTP like uploads.
+    func authorizeDeviceKey(_ publicKey: String, comment: String) async throws -> Bool {
+        guard config.uploadAllowed else { throw ConnectionFailure.uploadOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.authorizeDeviceKey(publicOpenssh: publicKey, comment: comment)
+        }.value
+    }
+
     /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
     func send(keys: [String], to paneID: String) async throws {
         let session = try writableSession()

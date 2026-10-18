@@ -18,6 +18,14 @@ struct TerminalScreenView: View {
     /// Set once the user scrolled, so the first layout (which may briefly sit
     /// at the top before the bottom anchor applies) cannot load history.
     @State private var userScrolled = false
+    #if os(tvOS)
+    /// Line in the middle of the view while scrolling with the Siri Remote;
+    /// `nil` sits at the bottom like a terminal.
+    @State private var remoteLine: Int?
+    @FocusState private var focused: Bool
+    /// Lines per swipe on the remote.
+    private static let remoteStep = 12
+    #endif
 
     private var fontSize: Double {
         guard let fitColumns, fitColumns > 0, width > 0 else { return preferredFontSize }
@@ -78,6 +86,32 @@ struct TerminalScreenView: View {
                     proxy.scrollTo(line, anchor: UnitPoint(x: 0, y: 0.5))
                 }
             }
+            #if os(tvOS)
+            // The remote scrolls by focus: the terminal takes it and turns
+            // swipes up and down into jumps of a few lines (#128).
+            .focusable()
+            .focused($focused)
+            .onMoveCommand { direction in
+                let last = max(content.lines.count - 1, 0)
+                let current = remoteLine ?? last
+                switch direction {
+                case .up: remoteLine = max(current - Self.remoteStep, 0)
+                case .down: remoteLine = min(current + Self.remoteStep, last)
+                default: return
+                }
+                userScrolled = true
+                if remoteLine == 0 { history?.loadMoreHistory() }
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo(remoteLine, anchor: UnitPoint(x: 0, y: 0.5))
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(focused ? Color.accentColor : .clear, lineWidth: 3)
+                    .allowsHitTesting(false)
+            }
+            .onChange(of: content.paneId) { remoteLine = nil }
+            #endif
         }
         .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
         .environment(\.colorScheme, .dark)
