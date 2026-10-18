@@ -157,6 +157,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab
   only the selected pane loads history. Core:
   `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
+- Search in the pane view: ⌘F (Edit menu, or the magnifier in the pane
+  header) opens a search bar; matches in the shown lines, including loaded
+  history, are highlighted (ignoring case and accents); Return or ⌘G jumps to
+  the next, ⇧⌘G to the previous, Esc closes. In a split tab it searches the
+  selected pane (#55).
 
 ### Fixed
 

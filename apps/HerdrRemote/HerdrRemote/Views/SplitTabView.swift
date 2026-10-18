@@ -51,11 +51,27 @@ private struct PaneTile: View {
     let isSelected: Bool
     let select: () -> Void
     @State private var model = PaneModel()
+    /// Only the selected tile searches, like only it loads history; ⌘F and
+    /// ⌘G act on it.
+    @State private var search = PaneSearchState()
 
     var body: some View {
-        VStack(spacing: 0) {
+        let matches = isSelected ? search.matches(in: model.content) : []
+        return VStack(spacing: 0) {
             header
-            screen
+            if isSelected, search.isOpen {
+                PaneSearchBar(state: search, matches: matches)
+                    .font(.callout)
+                    .background(.bar)
+            }
+            screen(search: search.highlight(matches))
+        }
+        // A background view, so selecting a tile does not change the tile's
+        // own identity (and with it its follower).
+        .background {
+            if isSelected {
+                Color.clear.focusedSceneValue(\.paneSearch, search.actions(matches))
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay {
@@ -67,7 +83,10 @@ private struct PaneTile: View {
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .onAppear { model.show(paneID: paneID, on: connection, live: isSelected) }
-        .onChange(of: isSelected) { _, selected in model.setLive(selected) }
+        .onChange(of: isSelected) { _, selected in
+            model.setLive(selected)
+            if !selected { search.close() }
+        }
         .onDisappear { model.stop() }
     }
 
@@ -84,6 +103,9 @@ private struct PaneTile: View {
             if let state = pane?.agentState, pane?.agent != nil {
                 Text(state.label).foregroundStyle(state.color).lineLimit(1)
             }
+            if isSelected {
+                PaneSearchButton(state: search)
+            }
         }
         .font(.caption.weight(isSelected ? .semibold : .regular))
         .padding(.horizontal, 8)
@@ -96,9 +118,9 @@ private struct PaneTile: View {
     }
 
     @ViewBuilder
-    private var screen: some View {
+    private func screen(search: SearchHighlight) -> some View {
         if let content = model.content {
-            TerminalScreenView(content: content, history: isSelected ? model : nil, fitColumns: columns)
+            TerminalScreenView(content: content, history: isSelected ? model : nil, fitColumns: columns, search: search)
                 .overlay(alignment: .top) {
                     if let error = model.error {
                         Banner(text: error, systemImage: "exclamationmark.triangle")
