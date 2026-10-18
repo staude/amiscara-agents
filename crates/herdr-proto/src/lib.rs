@@ -231,6 +231,20 @@ pub struct SessionSnapshot {
     pub workspaces: Vec<WorkspaceInfo>,
     pub tabs: Vec<TabInfo>,
     pub panes: Vec<PaneInfo>,
+    /// Agent panes with their custom names. Older servers leave it out.
+    #[serde(default)]
+    pub agents: Vec<AgentInfo>,
+}
+
+/// An agent as `agent.list` and the snapshot report it. Only the name is
+/// used: it is not part of [`PaneInfo`], and `agent.rename` announces itself
+/// with a `pane_updated` that does not carry it either.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct AgentInfo {
+    pub pane_id: String,
+    /// Set with `agent.rename`; `None` when the agent has no custom name.
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 /// One event from `events.subscribe`. Global subscriptions send
