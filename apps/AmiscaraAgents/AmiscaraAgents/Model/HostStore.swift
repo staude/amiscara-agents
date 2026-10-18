@@ -8,6 +8,10 @@ final class HostStore {
     private(set) var connections: [HostConnection] = []
     let notifier = Notifier()
     @ObservationIgnored let widgets = WidgetPublisher()
+    #if os(macOS)
+    /// Pushes to iPhones and iPads for the local host (#94).
+    let push = PushSender()
+    #endif
     var loadError: String?
 
     private let fileURL: URL = {
@@ -23,6 +27,9 @@ final class HostStore {
             save()
         }
         connections.forEach { $0.start() }
+        notifier.answer = { [weak self] host, pane, key in
+            await self?.answer(key, to: pane, on: host) ?? false
+        }
         widgets.start(self)
         widgets.publish(self)
     }
@@ -37,8 +44,34 @@ final class HostStore {
                 .filter(\.connection.config.notificationsOn)
                 .count)
             self.widgets.publish(self)
+            #if os(macOS)
+            if connection.config.kind == .local, connection.config.notificationsOn {
+                self.push.send(update.attention)
+            }
+            #else
+            PushRegistration.shared.register(on: connection)
+            #endif
         }
         return connection
+    }
+
+    /// An answer key from a notification button. Launched for it in the
+    /// background, the app first has to reconnect; iOS gives it some
+    /// seconds for that.
+    func answer(_ key: String, to paneID: String, on hostID: UUID) async -> Bool {
+        guard let connection = connection(for: hostID) else { return false }
+        if !connection.isLive, !connection.needsHostKeyDecision {
+            connection.start()
+        }
+        for _ in 0..<60 where !connection.isLive {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        do {
+            try await connection.send(keys: [key], to: paneID)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Agents waiting for an answer, over all hosts in sidebar order.
@@ -68,7 +101,16 @@ final class HostStore {
 
     func remove(_ id: UUID) {
         guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
-        connections[index].stop()
+        let connection = connections[index]
+        #if os(iOS)
+        // No more pushes for a host that is gone; the key is still there.
+        Task {
+            await PushRegistration.shared.unregister(on: connection)
+            connection.stop()
+        }
+        #else
+        connection.stop()
+        #endif
         KeyStore.delete(for: id)
         connections.remove(at: index)
         save()

@@ -103,6 +103,9 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.net.staude.amiscara.agents
+        # Pushes from the Mac app (#94); the export for TestFlight switches
+        # it to production.
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents

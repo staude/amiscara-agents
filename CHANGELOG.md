@@ -203,6 +203,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   when it changes and at least every five minutes; widgets hold no
   connection, so on iOS they show the state of the app's last run, with
   its age.
+- Pushes to iPhone, iPad and Apple Watch (#94): the Mac app on the host
+  sends "wartet" and "fertig" through APNs to the devices registered there,
+  so they arrive while the iOS app sleeps. iPhones and iPads with file
+  access for the host leave their push token in
+  `~/.amiscara-agents/push/` over SFTP. "Wartet" notifications, local and
+  pushed, have answer buttons (1, 2, 3, Enter, Esc) that also show on the
+  Watch; a tap reconnects in the background and sends the key. The APNs key
+  (.p8) is set in the host settings of "Dieser Mac" and stays in the
+  Keychain. Transport `write_file` replaces a file on the host.
 
 ### Changed
 
