@@ -176,6 +176,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   worktrees still nested; the switch applies without reconnecting. Core:
   `spaces::arrange(_, by_name)`, FFI `HostSession.start(..., group_spaces_by_name)`
   and `set_group_spaces_by_name` (#86).
+- Close tabs and spaces: "Tab schließen …" in the tab's context menu,
+  "Space schließen …" in the space row's, both also in the ✨ menu next to
+  the tab "+" (long presses are unreliable on iPad). Always confirmed, with
+  a warning when an agent inside is working or waiting. A repository's
+  space closes together with its linked worktree spaces, which herdr
+  requires; the checkouts stay. After closing the shown tab, herdr's
+  active tab is shown. Core: `actions::close_tab`, `close_workspace` (#93).
 
 ### Changed
 
