@@ -162,6 +162,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   history, are highlighted (ignoring case and accents); Return or ⌘G jumps to
   the next, ⇧⌘G to the previous, Esc closes. In a split tab it searches the
   selected pane (#55).
+- Space groups by name: `Privat/Dorfkino` shows as "Dorfkino" under a
+  foldable group row "Privat" with its number of spaces and waiting agents;
+  folding is kept per device. Split at the first `/`, trimmed; linked
+  worktrees stay under their repository and never form a group. ⌘K, ⌘1-⌘9,
+  agent rows, notifications, menu bar and Siri show the short name with the
+  group. Core: `herdr_core::spaces` (parsing and sidebar order), FFI
+  `SessionUpdate.spaceOrder`, `WorkspaceItem.name`/`group`,
+  `BoardItem.workspaceName`/`workspaceGroup` (#80).
 
 ### Fixed
 

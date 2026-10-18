@@ -48,7 +48,7 @@ struct AgentEntity: AppEntity {
         id = "\(connection.id.uuidString)/\(item.paneId)"
         name = item.agent.isEmpty ? String(localized: "Agent") : item.agent
         host = connection.config.name
-        space = item.workspaceLabel
+        space = item.spacePlace
         tab = item.tabLabel
         status = item.agentState.label
         isWaiting = item.agentState == .blocked

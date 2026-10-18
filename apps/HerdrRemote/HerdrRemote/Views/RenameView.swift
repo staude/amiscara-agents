@@ -34,6 +34,11 @@ struct RenameTarget: Identifiable {
         return false
     }
 
+    var isSpace: Bool {
+        if case .space = kind { return true }
+        return false
+    }
+
     /// Only with input allowed and a live connection, like every write.
     @MainActor static func available(on connection: HostConnection) -> Bool {
         connection.config.inputAllowed && connection.isLive
@@ -67,6 +72,11 @@ struct RenameView: View {
                 } else {
                     TextField("Name", text: $name)
                         .onSubmit(save)
+                    if target.isSpace {
+                        Text(SpaceNames.groupHint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if let error {
                     Text(error).foregroundStyle(.red)
@@ -88,7 +98,7 @@ struct RenameView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 400, height: target.isAgent ? 220 : 160)
+        .frame(width: 400, height: target.isAgent || target.isSpace ? 220 : 160)
         #else
         .presentationDetents([.medium])
         #endif
