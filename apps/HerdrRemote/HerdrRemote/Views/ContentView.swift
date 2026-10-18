@@ -16,8 +16,9 @@ struct ContentView: View {
         } detail: {
             WorkspaceDetailView(selection: selection)
         }
-        .onChange(of: store.notifier.openRequest) { _, request in
-            // A tapped notification opens its pane.
+        .onChange(of: store.notifier.openRequest, initial: true) { _, request in
+            // A tapped notification or menu bar entry opens its pane. Initial,
+            // because on the Mac the request may be what opened this window.
             guard let request else { return }
             selection = request
             store.notifier.openRequest = nil
@@ -29,6 +30,10 @@ struct ContentView: View {
         ))
         .sheet(isPresented: $switching) {
             QuickSwitcher { selection = $0 }
+        }
+        .onDisappear {
+            // A closed window shows no pane; its agents get banners again.
+            store.notifier.visiblePane = nil
         }
         .sheet(item: $editing) { config in
             HostEditorView(config: config)
