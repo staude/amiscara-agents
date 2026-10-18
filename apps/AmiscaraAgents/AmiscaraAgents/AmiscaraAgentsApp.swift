@@ -29,6 +29,9 @@ struct AmiscaraAgentsApp: App {
             store.notifier.appActive = phase == .active
             if phase == .active {
                 store.reconnectStale()
+            } else if phase == .background {
+                // The widgets keep showing this state until the app runs again.
+                store.widgets.publish(store, force: true)
             }
         }
         .commands { TerminalZoomCommands() }

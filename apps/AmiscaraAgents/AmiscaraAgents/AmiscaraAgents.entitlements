@@ -4,6 +4,10 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>7N2W4T6UPV.net.staude.amiscara.agents</string>
+	</array>
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
 </dict>

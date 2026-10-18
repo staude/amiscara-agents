@@ -7,6 +7,7 @@ import Observation
 final class HostStore {
     private(set) var connections: [HostConnection] = []
     let notifier = Notifier()
+    @ObservationIgnored let widgets = WidgetPublisher()
     var loadError: String?
 
     private let fileURL: URL = {
@@ -22,6 +23,8 @@ final class HostStore {
             save()
         }
         connections.forEach { $0.start() }
+        widgets.start(self)
+        widgets.publish(self)
     }
 
     /// A connection wired to notifications and the badge.
@@ -33,6 +36,7 @@ final class HostStore {
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
                 .count)
+            self.widgets.publish(self)
         }
         return connection
     }
@@ -106,5 +110,7 @@ final class HostStore {
         } catch {
             loadError = error.localizedDescription
         }
+        // Added, removed or renamed hosts show in the widgets at once.
+        widgets.publish(self)
     }
 }

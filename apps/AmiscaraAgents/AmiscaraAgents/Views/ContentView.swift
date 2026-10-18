@@ -46,6 +46,11 @@ struct ContentView: View {
             if pendingImport?.hostID != id { pendingImport = nil }
         }
         .onOpenURL { url in
+            // amiscara-agents://open?... from a widget opens that pane.
+            if let target = WidgetSnapshot.parseOpenURL(url) {
+                selection = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
+                return
+            }
             // amiscara-agents://add-host?... from a QR code or a pasted link.
             guard url.scheme?.lowercased() == "amiscara-agents" else { return }
             let config = HostConfig(name: "", kind: .ssh)
