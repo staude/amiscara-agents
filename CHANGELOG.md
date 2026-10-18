@@ -224,3 +224,5 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - iOS keyboard: a tap on the key bar or a quick reply no longer brings the
   keyboard back, the composer only gets its focus back if it had it, and a
   button above the keyboard hides it (#97).
+- Dictation keeps what was said before a pause: the recognizer starts its
+  transcription over after each utterance, which replaced the beginning (#98).

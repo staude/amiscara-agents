@@ -20,11 +20,21 @@ final class Dictation {
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var feed: AudioFeed?
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
+    /// Text of the utterances finished so far. After a pause the recognizer
+    /// starts its transcription over, so the earlier text is kept here.
+    @ObservationIgnored private var finished = ""
+    /// The latest transcription and whether its utterance ended (the
+    /// recognizer attaches metadata to an utterance's last result).
+    @ObservationIgnored private var current = ""
+    @ObservationIgnored private var currentEnded = false
 
     func start() async {
         guard !isRunning else { return }
         error = nil
         transcript = ""
+        finished = ""
+        current = ""
+        currentEnded = false
         guard let recognizer, recognizer.isAvailable else {
             error = String(localized: "Spracherkennung ist gerade nicht verfügbar.")
             return
@@ -96,15 +106,31 @@ final class Dictation {
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
+            let ended = result?.speechRecognitionMetadata != nil
             let done = error != nil || (result?.isFinal ?? false)
             let message = error.flatMap(Self.message(for:))
             Task { @MainActor in
                 guard let self else { return }
-                if let text { self.transcript = text }
+                if let text { self.receive(text, ended: ended) }
                 if let message, self.transcript.isEmpty { self.error = message }
                 if done && self.isRunning { self.stop() }
             }
         }
+    }
+
+    /// Keeps what was said before a pause: once an utterance has ended, a
+    /// transcription that does not continue it starts a new one.
+    private func receive(_ text: String, ended: Bool) {
+        if currentEnded, !current.isEmpty, !text.hasPrefix(current) {
+            finished = Self.join(finished, current)
+        }
+        current = text
+        currentEnded = ended
+        transcript = Self.join(finished, current)
+    }
+
+    private static func join(_ first: String, _ second: String) -> String {
+        [first, second].filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     /// While the iPad is remote controlled from a Mac (screen sharing with
