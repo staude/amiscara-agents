@@ -251,3 +251,5 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Reopening a pane over SSH no longer keeps loading: a pane follower is
   stopped between requests, since an SSH request dropped half way left
   the session unable to open new channels (#107).
+- Mac: the terminal's dark background no longer shows through the glass
+  sidebar; it stays inside the pane (#112).
