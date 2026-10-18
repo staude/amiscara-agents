@@ -290,6 +290,39 @@ impl HostSession {
             .into())
     }
 
+    /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
+    /// prompt and returns the agent's name. Without `name` it is named
+    /// after its kind, numbered when taken. Returns once herdr has typed
+    /// the command; the agent's state follows in the session updates.
+    pub fn start_agent(
+        &self,
+        pane_id: String,
+        kind: String,
+        name: Option<String>,
+    ) -> Result<String, FfiError> {
+        let conn = self.connection()?;
+        Ok(runtime()
+            .block_on(actions::start_agent(
+                &conn,
+                &pane_id,
+                &kind,
+                name.as_deref(),
+            ))?
+            .name)
+    }
+
+    /// Agent kinds the server can start, the usual ones first. Never fails:
+    /// without an answer it returns the kinds herdr 0.9 knows.
+    pub fn agent_kinds(&self) -> Vec<String> {
+        match self.connection() {
+            Ok(conn) => runtime().block_on(actions::agent_kinds(&conn)),
+            Err(_) => actions::AGENT_KINDS
+                .iter()
+                .map(|k| (*k).to_string())
+                .collect(),
+        }
+    }
+
     /// Renames a space. Blocks for one round trip.
     pub fn rename_workspace(&self, workspace_id: String, label: String) -> Result<(), FfiError> {
         let conn = self.connection()?;

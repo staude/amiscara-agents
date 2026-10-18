@@ -12,6 +12,9 @@ struct WorkspaceDetailView: View {
     @State private var tabID: String?
     @State private var paneID: String?
     @State private var tabError: String?
+    /// Kinds for "new tab with agent", from the host's herdr.
+    @State private var agentKinds: [String] = []
+    @State private var startingAgent = false
     @State private var renaming: RenameTarget?
 
     var body: some View {
@@ -39,6 +42,7 @@ struct WorkspaceDetailView: View {
                         PaneDetailView(selection: paneID.map { PaneRef(hostID: connection.id, paneID: $0) })
                     }
                 }
+                .focusedSceneValue(\.tabNavigator, workspace.tabs.count > 1 ? TabNavigator(step: { step(by: $0, in: workspace) }) : nil)
                 .navigationTitle(workspace.worktreeName ?? workspace.label)
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -111,12 +115,43 @@ struct WorkspaceDetailView: View {
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
-                    .padding(.horizontal, 8)
+                    .padding(.leading, 8)
+                    agentTabMenu(in: workspace, on: connection)
                 }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
         }
+    }
+
+    /// "New tab with agent": the usual kinds directly, the rest one level down.
+    private func agentTabMenu(in workspace: WorkspaceItem, on connection: HostConnection) -> some View {
+        let common = Array(agentKinds.prefix(5))
+        let more = Array(agentKinds.dropFirst(5))
+        return Menu {
+            Section("Neuer Tab mit Agent") {
+                ForEach(common, id: \.self) { kind in
+                    Button(kind) { newTab(in: workspace, on: connection, agent: kind) }
+                }
+            }
+            if !more.isEmpty {
+                Menu("Weitere") {
+                    ForEach(more, id: \.self) { kind in
+                        Button(kind) { newTab(in: workspace, on: connection, agent: kind) }
+                    }
+                }
+            }
+        } label: {
+            Label("Neuer Tab mit Agent", systemImage: "sparkles")
+        }
+        .labelStyle(.iconOnly)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .buttonStyle(.borderless)
+        .padding(.trailing, 8)
+        .disabled(startingAgent)
+        .help(String(localized: "Neuer Tab mit Agent"))
+        .task(id: connection.id) { agentKinds = await connection.agentKinds() }
     }
 
     private func panePicker(_ tab: TabItem) -> some View {
@@ -137,17 +172,36 @@ struct WorkspaceDetailView: View {
         tab.tabId == tabID || (tabID == nil && tab.panes.contains { $0.paneId == paneID })
     }
 
-    private func newTab(in workspace: WorkspaceItem, on connection: HostConnection) {
+    /// Creates a tab and shows it; with `agent` that agent starts in its shell.
+    private func newTab(in workspace: WorkspaceItem, on connection: HostConnection, agent: String? = nil) {
         tabError = nil
         Task {
+            let created: Created
             do {
-                let created = try await connection.createTab(in: workspace.workspaceId)
+                created = try await connection.createTab(in: workspace.workspaceId)
                 tabID = created.tabId
                 paneID = created.paneId
             } catch {
                 tabError = inputErrorMessage(error)
+                return
+            }
+            guard let agent else { return }
+            startingAgent = true
+            defer { startingAgent = false }
+            do {
+                _ = try await connection.startAgent(kind: agent, in: created.paneId)
+            } catch {
+                tabError = agentStartErrorMessage(error)
             }
         }
+    }
+
+    /// ⌘⇧[ and ⌘⇧]: the neighbouring tab, wrapping around like herdr.
+    private func step(by offset: Int, in workspace: WorkspaceItem) {
+        let tabs = workspace.tabs
+        guard !tabs.isEmpty else { return }
+        let index = tabs.firstIndex(where: isCurrent) ?? 0
+        select(tabs[(index + offset % tabs.count + tabs.count) % tabs.count])
     }
 
     private func select(_ tab: TabItem) {

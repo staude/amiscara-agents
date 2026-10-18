@@ -49,6 +49,8 @@ struct InputBar: View {
         }
         .padding(10)
         .disabled(sending || !connection.isLive)
+        // Keyboard shortcuts for the key bar, see AppCommands.
+        .focusedSceneValue(\.keySender, connection.isLive ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
         .onChange(of: dictation.error) { _, message in
             if let message { error = message }
         }
@@ -302,7 +304,7 @@ struct InputBar: View {
     private var answerButtons: some View {
         ForEach(["1", "2", "3"], id: \.self) { key in
             Button(key) { send(keys: [key]) }
-                .help("Option \(key) wählen")
+                .help("Option \(key) wählen (⌥⌘\(key))")
         }
         Button("Bestätigen", systemImage: "return") { send(keys: ["enter"]) }
             .buttonStyle(.borderedProminent)
@@ -320,15 +322,15 @@ struct InputBar: View {
         HStack(spacing: 4) {
             dictationButton
             Divider().frame(height: 16)
-            key("Esc", "esc")
+            key("Esc", "esc", help: "Esc (⌘.)")
             key("Tab", "tab")
-            key("⌃C", "ctrl+c", help: "Control-C")
+            key("⌃C", "ctrl+c", help: "Control-C (⌃C)")
             Divider().frame(height: 16)
-            key("↑", "up")
-            key("↓", "down")
-            key("←", "left")
-            key("→", "right")
-            key("↩", "enter", help: "Enter")
+            key("↑", "up", help: "↑ (⌥⌘↑)")
+            key("↓", "down", help: "↓ (⌥⌘↓)")
+            key("←", "left", help: "← (⌥⌘←)")
+            key("→", "right", help: "→ (⌥⌘→)")
+            key("↩", "enter", help: "Enter (⇧⌘↩)")
             Spacer()
         }
         .buttonStyle(.bordered)
