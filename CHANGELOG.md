@@ -107,6 +107,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
+- Add a host by QR code: "QR-Code zeigen" in a host's menu shows host, port,
+  user, socket and the trusted host key as a versioned
+  `herdr-remote://add-host?v=1&...` link (for "Dieser Mac" with a host name
+  you enter and the key from `/etc/ssh/ssh_host_ed25519_key.pub`). iPhone and
+  iPad scan it in the host editor (or open or paste the link), which fills in
+  the host and creates the device key; the host key is pinned only after the
+  user confirms its fingerprint. Links are checked strictly in Rust and never
+  replace a host key the app already trusts (#63).
 - Quick switcher (⌘K, or the magnifier in the sidebar): searches spaces and
   agents on all hosts by name, branch, agent and title and jumps there.
   Keyboard shortcuts in the "Gehe zu" and "Tasten" menus: ⌘1 to ⌘9 for the

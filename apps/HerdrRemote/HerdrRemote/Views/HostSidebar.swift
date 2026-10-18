@@ -17,6 +17,7 @@ struct HostSidebar: View {
     @Binding var editing: HostConfig?
     @Binding var switching: Bool
     @State private var newSpaceOn: HostConnection?
+    @State private var showingQR: HostConfig?
     @State private var renaming: RenameTarget?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
@@ -67,6 +68,9 @@ struct HostSidebar: View {
                 NoHostsView(editing: $editing)
             }
         }
+        .sheet(item: $showingQR) { config in
+            HostQRView(config: config)
+        }
         .sheet(item: $renaming) { target in
             RenameView(target: target)
         }
@@ -81,6 +85,7 @@ struct HostSidebar: View {
     private func hostActions(_ connection: HostConnection) -> some View {
         Button("Bearbeiten …", systemImage: "pencil") { editing = connection.config }
         Button("Neu verbinden", systemImage: "arrow.clockwise") { connection.start() }
+        Button("QR-Code zeigen …", systemImage: "qrcode") { showingQR = connection.config }
         Divider()
         Button("Entfernen", systemImage: "trash", role: .destructive) {
             store.remove(connection.id)

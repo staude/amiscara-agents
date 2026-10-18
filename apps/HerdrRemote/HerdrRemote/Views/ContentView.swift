@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var selection: SpaceRef?
     @State private var editing: HostConfig?
     @State private var dismissedKeyPrompts: Set<UUID> = []
+    /// An opened "add host" link and the new host it is meant for.
+    @State private var pendingImport: (hostID: UUID, link: String)?
     @State private var switching = false
 
     var body: some View {
@@ -37,8 +39,21 @@ struct ContentView: View {
             store.notifier.visiblePane = nil
         }
         .sheet(item: $editing) { config in
-            HostEditorView(config: config)
+            HostEditorView(config: config, importLink: pendingImport?.hostID == config.id ? pendingImport?.link : nil)
         }
+        .onChange(of: editing?.id) { _, id in
+            // Applied once: closing the editor or opening another drops it.
+            if pendingImport?.hostID != id { pendingImport = nil }
+        }
+        .onOpenURL { url in
+            // herdr-remote://add-host?... from a QR code or a pasted link.
+            guard url.scheme?.lowercased() == "herdr-remote" else { return }
+            let config = HostConfig(name: "", kind: .ssh)
+            pendingImport = (config.id, url.absoluteString)
+            editing = config
+        }
+        // Open links in the existing window instead of a new one.
+        .handlesExternalEvents(preferring: ["herdr-remote"], allowing: ["*"])
         .sheet(item: keyPrompt) { connection in
             HostKeyView(connection: connection) {
                 dismissedKeyPrompts.insert(connection.id)
