@@ -107,6 +107,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
+- Images can be pasted into the composer (⌘V, or "Aus Zwischenablage" under
+  the paperclip) and are attached like picked photos; text paste is
+  unchanged, and text wins when the clipboard holds both (#56).
 - Split tabs side by side on the Mac and iPad (regular width): every pane in
   herdr's arrangement with its own live screen, font shrunk to fit its
   columns; tapping a pane selects it for the input bar. Only the selected pane
