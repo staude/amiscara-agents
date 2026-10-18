@@ -105,6 +105,10 @@ private struct PaneTile: View {
                 Text(state.label).foregroundStyle(state.color).lineLimit(1)
             }
             if isSelected {
+                SelectTextButton(title: pane.map { $0.title.isEmpty ? $0.paneId : $0.title } ?? paneID) {
+                    model.content?.plainText ?? ""
+                }
+                .disabled(model.content == nil)
                 PaneSearchButton(state: search)
             }
         }

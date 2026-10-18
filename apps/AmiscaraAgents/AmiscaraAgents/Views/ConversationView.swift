@@ -33,6 +33,10 @@ struct ConversationView: View {
                         Button("Fertig") { dismiss() }
                     }
                     ToolbarItem(placement: .primaryAction) {
+                        SelectTextButton(title: String(localized: "Gesprächsverlauf")) { transcript }
+                            .disabled(items.isEmpty)
+                    }
+                    ToolbarItem(placement: .primaryAction) {
                         Button("Neu laden", systemImage: "arrow.clockwise") {
                             Task { await load(reset: true) }
                         }
@@ -68,6 +72,19 @@ struct ConversationView: View {
             }
             .defaultScrollAnchor(.bottom)
         }
+    }
+
+    /// The loaded entries as plain text: prompts after `>`, tool calls
+    /// after `·`, blank lines between entries.
+    private var transcript: String {
+        items.map { item in
+            switch item.entry.kind {
+            case .user: "> " + item.entry.text
+            case .assistant: item.entry.text
+            case .tool: "· " + item.entry.text
+            }
+        }
+        .joined(separator: "\n\n")
     }
 
     private var olderRow: some View {

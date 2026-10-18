@@ -232,7 +232,7 @@ private struct NewSpaceView: View {
                 }
                 AgentPicker(connection: connection, kind: $agentKind)
                 if let error {
-                    Text(error).foregroundStyle(.red)
+                    Text(error).foregroundStyle(.red).textSelection(.enabled)
                 }
             }
             .formStyle(.grouped)
@@ -331,7 +331,7 @@ struct NewWorktreeView: View {
                     ProgressView()
                 }
                 if let error {
-                    Text(error).foregroundStyle(.red)
+                    Text(error).foregroundStyle(.red).textSelection(.enabled)
                 }
             }
             .formStyle(.grouped)

@@ -227,6 +227,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   server; the .p8 settings and the device files in
   `~/.amiscara-agents/push/` are gone. Settings of "Dieser Mac" show the
   iCloud state and send a test push.
+- Select and copy text across lines (#123): "Text auswählen" in the pane
+  header (also in split tabs) and in the conversation view opens the
+  content in the system text view, where a selection can span lines (drag,
+  ⇧-click, ⌘A/⌘C on the Mac, handles on iPhone and iPad), with "Alles
+  kopieren". Error lines and banners can be selected as well.
 
 ### Changed
 

@@ -84,6 +84,10 @@ struct PaneDetailView: View {
                 .buttonStyle(.borderless)
                 .help(String(localized: "Gesprächsverlauf aus der Claude-Sitzung"))
             }
+            SelectTextButton(title: pane?.title.isEmpty == false ? pane!.title : paneID) {
+                model.content?.plainText ?? ""
+            }
+            .disabled(model.content == nil)
             PaneSearchButton(state: search)
             TerminalZoomMenu()
         }
@@ -121,6 +125,7 @@ struct Banner: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(.regularMaterial, in: Capsule())
+            .textSelection(.enabled)
             .padding(.top, 8)
     }
 }
