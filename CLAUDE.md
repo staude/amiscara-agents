@@ -1,4 +1,4 @@
-# herdr-remote-core - Projektregeln
+# Amiscara Agents (herdr-remote-core) - Projektregeln
 
 ## Zweck
 
@@ -19,8 +19,9 @@ Konzept: Vault `02 Projekte/Herdr Remote.md`. Aktueller Stand und nächste Schri
 - Schreibende Methoden (`agent.prompt`, `pane.send_keys`, `pane.send_text`, Anlegen von Workspaces) nur gegen eine eigene Test-Session testen: `herdr --session herdr-remote-test server` startet einen getrennten Server mit Socket `~/.config/herdr/sessions/herdr-remote-test/herdr.sock`. Danach `herdr session stop herdr-remote-test`.
 - Protokollversion steht in `herdr_proto::SUPPORTED_PROTOCOL` und wird bei `ping` geprüft.
 - Aufbau orientiert sich an `~/dev/torromail` (Workspace-Lints, Edition 2024).
-- App unter `apps/HerdrRemote` mit zwei Targets aus denselben Quellen: `HerdrRemote` (macOS 27) und `HerdrRemote-iOS` (iOS 27, iPhone und iPad). Xcode-Projekt nur über xcodegen (`project.yml`), `.xcodeproj` und `Generated/` sind nicht eingecheckt. Plattform-Unterschiede gebündelt in `Platform.swift`.
-- App bauen: `./setup.sh` einmal, danach `xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote -derivedDataPath target/xcode build`. Das Aggregate-Target `HerdrFFI` ruft `scripts/build-ffi.sh` vor beiden App-Targets; fehlt das Framework, baut `xcodegen generate` es einmal (`postGenCommand`).
+- App unter `apps/AmiscaraAgents` mit zwei Targets aus denselben Quellen: `AmiscaraAgents` (macOS 27) und `AmiscaraAgents-iOS` (iOS 27, iPhone und iPad). Xcode-Projekt nur über xcodegen (`project.yml`), `.xcodeproj` und `Generated/` sind nicht eingecheckt. Plattform-Unterschiede gebündelt in `Platform.swift`.
+- Name und Kennungen: App „Amiscara Agents“, Bundle-ID `net.staude.amiscara.agents`, URL-Schema `amiscara-agents://add-host?v=1&...` (QR-Kopplung, das alte `herdr-remote://` wird nicht mehr angenommen), Upload-Ordner auf dem Host `~/.amiscara-agents/uploads`, Keychain-Service `net.staude.amiscara.agents.ssh-key`. Die Rust-Crates heißen weiter `herdr-*`, weil sie das herdr-Protokoll beschreiben.
+- App bauen: `./setup.sh` einmal, danach `xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents -derivedDataPath target/xcode build`. Das Aggregate-Target `HerdrFFI` ruft `scripts/build-ffi.sh` vor beiden App-Targets; fehlt das Framework, baut `xcodegen generate` es einmal (`postGenCommand`).
 - Aufs iPad oder iPhone: `scripts/install-ios.sh` (findet das angeschlossene Gerät, baut, installiert per `devicectl`, startet ohne Debugger).
 - Bindings ohne UI prüfen: `scripts/ffi-smoke.sh` (lokal), mit `HERDR_SMOKE_SSH=user@host HERDR_SMOKE_KEY=<key>` zusätzlich der SSH- und Host-Key-Ablauf.
 - `MACOSX_DEPLOYMENT_TARGET` nicht für den Rust-Build setzen: Mit 27.0 lassen sich die Proc-Macro-Dylibs nicht mehr laden. Für die iOS-Slices setzt `build-ffi.sh` dagegen `IPHONEOS_DEPLOYMENT_TARGET=27.0`, sonst baut aws-lc für 27.1 und der Linker warnt. Nach einer Änderung daran `cargo clean -p aws-lc-sys --target <ios-triple>`.

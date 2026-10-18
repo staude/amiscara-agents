@@ -3,7 +3,7 @@ import Security
 
 /// Private SSH keys in the login Keychain, one item per host.
 enum KeyStore {
-    private static let service = "net.staude.herdrremote.ssh-key"
+    private static let service = "net.staude.amiscara.agents.ssh-key"
 
     enum Failure: LocalizedError {
         case status(OSStatus)
@@ -26,7 +26,7 @@ enum KeyStore {
             var item = query
             item[kSecValueData as String] = data
             item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            item[kSecAttrLabel as String] = "Herdr Remote SSH key"
+            item[kSecAttrLabel as String] = "Amiscara Agents SSH key"
             status = SecItemAdd(item as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw Failure.status(status) }

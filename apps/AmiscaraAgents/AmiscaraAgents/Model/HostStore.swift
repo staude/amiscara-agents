@@ -11,7 +11,7 @@ final class HostStore {
 
     private let fileURL: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appending(path: "HerdrRemote/hosts.json")
+        return base.appending(path: "AmiscaraAgents/hosts.json")
     }()
 
     init() {

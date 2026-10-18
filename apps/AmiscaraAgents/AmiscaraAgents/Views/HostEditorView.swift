@@ -137,7 +137,7 @@ struct HostEditorView: View {
         } header: {
             Text("Per QR-Code")
         } footer: {
-            Text("Auf dem Mac in Herdr Remote im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen.")
+            Text("Auf dem Mac in Amiscara Agents im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen.")
         }
     }
 
@@ -289,7 +289,7 @@ struct HostEditorView: View {
 
     private func generateKey() {
         do {
-            let key = try generateSshKey(comment: "herdr-remote \(Platform.deviceName)")
+            let key = try generateSshKey(comment: "amiscara-agents \(Platform.deviceName)")
             newPrivateKey = key.privateOpenssh
             config.publicKey = key.publicOpenssh
             error = nil

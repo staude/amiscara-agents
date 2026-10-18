@@ -6,7 +6,7 @@
 #
 # One-time setup (see docs/release.md):
 #   - "Developer ID Application" certificate of team 7N2W4T6UPV in the login keychain
-#   - notarytool profile:  xcrun notarytool store-credentials HerdrRemote \
+#   - notarytool profile:  xcrun notarytool store-credentials AmiscaraAgents \
 #                            --apple-id <apple-id> --team-id 7N2W4T6UPV
 #     (app-specific password from appleid.apple.com, not the account password)
 set -euo pipefail
@@ -14,8 +14,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 team="7N2W4T6UPV"
-profile="${NOTARY_PROFILE:-HerdrRemote}"
-spec="apps/HerdrRemote/project.yml"
+profile="${NOTARY_PROFILE:-AmiscaraAgents}"
+spec="apps/AmiscaraAgents/project.yml"
 out="target/release-app"
 install=false
 [[ "${1:-}" == "--install" ]] && install=true
@@ -35,27 +35,27 @@ fi
 
 version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"$/\1/p' "$spec")
 build=$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "\(.*\)"$/\1/p' "$spec")
-name="HerdrRemote-$version-$build"
-step "Herdr Remote $version ($build), $(git rev-parse --short HEAD)"
+name="AmiscaraAgents-$version-$build"
+step "Amiscara Agents $version ($build), $(git rev-parse --short HEAD)"
 
 rm -rf "$out"
 mkdir -p "$out"
 
 step "Rust core and Xcode project"
 scripts/build-ffi.sh release
-(cd apps/HerdrRemote && xcodegen generate --quiet)
+(cd apps/AmiscaraAgents && xcodegen generate --quiet)
 
 step "Archive"
-xcodebuild -project apps/HerdrRemote/HerdrRemote.xcodeproj -scheme HerdrRemote \
+xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents \
     -configuration Release -destination 'generic/platform=macOS' \
-    -derivedDataPath "$out/derived" -archivePath "$out/HerdrRemote.xcarchive" \
+    -derivedDataPath "$out/derived" -archivePath "$out/AmiscaraAgents.xcarchive" \
     -allowProvisioningUpdates archive -quiet
 
 step "Export with Developer ID"
-xcodebuild -exportArchive -archivePath "$out/HerdrRemote.xcarchive" \
+xcodebuild -exportArchive -archivePath "$out/AmiscaraAgents.xcarchive" \
     -exportOptionsPlist scripts/ExportOptions.plist -exportPath "$out/export" \
     -allowProvisioningUpdates -quiet
-app="$out/export/HerdrRemote.app"
+app="$out/export/AmiscaraAgents.app"
 codesign --verify --deep --strict --verbose=2 "$app"
 
 step "Notarize"
@@ -73,6 +73,6 @@ step "Done: $out/$name.zip"
 
 if $install; then
     step "Install to /Applications"
-    rm -rf "/Applications/HerdrRemote.app"
-    ditto "$app" "/Applications/HerdrRemote.app"
+    rm -rf "/Applications/AmiscaraAgents.app"
+    ditto "$app" "/Applications/AmiscaraAgents.app"
 fi

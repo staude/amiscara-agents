@@ -46,14 +46,14 @@ struct ContentView: View {
             if pendingImport?.hostID != id { pendingImport = nil }
         }
         .onOpenURL { url in
-            // herdr-remote://add-host?... from a QR code or a pasted link.
-            guard url.scheme?.lowercased() == "herdr-remote" else { return }
+            // amiscara-agents://add-host?... from a QR code or a pasted link.
+            guard url.scheme?.lowercased() == "amiscara-agents" else { return }
             let config = HostConfig(name: "", kind: .ssh)
             pendingImport = (config.id, url.absoluteString)
             editing = config
         }
         // Open links in the existing window instead of a new one.
-        .handlesExternalEvents(preferring: ["herdr-remote"], allowing: ["*"])
+        .handlesExternalEvents(preferring: ["amiscara-agents"], allowing: ["*"])
         .sheet(item: keyPrompt) { connection in
             HostKeyView(connection: connection) {
                 dismissedKeyPrompts.insert(connection.id)

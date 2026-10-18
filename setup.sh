@@ -26,5 +26,5 @@ if [[ "$(uname)" == "Darwin" ]]; then
     fi
     rustup target add aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim
     scripts/build-ffi.sh debug all
-    (cd apps/HerdrRemote && xcodegen generate)
+    (cd apps/AmiscaraAgents && xcodegen generate)
 fi

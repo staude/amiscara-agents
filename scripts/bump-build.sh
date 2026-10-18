@@ -5,7 +5,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-spec="apps/HerdrRemote/project.yml"
+spec="apps/AmiscaraAgents/project.yml"
 
 current=$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "\([0-9]*\)"$/\1/p' "$spec")
 if [[ -z "$current" ]]; then
@@ -14,5 +14,5 @@ if [[ -z "$current" ]]; then
 fi
 next=$((current + 1))
 sed -i '' "s/^\( *CURRENT_PROJECT_VERSION: \)\"$current\"$/\1\"$next\"/" "$spec"
-(cd apps/HerdrRemote && xcodegen generate --quiet)
+(cd apps/AmiscaraAgents && xcodegen generate --quiet)
 echo "build $current -> $next"

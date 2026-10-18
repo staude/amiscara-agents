@@ -2,4 +2,4 @@ target/
 .DS_Store
 .claude/settings.local.json
 *.xcodeproj
-apps/HerdrRemote/Generated/
+apps/AmiscaraAgents/Generated/
