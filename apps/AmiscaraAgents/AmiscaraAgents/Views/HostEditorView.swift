@@ -81,6 +81,12 @@ struct HostEditorView: View {
                 }
 
                 Section {
+                    Toggle("Spaces nach Namen gruppieren", isOn: $config.groupSpacesByName)
+                } footer: {
+                    Text("Ein Space namens „Bereich/Name“ erscheint als „Name“ in der Gruppe „Bereich“. Ausgeschaltet zeigt die App alle Spaces mit vollem Namen in der Reihenfolge von herdr.")
+                }
+
+                Section {
                     Toggle("Eingaben erlauben", isOn: $config.inputAllowed)
                 } footer: {
                     Text("Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten.")

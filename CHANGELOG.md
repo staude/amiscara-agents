@@ -170,6 +170,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   group. Core: `herdr_core::spaces` (parsing and sidebar order), FFI
   `SessionUpdate.spaceOrder`, `WorkspaceItem.name`/`group`,
   `BoardItem.workspaceName`/`workspaceGroup` (#80).
+- Space groups by name can be switched off per host: "Spaces nach Namen
+  gruppieren" in the host settings, on by default (also for saved hosts).
+  Off, the host shows herdr's flat order and full names everywhere, linked
+  worktrees still nested; the switch applies without reconnecting. Core:
+  `spaces::arrange(_, by_name)`, FFI `HostSession.start(..., group_spaces_by_name)`
+  and `set_group_spaces_by_name` (#86).
 
 ### Changed
 

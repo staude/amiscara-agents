@@ -222,16 +222,22 @@ pub trait PaneObserver: Send + Sync {
 #[derive(uniffi::Object)]
 pub struct HostSession {
     state: Mutex<Option<watch::Receiver<SyncState>>>,
+    /// Whether spaces are grouped by their "Bereich/Name" labels. A change
+    /// rebuilds the last update, so the app needs no reconnect.
+    group_by_name: watch::Sender<bool>,
     forward: JoinHandle<()>,
 }
 
 #[uniffi::export]
 impl HostSession {
     /// Connects in the background and reports to `observer` from then on.
-    #[uniffi::constructor]
+    /// `group_spaces_by_name` is the host's setting for the "Bereich/Name"
+    /// convention (see `herdr_core::spaces`).
+    #[uniffi::constructor(default(group_spaces_by_name = true))]
     pub fn start(
         endpoint: Endpoint,
         observer: Box<dyn SessionObserver>,
+        group_spaces_by_name: bool,
     ) -> Result<Arc<Self>, FfiError> {
         let connector = Connector::new(endpoint)?;
         let runtime = runtime();
@@ -241,25 +247,45 @@ impl HostSession {
             async move { connector.connect().await }
         });
         let mut updates = rx.clone();
+        let (group_by_name, mut grouping) = watch::channel(group_spaces_by_name);
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
             let mut previous: Option<Arc<herdr_core::SessionState>> = None;
             loop {
                 let state = updates.borrow_and_update().clone();
-                let update = convert::session_update(&state, previous.as_deref());
+                let by_name = *grouping.borrow_and_update();
+                let update = convert::session_update(&state, previous.as_deref(), by_name);
                 if state.session.is_some() {
                     previous = state.session.clone();
                 }
                 observer.on_update(update);
-                if updates.changed().await.is_err() {
-                    return;
+                // A changed setting alone rebuilds the same state; its
+                // attention is then empty, so nothing is notified twice.
+                tokio::select! {
+                    changed = updates.changed() => {
+                        if changed.is_err() {
+                            return;
+                        }
+                    }
+                    Ok(()) = grouping.changed() => {}
                 }
             }
         });
         Ok(Arc::new(Self {
             state: Mutex::new(Some(rx)),
+            group_by_name,
             forward,
         }))
+    }
+
+    /// Switches grouping by "Bereich/Name" on or off; the observer gets a
+    /// rebuilt update right away, without reconnecting.
+    pub fn set_group_spaces_by_name(&self, on: bool) {
+        self.group_by_name.send_if_modified(|current| {
+            let changed = *current != on;
+            *current = on;
+            changed
+        });
     }
 
     /// Ends the session and closes the connection. Pane followers stop too.

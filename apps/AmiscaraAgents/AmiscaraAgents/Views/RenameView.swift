@@ -72,7 +72,7 @@ struct RenameView: View {
                 } else {
                     TextField("Name", text: $name)
                         .onSubmit(save)
-                    if target.isSpace {
+                    if target.isSpace && target.connection.config.groupSpacesByName {
                         Text(SpaceNames.groupHint)
                             .font(.caption)
                             .foregroundStyle(.secondary)
