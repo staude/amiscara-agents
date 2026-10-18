@@ -207,3 +207,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Host status is a button on all platforms: it shows the state, the full error,
   a hint for common causes (VPN off, SSH off, socket missing, key not
   authorized) and "Jetzt verbinden"; tooltips never showed on iPad (#22).
+- The QR code for "Dieser Mac" warns when the host name is a short name
+  like "work": the Mac may resolve it through a search domain, iPhone and
+  iPad often do not, so the scanned host could not connect.
