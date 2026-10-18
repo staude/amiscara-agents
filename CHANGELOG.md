@@ -107,6 +107,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
+- Zoom the pane view: pinch, ⌘+ / ⌘- / ⌘0 (View menu, also on the iPad with
+  a hardware keyboard) or the "Aa" menu in the pane header change the
+  terminal font size (8 to 28 pt), one size for all panes, kept across
+  launches (#65).
 - Rename spaces, tabs and agents from the app (context menu or swipe on a
   space or agent row, context menu on a tab), only with input allowed.
   Agent names come from the snapshot's `agents` list; after `agent.rename`
