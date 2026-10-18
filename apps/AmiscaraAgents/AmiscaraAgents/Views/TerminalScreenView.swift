@@ -98,6 +98,8 @@ private struct HistoryHeader: View {
                 Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
                     model.loadMoreHistory()
                 }
+            } else if model.hasNoHistory {
+                Text("Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen.")
             } else if content.historyLines > 0, content.truncated {
                 Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
             } else if content.historyLines > 0 {

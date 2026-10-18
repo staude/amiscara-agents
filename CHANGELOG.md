@@ -224,6 +224,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - iOS keyboard: a tap on the key bar or a quick reply no longer brings the
   keyboard back, the composer only gets its focus back if it had it, and a
   button above the keyboard hides it (#97).
+- Dictation keeps what was said before a pause: the recognizer starts its
+  transcription over after each utterance, which replaced the beginning (#98).
+- History for full-screen programs such as Claude Code: when herdr has no
+  rows above the screen, the pane says so instead of seeming to load
+  nothing (#101).
 - Reopening a pane over SSH no longer keeps loading: a pane follower is
   stopped between requests, since an SSH request dropped half way left
   the session unable to open new channels (#107).
