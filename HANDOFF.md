@@ -80,7 +80,7 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
     - Die Oberflächen sind gebaut und per Smoke-Test geprüft, aber nicht durchgeklickt. Was zu probieren ist, steht in jedem PR.
 18. **Spaces nach Namen gruppieren (#80, PR #83):** `Privat/Dorfkino` steht unter der Gruppe „Privat“. Logik in `crates/herdr-core/src/spaces.rs`. herdr selbst kennt keine Ordner (Wunsch upstream: herdrdev/herdr#1953). Abschaltbar pro Host: #86.
 19. **Name Amiscara Agents (#81, #84, PR #85):** Schritt 1 (alles im Repo) ist gemergt. Offen aus #84: Schritt 2, GitHub-Repo `staude/herdr-remote-core` → `staude/amiscara-agents` und Ordner → `~/dev/amiscara/amiscara-agents` (mit Frank, Claude-Projektgedächtnis an den neuen Pfad mitnehmen), Schritt 3, Hosts auf den Geräten neu einrichten (alte App löschen, neue `authorized_keys`-Zeilen, alte `herdr-remote …`-Zeilen entfernen).
-20. Danach: App-Icon (#82, Vorschläge A bis C im Issue, Familienstil „Layered Depth“), Release (Developer-ID-Zertifikat und notarytool-Profil `AmiscaraAgents` legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone, Windows mit Tauri, Push-Nachrichten fürs iPhone, Abstand zum Upstream (#79).
+20. Danach: App-Icon (#82): Konzept A „Gestapelte Panes“ ist gewählt, Skizzen und Ebenen liegen in `docs/icon/` (PR #87, Akzentfarbe `#0E7C74` hell, `#2FD1A5` dunkel). Offen: `.icon` in Icon Composer bauen, in `project.yml` einbinden, `AccentColor` setzen. Weiter: Release (Developer-ID-Zertifikat und notarytool-Profil `AmiscaraAgents` legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone, Windows mit Tauri, Push-Nachrichten fürs iPhone, Abstand zum Upstream (#79).
 
 ## Hinweise für die nächste Session
 
