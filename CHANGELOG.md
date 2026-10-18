@@ -183,6 +183,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   space closes together with its linked worktree spaces, which herdr
   requires; the checkouts stay. After closing the shown tab, herdr's
   active tab is shown. Core: `actions::close_tab`, `close_workspace` (#93).
+- App icon (#82): concept A "Stacked panes", three glass panes with `>_`
+  and an amber dot, as an Icon Composer file (`AppIcon.icon`) for iPhone,
+  iPad and Mac with light and dark colours; tinted and clear come from the
+  system. Accent colour petrol `#0E7C74`, in dark mode `#2FD1A5`. Generated
+  by `docs/icon/A/appicon.py`.
 
 ### Changed
 

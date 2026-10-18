@@ -3,3 +3,4 @@ target/
 .claude/settings.local.json
 *.xcodeproj
 apps/AmiscaraAgents/Generated/
+__pycache__/
