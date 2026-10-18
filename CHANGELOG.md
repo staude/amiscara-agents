@@ -224,8 +224,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - iOS keyboard: a tap on the key bar or a quick reply no longer brings the
   keyboard back, the composer only gets its focus back if it had it, and a
   button above the keyboard hides it (#97).
+- Dictation keeps what was said before a pause: the recognizer starts its
+  transcription over after each utterance, which replaced the beginning (#98).
+- History for full-screen programs such as Claude Code: when herdr has no
+  rows above the screen, the pane says so instead of seeming to load
+  nothing (#101).
 - The open pane no longer keeps loading after the host reconnects, e.g. when
   the app comes back to the foreground: it follows the pane again on the
-  new session (#104). On the iPhone, opening the same pane again no longer
-  keeps loading either: the end of the view's previous appearance stopped
-  the pane just opened (#107).
+  new session (#104). On the iPhone, opening a pane a second time no longer
+  keeps loading either: the collapsed split view shows the earlier pane
+  view again without a new appear, and that view had stopped following
+  when it disappeared. Pane views now follow until they are released (#107).
