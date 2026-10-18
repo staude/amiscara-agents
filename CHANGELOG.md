@@ -219,6 +219,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   up to 20 MB). The text of a Finder text clipping goes into the prompt,
   as a .txt attachment when longer than 2000 characters. Errors say why a
   file was refused.
+- Pushes go through the user's private iCloud database (#119) instead of
+  an own APNs key: the Mac app on the host writes one CloudKit record per
+  pane and state ("wartet", "fertig"), iPhones and iPads with the same
+  Apple ID subscribe, and Apple sends the push with the answer buttons.
+  Devices find the host by its SSH host key fingerprint. No key and no
+  server; the .p8 settings and the device files in
+  `~/.amiscara-agents/push/` are gone. Settings of "Dieser Mac" show the
+  iCloud state and send a test push.
 
 ### Changed
 

@@ -5,7 +5,7 @@ import SwiftUI
 struct AmiscaraAgentsApp: App {
     @State private var store: HostStore
     #if os(iOS)
-    /// Push token and notification launches (#94).
+    /// Remote notifications for the iCloud subscriptions (#119).
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
     @Environment(\.scenePhase) private var scenePhase
@@ -33,6 +33,9 @@ struct AmiscaraAgentsApp: App {
             store.notifier.appActive = phase == .active
             if phase == .active {
                 store.reconnectStale()
+                #if os(iOS)
+                Task { await CloudPushSubscriptions.shared.install() }
+                #endif
             } else if phase == .background {
                 // The widgets keep showing this state until the app runs again.
                 store.widgets.publish(store, force: true)

@@ -18,6 +18,8 @@ final class Notifier: NSObject {
     /// Sends an answer key chosen on a notification (also on the Watch) to
     /// host and pane; true when it went out. Set by the store.
     @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String) async -> Bool)?
+    /// The host a push from iCloud names by its host key fingerprint.
+    @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
 
     /// The pane on screen, which gets no banner for its own changes.
     @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)? {
@@ -87,7 +89,6 @@ final class Notifier: NSObject {
             "pane": item.paneId,
         ]
         // One notification per pane: a newer state replaces the older one.
-        // The push for the same pane uses this id as collapse id.
         return UNNotificationRequest(identifier: AgentNotification.identifier(host.id, item.paneId), content: content, trigger: nil)
     }
 
@@ -126,8 +127,10 @@ extension Notifier: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         // While the app runs it posts its own notification for the pane;
-        // the push from the Mac would only repeat it.
-        if notification.request.trigger is UNPushNotificationTrigger {
+        // the push through iCloud would only repeat it. A test push names
+        // no pane and always shows.
+        if notification.request.trigger is UNPushNotificationTrigger,
+           CloudPush.target(of: notification.request.content.userInfo)?.paneID.isEmpty != true {
             return []
         }
         return [.banner, .list, .sound]
@@ -138,10 +141,18 @@ extension Notifier: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse
     ) async {
         let info = response.notification.request.content.userInfo
-        guard let host = (info["host"] as? String).flatMap(UUID.init(uuidString:)),
-              let workspace = info["workspace"] as? String,
-              let pane = info["pane"] as? String
-        else { return }
+        let host: UUID, workspace: String, pane: String
+        if let cloud = CloudPush.target(of: info) {
+            // From iCloud: the Mac names its host by key fingerprint.
+            guard let id = await hostForKey?(cloud.hostKey), !cloud.paneID.isEmpty else { return }
+            (host, workspace, pane) = (id, cloud.workspaceID, cloud.paneID)
+        } else if let id = (info["host"] as? String).flatMap(UUID.init(uuidString:)),
+                  let space = info["workspace"] as? String,
+                  let paneID = info["pane"] as? String {
+            (host, workspace, pane) = (id, space, paneID)
+        } else {
+            return
+        }
         if let key = AgentNotification.key(forAction: response.actionIdentifier) {
             // An answer button, e.g. on the Watch: send the key, stay closed.
             _ = await answer?(host, pane, key)

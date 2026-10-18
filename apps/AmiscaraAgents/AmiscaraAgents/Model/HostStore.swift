@@ -9,8 +9,8 @@ final class HostStore {
     let notifier = Notifier()
     @ObservationIgnored let widgets = WidgetPublisher()
     #if os(macOS)
-    /// Pushes to iPhones and iPads for the local host (#94).
-    let push = PushSender()
+    /// Events of the local host for pushes through iCloud (#119).
+    let cloudPush = CloudPushSender()
     #endif
     var loadError: String?
 
@@ -30,6 +30,9 @@ final class HostStore {
         notifier.answer = { [weak self] host, pane, key in
             await self?.answer(key, to: pane, on: host) ?? false
         }
+        notifier.hostForKey = { [weak self] key in
+            self?.connections.first { CloudPush.hostKey(forPublicKey: $0.config.pinnedHostKey) == key }?.id
+        }
         widgets.start(self)
         widgets.publish(self)
     }
@@ -46,10 +49,8 @@ final class HostStore {
             self.widgets.publish(self)
             #if os(macOS)
             if connection.config.kind == .local, connection.config.notificationsOn {
-                self.push.send(update.attention)
+                self.cloudPush.send(update.attention, hostName: Host.current().localizedName ?? connection.config.name)
             }
-            #else
-            PushRegistration.shared.register(on: connection)
             #endif
         }
         return connection
@@ -102,15 +103,7 @@ final class HostStore {
     func remove(_ id: UUID) {
         guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
         let connection = connections[index]
-        #if os(iOS)
-        // No more pushes for a host that is gone; the key is still there.
-        Task {
-            await PushRegistration.shared.unregister(on: connection)
-            connection.stop()
-        }
-        #else
         connection.stop()
-        #endif
         KeyStore.delete(for: id)
         connections.remove(at: index)
         save()

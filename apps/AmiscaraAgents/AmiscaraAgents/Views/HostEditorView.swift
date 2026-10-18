@@ -77,11 +77,19 @@ struct HostEditorView: View {
                 Section {
                     Toggle("Benachrichtigungen", isOn: $config.notificationsOn)
                 } footer: {
-                    Text("Mitteilung, wenn ein Agent auf eine Antwort wartet oder fertig ist. Auf iPad und iPhone ohne Push nur, solange die App läuft.")
+                    Text("Mitteilung, wenn ein Agent auf eine Antwort wartet oder fertig ist. Auf iPad und iPhone kommen sie im Hintergrund über iCloud, wenn die Mac-App auf dem Host läuft.")
                 }
                 #if os(macOS)
                 if config.kind == .local {
-                    PushSettingsSection(sender: store.push)
+                    CloudPushSection(sender: store.cloudPush)
+                }
+                #else
+                if let status = CloudPushSubscriptions.shared.status {
+                    Section("Push über iCloud") {
+                        Label(status, systemImage: CloudPushSubscriptions.shared.active ? "checkmark.icloud" : "exclamationmark.icloud")
+                            .foregroundStyle(CloudPushSubscriptions.shared.active ? Color.secondary : Color.orange)
+                            .textSelection(.enabled)
+                    }
                 }
                 #endif
 
