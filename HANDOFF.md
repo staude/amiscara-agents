@@ -6,7 +6,7 @@ Diese Datei fasst die Session zusammen, in der das Projekt entstanden ist (Claud
 
 Grafische Oberfläche für herdr (Agent-Multiplexer im Terminal, https://herdr.dev). Der herdr-Server auf work bleibt unverändert, die App ist ein weiterer Client. Bedienung auf iPad, iPhone, Mac und Windows mit Maus, Touch und Tastatur. Die Verfügbarkeit auf mehreren Plattformen ist das Alleinstellungsmerkmal.
 
-Konzept und Entscheidungen: Vault-Notiz `/Users/staude/Obsidian/Frank/02 Projekte/Herdr Remote.md`.
+Konzept und Entscheidungen: Vault-Notiz `/Users/staude/Obsidian/Frank/02 Projekte/Amiscara Agents.md`.
 
 Name seit 2026-10-18: **Amiscara Agents** (#81), Teil der Amiscara-Familie. App-Ordner `apps/AmiscaraAgents`, Schemes `AmiscaraAgents` und `AmiscaraAgents-iOS`, Bundle-ID `net.staude.amiscara.agents`, QR-Schema `amiscara-agents://`, Uploads nach `~/.amiscara-agents/uploads` (#85). Die Abschnitte unten nennen teils noch die alten Namen (`apps/HerdrRemote`, `net.staude.herdrremote`, `~/.herdr-remote`), weil sie den Stand ihres Tages beschreiben.
 
