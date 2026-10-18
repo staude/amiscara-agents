@@ -16,6 +16,8 @@ final class PaneModel {
     /// anything above it.
     @ObservationIgnored private var screenRows = 0
     @ObservationIgnored private(set) var paneID: String?
+    /// `HostConnection.generation` the follower belongs to.
+    @ObservationIgnored private var generation: Int?
     @ObservationIgnored private var live = true
 
     /// Each load asks for the next step; herdr returns at most
@@ -56,8 +58,14 @@ final class PaneModel {
 
     /// `live: false` reads the pane only every few seconds; for a pane shown
     /// beside the selected one, since every read costs a round trip.
+    ///
+    /// The follower lives as long as this model: views call this when their
+    /// pane or session changes, never stop it on disappearing. On the iPhone
+    /// a collapsed split view shows a pane view again without a new appear
+    /// after it disappeared, so a pane stopped there kept loading (#107).
+    /// Releasing the model releases the follower, which stops it.
     func show(paneID: String?, on connection: HostConnection?, live: Bool = true) {
-        guard paneID != self.paneID else {
+        guard paneID != self.paneID || connection?.generation != generation else {
             setLive(live)
             return
         }
@@ -69,6 +77,7 @@ final class PaneModel {
         historyLines = 0
         screenRows = 0
         self.paneID = paneID
+        generation = connection?.generation
         guard let paneID, let connection else { return }
         let bridge = PaneBridge(
             content: { [weak self] content in
@@ -96,9 +105,7 @@ final class PaneModel {
         if !live, historyLines > 0 { hideHistory() }
     }
 
-    func stop() {
-        show(paneID: nil, on: nil)
-    }
+
 }
 
 final class PaneBridge: PaneObserver {

@@ -32,12 +32,19 @@ struct PaneDetailView: View {
                 )
             }
         }
-        .onChange(of: selection, initial: true) { _, selection in
+        // A new session (e.g. after coming back to the foreground) ended the
+        // old follower, so the generation is part of the key. No stop on
+        // disappearing, see `PaneModel.show`.
+        .onChange(of: FollowKey(pane: selection, generation: store.connection(for: selection?.hostID)?.generation), initial: true) {
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
-            search.matchIndex = nil
         }
+        .onChange(of: selection) { search.matchIndex = nil }
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
-        .onDisappear { model.stop() }
+    }
+
+    private struct FollowKey: Hashable {
+        let pane: PaneRef?
+        let generation: Int?
     }
 
     private func pane(_ connection: HostConnection, _ paneID: String) -> PaneItem? {
