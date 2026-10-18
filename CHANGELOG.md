@@ -279,6 +279,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   and TypeScript in `apps/desktop`, Rust crate `amiscara-desktop`. The window
   opens with an empty host list; CI builds and bundles it on Windows (NSIS,
   MSI) and Linux (deb, AppImage).
+- Desktop app: hosts, keys and live sessions (#143). Hosts in `hosts.json`
+  in the app data folder, private keys in the OS store (Credential Manager,
+  Secret Service), never in the file. SSH with a key of its own (restricted
+  `authorized_keys` line with copy button) or the SSH agent; on Linux also
+  the local socket. Host key prompt with fingerprint, "add host" links pasted
+  or opened (`amiscara-agents://`), sidebar with spaces and panes, live pane
+  view with prompt input.
 
 ### Changed
 
@@ -292,6 +299,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - New crate `herdr-session` with the live session (reconnects, updates for
   the view, pane followers, actions, uploads, Claude history, key lines),
   shared by `herdr-ffi` and the desktop app (#142). The Swift API is unchanged.
+- The "add host" link moved to `herdr-session::link`; `herdr-session` sessions
+  can log in through the SSH agent (`SshIdentity::Agent`) (#143).
 
 ### Fixed
 

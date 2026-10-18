@@ -15,8 +15,27 @@ tauri-build = { version = "2.7", features = [] }
 [dependencies]
 herdr-proto = { version = "0.1.0", path = "../../../crates/herdr-proto" }
 herdr-session = { version = "0.1.0", path = "../../../crates/herdr-session" }
+herdr-transport = { version = "0.1.0", path = "../../../crates/herdr-transport" }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tauri = { version = "2.12", features = [] }
+tauri-plugin-deep-link = "2.6"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+
+# Keys live in the OS store: Credential Manager, Secret Service (pure Rust
+# D-Bus, no libdbus), Keychain for development on the Mac.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6", features = ["async-secret-service", "tokio", "crypto-rust"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6", features = ["apple-native"] }
+
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = { version = "2.5", features = ["deep-link"] }
 
 [lints]
 workspace = true

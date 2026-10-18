@@ -32,3 +32,56 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+
+:root {
+  --term-bg: #ffffff;
+  --term-fg: #1b1f20;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --term-bg: #0f1213;
+    --term-fg: #e6eaeb;
+  }
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+input,
+select,
+textarea {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  min-width: 0;
+}
+
+code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  font-size: 12px;
+}

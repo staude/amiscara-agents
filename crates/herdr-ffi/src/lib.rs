@@ -68,6 +68,7 @@ impl From<SessionError> for FfiError {
             SessionError::AgentBlocked(message) => Self::AgentBlocked(message),
             SessionError::Rejected(message) => Self::Rejected(message),
             SessionError::Upload(message) => Self::Upload(message),
+            SessionError::InvalidLink(message) => Self::InvalidLink(message),
             SessionError::Files(message) => Self::Files(message),
         }
     }
@@ -108,7 +109,7 @@ impl From<Endpoint> for herdr_session::Endpoint {
                 host,
                 port,
                 user,
-                private_key_openssh,
+                identity: herdr_session::SshIdentity::Key(private_key_openssh),
                 pinned_host_key,
                 socket_path,
             },
