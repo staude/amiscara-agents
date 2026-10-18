@@ -1,12 +1,18 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import ContextMenu from "./components/ContextMenu.svelte";
   import HostEditor from "./components/HostEditor.svelte";
   import HostPanel from "./components/HostPanel.svelte";
   import LinkDialog from "./components/LinkDialog.svelte";
+  import ManageDialogs from "./components/ManageDialogs.svelte";
+  import QuickSwitcher from "./components/QuickSwitcher.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import WorkspaceView from "./components/WorkspaceView.svelte";
   import * as core from "./lib/core";
   import { activeFind } from "./lib/find.svelte";
+  import { ui } from "./lib/manage.svelte";
+  import { nav } from "./lib/nav.svelte";
+  import { arrange } from "./lib/spaces";
   import { prefs } from "./lib/prefs.svelte";
   import { model } from "./lib/state.svelte";
   import type { HostConfig } from "./lib/types";
@@ -17,33 +23,67 @@
   onMount(() => {
     model.load().catch((err) => (model.error = core.errorText(err)));
     void core.onAddHostLink((url) => (linkDialog = { url }));
+    void core.onOpenPane(({ hostId, workspaceId, paneId }) => {
+      const workspace =
+        workspaceId ||
+        model.updates[hostId]?.board.find((a) => a.paneId === paneId)?.workspaceId ||
+        null;
+      model.select(hostId, workspace, paneId);
+    });
     core
       .pendingLinks()
       .then((urls) => urls[0] && (linkDialog = { url: urls[0] }))
       .catch(() => {});
   });
 
-  // Ctrl+F and F3 search the selected pane, Ctrl+plus/minus/0 zoom the
-  // terminal (Cmd on the Mac during development).
+  // Shortcuts like the Mac app's menu commands, with Ctrl for Cmd (Cmd
+  // also works on the Mac during development). Ctrl+Alt is AltGr on
+  // Windows, so a key typed with AltGr is never taken.
   function onKey(event: KeyboardEvent) {
     const mod = event.ctrlKey || event.metaKey;
-    if (mod && !event.altKey && event.key.toLowerCase() === "f" && activeFind.find) {
-      event.preventDefault();
-      activeFind.find.show();
-    } else if (event.key === "F3" && activeFind.find) {
-      event.preventDefault();
-      if (!activeFind.find.open) activeFind.find.show();
-      else activeFind.find.step(event.shiftKey ? -1 : 1, activeFind.matches);
-    } else if (mod && (event.key === "+" || event.key === "=")) {
-      event.preventDefault();
-      prefs.zoom(1);
-    } else if (mod && event.key === "-") {
-      event.preventDefault();
-      prefs.zoom(-1);
-    } else if (mod && event.key === "0") {
-      event.preventDefault();
-      prefs.zoom(null);
-    }
+    const key = event.key;
+    const handled = (() => {
+      if (event.getModifierState("AltGraph")) return false;
+      if (mod && event.altKey && nav.keySender) {
+        const arrows: Record<string, string> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+        const digit = event.code.match(/^(?:Digit|Numpad)([1-3])$/)?.[1];
+        if (digit && nav.keySender.blocked) return nav.keySender.send([digit]), true;
+        if (arrows[key]) return nav.keySender.send([arrows[key]]), true;
+        return false;
+      }
+      if (mod && event.shiftKey && key === "Enter" && nav.keySender) return nav.keySender.send(["enter"]), true;
+      if (mod && !event.shiftKey && key === "." && nav.keySender) return nav.keySender.send(["esc"]), true;
+      if (mod && !event.altKey && key.toLowerCase() === "k") return (nav.switcherOpen = true), true;
+      if (mod && !event.altKey && key.toLowerCase() === "f" && activeFind.find) return activeFind.find.show(), true;
+      if (key === "F3" && activeFind.find) {
+        if (!activeFind.find.open) activeFind.find.show();
+        else activeFind.find.step(event.shiftKey ? -1 : 1, activeFind.matches);
+        return true;
+      }
+      // Tabs: Ctrl+Shift+[ / ] by key position (any layout), Ctrl+PageUp/Down.
+      if (mod && nav.stepTab && ((event.shiftKey && event.code === "BracketLeft") || key === "PageUp")) {
+        return nav.stepTab(-1), true;
+      }
+      if (mod && nav.stepTab && ((event.shiftKey && event.code === "BracketRight") || key === "PageDown")) {
+        return nav.stepTab(1), true;
+      }
+      if (mod && !event.altKey && !event.shiftKey && /^Digit[1-9]$/.test(event.code)) {
+        return selectSpace(Number(event.code.slice(5))), true;
+      }
+      if (mod && (key === "+" || key === "=")) return prefs.zoom(1), true;
+      if (mod && key === "-") return prefs.zoom(-1), true;
+      if (mod && event.code === "Digit0") return prefs.zoom(null), true;
+      return false;
+    })();
+    if (handled) event.preventDefault();
+  }
+
+  /** Ctrl+1 to Ctrl+9: the spaces of the current host in sidebar order. */
+  function selectSpace(number: number) {
+    const hostId = model.selection?.hostId ?? model.hosts[0]?.id;
+    const update = hostId ? model.updates[hostId] : undefined;
+    const space = update ? arrange(update)[number - 1] : undefined;
+    if (hostId && space) model.select(hostId, space.workspace.workspaceId);
   }
 </script>
 
@@ -84,6 +124,13 @@
 {/if}
 {#if linkDialog}
   <LinkDialog url={linkDialog.url} close={() => (linkDialog = null)} />
+{/if}
+<ManageDialogs />
+{#if ui.menu}
+  <ContextMenu x={ui.menu.x} y={ui.menu.y} items={ui.menu.items} close={() => (ui.menu = null)} />
+{/if}
+{#if nav.switcherOpen}
+  <QuickSwitcher close={() => (nav.switcherOpen = false)} />
 {/if}
 
 <style>

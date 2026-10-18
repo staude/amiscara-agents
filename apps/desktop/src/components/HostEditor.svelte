@@ -133,7 +133,15 @@
         checked={draft.allowInput ?? true}
         onchange={(e) => (draft.allowInput = e.currentTarget.checked)}
       />
-      Eingaben an Agents senden
+      Eingaben an Agents senden (Prompts, Tasten, Anlegen und Schließen)
+    </label>
+    <label class="check">
+      <input
+        type="checkbox"
+        checked={draft.notify ?? true}
+        onchange={(e) => (draft.notify = e.currentTarget.checked)}
+      />
+      Benachrichtigen, wenn ein Agent wartet oder fertig ist
     </label>
 
     {#if error}<p class="error">{error}</p>{/if}

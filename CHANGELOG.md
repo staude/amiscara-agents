@@ -295,6 +295,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   replies (editable), attachments by drag and drop, paste or file dialog
   (#116 rules), Claude conversation history (#102). `npm run mock` shows the
   window in a browser with sample data.
+- Desktop app: tray, notifications, management and shortcuts (#145). Tray
+  icon with the number of waiting agents and a menu to open them; closing
+  the window keeps the app and its sessions in the tray, optional start
+  with the system. Notifications when an agent waits or finishes (Windows
+  toasts, libnotify) open the pane, answer buttons send 1, 2, 3, Enter or
+  Esc; none for the pane on screen, switchable per host. New space, tab
+  (with agent) and worktree, rename, close with confirmation. Quick switcher
+  (Ctrl+K), Ctrl+1 to 9 for spaces, Ctrl+Shift+[ ] and Ctrl+PageUp/Down for
+  tabs, Ctrl+Alt+1 to 3 and arrows, Ctrl+. (Esc) and Ctrl+Shift+Enter for the
+  pane. `amiscara-agents://open?host=…&pane=…` opens a pane.
 
 ### Changed
 

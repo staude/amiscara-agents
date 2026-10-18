@@ -260,6 +260,14 @@ mockIPC(
       }
       case "claude_history":
         return { sessionPath: "s", entries: transcript, start: 0 };
+      case "agent_kinds":
+        return ["claude", "codex", "opencode", "gemini", "pi"];
+      case "autostart":
+        return false;
+      case "create_workspace":
+      case "create_tab":
+      case "create_worktree":
+        return { workspaceId: "w2", tabId: "t3", paneId: "p5" };
       case "upload":
         return "/Users/frank/.amiscara-agents/uploads/img-1.png";
       default:

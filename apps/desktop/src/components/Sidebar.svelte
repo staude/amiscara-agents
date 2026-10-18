@@ -1,5 +1,7 @@
 <script lang="ts">
   import * as core from "../lib/core";
+  import { canWrite, openMenu, spaceMenu, ui } from "../lib/manage.svelte";
+  import { nav } from "../lib/nav.svelte";
   import { prefs } from "../lib/prefs.svelte";
   import { arrange, blocks, sortedAgents, stateLabel } from "../lib/spaces";
   import { model } from "../lib/state.svelte";
@@ -51,8 +53,10 @@
   <div class="top">
     <span class="app">Amiscara Agents</span>
     <span class="tools">
+      <button class="icon" title="Space oder Agent suchen (Strg+K)" onclick={() => (nav.switcherOpen = true)}>⌕</button>
       <button class="icon" title="Host aus Link hinzufügen" onclick={addLink}>⧉</button>
       <button class="icon" title="Host hinzufügen" onclick={addHost}>+</button>
+      <button class="icon" title="Einstellungen" onclick={() => (ui.dialog = { kind: "settings" })}>⚙</button>
     </span>
   </div>
 
@@ -75,6 +79,13 @@
         tabindex="0"
         onclick={() => model.select(host.id)}
         onkeydown={(e) => onHostKey(e, host)}
+        oncontextmenu={(e) =>
+          openMenu(e, [
+            { label: "Einstellungen und Schlüssel", action: () => model.select(host.id) },
+            { label: "Neu verbinden", action: () => void core.connect(host.id) },
+            null,
+            { label: "Neuer Space …", disabled: !canWrite(host.id), action: () => (ui.dialog = { kind: "newSpace", hostId: host.id }) },
+          ])}
         title="Einstellungen und Verbindung"
       >
         <span class="glyph">{host.kind === "local" ? "▣" : "⇄"}</span>
@@ -85,10 +96,15 @@
 
       {#if update}
         {@const spacesFolded = prefs.isCollapsed(host.id, "spaces")}
-        <button class="section" onclick={() => prefs.toggle(host.id, "spaces")}>
-          <span class="chevron" class:open={!spacesFolded}>›</span> spaces
-          {#if spacesFolded}<span class="small">{update.workspaces.length}</span>{/if}
-        </button>
+        <div class="section-row">
+          <button class="section" onclick={() => prefs.toggle(host.id, "spaces")}>
+            <span class="chevron" class:open={!spacesFolded}>›</span> spaces
+            {#if spacesFolded}<span class="small">{update.workspaces.length}</span>{/if}
+          </button>
+          {#if canWrite(host.id)}
+            <button class="order" title="Neuer Space" onclick={() => (ui.dialog = { kind: "newSpace", hostId: host.id })}>+</button>
+          {/if}
+        </div>
         {#if !spacesFolded}
           {#each blocks(arrange(update)) as block (block.kind === "space" ? block.entry.workspace.workspaceId : `group/${block.name}`)}
             {#if block.kind === "group"}
@@ -108,6 +124,7 @@
                 class:grouped={block.kind === "group"}
                 class:selected={isSpace(host.id, entry.workspace.workspaceId)}
                 onclick={() => model.select(host.id, entry.workspace.workspaceId)}
+                oncontextmenu={(e) => openMenu(e, spaceMenu(host.id, entry.workspace))}
               >
                 {#if entry.nested}<span class="nest">└</span>{/if}
                 <StatusDot state={entry.workspace.agentState} />
@@ -147,6 +164,21 @@
                 class="row agent"
                 class:selected={isAgent(host.id, entry.agent.paneId)}
                 onclick={() => model.select(host.id, entry.agent.workspaceId, entry.agent.paneId)}
+                oncontextmenu={(e) =>
+                  openMenu(e, [
+                    {
+                      label: "Agent benennen …",
+                      disabled: !canWrite(host.id),
+                      action: () =>
+                        (ui.dialog = {
+                          kind: "rename",
+                          hostId: host.id,
+                          target: "agent",
+                          id: entry.agent.paneId,
+                          current: entry.agent.name ?? "",
+                        }),
+                    },
+                  ])}
               >
                 <StatusDot state={entry.agent.agentState} />
                 <span class="lines">
