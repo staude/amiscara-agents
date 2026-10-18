@@ -10,6 +10,9 @@ final class HostConnection: Identifiable {
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
     @ObservationIgnored private var session: HostSession?
+    /// Counts session starts. Pane followers end with their session, so a
+    /// pane view follows its pane again when this changes.
+    private(set) var generation = 0
     /// Called on the main actor after every update, e.g. for notifications.
     @ObservationIgnored var onUpdate: ((HostConnection, SessionUpdate) -> Void)?
     nonisolated let id: UUID
@@ -42,6 +45,7 @@ final class HostConnection: Identifiable {
                 observer: bridge,
                 groupSpacesByName: config.groupSpacesByName
             )
+            generation += 1
         } catch {
             startError = error.localizedDescription
         }
