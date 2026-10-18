@@ -212,7 +212,7 @@ private struct NewSpaceView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $name, prompt: Text("z. B. Privat/Dorfkino"))
+                    TextField("Name", text: $name, prompt: connection.config.groupSpacesByName ? Text("z. B. Privat/Dorfkino") : Text("z. B. Dorfkino"))
                     TextField("Verzeichnis", text: $directory, prompt: Text("~/dev/projekt"))
                         .technicalInput()
                     if !directory.isEmpty {
@@ -221,7 +221,9 @@ private struct NewSpaceView: View {
                             .foregroundStyle(.secondary)
                     }
                 } footer: {
-                    Text(SpaceNames.groupHint)
+                    if connection.config.groupSpacesByName {
+                        Text(SpaceNames.groupHint)
+                    }
                 }
                 AgentPicker(connection: connection, kind: $agentKind)
                 if let error {

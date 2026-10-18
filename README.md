@@ -108,6 +108,12 @@ iPad, iPhone and Mac show the same groups without any sync; herdr itself
 simply shows the full name. Name a space this way when creating it or via
 "Umbenennen …".
 
+The grouping is a per-host switch: "Spaces nach Namen gruppieren" in the host
+settings ("…" › "Bearbeiten …"), on by default. Switched off, that host shows
+its spaces as herdr does, with full names in herdr's order (linked worktrees
+still under their repository), in the sidebar, ⌘K, ⌘1-⌘9, agent rows,
+notifications, menu bar and Siri. The change applies at once.
+
 Images: the paperclip in the composer uploads pictures to
 `~/.amiscara-agents/uploads/` on the host and appends their paths to the prompt.
 For SSH hosts this needs the switch "Bilder hochladen (SFTP)" and the key line

@@ -198,7 +198,13 @@ pub enum TermColor {
     },
 }
 
-pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> SessionUpdate {
+/// `group_by_name` is the host's setting for the "Bereich/Name" convention:
+/// off, every space keeps its full label and herdr's order.
+pub fn session_update(
+    state: &SyncState,
+    previous: Option<&SessionState>,
+    group_by_name: bool,
+) -> SessionUpdate {
     let status = match &state.status {
         SyncStatus::Connecting => HostStatus::Connecting,
         SyncStatus::Live => HostStatus::Live,
@@ -231,10 +237,10 @@ pub fn session_update(state: &SyncState, previous: Option<&SessionState>) -> Ses
         };
     };
 
-    let arranged = spaces::arrange(&session.workspaces);
+    let arranged = spaces::arrange(&session.workspaces, group_by_name);
     let names: HashMap<&str, (&str, Option<&str>)> = arranged
         .iter()
-        .map(|p| (p.workspace.workspace_id.as_str(), (p.name(), p.group)))
+        .map(|p| (p.workspace.workspace_id.as_str(), (p.name, p.group)))
         .collect();
     let short_name = |workspace_id: &str, label: &str| -> String {
         names

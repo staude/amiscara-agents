@@ -5,6 +5,9 @@
 //! `Privat/Dorfkino` belongs to the group `Privat` and is shown as
 //! `Dorfkino`. The name lives on the server, so every device sees the same
 //! groups, and herdr's own sidebar simply shows the full name.
+//!
+//! The convention is optional per host: without it, [`arrange`] keeps
+//! herdr's flat order and full names, and only nests linked worktrees.
 
 use herdr_proto::WorkspaceInfo;
 
@@ -50,16 +53,28 @@ pub struct Placed<'a> {
     /// repository's group; its own label (often a branch like `feature/x`)
     /// never makes one.
     pub group: Option<&'a str>,
+    /// Name of the space as the sidebar row shows it (before any branch a
+    /// nested worktree is named after): the short name inside a group,
+    /// otherwise the full label.
+    pub name: &'a str,
 }
 
-impl Placed<'_> {
-    /// Short name of the space, as the sidebar row shows it (before any
-    /// branch a nested worktree is named after).
-    pub fn name(&self) -> &str {
-        if is_linked(self.workspace) {
-            &self.workspace.label
-        } else {
-            SpaceName::parse(&self.workspace.label).name
+/// Places a space that is not a nested worktree.
+fn place(workspace: &WorkspaceInfo, nested: bool, by_name: bool) -> Placed<'_> {
+    let parsed = SpaceName::parse(&workspace.label);
+    if by_name && !is_linked(workspace) {
+        Placed {
+            workspace,
+            nested,
+            group: parsed.group,
+            name: parsed.name,
+        }
+    } else {
+        Placed {
+            workspace,
+            nested,
+            group: None,
+            name: &workspace.label,
         }
     }
 }
@@ -84,7 +99,10 @@ fn repo_key(workspace: &WorkspaceInfo) -> Option<&str> {
 /// the group's first space, so groups keep herdr's order among each other
 /// and ungrouped spaces stay where they were. Entries of one group are
 /// always adjacent.
-pub fn arrange(workspaces: &[WorkspaceInfo]) -> Vec<Placed<'_>> {
+///
+/// With `by_name` off no space forms a group: the order is herdr's and
+/// every name is the full label, as herdr's own sidebar shows it.
+pub fn arrange(workspaces: &[WorkspaceInfo], by_name: bool) -> Vec<Placed<'_>> {
     let mut sorted: Vec<&WorkspaceInfo> = workspaces.iter().collect();
     sorted.sort_by_key(|ws| ws.number);
 
@@ -95,20 +113,16 @@ pub fn arrange(workspaces: &[WorkspaceInfo]) -> Vec<Placed<'_>> {
         if is_linked(workspace) {
             continue;
         }
-        let group = SpaceName::parse(&workspace.label).group;
-        let mut members = vec![Placed {
-            workspace,
-            nested: false,
-            group,
-        }];
+        let head = place(workspace, false, by_name);
+        let group = head.group;
+        let mut members = vec![head];
         placed[index] = true;
         if let Some(repo) = repo_key(workspace) {
             for (other, &worktree) in sorted.iter().enumerate() {
                 if !placed[other] && is_linked(worktree) && repo_key(worktree) == Some(repo) {
                     members.push(Placed {
-                        workspace: worktree,
-                        nested: true,
                         group,
+                        ..place(worktree, true, false)
                     });
                     placed[other] = true;
                 }
@@ -119,14 +133,7 @@ pub fn arrange(workspaces: &[WorkspaceInfo]) -> Vec<Placed<'_>> {
     // Worktrees whose main checkout has no space of their own.
     for (index, &workspace) in sorted.iter().enumerate() {
         if !placed[index] {
-            units.push((
-                None,
-                vec![Placed {
-                    workspace,
-                    nested: false,
-                    group: None,
-                }],
-            ));
+            units.push((None, vec![place(workspace, false, false)]));
         }
     }
 
@@ -202,7 +209,11 @@ mod tests {
 
     /// `id`, `nested`, `group` per entry.
     fn layout(workspaces: &[WorkspaceInfo]) -> Vec<(&str, bool, Option<&str>)> {
-        arrange(workspaces)
+        layout_with(workspaces, true)
+    }
+
+    fn layout_with(workspaces: &[WorkspaceInfo], by_name: bool) -> Vec<(&str, bool, Option<&str>)> {
+        arrange(workspaces, by_name)
             .into_iter()
             .map(|p| (p.workspace.workspace_id.as_str(), p.nested, p.group))
             .collect()
@@ -262,7 +273,7 @@ mod tests {
             repo("w6", 6, "plain", "plain"),
             worktree("w7", 7, "feature/z", "plain"),
         ];
-        let arranged = arrange(&spaces);
+        let arranged = arrange(&spaces, true);
         assert_eq!(
             layout(&spaces),
             [
@@ -276,7 +287,7 @@ mod tests {
                 ("w5", false, None)
             ]
         );
-        let names: Vec<&str> = arranged.iter().map(Placed::name).collect();
+        let names: Vec<&str> = arranged.iter().map(|p| p.name).collect();
         assert_eq!(
             names,
             [
@@ -308,5 +319,47 @@ mod tests {
                 ("w3", false, None)
             ]
         );
+    }
+    #[test]
+    fn without_grouping_order_and_names_are_herdrs() {
+        let spaces = [
+            repo("w1", 1, "Privat/Dorfkino", "kino"),
+            space("w2", 2, "notes"),
+            space("w3", 3, "Privat/Bürgertreff"),
+            worktree("w4", 4, "feature/x", "kino"),
+            space("w5", 5, "Arbeit/torromail"),
+            worktree("w6", 6, "feature/y", "other"),
+        ];
+        // Worktrees still sit under their repository; nothing else moves.
+        assert_eq!(
+            layout_with(&spaces, false),
+            [
+                ("w1", false, None),
+                ("w4", true, None),
+                ("w2", false, None),
+                ("w3", false, None),
+                ("w5", false, None),
+                ("w6", false, None)
+            ]
+        );
+        let names: Vec<&str> = arrange(&spaces, false).iter().map(|p| p.name).collect();
+        assert_eq!(
+            names,
+            [
+                "Privat/Dorfkino",
+                "feature/x",
+                "notes",
+                "Privat/Bürgertreff",
+                "Arbeit/torromail",
+                "feature/y"
+            ]
+        );
+    }
+
+    #[test]
+    fn grouping_gives_short_names() {
+        let spaces = [space("w1", 1, "Privat / Dorfkino"), space("w2", 2, "/lead")];
+        let names: Vec<&str> = arrange(&spaces, true).iter().map(|p| p.name).collect();
+        assert_eq!(names, ["Dorfkino", "/lead"]);
     }
 }
