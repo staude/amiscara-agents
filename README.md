@@ -95,7 +95,12 @@ with Xcode once (Window → Devices and Simulators). On the TV a tab bar holds
 **Agents** (all agents as cards, waiting first), **Spaces** and **Hosts**;
 swipes on the Siri Remote scroll a focused pane, the back button returns.
 Camera, clipboard, files, the app's own dictation, widgets, notifications and
-keyboard shortcuts do not exist on tvOS and are left out there.
+keyboard shortcuts do not exist on tvOS and are left out there. With the app
+in the top row of the home screen, the **Top Shelf** shows the agents of all
+hosts (waiting first); selecting one opens its pane. The app updates them
+while it runs, like the widgets on iPhone and Mac. The layered icon and the
+Top Shelf images come from `docs/icon/A/tvicon.swift` (Icon Composer has no
+tvOS).
 
 **Pairing:** under Hosts → „Mit iPhone koppeln“ the TV shows a QR code with
 its own public key. Scanning it with the iPhone camera opens the app there;

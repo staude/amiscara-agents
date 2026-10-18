@@ -247,6 +247,7 @@ targets:
       - target: HerdrFFI
       - framework: Generated/HerdrFFI.xcframework
         embed: false
+      - target: AmiscaraAgentsTopShelf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
@@ -262,6 +263,9 @@ targets:
     entitlements:
       path: AmiscaraAgents/AmiscaraAgents-tvOS.entitlements
       properties:
+        # The agents for the Top Shelf (#130), as for the widgets.
+        com.apple.security.application-groups:
+          - group.net.staude.amiscara.agents
         # Pairing records from the iPhone come through CloudKit (#127).
         com.apple.developer.icloud-container-identifiers:
           - iCloud.net.staude.amiscara.agents
@@ -280,6 +284,38 @@ targets:
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities:
           - arm64
+  # Top Shelf of the Apple TV (#130): agents from the App Group snapshot.
+  AmiscaraAgentsTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - path: TopShelf
+        excludes:
+          - "*.entitlements"
+          - "*.plist"
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents.topshelf
+        PRODUCT_NAME: AmiscaraAgentsTopShelf
+        TARGETED_DEVICE_FAMILY: "3"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TopShelf/Info.plist
+        SKIP_INSTALL: YES
+    entitlements:
+      path: TopShelf/AmiscaraAgentsTopShelf.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.net.staude.amiscara.agents
+    info:
+      path: TopShelf/Info.plist
+      properties:
+        CFBundleDisplayName: Amiscara Agents
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.tv-top-shelf
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ContentProvider
 aggregateTargets:
   # Runs scripts/build-ffi.sh before either app target, as a target of its
   # own: a script phase inside the app target cannot produce the framework

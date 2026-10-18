@@ -6,6 +6,9 @@ import SwiftUI
 /// Each tab navigates on its own; the remote's back button returns.
 struct TVContentView: View {
     @Binding var editing: HostConfig?
+    /// A pane to open, from the Top Shelf or a link: shown in the Agents tab.
+    @Binding var open: SpaceRef?
+    @State private var agentsPath: [SpaceRef] = []
 
     private enum Section: Hashable {
         case agents, spaces, hosts
@@ -16,7 +19,7 @@ struct TVContentView: View {
     var body: some View {
         TabView(selection: $section) {
             Tab("Agents", systemImage: "sparkles", value: .agents) {
-                NavigationStack { TVBoardView() }
+                NavigationStack(path: $agentsPath) { TVBoardView() }
             }
             Tab("Spaces", systemImage: "square.split.2x1", value: .spaces) {
                 NavigationStack { TVSpacesView() }
@@ -24,6 +27,12 @@ struct TVContentView: View {
             Tab("Hosts", systemImage: "server.rack", value: .hosts) {
                 NavigationStack { TVHostsView(editing: $editing) }
             }
+        }
+        .onChange(of: open, initial: true) { _, ref in
+            guard let ref else { return }
+            section = .agents
+            agentsPath = [ref]
+            open = nil
         }
     }
 }
@@ -222,6 +231,8 @@ struct TVBoardView: View {
                             card(agent, host: store.connections.count > 1 ? connection.config.name : nil)
                         }
                         .buttonStyle(.card)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(agent.name ?? agent.agent), \(agent.agentState.label), \(agent.spacePlace), Tab \(agent.tabLabel)")
                     }
                 }
                 .padding(.horizontal, 60)

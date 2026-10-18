@@ -261,6 +261,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   bar, quick replies editable on the TV, "Neuer Space …" per host in the
   Spaces tab, and "Agent benennen …" and "Neuer Worktree …" in the space's
   "…" menu, next to renaming and closing tabs and spaces.
+- Apple TV Top Shelf (#130): with the app in the top row, the agents of all
+  hosts show there as cards in their state colour, waiting first; selecting
+  one opens its pane in the Agents tab. The TV app writes the same snapshot
+  as the widgets into an App Group and tells tvOS when it changed. Board
+  cards read state, agent, space and tab to VoiceOver.
 
 ### Changed
 

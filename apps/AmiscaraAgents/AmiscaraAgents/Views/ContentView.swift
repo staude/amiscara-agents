@@ -18,7 +18,7 @@ struct ContentView: View {
         // with its tabs on the right. On iPhone the sidebar is the start screen.
         Group {
             #if os(tvOS)
-            TVContentView(editing: $editing)
+            TVContentView(editing: $editing, open: $selection)
             #else
             NavigationSplitView {
                 HostSidebar(selection: $selection, editing: $editing, switching: $switching)
