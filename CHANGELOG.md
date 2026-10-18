@@ -232,6 +232,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Uploaded file names keep only letters, digits, `.`, `_` and `-`, and in a
+  shell pane the appended upload paths are single-quoted, so a crafted file
+  name cannot add a shell command (follow-up to #116).
 - QR scanner on iPhone and iPad no longer stays black: the app asks for
   camera access first and starts the scanner once it is on screen; if the
   camera cannot start, the reason is shown. While the iPad is remote

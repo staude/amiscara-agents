@@ -449,11 +449,19 @@ struct InputBar: View {
         let pending = attachments
         perform {
             let paths = pending.isEmpty ? [] : try await connection.upload(pending)
-            let full = ([prompt] + paths).filter { !$0.isEmpty }.joined(separator: isAgent ? "\n" : " ")
+            // In a shell the paths become arguments: quote them, so no file
+            // name can add a command (the core already keeps names plain).
+            let shown = isAgent ? paths : paths.map(Self.shellQuoted)
+            let full = ([prompt] + shown).filter { !$0.isEmpty }.joined(separator: isAgent ? "\n" : " ")
             try await connection.submit(full, to: pane.paneId, isAgent: isAgent)
             text = ""
             attachments.removeAll { item in pending.contains { $0.id == item.id } }
         }
+    }
+
+    /// `'path'`, with embedded `'` written as `'\''`.
+    private static func shellQuoted(_ path: String) -> String {
+        "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     /// Sends a quick reply as is; composer text and attachments stay.
