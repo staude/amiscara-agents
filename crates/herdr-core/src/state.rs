@@ -16,6 +16,9 @@ pub struct SessionState {
     /// Git branch per workspace id, from `worktree.list`; not part of the
     /// snapshot, so the sync driver fills and carries it.
     pub branches: BTreeMap<String, String>,
+    /// Custom agent names (`agent.rename`) by pane id. herdr sends them only
+    /// with the snapshot, so the sync driver takes a fresh one after a rename.
+    pub agent_names: BTreeMap<String, String>,
 }
 
 /// What [`SessionState::apply`] did with an event.
@@ -48,6 +51,11 @@ impl SessionState {
             panes: snapshot.panes,
             focused_pane_id: snapshot.focused_pane_id,
             branches: BTreeMap::new(),
+            agent_names: snapshot
+                .agents
+                .into_iter()
+                .filter_map(|agent| Some((agent.pane_id, agent.name?)))
+                .collect(),
         };
         state.workspaces.sort_by_key(|ws| ws.number);
         let order = state.workspace_order();
@@ -339,7 +347,12 @@ mod tests {
                  "agent_status": "unknown", "revision": 2}
             ],
             "layouts": [],
-            "agents": []
+            "agents": [
+                {"terminal_id": "term_1", "name": "reviewer", "agent": "claude", "agent_status": "idle",
+                 "workspace_id": "w1", "tab_id": "w1:t1", "pane_id": "w1:p1", "revision": 3},
+                {"terminal_id": "term_2", "agent": "codex", "agent_status": "working",
+                 "workspace_id": "w1", "tab_id": "w1:t2", "pane_id": "w1:p2", "revision": 1}
+            ]
         });
         match serde_json::from_value(value) {
             Ok(snapshot) => SessionState::from_snapshot(snapshot),
@@ -442,6 +455,16 @@ mod tests {
             Some("backend")
         );
         assert_eq!(state.tab("w1:t2").map(|t| t.label.as_str()), Some("tests"));
+    }
+
+    #[test]
+    fn agent_names_come_from_the_snapshot() {
+        let state = snapshot();
+        assert_eq!(
+            state.agent_names.get("w1:p1").map(String::as_str),
+            Some("reviewer")
+        );
+        assert!(!state.agent_names.contains_key("w1:p2"), "unnamed agent");
     }
 
     #[test]
