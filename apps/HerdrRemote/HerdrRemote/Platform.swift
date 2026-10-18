@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if os(macOS)
 import AppKit
@@ -37,6 +38,27 @@ enum Platform {
         #endif
     }
 
+    /// Login name on this Mac, the SSH user other devices use for it.
+    static var userName: String {
+        #if os(macOS)
+        NSUserName()
+        #else
+        ""
+        #endif
+    }
+
+    /// This Mac's ed25519 SSH host key as one OpenSSH line, if sshd has one
+    /// and the file is readable (it is world-readable by default). Remote
+    /// Login must be on for other devices to use it.
+    static func localHostKey() -> String? {
+        #if os(macOS)
+        let line = try? String(contentsOfFile: "/etc/ssh/ssh_host_ed25519_key.pub", encoding: .utf8)
+        return line?.trimmingCharacters(in: .whitespacesAndNewlines)
+        #else
+        nil
+        #endif
+    }
+
     @MainActor
     static func copy(_ text: String) {
         #if os(macOS)
@@ -46,6 +68,57 @@ enum Platform {
         UIPasteboard.general.string = text
         #endif
     }
+
+    #if os(macOS)
+    /// Whether ⌘V in the composer should attach images rather than insert
+    /// text: the clipboard holds image files, or image data without plain
+    /// text. Text wins when both are there (e.g. copied from Pages), so text
+    /// paste keeps working.
+    @MainActor
+    static var clipboardHasImages: Bool {
+        let board = NSPasteboard.general
+        if !imageFileURLs(on: board).isEmpty { return true }
+        let types = board.types ?? []
+        let hasImage = types.contains { UTType($0.rawValue)?.conforms(to: .image) == true }
+        return hasImage && !types.contains(.string)
+    }
+    #endif
+
+    /// The clipboard's contents as item providers, for the explicit
+    /// "paste image" action. On iOS reading them may ask for permission.
+    @MainActor
+    static func clipboardItems() -> [NSItemProvider] {
+        #if os(macOS)
+        let board = NSPasteboard.general
+        let files = imageFileURLs(on: board).compactMap { NSItemProvider(contentsOf: $0) }
+        if !files.isEmpty { return files }
+        return (board.pasteboardItems ?? []).compactMap { item in
+            // First image type the item offers, PNG before TIFF as written.
+            guard let type = item.types.lazy.compactMap({ UTType($0.rawValue) }).first(where: { $0.conforms(to: .image) }),
+                  let data = item.data(forType: NSPasteboard.PasteboardType(type.identifier))
+            else { return nil }
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(for: type, visibility: .all) { completion in
+                completion(data, nil)
+                return nil
+            }
+            return provider
+        }
+        #else
+        UIPasteboard.general.itemProviders
+        #endif
+    }
+
+    #if os(macOS)
+    /// Image files copied in the Finder.
+    private static func imageFileURLs(on board: NSPasteboard) -> [URL] {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [
+            .urlReadingFileURLsOnly: true,
+            .urlReadingContentsConformToTypes: [UTType.image.identifier],
+        ]
+        return board.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
+    }
+    #endif
 
     @MainActor
     static var defaultTerminalFontSize: Double {

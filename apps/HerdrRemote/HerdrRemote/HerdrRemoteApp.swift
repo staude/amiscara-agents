@@ -1,9 +1,17 @@
+import AppIntents
 import SwiftUI
 
 @main
 struct HerdrRemoteApp: App {
-    @State private var store = HostStore()
+    @State private var store: HostStore
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let store = HostStore()
+        _store = State(initialValue: store)
+        // Shortcuts and Siri run in this process and read the same store.
+        AppDependencyManager.shared.add(dependency: store)
+    }
 
     var body: some Scene {
         // The id lets the menu bar item open a window (MainWindow.id).
@@ -14,6 +22,7 @@ struct HerdrRemoteApp: App {
                 .frame(minWidth: 960, minHeight: 600)
                 #endif
         }
+        .commands { AppCommands() }
         .onChange(of: scenePhase) { _, phase in
             // iOS suspends the app and the SSH session with it. Coming back,
             // reconnect at once instead of waiting out the retry pause.
@@ -22,6 +31,7 @@ struct HerdrRemoteApp: App {
                 store.reconnectStale()
             }
         }
+        .commands { TerminalZoomCommands() }
         #if os(macOS)
         // Owned by the app like the store, so hosts stay connected and
         // notifications keep coming while the window is closed.

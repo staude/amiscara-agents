@@ -22,6 +22,10 @@ struct InputBar: View {
     @State private var textBeforeDictation = ""
     @State private var editingQuickReplies = false
     private let quickReplies = QuickReplyStore.shared
+    #if os(macOS)
+    /// Key monitor for ⌘V in the composer, see `catchImagePaste`.
+    @State private var pasteMonitor: Any?
+    #endif
 
     private var isAgent: Bool { pane.agent != nil }
     private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
@@ -45,6 +49,8 @@ struct InputBar: View {
         }
         .padding(10)
         .disabled(sending || !connection.isLive)
+        // Keyboard shortcuts for the key bar, see AppCommands.
+        .focusedSceneValue(\.keySender, connection.isLive ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
         .onChange(of: dictation.error) { _, message in
             if let message { error = message }
         }
@@ -54,6 +60,20 @@ struct InputBar: View {
             text = base.isEmpty ? spoken : base + " " + spoken
         }
         .onDisappear { dictation.stop() }
+        // ⌘V with images that the focused text view does not take itself
+        // (iOS: a plain text view passes image pastes on).
+        .pasteDestination(for: PastedImage.self) { images in
+            addPasted(images.map { ImageAttachment.make(data: $0.data, type: $0.type) })
+        }
+        #if os(macOS)
+        .onAppear(perform: catchImagePaste)
+        .onDisappear(perform: releaseImagePaste)
+        // The monitor holds this view's values; renew it for another host.
+        .onChange(of: connection.id) {
+            releaseImagePaste()
+            catchImagePaste()
+        }
+        #endif
         .onChange(of: pane.paneId) {
             dictation.stop()
             text = ""
@@ -154,6 +174,9 @@ struct InputBar: View {
             Menu {
                 Button("Fotos", systemImage: "photo.on.rectangle") { choosingPhotos = true }
                 Button("Dateien …", systemImage: "folder") { importingFiles = true }
+                Button("Aus Zwischenablage", systemImage: "doc.on.clipboard") {
+                    Task { await addPasted(Platform.clipboardItems()) }
+                }
             } label: {
                 Image(systemName: "paperclip")
             }
@@ -162,7 +185,7 @@ struct InputBar: View {
             .help(String(localized: "Bild anhängen"))
         } else {
             Button {
-                error = String(localized: "Bilder hochladen ist für \(connection.config.name) aus. Einschalten unter „…“ › „Bearbeiten …“ › „Bilder hochladen (SFTP)“.")
+                error = uploadOffMessage
             } label: {
                 Image(systemName: "paperclip")
                     .foregroundStyle(.secondary)
@@ -171,6 +194,63 @@ struct InputBar: View {
             .help(String(localized: "Bilder hochladen ist für diesen Host aus"))
         }
     }
+
+    private var uploadOffMessage: String {
+        String(localized: "Bilder hochladen ist für \(connection.config.name) aus. Einschalten unter „…“ › „Bearbeiten …“ › „Bilder hochladen (SFTP)“.")
+    }
+
+    /// Reads images from the clipboard for the menu entry and ⌘V on the Mac.
+    private func addPasted(_ items: [NSItemProvider]) async {
+        let providers = items.filter { $0.registeredContentTypes.contains { $0.conforms(to: .image) } }
+        guard !providers.isEmpty else {
+            error = String(localized: "Die Zwischenablage enthält kein Bild.")
+            return
+        }
+        var images: [ImageAttachment?] = []
+        for provider in providers {
+            images.append(await ImageAttachment.make(from: provider))
+        }
+        addPasted(images)
+    }
+
+    /// Pasted images join the attachments like picked photos, under the
+    /// same per-host upload switch.
+    private func addPasted(_ images: [ImageAttachment?]) {
+        guard connection.config.uploadAllowed else {
+            error = uploadOffMessage
+            return
+        }
+        attachments.append(contentsOf: images.compactMap { $0 })
+        if images.contains(where: { $0 == nil }) {
+            error = String(localized: "Ein Bild aus der Zwischenablage konnte nicht gelesen werden.")
+        }
+    }
+
+    #if os(macOS)
+    /// The composer's text field takes ⌘V itself and drops images, so
+    /// `onPasteCommand` never sees them while typing. This catches ⌘V first,
+    /// but only when the composer is focused and the clipboard holds images
+    /// and no text; every other ⌘V goes on to the text field unchanged.
+    private func catchImagePaste() {
+        guard pasteMonitor == nil else { return }
+        pasteMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers == "v"
+            else { return event }
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard composerFocused, connection.isLive, !sending, Platform.clipboardHasImages else { return false }
+                Task { await addPasted(Platform.clipboardItems()) }
+                return true
+            }
+            return handled ? nil : event
+        }
+    }
+
+    private func releaseImagePaste() {
+        if let pasteMonitor { NSEvent.removeMonitor(pasteMonitor) }
+        pasteMonitor = nil
+    }
+    #endif
 
     private func addPhotos(_ items: [PhotosPickerItem]) async {
         for item in items {
@@ -224,7 +304,7 @@ struct InputBar: View {
     private var answerButtons: some View {
         ForEach(["1", "2", "3"], id: \.self) { key in
             Button(key) { send(keys: [key]) }
-                .help("Option \(key) wählen")
+                .help("Option \(key) wählen (⌥⌘\(key))")
         }
         Button("Bestätigen", systemImage: "return") { send(keys: ["enter"]) }
             .buttonStyle(.borderedProminent)
@@ -242,15 +322,15 @@ struct InputBar: View {
         HStack(spacing: 4) {
             dictationButton
             Divider().frame(height: 16)
-            key("Esc", "esc")
+            key("Esc", "esc", help: "Esc (⌘.)")
             key("Tab", "tab")
-            key("⌃C", "ctrl+c", help: "Control-C")
+            key("⌃C", "ctrl+c", help: "Control-C (⌃C)")
             Divider().frame(height: 16)
-            key("↑", "up")
-            key("↓", "down")
-            key("←", "left")
-            key("→", "right")
-            key("↩", "enter", help: "Enter")
+            key("↑", "up", help: "↑ (⌥⌘↑)")
+            key("↓", "down", help: "↓ (⌥⌘↓)")
+            key("←", "left", help: "← (⌥⌘←)")
+            key("→", "right", help: "→ (⌥⌘→)")
+            key("↩", "enter", help: "Enter (⇧⌘↩)")
             Spacer()
         }
         .buttonStyle(.bordered)

@@ -5,17 +5,39 @@ import SwiftUI
 /// values for a dark background.
 struct TerminalScreenView: View {
     let content: PaneContent
-    /// Search matches to mark; empty when no search is open.
+    /// Scrollback controls above the first line; `nil` hides them.
+    var history: PaneModel?
+    /// For a pane in a split tab: shrink the font until this many terminal
+    /// columns fit the width, down to a still readable minimum.
+    var fitColumns: UInt32?
+    /// Search matches to mark; empty when no search is open. Covers loaded
+    /// history too, since it is part of `content`.
     var search = SearchHighlight()
-    @AppStorage("terminalFontSize") private var fontSize = Platform.defaultTerminalFontSize
+    @AppStorage("terminalFontSize") private var preferredFontSize = Platform.defaultTerminalFontSize
+    @State private var width: CGFloat = 0
+    /// Set once the user scrolled, so the first layout (which may briefly sit
+    /// at the top before the bottom anchor applies) cannot load history.
+    @State private var userScrolled = false
+
+    private var fontSize: Double {
+        guard let fitColumns, fitColumns > 0, width > 0 else { return preferredFontSize }
+        // A monospaced glyph is about 0.6 em wide; 20 is the padding.
+        let fitting = (Double(width) - 20) / (Double(fitColumns) * 0.6)
+        return min(preferredFontSize, max(7, fitting.rounded(.down)))
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView([.vertical, .horizontal]) {
                 // A plain VStack: the visible screen is about 60 lines, and a
                 // LazyVStack in a two-axis scroll view could stay undrawn until
-                // the content changed (a black pane on the iPad).
+                // the content changed (a black pane on the iPad). With history
+                // it holds up to 1000 lines, which SwiftUI still lays out fast.
                 VStack(alignment: .leading, spacing: 0) {
+                    if let history {
+                        HistoryHeader(model: history, content: content)
+                            .padding(.bottom, 8)
+                    }
                     ForEach(Array(content.lines.enumerated()), id: \.offset) { index, line in
                         Text(TerminalStyle.attributed(
                             line,
@@ -32,11 +54,24 @@ struct TerminalScreenView: View {
             }
             // Like a terminal: start at the bottom, where the latest output and
             // the agent's prompt are, and stay there when new lines arrive.
+            // Older lines loaded above keep the lines in view where they are.
             .defaultScrollAnchor(.bottomLeading)
             .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
+            .onScrollPhaseChange { _, phase in
+                if phase.isScrolling { userScrolled = true }
+            }
+            // Scrolling up to the first line loads the next history step, like
+            // a terminal's scrollback.
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height > geometry.containerSize.height
+                    && geometry.contentOffset.y <= geometry.contentInsets.top + 24
+            } action: { _, atTop in
+                if atTop, userScrolled { history?.loadMoreHistory() }
+            }
             // A fresh scroll view per pane, so the previous pane's scroll
             // position cannot leave the new one out of sight.
             .id(content.paneId)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .onChange(of: search.scrollRequest) {
                 guard let line = search.current?.line else { return }
                 withAnimation(.easeOut(duration: 0.15)) {
@@ -49,9 +84,42 @@ struct TerminalScreenView: View {
     }
 }
 
+/// First row of the pane: load older lines, or say why there are none.
+private struct HistoryHeader: View {
+    let model: PaneModel
+    let content: PaneContent
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if model.isLoadingHistory {
+                ProgressView().controlSize(.small)
+                Text("Verlauf wird geladen …")
+            } else if model.canLoadMoreHistory {
+                Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
+                    model.loadMoreHistory()
+                }
+            } else if content.historyLines > 0, content.truncated {
+                Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
+            } else if content.historyLines > 0 {
+                Text("Anfang des Verlaufs")
+            }
+            if content.historyLines > 0 {
+                Button("Nur Bildschirm", systemImage: "rectangle.compress.vertical") {
+                    model.hideHistory()
+                }
+            }
+        }
+        .font(.callout)
+        .buttonStyle(.bordered)
+        .foregroundStyle(TerminalStyle.foreground.opacity(0.7))
+        .fixedSize()
+    }
+}
+
 enum TerminalStyle {
     static let background = Color(red: 0.11, green: 0.11, blue: 0.12)
     static let foreground = Color(red: 0.88, green: 0.88, blue: 0.88)
+
     static let match = Color(red: 0.95, green: 0.80, blue: 0.25).opacity(0.75)
     static let currentMatch = Color(red: 1.00, green: 0.55, blue: 0.10)
 

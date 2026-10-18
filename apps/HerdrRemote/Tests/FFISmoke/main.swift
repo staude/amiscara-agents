@@ -54,6 +54,26 @@ if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AA
 }
 print("ok   keys: \(key.fingerprint)")
 
+// "Add host" links (QR codes); the full checks are Rust unit tests.
+let hostKey = try generateSshKey(comment: "root@work").publicOpenssh
+let sent = AddHostLink(
+    name: "work", host: "work.staude.internal", port: 22, user: "frank",
+    socketPath: "/Users/frank/.config/herdr/herdr.sock", hostKey: hostKey
+)
+let linkText = try encodeAddHostLink(link: sent)
+guard linkText.hasPrefix("herdr-remote://add-host?v=1&"), URL(string: linkText) != nil else {
+    fail("add-host link: \(linkText)")
+}
+guard try decodeAddHostLink(text: linkText) == sent else { fail("add-host link round trip") }
+do {
+    _ = try decodeAddHostLink(text: linkText.replacingOccurrences(of: "user=frank", with: "user=-oX"))
+    fail("bad user in add-host link was accepted")
+} catch FfiError.InvalidLink(let message) {
+    guard message.contains("Benutzer") else { fail("unexpected message: \(message)") }
+}
+guard try publicKeyFingerprint(publicOpenssh: hostKey).hasPrefix("SHA256:") else { fail("host key fingerprint") }
+print("ok   add-host link: \(linkText.count) chars")
+
 // Live session.
 let probe = Probe()
 let socket = CommandLine.arguments.dropFirst().first
@@ -74,6 +94,18 @@ let branchesSeen = wait(5) {
     probe.lock.withLock { probe.update?.workspaces.contains { $0.branch != nil } ?? false }
 }
 let spaces = probe.lock.withLock { probe.update?.workspaces ?? [] }
+// Every tab comes with herdr's layout, covering exactly its panes.
+for tab in spaces.flatMap(\.tabs) {
+    guard let layout = tab.layout else { fail("tab \(tab.tabId) has no layout") }
+    guard Set(layout.panes.map(\.paneId)) == Set(tab.panes.map(\.paneId)) else {
+        fail("layout of \(tab.tabId) names other panes than the tab")
+    }
+    guard layout.panes.allSatisfy({ $0.x + $0.width <= layout.columns && $0.y + $0.height <= layout.rows }) else {
+        fail("layout of \(tab.tabId) has a pane outside the area")
+    }
+}
+let splitTabs = spaces.flatMap(\.tabs).filter { ($0.layout?.panes.count ?? 0) > 1 }.count
+print("ok   layouts: \(spaces.flatMap(\.tabs).count) tabs, \(splitTabs) split")
 print("ok   spaces: " + spaces.map { "\($0.worktreeName.map { "└" + $0 } ?? $0.label)=\($0.branch ?? "-")" }.joined(separator: ", "))
 if !branchesSeen { print("info no branch found for any space") }
 
@@ -101,13 +133,33 @@ try? FileManager.default.removeItem(atPath: localPath)
 if (try? session.uploadFile(data: payload, fileExtension: "../x")) != nil { fail("bad extension accepted") }
 print("ok   upload local: \(localPath)")
 
-let follow = session.followPane(paneId: pane, observer: probe)
+// The slow pace of a pane beside the selected one still delivers the first
+// screen at once; switching to live keeps the same follow.
+let follow = session.followPanePaced(paneId: pane, live: false, observer: probe)
 let gotContent = wait(5) { probe.lock.withLock { probe.content != nil } }
 guard gotContent, let content = probe.lock.withLock({ probe.content }) else {
     fail("no content for \(pane): \(probe.paneError ?? "-")")
 }
 let spans = content.lines.reduce(0) { $0 + $1.spans.count }
-print("ok   pane \(pane): \(content.lines.count) lines, \(spans) spans")
+print("ok   pane \(pane): \(content.lines.count) lines, \(spans) spans (background pace)")
+follow.setLive(live: true)
+Thread.sleep(forTimeInterval: 0.5)
+if let error = probe.lock.withLock({ probe.paneError }) { fail("pane error after switching to live: \(error)") }
+print("ok   pane \(pane): switched to live pace")
+guard content.historyLines == 0 else { fail("follow starts with history") }
+
+// History: a recent read (ANSI, read-only) replaces the visible screen.
+follow.setHistoryLines(lines: 100_000)
+let gotHistory = wait(5) { probe.lock.withLock { probe.content?.historyLines == maxHistoryLines() } }
+guard gotHistory, let history = probe.lock.withLock({ probe.content }) else {
+    fail("no history for \(pane): \(probe.paneError ?? "-")")
+}
+guard history.lines.count <= Int(maxHistoryLines()) else { fail("history above the cap") }
+print("ok   history \(pane): \(history.lines.count) lines, more: \(history.truncated)")
+follow.setHistoryLines(lines: 0)
+guard wait(5, until: { probe.lock.withLock { probe.content?.historyLines == 0 } }) else {
+    fail("history did not switch back to the screen")
+}
 follow.stop()
 session.stop()
 
@@ -175,18 +227,21 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     // Attention: simulate an agent with pane.report_agent (herdr's own
     // integration call) and expect one notice for "blocked" and one for "done".
     func report(_ state: String) throws {
+        raw("{\"id\":\"smoke\",\"method\":\"pane.report_agent\",\"params\":{\"pane_id\":\"\(tab.paneId)\",\"source\":\"ffi-smoke\",\"agent\":\"claude\",\"state\":\"\(state)\"}}\n")
+    }
+    /// Sends one request line to the test session and waits for the answer.
+    func raw(_ line: String) {
         let socket = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
         defer { close(socket) }
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
-        withUnsafeMutableBytes(of: &address.sun_path) { raw in
-            _ = writeSocket.utf8CString.withUnsafeBytes { raw.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(raw.count - 1))) }
+        withUnsafeMutableBytes(of: &address.sun_path) { path in
+            _ = writeSocket.utf8CString.withUnsafeBytes { path.copyMemory(from: UnsafeRawBufferPointer(rebasing: $0.prefix(path.count - 1))) }
         }
         let size = socklen_t(MemoryLayout<sockaddr_un>.size)
         guard withUnsafePointer(to: &address, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(socket, $0, size) } }) == 0 else {
             fail("cannot reach the test socket")
         }
-        let line = "{\"id\":\"smoke\",\"method\":\"pane.report_agent\",\"params\":{\"pane_id\":\"\(tab.paneId)\",\"source\":\"ffi-smoke\",\"agent\":\"claude\",\"state\":\"\(state)\"}}\n"
         _ = line.withCString { send(socket, $0, strlen($0), 0) }
         var reply = [UInt8](repeating: 0, count: 4096)
         _ = recv(socket, &reply, reply.count, 0)
@@ -205,6 +260,19 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     print("ok   attention: blocked and done, once each")
     print("ok   create: space \(space.workspaceId) with tab \(tab.tabId)")
 
+    // Split the new tab side by side; the layout must follow with two
+    // frames next to each other.
+    raw("{\"id\":\"smoke\",\"method\":\"pane.split\",\"params\":{\"target_pane_id\":\"\(tab.paneId)\",\"direction\":\"right\",\"cwd\":\"/tmp\"}}\n")
+    let split = wait(5) {
+        probe.lock.withLock {
+            let layout = probe.update?.workspaces.flatMap(\.tabs).first { $0.tabId == tab.tabId }?.layout
+            guard let layout, layout.panes.count == 2 else { return false }
+            let (left, right) = (layout.panes[0], layout.panes[1])
+            return left.x == 0 && right.x == left.width && left.y == right.y && left.width + right.width == layout.columns
+        }
+    }
+    guard split else { fail("split layout for \(tab.tabId) did not arrive") }
+    print("ok   layout: \(tab.tabId) split side by side")
     // Renames: space and tab arrive as events, the agent name with the
     // snapshot the session takes after the rename.
     let agentName = "smoke-\(UInt32.random(in: 1000...9999))"
@@ -240,6 +308,97 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
         fail("tab in unknown space was accepted")
     } catch let error as FfiError {
         print("ok   create: unknown space refused (\(error))")
+    }
+
+    // Agent start. herdr types the agent's executable into the shell, so a
+    // fake `maki` early on PATH stands in for a real (paid) agent.
+    let kinds = session.agentKinds()
+    guard kinds.first == "claude", kinds.contains("maki") else { fail("agent kinds: \(kinds)") }
+    let fakeBin = FileManager.default.temporaryDirectory.appending(path: "herdr-smoke-bin-\(marker)")
+    try FileManager.default.createDirectory(at: fakeBin, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: fakeBin) }
+    let fake = fakeBin.appending(path: "maki")
+    try Data("#!/bin/sh\necho fake-maki\nexec sleep 600\n".utf8).write(to: fake)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+    func withFakeAgent(_ pane: String) throws -> String {
+        try session.sendText(paneId: pane, text: "export PATH='\(fakeBin.path)':\"$PATH\"")
+        try session.sendKeys(paneId: pane, keys: ["enter"])
+        Thread.sleep(forTimeInterval: 1)
+        return pane
+    }
+    func agentTab() throws -> String {
+        try withFakeAgent(try session.createTab(workspaceId: space.workspaceId, cwd: "/tmp").paneId)
+    }
+    let firstPane = try agentTab()
+    let secondPane = try agentTab()
+    let first = try session.startAgent(paneId: firstPane, kind: "maki", name: nil)
+    let second = try session.startAgent(paneId: secondPane, kind: "maki", name: nil)
+    guard first.hasPrefix("maki"), second != first, second.hasPrefix("maki-") else {
+        fail("agent names: \(first), \(second)")
+    }
+    let launched = session.followPane(paneId: secondPane, observer: probe)
+    let ranFake = wait(5) {
+        probe.lock.withLock {
+            probe.content?.lines.contains { $0.spans.map(\.text).joined().hasPrefix("fake-maki") } ?? false
+        }
+    }
+    launched.stop()
+    guard ranFake else { fail("fake agent did not run in \(secondPane)") }
+    print("ok   agent: started \(first) and \(second)")
+    for (pane, kind, what) in [(firstPane, "maki", "busy pane"), (tab.paneId, "no-such-agent", "unknown kind"), ("w999:p1", "maki", "unknown pane")] {
+        do {
+            _ = try session.startAgent(paneId: pane, kind: kind, name: nil)
+            fail("agent start in \(what) was accepted")
+        } catch let error as FfiError {
+            print("ok   agent: \(what) refused (\(error))")
+        }
+    }
+
+    // Worktree: a throwaway repository in the temp directory, checkout next
+    // to it (not in herdr's shared worktree directory).
+    let repo = FileManager.default.temporaryDirectory.appending(path: "herdr-smoke-repo-\(marker)").path
+    let checkout = repo + "-wt"
+    defer {
+        try? FileManager.default.removeItem(atPath: checkout)
+        try? FileManager.default.removeItem(atPath: repo)
+    }
+    @discardableResult
+    func git(_ args: String...) throws -> String {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = args
+        process.standardOutput = output
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { fail("git \(args.joined(separator: " ")) failed") }
+        return String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    try FileManager.default.createDirectory(atPath: repo, withIntermediateDirectories: true)
+    try git("-C", repo, "init", "-q", "-b", "main")
+    try git("-C", repo, "-c", "user.name=smoke", "-c", "user.email=smoke@example.invalid", "commit", "-q", "--allow-empty", "-m", "init")
+    let repoSpace = try session.createWorkspace(label: "smoke-repo", cwd: repo)
+    let worktree = try session.createWorktree(
+        workspaceId: repoSpace.workspaceId,
+        worktree: NewWorktree(branch: "smoke/wt", base: "main", label: nil, path: checkout)
+    )
+    guard try git("-C", checkout, "branch", "--show-current") == "smoke/wt" else { fail("worktree branch") }
+    let worktreeShown = wait(5) {
+        probe.lock.withLock {
+            probe.update?.workspaces.contains { $0.workspaceId == worktree.workspaceId && $0.tabs.contains { $0.panes.contains { $0.paneId == worktree.paneId } } } ?? false
+        }
+    }
+    guard worktreeShown else { fail("worktree space \(worktree.workspaceId) not in the session") }
+    let worktreeAgent = try session.startAgent(paneId: try withFakeAgent(worktree.paneId), kind: "maki", name: nil)
+    print("ok   worktree: \(worktree.workspaceId) on smoke/wt at \(checkout), agent \(worktreeAgent)")
+    for (source, what) in [(space.workspaceId, "space outside Git"), (worktree.workspaceId, "linked worktree as source"), ("w999", "unknown space")] {
+        do {
+            _ = try session.createWorktree(workspaceId: source, worktree: NewWorktree(branch: "smoke/no", base: nil, label: nil, path: nil))
+            fail("worktree from \(what) was accepted")
+        } catch let error as FfiError {
+            print("ok   worktree: \(what) refused (\(error))")
+        }
     }
     session.stop()
 }

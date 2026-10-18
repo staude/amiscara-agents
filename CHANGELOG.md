@@ -107,9 +107,36 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Quick replies above the key bar: saved prompts such as "weiter" or
   "/compact" sent with one tap (agents get a prompt, shells text plus Enter);
   added, edited, reordered and deleted in a sheet, stored per device (#54).
-- Search in the pane view: ⌘F (or the magnifier) opens a search bar, matches
-  are highlighted in the shown lines (ignoring case and accents), Return or
-  ⌘G jumps to the next, ⇧⌘G to the previous, Esc closes (#55).
+- Add a host by QR code: "QR-Code zeigen" in a host's menu shows host, port,
+  user, socket and the trusted host key as a versioned
+  `herdr-remote://add-host?v=1&...` link (for "Dieser Mac" with a host name
+  you enter and the key from `/etc/ssh/ssh_host_ed25519_key.pub`). iPhone and
+  iPad scan it in the host editor (or open or paste the link), which fills in
+  the host and creates the device key; the host key is pinned only after the
+  user confirms its fingerprint. Links are checked strictly in Rust and never
+  replace a host key the app already trusts (#63).
+- Quick switcher (⌘K, or the magnifier in the sidebar): searches spaces and
+  agents on all hosts by name, branch, agent and title and jumps there.
+  Keyboard shortcuts in the "Gehe zu" and "Tasten" menus: ⌘1 to ⌘9 for the
+  spaces of the current host, ⇧⌘[ and ⇧⌘] for tabs, ⌘. Esc, ⌃C, ⇧⌘↩ Enter,
+  ⌥⌘ arrows and ⌥⌘1 to ⌥⌘3 for the key bar (#60).
+- Shortcuts and Siri: "Welche Agents warten?" answers from the live state of
+  all hosts, "Agent öffnen" opens the app on a chosen agent; both read only
+  (#64).
+- Images can be pasted into the composer (⌘V, or "Aus Zwischenablage" under
+  the paperclip) and are attached like picked photos; text paste is
+  unchanged, and text wins when the clipboard holds both (#56).
+- Split tabs side by side on the Mac and iPad (regular width): every pane in
+  herdr's arrangement with its own live screen, font shrunk to fit its
+  columns; tapping a pane selects it for the input bar. Only the selected pane
+  is read at full pace, the others every 1 to 4 s. The iPhone keeps the pane
+  picker. Core: `session.snapshot` layouts in `SessionState`, resizes from
+  `layout_updated` applied in place, `pane::follow_paced` and
+  `PaneFollow.set_live` (#61).
+- Zoom the pane view: pinch, ⌘+ / ⌘- / ⌘0 (View menu, also on the iPad with
+  a hardware keyboard) or the "Aa" menu in the pane header change the
+  terminal font size (8 to 28 pt), one size for all panes, kept across
+  launches (#65).
 - Rename spaces, tabs and agents from the app (context menu or swipe on a
   space or agent row, context menu on a tab), only with input allowed.
   Agent names come from the snapshot's `agents` list; after `agent.rename`
@@ -117,6 +144,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Mac menu bar item with the number of waiting agents over all hosts and a
   menu to jump to one; it opens the main window if it is closed. Hosts stay
   connected and notifications keep coming while the window is closed (#62).
+- Start an agent in a new space or tab: "Agent starten" in the "Neuer Space"
+  sheet (last choice remembered) and a menu next to the tab "+". The core
+  calls `agent.start`, names the agent after its kind (`claude-2` when taken)
+  and waits a few seconds for a pane that is still starting its shell (#57).
+- "Neuer Worktree …" in the context menu of a Git space and in the ✨ menu
+  next to the tab "+" (long presses are unreliable on iPad): branch, base and
+  name (all optional), opened as a new space via `worktree.create`, optionally
+  with an agent started in it (#58).
+- Pane view scrolls back into history: scrolling to the top (or "Älteren
+  Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
+  limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab
+  only the selected pane loads history. Core:
+  `pane::follow_with_history`, FFI `PaneFollow.setHistoryLines` (#53).
+- Search in the pane view: ⌘F (Edit menu, or the magnifier in the pane
+  header) opens a search bar; matches in the shown lines, including loaded
+  history, are highlighted (ignoring case and accents); Return or ⌘G jumps to
+  the next, ⇧⌘G to the previous, Esc closes. In a split tab it searches the
+  selected pane (#55).
 
 ### Fixed
 

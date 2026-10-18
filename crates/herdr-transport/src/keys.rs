@@ -42,6 +42,11 @@ pub fn parse_public(public_openssh: &str) -> Result<PublicKey, TransportError> {
     PublicKey::from_openssh(public_openssh).map_err(key_error)
 }
 
+/// `SHA256:...` of a public key, as `ssh-keygen -lf` prints it.
+pub fn fingerprint(key: &PublicKey) -> String {
+    key.fingerprint(HashAlg::Sha256).to_string()
+}
+
 /// Text forms of an existing key.
 pub fn describe(key: &PrivateKey) -> Result<GeneratedKey, TransportError> {
     let public = key.public_key();

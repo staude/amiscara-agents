@@ -46,6 +46,7 @@ final class HostConnection: Identifiable {
     func stop() {
         session?.stop()
         session = nil
+        cachedAgentKinds = nil
     }
 
     /// Replaces the configuration (after editing or trusting a host key)
@@ -56,8 +57,8 @@ final class HostConnection: Identifiable {
         start()
     }
 
-    func followPane(_ paneID: String, observer: PaneObserver) -> PaneFollow? {
-        session?.followPane(paneId: paneID, observer: observer)
+    func followPane(_ paneID: String, live: Bool = true, observer: PaneObserver) -> PaneFollow? {
+        session?.followPanePaced(paneId: paneID, live: live, observer: observer)
     }
 
     /// Sends a prompt to an agent, or text plus Enter to a shell.
@@ -90,6 +91,43 @@ final class HostConnection: Identifiable {
             try session.createTab(workspaceId: workspaceID, cwd: nil)
         }.value
     }
+
+    /// Creates a Git worktree from the repository of a space and opens it
+    /// as a new space. Empty fields are left to herdr: a generated branch,
+    /// `HEAD` as base, the branch as name, herdr's worktree directory.
+    func createWorktree(from workspaceID: String, branch: String, base: String, label: String) async throws -> Created {
+        let session = try writableSession()
+        let filled = { (value: String) -> String? in
+            let trimmed = value.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        let worktree = NewWorktree(branch: filled(branch), base: filled(base), label: filled(label), path: nil)
+        return try await Task.detached {
+            try session.createWorktree(workspaceId: workspaceID, worktree: worktree)
+        }.value
+    }
+
+    /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
+    /// prompt and returns the agent's name. The agent comes up in the
+    /// background; its state arrives with the next updates.
+    func startAgent(kind: String, in paneID: String) async throws -> String {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.startAgent(paneId: paneID, kind: kind, name: nil)
+        }.value
+    }
+
+    /// Agent kinds the host can start, the usual ones first. Asked once per
+    /// connection; herdr's list only changes with a new herdr version.
+    func agentKinds() async -> [String] {
+        if let cachedAgentKinds { return cachedAgentKinds }
+        guard let session else { return [] }
+        let kinds = await Task.detached { session.agentKinds() }.value
+        cachedAgentKinds = kinds
+        return kinds
+    }
+
+    @ObservationIgnored private var cachedAgentKinds: [String]?
 
     func renameSpace(_ workspaceID: String, to label: String) async throws {
         let session = try writableSession()
@@ -210,6 +248,26 @@ func inputErrorMessage(_ error: Error) -> String {
     default:
         error.localizedDescription
     }
+}
+
+/// Text for an error from starting an agent. herdr's codes travel in the
+/// message of `FfiError.Rejected`.
+func agentStartErrorMessage(_ error: Error) -> String {
+    let reason: String
+    if case FfiError.Rejected(let message) = error {
+        if message.contains("(agent_pane_busy)") {
+            reason = String(localized: "Im Pane läuft schon ein Programm. Ein Agent startet nur an der Shell-Eingabe.")
+        } else if message.contains("(unsupported_agent_kind)") {
+            reason = String(localized: "herdr kennt diesen Agent nicht.")
+        } else if message.contains("(agent_name_taken)") {
+            reason = String(localized: "Es gibt schon zu viele Agents mit diesem Namen.")
+        } else {
+            reason = message
+        }
+    } else {
+        reason = inputErrorMessage(error)
+    }
+    return String(localized: "Der Agent wurde nicht gestartet: \(reason)")
 }
 
 /// Forwards session updates from the Rust runtime.
