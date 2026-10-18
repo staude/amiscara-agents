@@ -163,6 +163,28 @@ impl From<actions::Created> for Created {
     }
 }
 
+/// A worktree to create; empty fields are left to herdr (see
+/// `herdr_core::actions::NewWorktree`).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct NewWorktree {
+    pub branch: Option<String>,
+    pub base: Option<String>,
+    pub label: Option<String>,
+    /// Absolute checkout path; `None` uses herdr's worktree directory.
+    pub path: Option<String>,
+}
+
+impl From<NewWorktree> for actions::NewWorktree {
+    fn from(new: NewWorktree) -> Self {
+        Self {
+            branch: new.branch,
+            base: new.base,
+            label: new.label,
+            path: new.path,
+        }
+    }
+}
+
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".herdr-remote/uploads";
 
@@ -293,6 +315,24 @@ impl HostSession {
         let conn = self.connection()?;
         Ok(runtime()
             .block_on(actions::create_tab(&conn, &workspace_id, cwd.as_deref()))?
+            .into())
+    }
+
+    /// Creates a Git worktree from the repository of space `workspace_id`
+    /// and opens it as a new space; returns its first pane. Blocks until
+    /// `git worktree add` is done; call it off the main thread.
+    pub fn create_worktree(
+        &self,
+        workspace_id: String,
+        worktree: NewWorktree,
+    ) -> Result<Created, FfiError> {
+        let conn = self.connection()?;
+        Ok(runtime()
+            .block_on(actions::create_worktree(
+                &conn,
+                &workspace_id,
+                &worktree.into(),
+            ))?
             .into())
     }
 

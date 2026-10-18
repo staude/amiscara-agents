@@ -19,6 +19,7 @@ struct HostSidebar: View {
     @State private var newSpaceOn: HostConnection?
     @State private var showingQR: HostConfig?
     @State private var renaming: RenameTarget?
+    @State private var newWorktreeFrom: WorktreeSource?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
     /// Folded sections as "hostID/spaces" or "hostID/agents", one per line;
@@ -79,6 +80,11 @@ struct HostSidebar: View {
                 selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
             }
         }
+        .sheet(item: $newWorktreeFrom) { source in
+            NewWorktreeView(source: source) { created in
+                selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
+            }
+        }
     }
 
     @ViewBuilder
@@ -119,6 +125,12 @@ struct HostSidebar: View {
                             kind: .space(workspaceID: entry.workspace.workspaceId),
                             current: entry.workspace.label
                         )
+                    } more: {
+                        if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
+                            Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
+                                newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                            }
+                        }
                     }
             }
         }
@@ -225,6 +237,108 @@ private struct NewSpaceView: View {
                     _ = try await connection.startAgent(kind: kind, in: created.paneId)
                 } catch {
                     // The space exists; "Anlegen" again would make a second one.
+                    createdWithoutAgent = true
+                    self.error = agentStartErrorMessage(error)
+                    return
+                }
+            }
+            dismiss()
+        }
+    }
+}
+
+/// The space a new worktree starts from: herdr wants the repository's main
+/// checkout, so a linked worktree hands over to its repository's space.
+struct WorktreeSource: Identifiable {
+    let connection: HostConnection
+    let repository: WorkspaceItem
+
+    var id: String { "\(connection.id.uuidString)/\(repository.workspaceId)" }
+
+    /// `nil` for a space outside Git, or a linked worktree whose main
+    /// checkout has no space.
+    static func repository(of workspace: WorkspaceItem, in workspaces: [WorkspaceItem]) -> WorkspaceItem? {
+        guard workspace.worktreeName != nil else {
+            return workspace.branch != nil || workspace.repoKey != nil ? workspace : nil
+        }
+        return workspaces.first { $0.repoKey == workspace.repoKey && $0.worktreeName == nil }
+    }
+}
+
+/// Branch, base and name for a new worktree, optionally with an agent
+/// started in it. Empty fields are left to herdr.
+struct NewWorktreeView: View {
+    let source: WorktreeSource
+    let onCreated: (Created) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var branch = ""
+    @State private var base = ""
+    @State private var name = ""
+    @AppStorage("newWorktreeAgentKind") private var agentKind: String?
+    @State private var creating = false
+    /// Set when the worktree exists but its agent did not start.
+    @State private var createdWithoutAgent = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Branch", text: $branch, prompt: Text("z. B. feature/login"))
+                        .technicalInput()
+                    TextField("Basis", text: $base, prompt: Text("HEAD"))
+                        .technicalInput()
+                    TextField("Name", text: $name, prompt: Text(branch.isEmpty ? "wie der Branch" : branch))
+                } footer: {
+                    Text("Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.")
+                }
+                AgentPicker(connection: source.connection, kind: $agentKind)
+                if creating {
+                    ProgressView()
+                }
+                if let error {
+                    Text(error).foregroundStyle(.red)
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Neuer Worktree von \(source.repository.label)")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(createdWithoutAgent ? "Schließen" : "Abbrechen") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Anlegen") { create() }
+                        .disabled(creating || createdWithoutAgent)
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(width: 460, height: 360)
+        #endif
+    }
+
+    private func create() {
+        creating = true
+        error = nil
+        let kind = agentKind
+        let connection = source.connection
+        Task {
+            defer { creating = false }
+            let created: Created
+            do {
+                created = try await connection.createWorktree(
+                    from: source.repository.workspaceId, branch: branch, base: base, label: name
+                )
+            } catch {
+                self.error = inputErrorMessage(error)
+                return
+            }
+            onCreated(created)
+            if let kind {
+                do {
+                    _ = try await connection.startAgent(kind: kind, in: created.paneId)
+                } catch {
+                    // The worktree exists; "Anlegen" again would fail on the branch.
                     createdWithoutAgent = true
                     self.error = agentStartErrorMessage(error)
                     return
@@ -385,16 +499,27 @@ private struct AgentRow: View {
 extension View {
     /// "Umbenennen" in the context menu and as a swipe action, for rows and
     /// tab buttons. Without input allowed there is nothing to offer.
-    @ViewBuilder
     func renameAction(
         available: Bool,
         label: LocalizedStringKey = "Umbenennen …",
         action: @escaping () -> Void
     ) -> some View {
+        renameAction(available: available, label: label, action: action) { EmptyView() }
+    }
+
+    /// Same, with further entries in the context menu: a view has only one.
+    @ViewBuilder
+    func renameAction<More: View>(
+        available: Bool,
+        label: LocalizedStringKey = "Umbenennen …",
+        action: @escaping () -> Void,
+        @ViewBuilder more: () -> More
+    ) -> some View {
         if available {
             self
                 .contextMenu {
                     Button(label, systemImage: "pencil", action: action)
+                    more()
                 }
                 .swipeActions(edge: .trailing) {
                     Button(label, systemImage: "pencil", action: action)

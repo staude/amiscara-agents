@@ -1,5 +1,5 @@
-//! Writing calls: input for panes and agents, new spaces and tabs, renames,
-//! agents started in a pane.
+//! Writing calls: input for panes and agents, new spaces, tabs and
+//! worktrees, renames, agents started in a pane.
 //!
 //! Keys use herdr's logical names: `enter`, `esc`, `tab`, `backspace`,
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
@@ -131,6 +131,52 @@ pub async fn create_tab(
         .map_err(|err| ActionError::Rejected {
             code: "malformed_reply".into(),
             message: err.to_string(),
+        })?;
+    Ok(reply.into())
+}
+
+/// What [`create_worktree`] creates. Empty fields are left to herdr.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NewWorktree {
+    /// New or existing branch; empty lets herdr generate one
+    /// (`worktree/brave-river-0042`). An existing branch is checked out.
+    pub branch: Option<String>,
+    /// Where a new branch starts; empty means `HEAD`.
+    pub base: Option<String>,
+    /// Name of the new space; empty names it after the branch.
+    pub label: Option<String>,
+    /// Absolute checkout path; empty uses herdr's worktree directory
+    /// (`~/.herdr/worktrees/<repo>/<branch>` unless configured).
+    pub path: Option<String>,
+}
+
+/// Creates a Git worktree from the repository of space `workspace_id` and
+/// opens it as a new, unfocused space, like herdr's own "new worktree".
+/// herdr answers once `git worktree add` is done, which can take a moment
+/// in a big repository. The source must be the repository's main
+/// checkout; herdr refuses a linked worktree as source.
+pub async fn create_worktree(
+    conn: &Connection,
+    workspace_id: &str,
+    new: &NewWorktree,
+) -> Result<Created, ActionError> {
+    let mut params = json!({ "workspace_id": workspace_id, "focus": false });
+    for (key, value) in [
+        ("branch", &new.branch),
+        ("base", &new.base),
+        ("label", &new.label),
+        ("path", &new.path),
+    ] {
+        if let Some(value) = value.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+            params[key] = json!(value);
+        }
+    }
+    let reply: CreatedReply =
+        serde_json::from_value(conn.request("worktree.create", params).await?).map_err(|err| {
+            ActionError::Rejected {
+                code: "malformed_reply".into(),
+                message: err.to_string(),
+            }
         })?;
     Ok(reply.into())
 }
@@ -375,6 +421,21 @@ mod tests {
         assert_eq!(numbered_name(&long, 20).len(), 31);
         assert_eq!(numbered_name("claude", 1), "claude");
         assert_eq!(numbered_name("claude", 3), "claude-3");
+    }
+
+    #[test]
+    fn worktree_reply_names_the_first_pane() -> Result<(), serde_json::Error> {
+        let reply: CreatedReply = serde_json::from_value(serde_json::json!({
+            "type": "worktree_created",
+            "workspace": {"workspace_id": "w3", "number": 3, "label": "feature-x"},
+            "tab": {"tab_id": "w3:t1", "workspace_id": "w3"},
+            "root_pane": {"pane_id": "w3:p1", "workspace_id": "w3", "tab_id": "w3:t1",
+                          "terminal_id": "t", "focused": false, "agent_status": "unknown", "revision": 0},
+            "worktree": {"path": "/x/repo/feature-x", "branch": "feature/x", "label": "feature-x",
+                         "is_bare": false, "is_detached": false, "is_prunable": false, "is_linked_worktree": true}
+        }))?;
+        assert_eq!(Created::from(reply).pane_id, "w3:p1");
+        Ok(())
     }
 
     #[test]

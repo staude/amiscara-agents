@@ -8,7 +8,11 @@ struct WorkspaceDetailView: View {
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
-    let selection: SpaceRef?
+    /// A binding so a new worktree opened from here can be selected.
+    @Binding var selection: SpaceRef?
+    /// Long presses in the sidebar are unreliable on iPad, so the worktree
+    /// sheet is also reachable from the menu next to the tab "+".
+    @State private var newWorktreeFrom: WorktreeSource?
     @State private var tabID: String?
     @State private var paneID: String?
     @State private var tabError: String?
@@ -57,6 +61,11 @@ struct WorkspaceDetailView: View {
         }
         .sheet(item: $renaming) { target in
             RenameView(target: target)
+        }
+        .sheet(item: $newWorktreeFrom) { source in
+            NewWorktreeView(source: source) { created in
+                selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
+            }
         }
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
@@ -124,11 +133,19 @@ struct WorkspaceDetailView: View {
         }
     }
 
-    /// "New tab with agent": the usual kinds directly, the rest one level down.
+    /// "New tab with agent": the usual kinds directly, the rest one level
+    /// down. For a Git space also "new worktree", visible here because long
+    /// presses in the sidebar are unreliable on iPad.
     private func agentTabMenu(in workspace: WorkspaceItem, on connection: HostConnection) -> some View {
         let common = Array(agentKinds.prefix(5))
         let more = Array(agentKinds.dropFirst(5))
+        let repo = WorktreeSource.repository(of: workspace, in: connection.update?.workspaces ?? [])
         return Menu {
+            if let repo {
+                Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
+                    newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                }
+            }
             Section("Neuer Tab mit Agent") {
                 ForEach(common, id: \.self) { kind in
                     Button(kind) { newTab(in: workspace, on: connection, agent: kind) }

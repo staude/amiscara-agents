@@ -148,6 +148,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   sheet (last choice remembered) and a menu next to the tab "+". The core
   calls `agent.start`, names the agent after its kind (`claude-2` when taken)
   and waits a few seconds for a pane that is still starting its shell (#57).
+- "Neuer Worktree …" in the context menu of a Git space and in the ✨ menu
+  next to the tab "+" (long presses are unreliable on iPad): branch, base and
+  name (all optional), opened as a new space via `worktree.create`, optionally
+  with an agent started in it (#58).
 - Pane view scrolls back into history: scrolling to the top (or "Älteren
   Verlauf laden") loads 200, 500, then 1000 lines of scrollback, herdr's
   limit, and keeps them live; "Nur Bildschirm" goes back. In a split tab

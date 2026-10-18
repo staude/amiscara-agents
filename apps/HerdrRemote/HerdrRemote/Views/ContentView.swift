@@ -16,7 +16,7 @@ struct ContentView: View {
             HostSidebar(selection: $selection, editing: $editing, switching: $switching)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 280)
         } detail: {
-            WorkspaceDetailView(selection: selection)
+            WorkspaceDetailView(selection: $selection)
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in
             // A tapped notification, menu bar entry or shortcut opens its

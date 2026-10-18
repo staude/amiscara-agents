@@ -320,12 +320,14 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
     let fake = fakeBin.appending(path: "maki")
     try Data("#!/bin/sh\necho fake-maki\nexec sleep 600\n".utf8).write(to: fake)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
-    func agentTab() throws -> String {
-        let pane = try session.createTab(workspaceId: space.workspaceId, cwd: "/tmp").paneId
+    func withFakeAgent(_ pane: String) throws -> String {
         try session.sendText(paneId: pane, text: "export PATH='\(fakeBin.path)':\"$PATH\"")
         try session.sendKeys(paneId: pane, keys: ["enter"])
         Thread.sleep(forTimeInterval: 1)
         return pane
+    }
+    func agentTab() throws -> String {
+        try withFakeAgent(try session.createTab(workspaceId: space.workspaceId, cwd: "/tmp").paneId)
     }
     let firstPane = try agentTab()
     let secondPane = try agentTab()
@@ -349,6 +351,53 @@ if let writeSocket = env["HERDR_SMOKE_WRITE_SOCKET"] {
             fail("agent start in \(what) was accepted")
         } catch let error as FfiError {
             print("ok   agent: \(what) refused (\(error))")
+        }
+    }
+
+    // Worktree: a throwaway repository in the temp directory, checkout next
+    // to it (not in herdr's shared worktree directory).
+    let repo = FileManager.default.temporaryDirectory.appending(path: "herdr-smoke-repo-\(marker)").path
+    let checkout = repo + "-wt"
+    defer {
+        try? FileManager.default.removeItem(atPath: checkout)
+        try? FileManager.default.removeItem(atPath: repo)
+    }
+    @discardableResult
+    func git(_ args: String...) throws -> String {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = args
+        process.standardOutput = output
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { fail("git \(args.joined(separator: " ")) failed") }
+        return String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    try FileManager.default.createDirectory(atPath: repo, withIntermediateDirectories: true)
+    try git("-C", repo, "init", "-q", "-b", "main")
+    try git("-C", repo, "-c", "user.name=smoke", "-c", "user.email=smoke@example.invalid", "commit", "-q", "--allow-empty", "-m", "init")
+    let repoSpace = try session.createWorkspace(label: "smoke-repo", cwd: repo)
+    let worktree = try session.createWorktree(
+        workspaceId: repoSpace.workspaceId,
+        worktree: NewWorktree(branch: "smoke/wt", base: "main", label: nil, path: checkout)
+    )
+    guard try git("-C", checkout, "branch", "--show-current") == "smoke/wt" else { fail("worktree branch") }
+    let worktreeShown = wait(5) {
+        probe.lock.withLock {
+            probe.update?.workspaces.contains { $0.workspaceId == worktree.workspaceId && $0.tabs.contains { $0.panes.contains { $0.paneId == worktree.paneId } } } ?? false
+        }
+    }
+    guard worktreeShown else { fail("worktree space \(worktree.workspaceId) not in the session") }
+    let worktreeAgent = try session.startAgent(paneId: try withFakeAgent(worktree.paneId), kind: "maki", name: nil)
+    print("ok   worktree: \(worktree.workspaceId) on smoke/wt at \(checkout), agent \(worktreeAgent)")
+    for (source, what) in [(space.workspaceId, "space outside Git"), (worktree.workspaceId, "linked worktree as source"), ("w999", "unknown space")] {
+        do {
+            _ = try session.createWorktree(workspaceId: source, worktree: NewWorktree(branch: "smoke/no", base: nil, label: nil, path: nil))
+            fail("worktree from \(what) was accepted")
+        } catch let error as FfiError {
+            print("ok   worktree: \(what) refused (\(error))")
         }
     }
     session.stop()
