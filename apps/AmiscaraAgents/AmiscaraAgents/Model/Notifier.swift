@@ -15,6 +15,10 @@ final class Notifier: NSObject {
     /// Set when a notification is tapped; the window opens it and clears it.
     var openRequest: SpaceRef?
 
+    /// Sends an answer key chosen on a notification (also on the Watch) to
+    /// host and pane; true when it went out. Set by the store.
+    @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String) async -> Bool)?
+
     /// The pane on screen, which gets no banner for its own changes.
     @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)? {
         didSet {
@@ -32,6 +36,14 @@ final class Notifier: NSObject {
     override init() {
         super.init()
         center.delegate = self
+        // Answer buttons for "agent waits", local and pushed (#94). Not
+        // `.foreground`: answering must not open the app, only send the key.
+        let actions = AgentNotification.answers.map { answer in
+            UNNotificationAction(identifier: "key.\(answer.key)", title: answer.title, options: [])
+        }
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: AgentNotification.blockedCategory, actions: actions, intentIdentifiers: []),
+        ])
     }
 
     /// Posts one notification per agent that needs the user.
@@ -58,13 +70,14 @@ final class Notifier: NSObject {
 
     private func request(for item: BoardItem, on host: HostConfig) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
-        let agent = item.agent.isEmpty ? String(localized: "Agent") : item.agent
-        content.title = item.agentState == .blocked
-            ? String(localized: "\(agent) wartet")
-            : String(localized: "\(agent) ist fertig")
-        content.subtitle = "\(host.name) · \(item.spacePlace) · Tab \(item.tabLabel)"
-        content.body = item.title
+        let text = AgentNotificationText(item: item, hostName: host.name)
+        content.title = text.title
+        content.subtitle = text.subtitle
+        content.body = text.body
         content.sound = item.agentState == .blocked ? .default : nil
+        if item.agentState == .blocked {
+            content.categoryIdentifier = AgentNotification.blockedCategory
+        }
         content.threadIdentifier = host.id.uuidString
         content.userInfo = [
             "host": host.id.uuidString,
@@ -72,7 +85,8 @@ final class Notifier: NSObject {
             "pane": item.paneId,
         ]
         // One notification per pane: a newer state replaces the older one.
-        return UNNotificationRequest(identifier: Self.identifier(host.id, item.paneId), content: content, trigger: nil)
+        // The push for the same pane uses this id as collapse id.
+        return UNNotificationRequest(identifier: AgentNotification.identifier(host.id, item.paneId), content: content, trigger: nil)
     }
 
     private func allowed() async -> Bool {
@@ -83,7 +97,24 @@ final class Notifier: NSObject {
     }
 
     private static func identifier(_ hostID: UUID, _ paneID: String) -> String {
-        "\(hostID.uuidString)/\(paneID)"
+        AgentNotification.identifier(hostID, paneID)
+    }
+}
+
+/// Title, subtitle and body of an agent notification, shared by the local
+/// notifications and the pushes the Mac sends.
+struct AgentNotificationText {
+    let title: String
+    let subtitle: String
+    let body: String
+
+    init(item: BoardItem, hostName: String) {
+        let agent = item.agent.isEmpty ? String(localized: "Agent") : item.agent
+        title = item.agentState == .blocked
+            ? String(localized: "\(agent) wartet")
+            : String(localized: "\(agent) ist fertig")
+        subtitle = "\(hostName) · \(item.spacePlace) · Tab \(item.tabLabel)"
+        body = item.title
     }
 }
 
@@ -92,7 +123,12 @@ extension Notifier: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        // While the app runs it posts its own notification for the pane;
+        // the push from the Mac would only repeat it.
+        if notification.request.trigger is UNPushNotificationTrigger {
+            return []
+        }
+        return [.banner, .list, .sound]
     }
 
     nonisolated func userNotificationCenter(
@@ -104,6 +140,11 @@ extension Notifier: UNUserNotificationCenterDelegate {
               let workspace = info["workspace"] as? String,
               let pane = info["pane"] as? String
         else { return }
+        if let key = AgentNotification.key(forAction: response.actionIdentifier) {
+            // An answer button, e.g. on the Watch: send the key, stay closed.
+            _ = await answer?(host, pane, key)
+            return
+        }
         await MainActor.run {
             openRequest = SpaceRef(hostID: host, workspaceID: workspace, paneID: pane)
         }

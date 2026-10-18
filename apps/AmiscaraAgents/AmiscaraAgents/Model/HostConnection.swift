@@ -220,6 +220,17 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Leaves this device's push registration on the host (#94).
+    func writePushRegistration(_ device: PushDevice, fileName: String) async throws {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(device)
+        try await Task.detached {
+            try session.writePushRegistration(fileName: fileName, data: data)
+        }.value
+    }
+
     /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
     func send(keys: [String], to paneID: String) async throws {
         let session = try writableSession()

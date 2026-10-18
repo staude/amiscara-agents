@@ -77,8 +77,13 @@ struct HostEditorView: View {
                 Section {
                     Toggle("Benachrichtigungen", isOn: $config.notificationsOn)
                 } footer: {
-                    Text("Mitteilung, wenn ein Agent auf eine Antwort wartet oder fertig ist. Auf iPad und iPhone nur, solange die App läuft.")
+                    Text("Mitteilung, wenn ein Agent auf eine Antwort wartet oder fertig ist. Auf iPad und iPhone ohne Push nur, solange die App läuft.")
                 }
+                #if os(macOS)
+                if config.kind == .local {
+                    PushSettingsSection(sender: store.push)
+                }
+                #endif
 
                 Section {
                     Toggle("Spaces nach Namen gruppieren", isOn: $config.groupSpacesByName)

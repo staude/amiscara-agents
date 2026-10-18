@@ -4,6 +4,10 @@ import SwiftUI
 @main
 struct AmiscaraAgentsApp: App {
     @State private var store: HostStore
+    #if os(iOS)
+    /// Push token and notification launches (#94).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
     @Environment(\.scenePhase) private var scenePhase
 
     init() {

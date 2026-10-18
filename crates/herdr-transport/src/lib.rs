@@ -368,6 +368,27 @@ impl Connection {
         file_name: &str,
         data: &[u8],
     ) -> Result<String, TransportError> {
+        self.put(dir, file_name, data, false).await
+    }
+
+    /// Like [`Connection::upload`], but replaces a file of that name, for
+    /// small state files the app keeps on the host.
+    pub async fn write_file(
+        &self,
+        dir: &str,
+        file_name: &str,
+        data: &[u8],
+    ) -> Result<String, TransportError> {
+        self.put(dir, file_name, data, true).await
+    }
+
+    async fn put(
+        &self,
+        dir: &str,
+        file_name: &str,
+        data: &[u8],
+        replace: bool,
+    ) -> Result<String, TransportError> {
         if file_name.is_empty() || file_name.contains('/') || file_name.starts_with('.') {
             return Err(TransportError::Upload(format!(
                 "invalid file name {file_name:?}"
@@ -393,17 +414,19 @@ impl Connection {
                         .await?;
                 }
                 path.push(file_name);
-                let mut file = tokio::fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(&path)
-                    .await?;
+                let mut options = tokio::fs::OpenOptions::new();
+                options.write(true).mode(0o600);
+                if replace {
+                    options.create(true).truncate(true);
+                } else {
+                    options.create_new(true);
+                }
+                let mut file = options.open(&path).await?;
                 file.write_all(data).await?;
                 file.flush().await?;
                 Ok(path.to_string_lossy().into_owned())
             }
-            Inner::Ssh { handle, .. } => sftp_upload(handle, dir, file_name, data).await,
+            Inner::Ssh { handle, .. } => sftp_upload(handle, dir, file_name, data, replace).await,
         }
     }
 
@@ -591,6 +614,7 @@ async fn sftp_upload(
     dir: &str,
     file_name: &str,
     data: &[u8],
+    replace: bool,
 ) -> Result<String, TransportError> {
     let sftp = sftp_session(handle, TransportError::Upload).await?;
     let failed = |err: russh_sftp::client::error::Error| TransportError::Upload(err.to_string());
@@ -613,7 +637,11 @@ async fn sftp_upload(
     let mut file = sftp
         .open_with_flags_and_attributes(
             target.as_str(),
-            OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE,
+            if replace {
+                OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE
+            } else {
+                OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE
+            },
             mode(0o600),
         )
         .await
