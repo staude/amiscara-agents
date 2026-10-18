@@ -14,6 +14,10 @@ struct PaneDetailView: View {
             if let selection, let connection = store.connection(for: selection.hostID) {
                 VStack(spacing: 0) {
                     header(connection: connection, paneID: selection.paneID)
+                        #if os(tvOS)
+                        // Rows for the remote: header, terminal, input.
+                        .focusSection()
+                        #endif
                     Divider()
                     if search.isOpen {
                         PaneSearchBar(state: search, matches: matches)
@@ -23,6 +27,9 @@ struct PaneDetailView: View {
                     if connection.config.inputAllowed, let pane = pane(connection, selection.paneID) {
                         Divider()
                         InputBar(connection: connection, pane: pane)
+                            #if os(tvOS)
+                            .focusSection()
+                            #endif
                     }
                 }
             } else {

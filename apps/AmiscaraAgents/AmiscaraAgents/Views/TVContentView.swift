@@ -28,12 +28,112 @@ struct TVContentView: View {
     }
 }
 
-/// A space opened from the board or the list: its tabs and the pane.
+/// A space opened from the board or the list, laid out for the remote:
+/// rows the focus moves through from top to bottom (tabs, panes, the pane
+/// with its header, terminal and input). No navigation bar, so the
+/// terminal gets the room.
 private struct TVSpaceScreen: View {
-    @State var selection: SpaceRef?
+    @Environment(HostStore.self) private var store
+    let selection: SpaceRef
+    @State private var tabID: String?
+    @State private var paneID: String?
+    @State private var agentKinds: [String] = []
+    @State private var error: String?
+
+    private enum Focus: Hashable { case tabs }
+    @FocusState private var focus: Focus?
 
     var body: some View {
-        WorkspaceDetailView(selection: $selection)
+        Group {
+            if let connection = store.connection(for: selection.hostID),
+               let workspace = connection.update?.workspaces.first(where: { $0.workspaceId == selection.workspaceID }) {
+                VStack(alignment: .leading, spacing: 12) {
+                    tabRow(workspace, connection: connection)
+                        .focusSection()
+                    if let tab = workspace.tabs.first(where: { $0.tabId == tabID }), tab.panes.count > 1 {
+                        Picker("Pane", selection: Binding(get: { paneID ?? "" }, set: { paneID = $0 })) {
+                            ForEach(tab.panes, id: \.paneId) { pane in
+                                Text(pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .focusSection()
+                    }
+                    if let error {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
+                    PaneDetailView(selection: paneID.map { PaneRef(hostID: connection.id, paneID: $0) })
+                }
+                .padding(.horizontal, 40)
+                .onChange(of: workspace.tabs.map(\.tabId), initial: true) { _, ids in
+                    if tabID == nil || !ids.contains(tabID ?? "") { pick(workspace, pane: selection.paneID) }
+                }
+                .task(id: connection.id) { agentKinds = await connection.agentKinds() }
+            } else {
+                ContentUnavailableView("Space nicht verfügbar", systemImage: "square.split.2x1")
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .defaultFocus($focus, .tabs)
+    }
+
+    private func tabRow(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
+        HStack(spacing: 24) {
+            Text(workspace.worktreeName ?? workspace.name)
+                .font(.headline)
+                .lineLimit(1)
+            Picker("Tab", selection: Binding(get: { tabID ?? "" }, set: { select($0, in: workspace) })) {
+                ForEach(workspace.tabs, id: \.tabId) { tab in
+                    Text(tab.label).tag(tab.tabId)
+                }
+            }
+            .pickerStyle(.segmented)
+            .focused($focus, equals: .tabs)
+            if connection.config.inputAllowed && connection.isLive {
+                Button("Neuer Tab", systemImage: "plus") { newTab(in: workspace, on: connection) }
+                    .labelStyle(.iconOnly)
+                Menu {
+                    ForEach(agentKinds, id: \.self) { kind in
+                        Button(kind) { newTab(in: workspace, on: connection, agent: kind) }
+                    }
+                } label: {
+                    Label("Agent starten", systemImage: "sparkles")
+                }
+                .labelStyle(.iconOnly)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func pick(_ workspace: WorkspaceItem, pane: String?) {
+        if let pane, let tab = workspace.tabs.first(where: { $0.panes.contains { $0.paneId == pane } }) {
+            tabID = tab.tabId
+            paneID = pane
+        } else if let tab = workspace.tabs.first(where: { $0.tabId == workspace.activeTabId }) ?? workspace.tabs.first {
+            select(tab.tabId, in: workspace)
+        }
+    }
+
+    private func select(_ id: String, in workspace: WorkspaceItem) {
+        guard let tab = workspace.tabs.first(where: { $0.tabId == id }) else { return }
+        tabID = tab.tabId
+        paneID = (tab.panes.first { $0.focused } ?? tab.panes.first)?.paneId
+    }
+
+    private func newTab(in workspace: WorkspaceItem, on connection: HostConnection, agent: String? = nil) {
+        error = nil
+        Task {
+            do {
+                let created = try await connection.createTab(in: workspace.workspaceId)
+                tabID = created.tabId
+                paneID = created.paneId
+                if let agent {
+                    _ = try await connection.startAgent(kind: agent, in: created.paneId)
+                }
+            } catch {
+                self.error = agent == nil ? inputErrorMessage(error) : agentStartErrorMessage(error)
+            }
+        }
     }
 }
 

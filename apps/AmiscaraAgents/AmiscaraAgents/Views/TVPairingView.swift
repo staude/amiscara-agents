@@ -47,9 +47,13 @@ struct TVPairingView: View {
         .padding(80)
         .task {
             do {
-                key = try TVKey.load()
+                let loaded = try TVKey.load()
+                // The iPhone checks the code against this record (see
+                // TVPairing.isGenuine); without it, it refuses to pair.
+                try await TVPairing.publishIdentity(tvID: TVKey.tvID, publicKey: loaded.publicOpenssh)
+                key = loaded
             } catch {
-                self.error = String(localized: "Schlüssel nicht verfügbar: \(error.localizedDescription)")
+                self.error = String(localized: "Kopplung nicht möglich: \(error.localizedDescription). Ist das Apple TV bei iCloud angemeldet?")
                 return
             }
             // Until closed: pick up hosts as the iPhone leaves them.

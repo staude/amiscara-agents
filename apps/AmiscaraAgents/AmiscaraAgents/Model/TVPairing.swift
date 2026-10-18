@@ -64,6 +64,34 @@ enum TVPairing {
         let hostKey: String
     }
 
+    // MARK: Proof that a code comes from the user's own TV
+
+    /// The TV's public key, written into the user's private iCloud database
+    /// while it shows its code. The iPhone pairs only when the key in a link
+    /// matches this record: a crafted link from a message or web page has
+    /// no such record, since nobody else can write the user's database.
+    static let identityType = "TVIdentity"
+    static let publicKeyField = "publicKey"
+
+    private static func identityID(_ tvID: String) -> CKRecord.ID {
+        CKRecord.ID(recordName: "tvkey-" + String(tvID.map { $0.isLetter || $0.isNumber || $0 == "-" ? $0 : "_" }))
+    }
+
+    static func publishIdentity(tvID: String, publicKey: String) async throws {
+        let record = CKRecord(recordType: identityType, recordID: identityID(tvID))
+        record[publicKeyField] = publicKey
+        _ = try await CloudPush.container.privateCloudDatabase.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys)
+    }
+
+    /// Whether `link` is a code the user's own TV shows.
+    static func isGenuine(_ link: Link) async -> Bool {
+        guard let record = try? await CloudPush.container.privateCloudDatabase.record(for: identityID(link.tvID)),
+              let stored = record[publicKeyField] as? String
+        else { return false }
+        func keyPart(_ line: String) -> String { line.split(separator: " ").prefix(2).joined(separator: " ") }
+        return keyPart(stored) == keyPart(link.publicKey)
+    }
+
     // MARK: Addresses in the home network
 
     /// A host's Bonjour name (`work.local`), keyed by its SSH host key

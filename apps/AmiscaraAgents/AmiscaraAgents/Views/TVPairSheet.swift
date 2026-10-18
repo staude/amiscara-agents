@@ -13,6 +13,8 @@ struct TVPairSheet: View {
     @State private var results: [UUID: String] = [:]
     @State private var done = false
     @State private var error: String?
+    /// `nil` while checking whether the code comes from the user's own TV.
+    @State private var genuine: Bool?
 
     /// SSH hosts with a pinned key; writing the key needs SFTP and a session.
     private var hosts: [HostConnection] {
@@ -26,6 +28,12 @@ struct TVPairSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if genuine == false {
+                    Section {
+                        Label("Dieser Code stammt nicht von einem Apple TV mit Ihrer Apple-ID. Koppeln Sie nur Codes, die Ihr eigenes Apple TV gerade unter „Mit iPhone koppeln“ zeigt.", systemImage: "exclamationmark.shield")
+                            .foregroundStyle(.red)
+                    }
+                }
                 Section {
                     LabeledContent("Apple TV", value: link.name)
                     LabeledContent("Fingerabdruck", value: (try? publicKeyFingerprint(publicOpenssh: link.publicKey)) ?? "?")
@@ -49,12 +57,12 @@ struct TVPairSheet: View {
                                 }
                             }
                         }
-                        .disabled(!usable(connection) || working || done)
+                        .disabled(!usable(connection) || working || done || genuine != true)
                     }
                 } header: {
                     Text("Hosts für das Apple TV")
                 } footer: {
-                    Text("Auf jedem gewählten Host kommt diese Zeile in ~/.ssh/authorized_keys (die alte Datei bleibt als authorized_keys.bak-amiscara): nur Zugriff auf herdr, keine Shell, keine Dateien.")
+                    Text("Koppeln gibt diesem Apple TV dauerhaft Zugriff auf herdr auf den gewählten Hosts. Auf jedem kommt diese Zeile in ~/.ssh/authorized_keys (die alte Datei bleibt als authorized_keys.bak-amiscara): nur Zugriff auf herdr, keine Shell, keine Dateien.")
                 }
                 if let line = try? authorizedKeysLine(publicOpenssh: link.publicKey, allowSftp: false) {
                     Section("Zeile") {
@@ -69,6 +77,7 @@ struct TVPairSheet: View {
                     Text(error).foregroundStyle(.red).selectableText()
                 }
             }
+            .task { genuine = await TVPairing.isGenuine(link) }
             .navigationTitle("Apple TV koppeln")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -80,7 +89,7 @@ struct TVPairSheet: View {
                         ProgressView()
                     } else if !done {
                         Button("Koppeln") { Task { await pair() } }
-                            .disabled(chosen.isEmpty)
+                            .disabled(chosen.isEmpty || genuine != true)
                     }
                 }
             }
