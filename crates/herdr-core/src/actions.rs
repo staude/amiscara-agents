@@ -1,5 +1,5 @@
 //! Writing calls: input for panes and agents, new spaces, tabs and
-//! worktrees, renames, agents started in a pane.
+//! worktrees, renames, closing tabs and spaces, agents started in a pane.
 //!
 //! Keys use herdr's logical names: `enter`, `esc`, `tab`, `backspace`,
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
@@ -372,6 +372,31 @@ pub async fn rename_tab(conn: &Connection, tab_id: &str, label: &str) -> Result<
     let label = non_empty(label)?;
     conn.request("tab.rename", json!({ "tab_id": tab_id, "label": label }))
         .await?;
+    Ok(())
+}
+
+/// Closes a tab with its panes, ending what runs in them; announced with
+/// `tab_closed`. herdr closes the space too when it was its last tab.
+pub async fn close_tab(conn: &Connection, tab_id: &str) -> Result<(), ActionError> {
+    conn.request("tab.close", json!({ "tab_id": tab_id }))
+        .await?;
+    Ok(())
+}
+
+/// Closes a space with all its tabs; announced with `workspace_closed`.
+/// herdr refuses a repository's space that has linked worktree spaces
+/// (`workspace_group_close_required`) unless `with_worktrees` closes them
+/// too.
+pub async fn close_workspace(
+    conn: &Connection,
+    workspace_id: &str,
+    with_worktrees: bool,
+) -> Result<(), ActionError> {
+    conn.request(
+        "workspace.close",
+        json!({ "workspace_id": workspace_id, "close_group": with_worktrees }),
+    )
+    .await?;
     Ok(())
 }
 
