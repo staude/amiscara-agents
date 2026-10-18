@@ -382,6 +382,42 @@ impl Connection {
         self.put(dir, file_name, data, true).await
     }
 
+    /// Deletes `file_name` in `dir` below the home directory; a missing file
+    /// is fine. Over SSH this needs SFTP like uploads.
+    pub async fn remove_file(&self, dir: &str, file_name: &str) -> Result<(), TransportError> {
+        if file_name.is_empty() || file_name.contains('/') || file_name.starts_with('.') {
+            return Err(TransportError::Upload(format!(
+                "invalid file name {file_name:?}"
+            )));
+        }
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let path = local_home_path(dir)?.join(file_name);
+                match tokio::fs::remove_file(&path).await {
+                    Err(err) if err.kind() != std::io::ErrorKind::NotFound => Err(err.into()),
+                    _ => Ok(()),
+                }
+            }
+            Inner::Ssh { handle, .. } => {
+                let sftp = sftp_session(handle, TransportError::Upload).await?;
+                let failed =
+                    |err: russh_sftp::client::error::Error| TransportError::Upload(err.to_string());
+                let home = sftp.canonicalize(".").await.map_err(failed)?;
+                let target = format!(
+                    "{}/{}/{file_name}",
+                    home.trim_end_matches('/'),
+                    dir.trim_matches('/')
+                );
+                if sftp.try_exists(target.as_str()).await.map_err(failed)? {
+                    sftp.remove_file(target.as_str()).await.map_err(failed)?;
+                }
+                sftp.close().await.map_err(failed)?;
+                Ok(())
+            }
+        }
+    }
+
     async fn put(
         &self,
         dir: &str,

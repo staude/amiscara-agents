@@ -38,8 +38,10 @@ final class Notifier: NSObject {
         center.delegate = self
         // Answer buttons for "agent waits", local and pushed (#94). Not
         // `.foreground`: answering must not open the app, only send the key.
+        // An answer can approve what an agent does, so a locked iPhone asks
+        // for unlocking first; a worn, unlocked Watch counts as unlocked.
         let actions = AgentNotification.answers.map { answer in
-            UNNotificationAction(identifier: "key.\(answer.key)", title: answer.title, options: [])
+            UNNotificationAction(identifier: "key.\(answer.key)", title: answer.title, options: [.authenticationRequired])
         }
         center.setNotificationCategories([
             UNNotificationCategory(identifier: AgentNotification.blockedCategory, actions: actions, intentIdentifiers: []),

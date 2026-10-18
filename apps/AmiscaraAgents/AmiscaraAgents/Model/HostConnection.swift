@@ -231,6 +231,13 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    func removePushRegistration(fileName: String) async throws {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        try await Task.detached {
+            try session.removePushRegistration(fileName: fileName)
+        }.value
+    }
+
     /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
     func send(keys: [String], to paneID: String) async throws {
         let session = try writableSession()

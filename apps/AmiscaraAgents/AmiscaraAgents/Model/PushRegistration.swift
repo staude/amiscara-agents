@@ -20,13 +20,22 @@ final class PushRegistration {
         written.removeAll()
     }
 
-    /// Writes this device's registration on the host once per session.
+    private var fileName: String? {
+        UIDevice.current.identifierForVendor.map { "\($0.uuidString).json" }
+    }
+
+    /// Writes this device's registration on the host once per session, or
+    /// removes it there when notifications for the host are off.
     func register(on connection: HostConnection) {
-        guard let token, connection.isLive, connection.config.uploadAllowed,
-              let device = UIDevice.current.identifierForVendor?.uuidString
-        else { return }
-        let key = "\(connection.id)/\(connection.generation)"
+        guard connection.isLive, connection.config.uploadAllowed, let fileName else { return }
+        let key = "\(connection.id)/\(connection.generation)/\(connection.config.notificationsOn)"
         guard !written.contains(key) else { return }
+        guard connection.config.notificationsOn else {
+            written.insert(key)
+            Task { try? await connection.removePushRegistration(fileName: fileName) }
+            return
+        }
+        guard let token else { return }
         written.insert(key)
         #if DEBUG
         let environment = "development"
@@ -43,11 +52,17 @@ final class PushRegistration {
         )
         Task {
             do {
-                try await connection.writePushRegistration(entry, fileName: "\(device).json")
+                try await connection.writePushRegistration(entry, fileName: fileName)
             } catch {
                 written.remove(key)
             }
         }
+    }
+
+    /// Removes the registration before a host is deleted, best effort.
+    func unregister(on connection: HostConnection) async {
+        guard connection.isLive, connection.config.uploadAllowed, let fileName else { return }
+        try? await connection.removePushRegistration(fileName: fileName)
     }
 }
 

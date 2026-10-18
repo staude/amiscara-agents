@@ -27,7 +27,13 @@ struct PushSettingsSection: View {
             } else {
                 ForEach(devices, id: \.token) { device in
                     LabeledContent(device.deviceName) {
-                        Text(device.sandbox ? "Entwicklung" : "Release").foregroundStyle(.secondary)
+                        HStack {
+                            Text(device.sandbox ? "Entwicklung" : "Release").foregroundStyle(.secondary)
+                            Button("Entfernen", systemImage: "minus.circle") { sender.remove(device) }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
+                                .help(String(localized: "Keine Pushes mehr an dieses Gerät, bis es sich wieder anmeldet"))
+                        }
                     }
                 }
                 Button(testing ? "Wird gesendet …" : "Test-Push senden") {

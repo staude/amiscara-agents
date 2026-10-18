@@ -101,7 +101,16 @@ final class HostStore {
 
     func remove(_ id: UUID) {
         guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
-        connections[index].stop()
+        let connection = connections[index]
+        #if os(iOS)
+        // No more pushes for a host that is gone; the key is still there.
+        Task {
+            await PushRegistration.shared.unregister(on: connection)
+            connection.stop()
+        }
+        #else
+        connection.stop()
+        #endif
         KeyStore.delete(for: id)
         connections.remove(at: index)
         save()

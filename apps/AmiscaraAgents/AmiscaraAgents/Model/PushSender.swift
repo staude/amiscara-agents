@@ -171,6 +171,10 @@ final class PushSender {
         let device: PushDevice
     }
 
+    /// Devices refresh their registration with every session; one not seen
+    /// for this long is dropped.
+    private static let expiry: TimeInterval = 30 * 24 * 3600
+
     private func deviceFiles() -> [DeviceFile] {
         let dir = FileManager.default.homeDirectoryForCurrentUser.appending(path: pushDir())
         let urls = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
@@ -178,8 +182,20 @@ final class PushSender {
             guard let data = try? Data(contentsOf: url),
                   let device = try? JSONDecoder().decode(PushDevice.self, from: data)
             else { return nil }
+            if Date.now.timeIntervalSince(device.updated) > Self.expiry {
+                try? FileManager.default.removeItem(at: url)
+                return nil
+            }
             return DeviceFile(url: url, device: device)
         }
+    }
+
+    /// Stops pushes to a device until it registers again.
+    func remove(_ device: PushDevice) {
+        for file in deviceFiles() where file.device.token == device.token {
+            try? FileManager.default.removeItem(at: file.url)
+        }
+        lastError = nil
     }
 
     enum Failure: LocalizedError {

@@ -566,6 +566,17 @@ impl HostSession {
             })
     }
 
+    /// Deletes this device's push registration on the host, if any.
+    pub fn remove_push_registration(&self, file_name: String) -> Result<(), FfiError> {
+        let conn = self.connection()?;
+        runtime()
+            .block_on(conn.remove_file(&push_dir(), &file_name))
+            .map_err(|err| match err {
+                TransportError::Upload(message) => FfiError::Upload(message),
+                other => FfiError::NotConnected(other.to_string()),
+            })
+    }
+
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path. Blocks
     /// until the upload is done; call it off the main thread.
