@@ -82,13 +82,15 @@ private struct PaneTile: View {
         .simultaneousGesture(TapGesture().onEnded(select))
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
-        .onAppear { model.show(paneID: paneID, on: connection, live: isSelected) }
-        .onChange(of: connection.generation) { model.show(paneID: paneID, on: connection, live: isSelected) }
+        .task(id: connection.generation) {
+            let token = model.show(paneID: paneID, on: connection, live: isSelected)
+            await untilCancelled()
+            model.stop(token)
+        }
         .onChange(of: isSelected) { _, selected in
             model.setLive(selected)
             if !selected { search.close() }
         }
-        .onDisappear { model.stop() }
     }
 
     private var header: some View {

@@ -15,6 +15,8 @@ final class PaneModel {
     @ObservationIgnored private(set) var paneID: String?
     /// `HostConnection.generation` the follower belongs to.
     @ObservationIgnored private var generation: Int?
+    /// Counts `show` calls; see `stop(_:)`.
+    @ObservationIgnored private var showing = 0
     @ObservationIgnored private var live = true
 
     /// Each load asks for the next step; herdr returns at most
@@ -48,7 +50,15 @@ final class PaneModel {
 
     /// `live: false` reads the pane only every few seconds; for a pane shown
     /// beside the selected one, since every read costs a round trip.
-    func show(paneID: String?, on connection: HostConnection?, live: Bool = true) {
+    /// Returns a token for `stop(_:)`.
+    @discardableResult
+    func show(paneID: String?, on connection: HostConnection?, live: Bool = true) -> Int {
+        showing += 1
+        follow(paneID: paneID, on: connection, live: live)
+        return showing
+    }
+
+    private func follow(paneID: String?, on connection: HostConnection?, live: Bool) {
         guard paneID != self.paneID || connection?.generation != generation else {
             setLive(live)
             return
@@ -87,7 +97,11 @@ final class PaneModel {
         if !live, historyLines > 0 { hideHistory() }
     }
 
-    func stop() {
+    /// Stops following, unless the view was shown again since `token`: on
+    /// the iPhone, SwiftUI can end an earlier appearance of the pane view
+    /// after the next one began, which stopped the pane just opened (#107).
+    func stop(_ token: Int) {
+        guard token == showing else { return }
         show(paneID: nil, on: nil)
     }
 }
@@ -110,5 +124,13 @@ final class PaneBridge: PaneObserver {
 
     func onError(message: String) {
         error(message)
+    }
+}
+
+/// Returns once the current task is cancelled, e.g. when the view that
+/// started it with `.task` goes away.
+func untilCancelled() async {
+    while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(3600))
     }
 }

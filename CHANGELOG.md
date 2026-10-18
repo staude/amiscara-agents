@@ -223,4 +223,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
   iPad often do not, so the scanned host could not connect.
 - The open pane no longer keeps loading after the host reconnects, e.g. when
   the app comes back to the foreground: it follows the pane again on the
-  new session (#104).
+  new session (#104). On the iPhone, opening the same pane again no longer
+  keeps loading either: the end of the view's previous appearance stopped
+  the pane just opened (#107).
