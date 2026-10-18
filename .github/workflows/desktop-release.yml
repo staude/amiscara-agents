@@ -1,0 +1,107 @@
+name: Desktop release
+
+# A tag `desktop-v<version>` (scripts/desktop-release.sh) builds the
+# installers for Windows and Linux, signs the update files with the updater
+# key and publishes them, with `latest.json` for the app's updater, in the
+# public repository staude/amiscara-agents-releases.
+#
+# Secrets: RELEASES_TOKEN (fine-grained token, Contents read and write on
+# amiscara-agents-releases), TAURI_SIGNING_PRIVATE_KEY and
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD (updater key, see apps/desktop/README.md).
+
+on:
+  push:
+    tags: ["desktop-v*"]
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+env:
+  RELEASES_OWNER: staude
+  RELEASES_REPO: amiscara-agents-releases
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Tag matches the app version
+        run: |
+          version="${GITHUB_REF_NAME#desktop-v}"
+          app="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$version" != "$app" ]; then
+            echo "::error::tag $GITHUB_REF_NAME, but apps/desktop/package.json says $app"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - id: create
+        name: Draft release in the public repository
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          id="$(gh api "repos/$RELEASES_OWNER/$RELEASES_REPO/releases" \
+            -f tag_name="v$VERSION" -f target_commitish=main \
+            -f name="Amiscara Agents $VERSION" -F draft=true \
+            -f body="Windows: setup.exe oder msi (nicht signiert, SmartScreen fragt einmal). Linux: AppImage oder deb." \
+            --jq .id)"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: release
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: WebKitGTK and bundler tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop-release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+        working-directory: apps/desktop
+      # Windows code signing (Authenticode) goes here once there is a
+      # certificate: `bundle.windows.signCommand` in tauri.conf.json, see #146.
+      - uses: tauri-apps/tauri-action@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          owner: ${{ env.RELEASES_OWNER }}
+          repo: ${{ env.RELEASES_REPO }}
+          releaseId: ${{ needs.release.outputs.id }}
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
+
+  publish:
+    name: Publish release
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: gh api -X PATCH "repos/$RELEASES_OWNER/$RELEASES_REPO/releases/${{ needs.release.outputs.id }}" -F draft=false --silent

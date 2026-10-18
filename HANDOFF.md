@@ -97,7 +97,14 @@ Messwerte lokal (Unix-Socket): `ping` im Mittel 0,2 ms, `pane.read ansi` mit 6,6
     - Diagnose am Gerät ohne Konsole: `xcrun devicectl device info files`/`copy from` mit `--domain-type appGroupDataContainer`; Erweiterungen schreiben dafür vorübergehend ein Log in die App Group. Geräte nach einem Mac-Neustart mit `xcrun devicectl device info details --device <id>` verbinden.
     - Merge-Lehre: #136 wurde nur mit dem ersten Commit gemergt (PR-Head stand noch dort), #137 hat den Rest nachgeholt. Vor jedem Merge `headRefOid` mit dem lokalen HEAD vergleichen.
     - Werkzeug in enon: Skill `herdr-restart` sichert vor einem Mac-Neustart, welche Claude-Sitzung in welcher herdr-Pane lief (`~/.claude/sessions/<pid>.json`), und setzt sie danach mit `claude --resume` fort.
-23. Weiter: Release (Developer-ID-Zertifikat und notarytool-Profil `AmiscaraAgents` legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone/Apple TV, Windows mit Tauri, Android, Abstand zum Upstream (#79).
+23. **Windows und Linux (Epic #141, PRs #147, #148 und folgende):** Tauri 2 mit Svelte und TypeScript in `apps/desktop`, Crate `amiscara-desktop`.
+    - Die Sitzungslogik liegt in `crates/herdr-session` (#142); `herdr-ffi` ist nur noch die UniFFI-Hülle. Änderungen an der Logik gehören nach `herdr-session`.
+    - Hosts als JSON im App-Datenordner, Schlüssel im Schlüsselspeicher des Systems (`keyring`), SSH mit eigenem Schlüssel oder SSH-Agent, Host-Key-Abfrage, Add-Host-Links (#143). Geöffnete Links pinnen keinen Host-Key (Sicherheitsbefund).
+    - Hauptfenster wie die Mac-App (#144), Tray, Benachrichtigungen aus Rust (Windows-Toasts, libnotify mit escaptem Text), Verwaltung, Tastenkürzel (#145). `npm run mock` zeigt das Fenster mit Beispieldaten im Browser; die Tauri-Fenster selbst ließen sich in der Session nicht ansehen.
+    - Release (#146): Tag `desktop-v<version>` per `scripts/desktop-release.sh`, Workflow `desktop-release.yml` lädt Installer und `latest.json` in das **öffentliche** Repo `staude/amiscara-agents-releases` (das Code-Repo ist privat, der Updater bräuchte sonst einen Token). Updater-Schlüssel: `~/.tauri/amiscara-agents-updater.key` auf work (sichern; ohne ihn keine Updates mehr), als Secret `TAURI_SIGNING_PRIVATE_KEY` hinterlegt. Für den Upload fehlt noch das Secret `RELEASES_TOKEN` (siehe `apps/desktop/README.md`). Windows vorerst unsigniert (Franks Entscheidung vom 18.10.), SmartScreen fragt einmal pro Version.
+    - Upstream-Fehler: `tauri-plugin-deep-link` 2.6.2 baut unter Linux nicht mit `rust-ini` ab 0.21.2; `Cargo.lock` hält 0.21.1.
+    - Offen: Test auf Franks Windows-PC (Installer, Hosts, Toasts, Tray, Updates).
+24. Weiter: Release der Mac-App (Developer-ID-Zertifikat und notarytool-Profil `AmiscaraAgents` legt Frank an, dann `scripts/release.sh`), TestFlight für iPad/iPhone/Apple TV, Android, Abstand zum Upstream (#79).
 
 ## Hinweise für die nächste Session
 

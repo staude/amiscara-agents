@@ -305,6 +305,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   (Ctrl+K), Ctrl+1 to 9 for spaces, Ctrl+Shift+[ ] and Ctrl+PageUp/Down for
   tabs, Ctrl+Alt+1 to 3 and arrows, Ctrl+. (Esc) and Ctrl+Shift+Enter for the
   pane. `amiscara-agents://open?host=…&pane=…` opens a pane.
+- Desktop releases and updates (#146): tag `desktop-v<version>`
+  (`scripts/desktop-release.sh`) builds Windows (NSIS, MSI) and Linux
+  (AppImage, deb) installers and publishes them with a signed `latest.json`
+  in the public repository `staude/amiscara-agents-releases`. The app looks
+  for updates on start and in the settings, installs and restarts. Windows
+  builds are not code signed yet.
 
 ### Changed
 

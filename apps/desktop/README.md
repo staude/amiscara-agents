@@ -84,6 +84,35 @@ amber badge).
 
 ## Deploy
 
-CI builds installers on every push: NSIS and MSI for Windows, deb and
-AppImage for Linux, as artifacts of the "Desktop app" job. Signed releases
-follow in #146.
+CI builds installers on every push (artifacts of the "Desktop app" job).
+Releases go to the public repository
+[staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
+because this one is private and the updater must read `latest.json` without
+a token:
+
+```sh
+scripts/desktop-release.sh 0.2.0      # version in package.json and Cargo.toml, commit, tag
+git push && git push origin desktop-v0.2.0
+```
+
+The workflow `.github/workflows/desktop-release.yml` checks that tag and
+version match, drafts the release, builds Windows (NSIS, MSI) and Linux
+(AppImage, deb) with `tauri-action`, signs the update files and publishes.
+
+Secrets of this repository:
+
+- `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the
+  updater key, created with `npx tauri signer generate`; the private key is
+  kept in `~/.tauri/amiscara-agents-updater.key` on work. Back it up: without
+  it, installed apps accept no further update. Its public half is
+  `plugins.updater.pubkey` in `tauri.conf.json`.
+- `RELEASES_TOKEN`: a fine-grained personal access token with
+  "Contents: Read and write" on `amiscara-agents-releases` only.
+
+The app checks `latest.json` on start and offers the update; on Windows
+the installer runs passively and restarts the app. The AppImage updates
+itself, a `.deb` does not (install the new one by hand).
+
+Windows builds are not code signed yet (decision of 2026-10-18): SmartScreen
+asks once per version. A certificate later goes in as
+`bundle.windows.signCommand`; the place is marked in the release workflow.
