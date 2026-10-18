@@ -89,6 +89,10 @@ final class PaneModel {
                 }
             },
             error: { [weak self] message in
+                // A closed tab or pane: the view moves on to another tab as
+                // soon as the session reports it; until then this is no
+                // error worth flashing (herdr logs it as pane_not_found).
+                guard !message.contains("pane_not_found") else { return }
                 Task { @MainActor in self?.error = message }
             }
         )
