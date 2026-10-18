@@ -22,7 +22,8 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
-            app.manage(app::AppState::new(hosts::HostStore::load(dir)?));
+            let replies = hosts::QuickReplies::load(dir.clone());
+            app.manage(app::AppState::new(hosts::HostStore::load(dir)?, replies));
             // Installers register the scheme; a dev build does it itself.
             #[cfg(any(windows, target_os = "linux"))]
             if cfg!(debug_assertions) {
@@ -54,6 +55,11 @@ pub fn run() {
             app::send_prompt,
             app::send_keys,
             app::send_text,
+            app::submit,
+            app::claude_history,
+            app::upload,
+            app::quick_replies,
+            app::save_quick_replies,
             pending_links,
         ])
         .run(tauri::generate_context!())

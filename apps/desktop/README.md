@@ -25,6 +25,11 @@ npx tauri build     # bundles under target/release/bundle
 
 The Mac has the SwiftUI app; `npx tauri dev` works there for development.
 
+`npm run mock` serves the window to a normal browser (http://localhost:1420)
+with sample hosts, spaces and panes instead of the Rust side
+(`src/dev/mock.ts`), for layout work without a herdr server. The mock is
+not part of the build.
+
 ## Hosts and keys
 
 - Hosts: `hosts.json` in the app data folder (`%APPDATA%\net.staude.amiscara.agents`

@@ -9,29 +9,38 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use herdr_session::view::{PaneContent, SessionUpdate};
-use herdr_session::{AddHostLink, Endpoint, PaneFollow, PaneSink, Session, SshIdentity};
+use herdr_session::{
+    AddHostLink, Endpoint, PaneFollow, PaneSink, Session, SshIdentity, TranscriptCursor,
+    TranscriptPage,
+};
 use herdr_transport::keys;
 use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::AppError;
-use crate::hosts::{self, Auth, HostConfig, HostKind, HostStore};
+use crate::hosts::{self, Auth, HostConfig, HostKind, HostStore, QuickReplies};
 
 pub struct AppState {
     store: Mutex<HostStore>,
+    quick_replies: Mutex<QuickReplies>,
     sessions: Mutex<HashMap<String, Arc<Session>>>,
     follows: Mutex<HashMap<u64, PaneFollow>>,
     next_follow: AtomicU64,
+    /// Counts session starts; pane followers end with their session, so the
+    /// window follows anew when an update carries another generation.
+    next_generation: AtomicU64,
 }
 
 impl AppState {
-    pub fn new(store: HostStore) -> Self {
+    pub fn new(store: HostStore, quick_replies: QuickReplies) -> Self {
         Self {
             store: Mutex::new(store),
+            quick_replies: Mutex::new(quick_replies),
             sessions: Mutex::new(HashMap::new()),
             follows: Mutex::new(HashMap::new()),
             next_follow: AtomicU64::new(1),
+            next_generation: AtomicU64::new(1),
         }
     }
 
@@ -269,12 +278,12 @@ pub async fn trust_host_key(
 #[serde(rename_all = "camelCase")]
 struct UpdateEvent<'a> {
     host_id: &'a str,
+    generation: u64,
     update: &'a SessionUpdate,
 }
 
 /// Runs inside the async runtime: the session spawns its tasks there.
 fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), AppError> {
-    state.stop_session(&host.id);
     let endpoint = match host.kind {
         HostKind::Local => Endpoint::Local {
             socket_path: (!host.socket_path.is_empty()).then(|| host.socket_path.clone()),
@@ -295,16 +304,25 @@ fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), App
     };
     let emitter = app.clone();
     let host_id = host.id.clone();
+    let generation = state.next_generation.fetch_add(1, Ordering::Relaxed);
+    // Held until the new session is stored: its first update can reach the
+    // window before `start` returns, and `follow_pane` must not find the
+    // old session then.
+    let mut sessions = state.sessions();
+    if let Some(old) = sessions.remove(&host.id) {
+        old.stop();
+    }
     let session = Session::start(endpoint, host.group_spaces_by_name(), move |update| {
         let _ = emitter.emit(
             "session-update",
             UpdateEvent {
                 host_id: &host_id,
+                generation,
                 update: &update,
             },
         );
     })?;
-    state.sessions().insert(host.id.clone(), Arc::new(session));
+    sessions.insert(host.id.clone(), Arc::new(session));
     Ok(())
 }
 
@@ -413,6 +431,119 @@ pub async fn send_text(
     Ok(session.send_text(&pane_id, &text).await?)
 }
 
+/// Sends what the composer holds: to an agent as a prompt, to a shell as
+/// typed text followed by Enter.
+#[tauri::command]
+pub async fn submit(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+    text: String,
+    is_agent: bool,
+) -> Result<(), AppError> {
+    input_allowed(&state, &host_id)?;
+    let session = state.session(&host_id)?;
+    if is_agent {
+        session.send_prompt(&pane_id, &text).await?;
+    } else {
+        session.send_text(&pane_id, &text).await?;
+        session.send_keys(&pane_id, &["enter".to_owned()]).await?;
+    }
+    Ok(())
+}
+
+/// Part of the Claude Code conversation in a pane (#102); read only.
+#[tauri::command]
+pub async fn claude_history(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+    before: Option<TranscriptCursor>,
+) -> Result<TranscriptPage, AppError> {
+    let session = state.session(&host_id)?;
+    Ok(session.claude_history(&pane_id, before).await?)
+}
+
+/// Uploads one file, sent as the raw request body to spare a JSON array of
+/// numbers. Headers: `x-host-id`, and either `x-file-name` (any file, kept
+/// under its name, percent-encoded) or `x-file-extension` (a prepared
+/// image). Returns the absolute path on the host.
+#[tauri::command]
+pub async fn upload(
+    state: State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<String, AppError> {
+    let header = |name: &str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+    };
+    let host_id =
+        header("x-host-id").ok_or_else(|| AppError::Config("x-host-id missing".into()))?;
+    let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
+        return Err(AppError::Config("upload without raw body".into()));
+    };
+    let host = state.store().get(&host_id)?;
+    if host.kind == HostKind::Ssh && !host.allow_upload.unwrap_or(false) {
+        return Err(AppError::Config(format!(
+            "Dateien hochladen ist für {} aus. Einschalten unter „Bearbeiten“.",
+            host.name
+        )));
+    }
+    input_allowed(&state, &host_id)?;
+    let session = state.session(&host_id)?;
+    if let Some(name) = header("x-file-name") {
+        let name = percent_decode(&name);
+        Ok(session.upload_named_file(data, &name).await?)
+    } else {
+        let ext = header("x-file-extension").unwrap_or_default();
+        Ok(session.upload_file(data, &ext).await?)
+    }
+}
+
+/// `%XX` escapes from `encodeURIComponent`; anything malformed stays as is.
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && let Some(hex) = text.get(i + 1..i + 3)
+            && let Ok(byte) = u8::from_str_radix(hex, 16)
+        {
+            out.push(byte);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+#[tauri::command]
+pub fn quick_replies(state: State<'_, AppState>) -> Vec<String> {
+    state
+        .quick_replies
+        .lock()
+        .map(|replies| replies.list().to_vec())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn save_quick_replies(
+    state: State<'_, AppState>,
+    replies: Vec<String>,
+) -> Result<(), AppError> {
+    state
+        .quick_replies
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner())
+        .set(replies)
+}
+
 /// Hands an opened `amiscara-agents://add-host` link to the window.
 pub fn open_links(app: &AppHandle, urls: impl IntoIterator<Item = String>) {
     for url in urls {
@@ -426,5 +557,20 @@ pub fn open_links(app: &AppHandle, urls: impl IntoIterator<Item = String>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.set_focus();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::percent_decode;
+
+    #[test]
+    fn percent_decoding_matches_encode_uri_component() {
+        assert_eq!(
+            percent_decode("Rechnung%20M%C3%A4rz.xlsx"),
+            "Rechnung März.xlsx"
+        );
+        assert_eq!(percent_decode("a%2"), "a%2");
+        assert_eq!(percent_decode("100%"), "100%");
     }
 }

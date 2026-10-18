@@ -1,29 +1,58 @@
-// App-wide state: hosts and the last update of each live session.
+// App-wide state: hosts, the last update of each live session, what the
+// sidebar selects.
 
 import * as core from "./core";
-import type { AppInfo, HostConfig, SessionUpdate } from "./types";
+import type { AppInfo, HostConfig, SessionUpdate, WorkspaceItem } from "./types";
+
+/** A host (its settings), a space, or a space with one of its panes. */
+export interface Selection {
+  hostId: string;
+  workspaceId: string | null;
+  paneId: string | null;
+}
 
 class AppModel {
   info = $state<AppInfo | null>(null);
   hosts = $state<HostConfig[]>([]);
   updates = $state<Record<string, SessionUpdate>>({});
-  selectedHostId = $state<string | null>(null);
+  /** Session generation per host; pane followers restart when it changes. */
+  generations = $state<Record<string, number>>({});
+  selection = $state<Selection | null>(null);
   error = $state<string | null>(null);
 
   get selectedHost(): HostConfig | undefined {
-    return this.hosts.find((host) => host.id === this.selectedHostId);
+    return this.hosts.find((host) => host.id === this.selection?.hostId);
+  }
+
+  get selectedWorkspace(): WorkspaceItem | undefined {
+    const sel = this.selection;
+    if (!sel?.workspaceId) return undefined;
+    return this.updates[sel.hostId]?.workspaces.find((w) => w.workspaceId === sel.workspaceId);
+  }
+
+  host(id: string): HostConfig | undefined {
+    return this.hosts.find((host) => host.id === id);
+  }
+
+  isLive(hostId: string): boolean {
+    return this.updates[hostId]?.status.kind === "live";
   }
 
   async load() {
-    await core.onSessionUpdate((hostId, update) => {
+    await core.onSessionUpdate((hostId, generation, update) => {
       this.updates[hostId] = update;
+      if (this.generations[hostId] !== generation) this.generations[hostId] = generation;
     });
     this.info = await core.appInfo();
     this.hosts = await core.listHosts();
-    this.selectedHostId ??= this.hosts[0]?.id ?? null;
+    if (!this.selection && this.hosts[0]) this.select(this.hosts[0].id);
     for (const host of this.hosts) {
       core.connect(host.id).catch((err) => (this.error = core.errorText(err)));
     }
+  }
+
+  select(hostId: string, workspaceId: string | null = null, paneId: string | null = null) {
+    this.selection = { hostId, workspaceId, paneId };
   }
 
   /** Saves and (re)connects; returns the saved host. */
@@ -37,15 +66,19 @@ class AppModel {
   replace(host: HostConfig) {
     const index = this.hosts.findIndex((known) => known.id === host.id);
     if (index >= 0) this.hosts[index] = host;
-    else this.hosts.push(host);
-    this.selectedHostId = host.id;
+    else {
+      this.hosts.push(host);
+      this.select(host.id);
+    }
   }
 
   async remove(hostId: string) {
     await core.deleteHost(hostId);
     this.hosts = this.hosts.filter((host) => host.id !== hostId);
     delete this.updates[hostId];
-    if (this.selectedHostId === hostId) this.selectedHostId = this.hosts[0]?.id ?? null;
+    if (this.selection?.hostId === hostId) {
+      this.selection = this.hosts[0] ? { hostId: this.hosts[0].id, workspaceId: null, paneId: null } : null;
+    }
   }
 }
 
