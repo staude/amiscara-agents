@@ -73,6 +73,13 @@ enum Command {
         #[arg(long, default_value_t = 30)]
         seconds: u64,
     },
+    /// Conversation of a Claude Code pane from its session file (read only).
+    History {
+        pane: String,
+        /// Pages to read, newest first.
+        #[arg(long, default_value_t = 1)]
+        pages: usize,
+    },
     /// Measure request round trips.
     Bench {
         #[arg(long, default_value_t = 50)]
@@ -102,6 +109,7 @@ async fn main() -> Result<()> {
         Command::Bench { count, pane } => bench(&conn, count, pane).await,
         Command::Check => check(&conn).await,
         Command::View { pane, seconds } => view(&conn, &pane, seconds).await,
+        Command::History { pane, pages } => history(&conn, &pane, pages).await,
         Command::Board { .. } => Ok(()),
     }
 }
@@ -223,6 +231,40 @@ async fn read_pane(conn: &Connection, pane: &str, ansi: bool) -> Result<PaneRead
     });
     let result: PaneReadResult = serde_json::from_value(conn.request("pane.read", params).await?)?;
     Ok(result.read)
+}
+
+async fn history(conn: &Connection, pane: &str, pages: usize) -> Result<()> {
+    let started = Instant::now();
+    let session = herdr_core::claude::find_session(conn, pane).await?;
+    eprintln!(
+        "-- {} ({} bytes), found in {:?}",
+        session.path,
+        session.size,
+        started.elapsed()
+    );
+    let mut end = session.size;
+    let mut shown = Vec::new();
+    for _ in 0..pages {
+        let started = Instant::now();
+        let page = herdr_core::claude::read_back(conn, &session, end).await?;
+        eprintln!(
+            "-- page {}..{}: {} entries in {:?}",
+            page.start,
+            end,
+            page.entries.len(),
+            started.elapsed()
+        );
+        end = page.start;
+        shown.splice(0..0, page.entries);
+        if end == 0 {
+            break;
+        }
+    }
+    for entry in shown.iter().rev().take(12).rev() {
+        let text: String = entry.text.chars().take(100).collect();
+        println!("{:?}: {}", entry.kind, text.replace('\n', " "));
+    }
+    Ok(())
 }
 
 async fn read(conn: &Connection, pane: &str, ansi: bool) -> Result<()> {

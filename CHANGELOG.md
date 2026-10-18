@@ -188,6 +188,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   iPad and Mac with light and dark colours; tinted and clear come from the
   system. Accent colour petrol `#0E7C74`, in dark mode `#2FD1A5`. Generated
   by `docs/icon/A/appicon.py`.
+- Conversation history for Claude Code panes (#102): herdr keeps no
+  scrollback for full-screen programs, so a button in the pane header opens
+  the conversation from Claude Code's session file on the host (prompts,
+  answers, tool calls; older parts on request). The file is found by the
+  pane's directory and its title, read from the end in steps of about 30
+  entries. Over SSH it needs SFTP like image uploads. Core:
+  `herdr_core::claude`, transport `list_files` and `read_file_range`,
+  `herdr-spike history <pane>`.
 
 ### Changed
 

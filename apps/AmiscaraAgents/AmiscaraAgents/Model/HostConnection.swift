@@ -209,6 +209,17 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The Claude Code conversation in a pane from its session file on the
+    /// host, newest part first; `before` continues backwards. Read only, but
+    /// over SSH it needs the same SFTP access as uploads.
+    func claudeHistory(paneID: String, before: TranscriptCursor? = nil) async throws -> TranscriptPage {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistory(paneId: paneID, before: before)
+        }.value
+    }
+
     /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
     func send(keys: [String], to paneID: String) async throws {
         let session = try writableSession()
@@ -251,6 +262,7 @@ enum ConnectionFailure: LocalizedError {
     case readOnly
     case notConnected
     case uploadOff
+    case filesOff
 
     var errorDescription: String? {
         switch self {
@@ -262,6 +274,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Keine Verbindung zum Host.")
         case .uploadOff:
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
+        case .filesOff:
+            String(localized: "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         }
     }
 }
@@ -275,6 +289,8 @@ func inputErrorMessage(_ error: Error) -> String {
         String(localized: "Keine Verbindung zum Host.")
     case FfiError.Upload(let message):
         String(localized: "Hochladen fehlgeschlagen: \(message)")
+    case FfiError.Files(let message):
+        String(localized: "Dateien auf dem Host nicht lesbar: \(message)")
     default:
         error.localizedDescription
     }

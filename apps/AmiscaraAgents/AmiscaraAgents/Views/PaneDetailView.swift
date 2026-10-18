@@ -6,6 +6,7 @@ struct PaneDetailView: View {
     let selection: PaneRef?
     @State private var model = PaneModel()
     @State private var search = PaneSearchState()
+    @State private var showingConversation = false
 
     var body: some View {
         let matches = search.matches(in: model.content)
@@ -39,6 +40,11 @@ struct PaneDetailView: View {
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
         }
         .onChange(of: selection) { search.matchIndex = nil }
+        .sheet(isPresented: $showingConversation) {
+            if let selection, let connection = store.connection(for: selection.hostID) {
+                ConversationView(connection: connection, paneID: selection.paneID)
+            }
+        }
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
     }
 
@@ -70,6 +76,14 @@ struct PaneDetailView: View {
                     .foregroundStyle(state.color)
             }
             Text(connection.config.name).foregroundStyle(.secondary)
+            if pane?.agent == "claude" {
+                Button("Gesprächsverlauf", systemImage: "text.bubble") {
+                    showingConversation = true
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .help(String(localized: "Gesprächsverlauf aus der Claude-Sitzung"))
+            }
             PaneSearchButton(state: search)
             TerminalZoomMenu()
         }

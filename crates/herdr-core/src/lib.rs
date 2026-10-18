@@ -8,6 +8,7 @@
 //! name.
 
 pub mod actions;
+pub mod claude;
 pub mod pane;
 pub mod spaces;
 mod state;
