@@ -250,6 +250,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Apple TV layout (#128): tab bar with Agents (cards, waiting first),
   Spaces and Hosts (pairing, adding, state and connection errors); the
   Siri Remote scrolls a focused pane and loads older history at the top.
+  A space opens in its own screen: tabs as segments with new tab, start
+  agent and a "…" menu (rename and close tab or space), then pane picker,
+  header, terminal and input as focus rows.
+- Apple TV icon and Top Shelf images (part of #130): Icon Composer has no
+  tvOS, so `docs/icon/A/tvicon.swift` draws concept A as a three-layer image
+  stack (background, panes, `>_` with dot) and the Top Shelf images into the
+  asset catalog.
 
 ### Changed
 

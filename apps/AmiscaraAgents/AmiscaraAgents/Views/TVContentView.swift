@@ -39,6 +39,8 @@ private struct TVSpaceScreen: View {
     @State private var paneID: String?
     @State private var agentKinds: [String] = []
     @State private var error: String?
+    @State private var renaming: RenameTarget?
+    @State private var closing: CloseTarget?
 
     private enum Focus: Hashable { case tabs }
     @FocusState private var focus: Focus?
@@ -75,6 +77,8 @@ private struct TVSpaceScreen: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focus, .tabs)
+        .sheet(item: $renaming) { RenameView(target: $0) }
+        .closeConfirmation($closing)
     }
 
     private func tabRow(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
@@ -98,6 +102,27 @@ private struct TVSpaceScreen: View {
                     }
                 } label: {
                     Label("Agent starten", systemImage: "sparkles")
+                }
+                .labelStyle(.iconOnly)
+                // A segment has no menu on long press: tab and space
+                // actions live here.
+                Menu {
+                    if let tab = workspace.tabs.first(where: { $0.tabId == tabID }) {
+                        Button("Tab umbenennen …", systemImage: "pencil") {
+                            renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                        }
+                        Button("Tab schließen …", systemImage: "xmark", role: .destructive) {
+                            closing = CloseTarget(connection: connection, kind: .tab(tabID: tab.tabId), name: tab.label, agentState: tab.agentState)
+                        }
+                    }
+                    Button("Space umbenennen …", systemImage: "pencil") {
+                        renaming = RenameTarget(connection: connection, kind: .space(workspaceID: workspace.workspaceId), current: workspace.label)
+                    }
+                    Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
+                        closing = .space(workspace, on: connection)
+                    }
+                } label: {
+                    Label("Tab und Space", systemImage: "ellipsis")
                 }
                 .labelStyle(.iconOnly)
             }
