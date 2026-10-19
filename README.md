@@ -17,7 +17,7 @@ their `herdr-*` names: they describe the herdr protocol, not the app.
 | Mac | SwiftUI, `apps/AmiscaraAgents` | macOS 27 | this Mac (socket) and SSH | local, plus menu bar | Developer ID build, [Release](#release) |
 | iPad, iPhone | SwiftUI, same sources | iOS 27 | SSH | push through iCloud from the Mac app | `scripts/install-ios.sh` |
 | Apple TV | SwiftUI, same sources | tvOS 26 | SSH, home network only | none | `scripts/install-ios.sh` |
-| Windows | Tauri 2, `apps/desktop` | Windows 10 | SSH | toasts, while in the tray | installer from the releases repo |
+| Windows | Tauri 2, `apps/desktop` | Windows 10, x64 or ARM64 | SSH | toasts, while in the tray | installer from the releases repo |
 | Linux | Tauri 2, `apps/desktop` | WebKitGTK 4.1 | this machine (socket) and SSH | libnotify, while in the tray | AppImage or deb from the releases repo |
 
 All apps share the same host model, the same restricted `authorized_keys` line

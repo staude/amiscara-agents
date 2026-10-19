@@ -311,6 +311,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   in the public repository `staude/amiscara-agents-releases`. The app looks
   for updates on start and in the settings, installs and restarts. Windows
   builds are not code signed yet.
+- Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
+  desktop releases, with its own `windows-aarch64` entry for the updater.
+  `gh workflow run ci.yml -f scope=installers` builds only the installers.
 
 ### Changed
 
