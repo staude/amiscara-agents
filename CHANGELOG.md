@@ -322,6 +322,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the agents of hosts they cannot reach from there, and the iPhone widget
   fetches the boards itself, woken by a silent push, so it stays current
   when the app does not run. Groundwork for the Apple Watch (#161).
+- Apple Watch app (#157, watchOS 26): agents of all hosts, waiting first,
+  and per waiting agent the screen excerpt from the Mac with the keys 1, 2,
+  3, Enter and Esc. The Watch has no SSH (watchOS gives normal apps no
+  sockets): the agents come from the iPhone over WatchConnectivity and from
+  the Mac's boards in iCloud, answers go to the iPhone, which sends them
+  over its own session and is launched in the background for that. The
+  answer buttons of notifications on the Watch go the same way.
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.

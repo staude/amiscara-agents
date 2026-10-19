@@ -60,6 +60,10 @@ final class WidgetPublisher {
         }
         let snapshot = WidgetSnapshot(updated: .now, hosts: hosts).merging(cloudBoards)
         guard force || snapshot.hosts != written?.hosts else { return }
+        #if os(iOS)
+        // The Watch shows the same (#157).
+        WatchBridge.shared.publish(snapshot)
+        #endif
         do {
             try snapshot.save()
             written = snapshot

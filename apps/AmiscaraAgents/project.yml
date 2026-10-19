@@ -6,6 +6,8 @@ options:
     iOS: "27.0"
     # The Apple TV 4K (AppleTV6,2) stays on tvOS 26.
     tvOS: "26.0"
+    # Same as the TV (Frank, 2026-10-19).
+    watchOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: de
   # Xcode checks for the XCFramework while planning, before any target runs,
@@ -109,6 +111,8 @@ targets:
       - framework: Generated/HerdrFFI.xcframework
         embed: false
       - target: AmiscaraAgentsWidget-iOS
+      # Installed on the paired Watch together with the app (#157).
+      - target: AmiscaraAgents-watchOS
     entitlements:
       path: AmiscaraAgents/AmiscaraAgents-iOS.entitlements
       properties:
@@ -292,6 +296,45 @@ targets:
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities:
           - arm64
+  # Apple Watch (#157): no FFI, since watchOS gives normal apps no sockets.
+  # Agents from the iPhone (WatchConnectivity) and the Mac's boards in
+  # iCloud; answers go to the iPhone.
+  AmiscaraAgents-watchOS:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Watch
+        excludes:
+          - "*.entitlements"
+          - "*.plist"
+      - path: Shared
+      - path: AmiscaraAgents/AppIcon.icon
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents.watchkitapp
+        PRODUCT_NAME: AmiscaraAgents
+        INFOPLIST_FILE: Watch/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SKIP_INSTALL: YES
+        ENABLE_PREVIEWS: YES
+    entitlements:
+      path: Watch/AmiscaraAgentsWatch.entitlements
+      properties:
+        # Boards and screen excerpts from the Mac (#156).
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.net.staude.amiscara.agents
+        com.apple.developer.icloud-services:
+          - CloudKit
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: Amiscara Agents
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSHumanReadableCopyright: "© 2026 Frank Neumann-Staude"
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: net.staude.amiscara.agents
   # Top Shelf of the Apple TV (#130): agents from the App Group snapshot.
   AmiscaraAgentsTopShelf:
     type: app-extension
@@ -363,6 +406,14 @@ schemes:
     build:
       targets:
         AmiscaraAgents-tvOS: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  AmiscaraAgents-watchOS:
+    build:
+      targets:
+        AmiscaraAgents-watchOS: all
     run:
       config: Debug
     archive:

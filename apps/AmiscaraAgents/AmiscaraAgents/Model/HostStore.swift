@@ -30,6 +30,11 @@ final class HostStore {
         notifier.answer = { [weak self] host, pane, key in
             await self?.answer(key, to: pane, on: host) ?? false
         }
+        #if os(iOS)
+        WatchBridge.shared.answer = { [weak self] host, pane, key in
+            await self?.answerError(key, to: pane, on: host) ?? String(localized: "Die App ist nicht bereit.")
+        }
+        #endif
         notifier.hostForKey = { [weak self] key in
             self?.connections.first { CloudPush.hostKey(forPublicKey: $0.config.pinnedHostKey) == key }?.id
         }
@@ -81,7 +86,15 @@ final class HostStore {
     /// background, the app first has to reconnect; iOS gives it some
     /// seconds for that.
     func answer(_ key: String, to paneID: String, on hostID: UUID) async -> Bool {
-        guard let connection = connection(for: hostID) else { return false }
+        await answerError(key, to: paneID, on: hostID) == nil
+    }
+
+    /// Like `answer`, with the reason when the key did not go out, e.g.
+    /// for the Watch (#157).
+    func answerError(_ key: String, to paneID: String, on hostID: UUID) async -> String? {
+        guard let connection = connection(for: hostID) else {
+            return String(localized: "Diesen Host gibt es auf dem iPhone nicht mehr.")
+        }
         if !connection.isLive, !connection.needsHostKeyDecision {
             connection.start()
         }
@@ -90,9 +103,9 @@ final class HostStore {
         }
         do {
             try await connection.send(keys: [key], to: paneID)
-            return true
+            return nil
         } catch {
-            return false
+            return inputErrorMessage(error)
         }
     }
 
