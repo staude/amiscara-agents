@@ -329,10 +329,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the Mac's boards in iCloud, answers go to the iPhone, which sends them
   over its own session and is launched in the background for that. The
   answer buttons of notifications on the Watch go the same way.
+- Watch complications and Smart Stack (#158): circular with the number of
+  waiting agents, rectangular with the first one ("Space · Tab", agent,
+  host), inline and corner. They read the iPhone's snapshot the Watch app
+  leaves in the App Group and fetch the Mac's boards from iCloud; a board
+  push wakes the Watch app, which redraws them. A waiting agent raises the
+  widget in the Smart Stack; a tap opens it in the Watch app.
+- Prompts from the Watch (#159): in the detail of an agent that does not
+  wait, the iPhone's quick replies (sent along in the application context)
+  and a prompt to dictate or scribble; they go out through the iPhone as
+  `agent.prompt`. Double tap sends the first answer key of a waiting agent.
 - Command channel through iCloud (#160): when the iPhone is out of reach,
-  the Watch leaves its answer key as an `AgentCommand` record; the Mac app
-  runs it on the host and writes an `AgentCommandResult` back. Off by
-  default ("Befehle von der Apple Watch annehmen" in the Mac's push
+  the Watch leaves its answer key or prompt as an `AgentCommand` record;
+  the Mac app runs it on the host and writes an `AgentCommandResult` back.
+  Off by default ("Befehle von der Apple Watch annehmen" in the Mac's push
   settings); only the keys 1, 2, 3, Enter, Esc and prompts, keys only while
   the agent waits, the host's "Eingaben erlauben" applies, commands expire
   after 60 s and run once (the Mac that deletes the record runs it). The

@@ -69,6 +69,9 @@ final class QuickReplyStore {
             encoder.outputFormatting = [.prettyPrinted]
             try encoder.encode(replies).write(to: fileURL, options: .atomic)
             saveError = nil
+            #if os(iOS)
+            WatchBridge.shared.publishQuickReplies()
+            #endif
         } catch {
             saveError = error.localizedDescription
         }
