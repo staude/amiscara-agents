@@ -4,6 +4,7 @@ import Observation
 import UserNotifications
 import WatchConnectivity
 import WatchKit
+import WidgetKit
 
 /// An agent the Watch can open: host and pane.
 struct AgentRef: Hashable {
@@ -33,7 +34,11 @@ struct Excerpt: Equatable {
 @Observable
 final class WatchStore: NSObject {
     /// The iPhone's snapshot merged with the Mac's boards.
-    private(set) var snapshot: WidgetSnapshot
+    private(set) var snapshot: WidgetSnapshot {
+        didSet {
+            if snapshot != oldValue { publishToComplications() }
+        }
+    }
     private(set) var refreshing = false
     /// Set when a notification is tapped; the list opens it.
     var openRequest: AgentRef?
@@ -143,6 +148,13 @@ final class WatchStore: NSObject {
     fileprivate func apply(quickReplies: [String]) {
         self.quickReplies = quickReplies
         UserDefaults.standard.set(quickReplies, forKey: Self.quickRepliesDefaultsKey)
+    }
+
+    /// Leaves the phone's snapshot for the complications (#158), which add
+    /// the boards themselves, and redraws them.
+    private func publishToComplications() {
+        try? phoneSnapshot.save()
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
     }
 
     fileprivate func apply(phone data: Data) {

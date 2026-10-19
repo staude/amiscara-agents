@@ -309,6 +309,9 @@ targets:
           - "*.plist"
       - path: Shared
       - path: AmiscaraAgents/AppIcon.icon
+    dependencies:
+      # Complications and Smart Stack (#158).
+      - target: AmiscaraAgentsWidget-watchOS
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents.watchkitapp
@@ -326,6 +329,11 @@ targets:
           - iCloud.net.staude.amiscara.agents
         com.apple.developer.icloud-services:
           - CloudKit
+        # The snapshot for the complications (#158).
+        com.apple.security.application-groups:
+          - group.net.staude.amiscara.agents
+        # A silent push per new board refreshes them (#158).
+        aps-environment: development
     info:
       path: Watch/Info.plist
       properties:
@@ -335,6 +343,38 @@ targets:
         NSHumanReadableCopyright: "© 2026 Frank Neumann-Staude"
         WKApplication: true
         WKCompanionAppBundleIdentifier: net.staude.amiscara.agents
+        WKBackgroundModes:
+          - remote-notification
+  # Complications and Smart Stack of the Watch (#158): the snapshot the
+  # Watch app leaves in the App Group, plus the Mac's boards from iCloud.
+  AmiscaraAgentsWidget-watchOS:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: WatchWidget
+        excludes:
+          - "*.entitlements"
+          - "*.plist"
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents.watchkitapp.widget
+        PRODUCT_NAME: AmiscaraAgentsWidget
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: WatchWidget/Info.plist
+        SKIP_INSTALL: YES
+    entitlements:
+      path: WatchWidget/AmiscaraAgentsWidget-watchOS.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.net.staude.amiscara.agents
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.net.staude.amiscara.agents
+        com.apple.developer.icloud-services:
+          - CloudKit
+    info:
+      path: WatchWidget/Info.plist
+      properties: *widgetInfo
   # Top Shelf of the Apple TV (#130): agents from the App Group snapshot.
   AmiscaraAgentsTopShelf:
     type: app-extension
