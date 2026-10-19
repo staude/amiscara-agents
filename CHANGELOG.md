@@ -339,6 +339,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   wait, the iPhone's quick replies (sent along in the application context)
   and a prompt to dictate or scribble; they go out through the iPhone as
   `agent.prompt`. Double tap sends the first answer key of a waiting agent.
+- Command channel through iCloud (#160): when the iPhone is out of reach,
+  the Watch leaves its answer key or prompt as an `AgentCommand` record;
+  the Mac app runs it on the host and writes an `AgentCommandResult` back.
+  Off by default ("Befehle von der Apple Watch annehmen" in the Mac's push
+  settings); only the keys 1, 2, 3, Enter, Esc and prompts, keys only while
+  the agent waits, the host's "Eingaben erlauben" applies, commands expire
+  after 60 s and run once (the Mac that deletes the record runs it). The
+  Mac app registers for remote notifications for this.
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.

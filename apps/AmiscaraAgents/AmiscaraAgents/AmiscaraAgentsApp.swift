@@ -7,6 +7,9 @@ struct AmiscaraAgentsApp: App {
     #if os(iOS)
     /// Remote notifications for the iCloud subscriptions (#119).
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #elseif os(macOS)
+    /// Remote notifications for the Watch's commands (#160).
+    @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
     #endif
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system

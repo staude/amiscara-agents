@@ -73,6 +73,8 @@ targets:
           - iCloud.net.staude.amiscara.agents
         com.apple.developer.icloud-services:
           - CloudKit
+        # Commands from the Watch arrive as silent pushes (#160).
+        com.apple.developer.aps-environment: development
     info:
       path: AmiscaraAgents/Info.plist
       properties:
