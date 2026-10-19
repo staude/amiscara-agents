@@ -1,6 +1,8 @@
 <script lang="ts">
   import * as core from "../lib/core";
   import { ui } from "../lib/manage.svelte";
+  import { prefs, type Theme } from "../lib/prefs.svelte";
+  import type { TerminalAppearance, TerminalScheme } from "../lib/term";
   import { model } from "../lib/state.svelte";
   import { updater } from "../lib/update.svelte";
   import AgentPicker from "./AgentPicker.svelte";
@@ -230,6 +232,40 @@
         }}
       />
       Mit dem System starten (im Infobereich, ohne Fenster)
+    </label>
+    <label class="field">
+      <span>Erscheinungsbild</span>
+      <select value={prefs.theme} onchange={(e) => prefs.setTheme(e.currentTarget.value as Theme)}>
+        <option value="system">Wie das System</option>
+        <option value="light">Hell</option>
+        <option value="dark">Dunkel</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Terminal</span>
+      <select
+        value={prefs.terminalAppearance}
+        onchange={(e) => prefs.setTerminalAppearance(e.currentTarget.value as TerminalAppearance)}
+      >
+        <option value="app">Wie die App</option>
+        <option value="light">Hell</option>
+        <option value="dark">Dunkel</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Farbschema</span>
+      <select
+        value={prefs.terminalScheme}
+        onchange={(e) => prefs.setTerminalScheme(e.currentTarget.value as TerminalScheme)}
+      >
+        <option value="standard">Standard</option>
+        <option value="solarized">Solarized</option>
+        <option value="apple">Terminal (macOS)</option>
+      </select>
+    </label>
+    <label class="check">
+      <input type="checkbox" checked={prefs.minContrast} onchange={(e) => prefs.setMinContrast(e.currentTarget.checked)} />
+      Mindestkontrast: zu schwache Schriftfarben aufhellen oder abdunkeln
     </label>
     <div class="update-row">
       <span>Version {model.info?.version}</span>

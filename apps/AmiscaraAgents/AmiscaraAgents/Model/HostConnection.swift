@@ -243,6 +243,14 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Types text into a pane without Enter.
+    func send(text: String, to paneID: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.sendText(paneId: paneID, text: text)
+        }.value
+    }
+
     /// Sends logical keys such as `enter`, `esc`, `1` or `ctrl+c`.
     func send(keys: [String], to paneID: String) async throws {
         let session = try writableSession()

@@ -17,7 +17,7 @@ their `herdr-*` names: they describe the herdr protocol, not the app.
 | Mac | SwiftUI, `apps/AmiscaraAgents` | macOS 27 | this Mac (socket) and SSH | local, plus menu bar | Developer ID build, [Release](#release) |
 | iPad, iPhone | SwiftUI, same sources | iOS 27 | SSH | push through iCloud from the Mac app | `scripts/install-ios.sh` |
 | Apple TV | SwiftUI, same sources | tvOS 26 | SSH, home network only | none | `scripts/install-ios.sh` |
-| Windows | Tauri 2, `apps/desktop` | Windows 10 | SSH | toasts, while in the tray | installer from the releases repo |
+| Windows | Tauri 2, `apps/desktop` | Windows 10, x64 or ARM64 | SSH | toasts, while in the tray | installer from the releases repo |
 | Linux | Tauri 2, `apps/desktop` | WebKitGTK 4.1 | this machine (socket) and SSH | libnotify, while in the tray | AppImage or deb from the releases repo |
 
 All apps share the same host model, the same restricted `authorized_keys` line
@@ -33,7 +33,9 @@ devices), so a host is set up the same way everywhere.
   `~/.claude/projects` on the host.
 - Input under the pane: prompts to agents, text to shells, keys such as
   Enter, Esc or 1/2/3 to answer an agent waiting for approval, quick replies.
-  Each host has a switch to keep it read-only.
+  Each host has a switch to keep it read-only. A prompt starting with `/`
+  goes live into the agent's own input line, so Claude Code shows its
+  commands and skills in the pane (↑↓ pick, Tab takes, Enter runs).
 - New space, tab (with an agent) and worktree, rename, close.
 - Files and images uploaded to `~/.amiscara-agents/uploads/` on the host,
   their paths appended to the prompt (needs SFTP, see below).
@@ -242,18 +244,16 @@ herdr session stop herdr-remote-test
 ## Verify
 
 ```sh
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-(cd apps/desktop && npm run check)
+scripts/check.sh            # fmt, clippy, tests, npm run check
+scripts/check.sh --apple    # also builds the Mac and iOS schemes
 ```
 
-CI checks pull requests on Linux only: format, clippy, tests and the
-desktop app (without installers). The full chain (tests on macOS and
-Windows, the core for iOS and tvOS, the desktop app on all three systems)
-runs for `desktop-v*` tags and when started by hand (`gh workflow run
-ci.yml`), which also builds the installers as artifacts. Start it by hand
-before a release or after platform-specific changes.
+Pull requests are checked this way on the machine, before merging. GitHub
+Actions run only for `desktop-v*` tags and when started by hand (`gh
+workflow run ci.yml`), to save Actions minutes: tests on Linux, macOS and
+Windows, the core for iOS and tvOS, the desktop app on all three systems,
+and by hand also the installers as artifacts. Start it by hand before a
+release or after platform-specific changes.
 
 ## Release
 

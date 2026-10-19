@@ -136,8 +136,9 @@ private struct PaneTile: View {
         } else if let error = model.error {
             ContentUnavailableView("Pane nicht lesbar", systemImage: "exclamationmark.triangle", description: Text(error))
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
+            TerminalThemeReader { _ in
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
     }
 }

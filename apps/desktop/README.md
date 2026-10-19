@@ -86,7 +86,10 @@ amber badge).
 
 Test installers without a release: start CI by hand (Actions > CI > Run
 workflow, or `gh workflow run ci.yml`); the "Desktop app" jobs then leave
-them as artifacts. Pull requests only run the checks on Linux.
+them as artifacts. With `gh workflow run ci.yml -f scope=installers` only
+the installers are built (Windows x64 and ARM64, Linux), without the tests
+on macOS and Windows. Pull requests run no CI; check them with
+`scripts/check.sh`.
 Releases go to the public repository
 [staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
 because this one is private and the updater must read `latest.json` without
@@ -98,7 +101,8 @@ git push && git push origin desktop-v0.2.0
 ```
 
 The workflow `.github/workflows/desktop-release.yml` checks that tag and
-version match, drafts the release, builds Windows (NSIS, MSI) and Linux
+version match, drafts the release, builds Windows x64 (NSIS, MSI), Windows ARM64 (NSIS only,
+cross-compiled) and Linux
 (AppImage, deb) with `tauri-action`, signs the update files and publishes.
 
 Secrets of the GitHub environment `desktop-release`, which only tags

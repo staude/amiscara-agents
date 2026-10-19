@@ -9,6 +9,7 @@ struct AmiscaraAgentsApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
 
     init() {
         let store = HostStore()
@@ -24,6 +25,7 @@ struct AmiscaraAgentsApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environment(store)
+                .appAppearance(appearance)
                 #if os(macOS)
                 .frame(minWidth: 960, minHeight: 600)
                 #endif
@@ -52,6 +54,9 @@ struct AmiscaraAgentsApp: App {
         .commands { TerminalZoomCommands() }
         #endif
         #if os(macOS)
+        Settings {
+            SettingsView()
+        }
         // Owned by the app like the store, so hosts stay connected and
         // notifications keep coming while the window is closed.
         MenuBarExtra {
