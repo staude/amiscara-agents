@@ -84,7 +84,9 @@ amber badge).
 
 ## Deploy
 
-CI builds installers on every push (artifacts of the "Desktop app" job).
+Test installers without a release: start CI by hand (Actions > CI > Run
+workflow, or `gh workflow run ci.yml`); the "Desktop app" jobs then leave
+them as artifacts. Pull requests only run the checks on Linux.
 Releases go to the public repository
 [staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
 because this one is private and the updater must read `latest.json` without
