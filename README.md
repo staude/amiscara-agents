@@ -242,18 +242,16 @@ herdr session stop herdr-remote-test
 ## Verify
 
 ```sh
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-(cd apps/desktop && npm run check)
+scripts/check.sh            # fmt, clippy, tests, npm run check
+scripts/check.sh --apple    # also builds the Mac and iOS schemes
 ```
 
-CI checks pull requests on Linux only: format, clippy, tests and the
-desktop app (without installers). The full chain (tests on macOS and
-Windows, the core for iOS and tvOS, the desktop app on all three systems)
-runs for `desktop-v*` tags and when started by hand (`gh workflow run
-ci.yml`), which also builds the installers as artifacts. Start it by hand
-before a release or after platform-specific changes.
+Pull requests are checked this way on the machine, before merging. GitHub
+Actions run only for `desktop-v*` tags and when started by hand (`gh
+workflow run ci.yml`), to save Actions minutes: tests on Linux, macOS and
+Windows, the core for iOS and tvOS, the desktop app on all three systems,
+and by hand also the installers as artifacts. Start it by hand before a
+release or after platform-specific changes.
 
 ## Release
 

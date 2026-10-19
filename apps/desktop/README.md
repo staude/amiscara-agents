@@ -85,10 +85,11 @@ amber badge).
 ## Deploy
 
 Test installers without a release: start CI by hand (Actions > CI > Run
-workflow); the "Desktop app" jobs then leave them as artifacts. With
-`gh workflow run ci.yml -f scope=installers` only the installers are built
-(Windows x64 and ARM64, Linux), without the tests on macOS and Windows.
-Pull requests only run the checks on Linux.
+workflow, or `gh workflow run ci.yml`); the "Desktop app" jobs then leave
+them as artifacts. With `gh workflow run ci.yml -f scope=installers` only
+the installers are built (Windows x64 and ARM64, Linux), without the tests
+on macOS and Windows. Pull requests run no CI; check them with
+`scripts/check.sh`.
 Releases go to the public repository
 [staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
 because this one is private and the updater must read `latest.json` without
