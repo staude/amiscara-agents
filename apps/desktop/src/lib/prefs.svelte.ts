@@ -20,6 +20,9 @@ function write(key: string, value: unknown) {
 
 export type AgentOrder = "grouped" | "status";
 
+/** Light or dark look: as the system (default) or fixed. */
+export type Theme = "system" | "light" | "dark";
+
 export const FONT_MIN = 8;
 export const FONT_MAX = 28;
 export const FONT_DEFAULT = 13;
@@ -29,6 +32,7 @@ class Prefs {
   collapsed = $state<string[]>(read("collapsedSections", []));
   agentOrder = $state<AgentOrder>(read("agentOrder", "grouped"));
   fontSize = $state<number>(read("terminalFontSize", FONT_DEFAULT));
+  theme = $state<Theme>(read("theme", "system"));
 
   isCollapsed(hostId: string, section: string): boolean {
     return this.collapsed.includes(`${hostId}/${section}`);
@@ -52,6 +56,24 @@ class Prefs {
     this.fontSize = Math.min(FONT_MAX, Math.max(FONT_MIN, next));
     write("terminalFontSize", this.fontSize);
   }
+
+  setTheme(theme: Theme) {
+    this.theme = theme;
+    write("theme", theme);
+  }
+}
+
+/**
+ * Applies `theme` to the page (`data-theme` on the root, see app.css) and
+ * to the window frame; "system" follows the system again.
+ */
+export function applyTheme(theme: Theme) {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  if (import.meta.env.MODE === "mock") return;
+  import("@tauri-apps/api/window")
+    .then(({ getCurrentWindow }) => getCurrentWindow().setTheme(theme === "system" ? null : theme))
+    .catch(() => {});
 }
 
 export const prefs = new Prefs();

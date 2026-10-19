@@ -318,6 +318,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.
+- Appearance setting "Wie das System" (default), "Hell" or "Dunkel":
+  Mac settings window (⌘,), iPad and iPhone in the sidebar menu, Windows
+  and Linux in the settings (⚙), including the window frame.
 
 ### Changed
 
