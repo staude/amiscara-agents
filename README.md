@@ -1,7 +1,7 @@
 # Amiscara Agents
 
 A graphical remote for [herdr](https://herdr.dev), the agent multiplexer for the
-terminal, on Mac, iPad, iPhone, Apple TV, Windows and Linux. The apps talk to an
+terminal, on Mac, iPad, iPhone, Apple Watch, Apple TV, Windows and Linux. The apps talk to an
 unmodified herdr server, locally over its Unix socket or remotely over SSH;
 nothing is installed on the server. Amiscara Agents is an unofficial project,
 not affiliated with herdr.
@@ -17,6 +17,7 @@ their `herdr-*` names: they describe the herdr protocol, not the app.
 | Mac | SwiftUI, `apps/AmiscaraAgents` | macOS 27 | this Mac (socket) and SSH | local, plus menu bar | Developer ID build, [Release](#release) |
 | iPad, iPhone | SwiftUI, same sources | iOS 27 | SSH | push through iCloud from the Mac app | `scripts/install-ios.sh` |
 | Apple TV | SwiftUI, same sources | tvOS 26 | SSH, home network only | none | `scripts/install-ios.sh` |
+| Apple Watch | SwiftUI, `apps/AmiscaraAgents/Watch` | watchOS 26 | none: through the iPhone and iCloud | mirrored from the iPhone | with the iOS app |
 | Windows | Tauri 2, `apps/desktop` | Windows 10, x64 or ARM64 | SSH | toasts, while in the tray | installer from the releases repo |
 | Linux | Tauri 2, `apps/desktop` | WebKitGTK 4.1 | this machine (socket) and SSH | libnotify, while in the tray | AppImage or deb from the releases repo |
 
@@ -41,6 +42,12 @@ devices), so a host is set up the same way everywhere.
   their paths appended to the prompt (needs SFTP, see below).
 - Notifications when an agent waits or finishes, with answer buttons, and a
   quick switcher (⌘K or Ctrl+K).
+
+The Apple Watch has no SSH (watchOS gives normal apps no sockets): it shows
+the agents from the iPhone and from the boards the Mac app leaves in iCloud,
+the screen excerpt of a waiting agent, answer keys that go out through the
+iPhone, and complications with the number of waiting agents (also in the
+Smart Stack).
 
 Only on the Apple devices: widgets, Siri and Shortcuts, the Mac menu bar,
 dictation, the camera for QR codes, push to iPhone and iPad. Only on the
