@@ -72,6 +72,10 @@ struct HostSidebar: View {
             ToolbarItem(placement: .secondaryAction) {
                 Menu("Erscheinungsbild", systemImage: "circle.lefthalf.filled") {
                     AppearancePicker()
+                    Section("Terminal") {
+                        TerminalSettings()
+                            .pickerStyle(.menu)
+                    }
                 }
             }
             #endif
