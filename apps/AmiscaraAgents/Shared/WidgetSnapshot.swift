@@ -14,6 +14,9 @@ struct WidgetSnapshot: Codable, Equatable {
         /// Connected when the snapshot was written.
         let live: Bool
         let agents: [Agent]
+        /// Fingerprint of the host's SSH host key, to match the Mac's
+        /// boards in iCloud (`CloudBoard`); `nil` when unknown.
+        var hostKey: String? = nil
     }
 
     struct Agent: Codable, Equatable, Identifiable {

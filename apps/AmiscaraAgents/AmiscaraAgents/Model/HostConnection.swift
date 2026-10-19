@@ -224,6 +224,15 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The last `lines` lines with text of a pane's screen (#156); `nil`
+    /// when not connected or the pane cannot be read. Read only.
+    func screenExcerpt(paneID: String, lines: UInt32) async -> String? {
+        guard let session, isLive else { return nil }
+        return try? await Task.detached {
+            try session.screenExcerpt(paneId: paneID, maxLines: lines)
+        }.value
+    }
+
     /// Lets another device's key in on this host (#127); false when it was
     /// there already. Needs SFTP like uploads.
     func authorizeDeviceKey(_ publicKey: String, comment: String) async throws -> Bool {

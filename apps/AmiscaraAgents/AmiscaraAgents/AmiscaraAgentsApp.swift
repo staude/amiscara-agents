@@ -42,6 +42,9 @@ struct AmiscaraAgentsApp: App {
                 #if os(iOS)
                 Task { await CloudPushSubscriptions.shared.install() }
                 #endif
+                #if !os(macOS)
+                Task { await store.widgets.refreshFromCloud(store) }
+                #endif
             } else if phase == .background {
                 // The widgets keep showing this state until the app runs again.
                 store.widgets.publish(store, force: true)

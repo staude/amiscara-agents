@@ -3,6 +3,7 @@ import Foundation
 import Observation
 #if os(iOS)
 import UIKit
+import WidgetKit
 #endif
 
 /// Pushes through CloudKit (#119): the Mac app on the host writes "agent
@@ -26,7 +27,13 @@ enum CloudPush {
         static let subtitle = "subtitle"
         static let body = "body"
         static let collapseID = "collapseID"
+        /// Waiting only: the last lines of the screen as plain text, so a
+        /// small screen such as the Watch shows what is asked (#156).
+        static let excerpt = "excerpt"
     }
+
+    /// Lines of the screen in `Field.excerpt`.
+    static let excerptLines: UInt32 = 12
 
     /// The fingerprint both sides know a host by.
     static func hostKey(forPublicKey line: String?) -> String? {
@@ -102,15 +109,13 @@ final class CloudPushSender {
     /// as the same event, e.g. from another Mac or the host's own Mac app.
     private static let duplicateWindow: TimeInterval = 60
 
-    /// Events of this Mac's own host.
-    func send(_ items: [BoardItem], hostName: String) {
-        guard let hostKey else { return }
-        send(items, hostKey: hostKey, hostName: hostName)
-    }
+    /// Fetches the screen excerpt of a waiting agent's pane; `nil` when the
+    /// pane cannot be read.
+    typealias ExcerptReader = @MainActor (_ paneID: String) async -> String?
 
     /// Events of the host with key fingerprint `hostKey`; skipped when
     /// another Mac wrote the same event a moment ago, so no push comes twice.
-    func send(_ items: [BoardItem], hostKey: String, hostName: String) {
+    func send(_ items: [BoardItem], hostKey: String, hostName: String, excerpt: @escaping ExcerptReader) {
         guard !items.isEmpty else { return }
         let records = items.map { item in
             let waiting = item.agentState == .blocked
@@ -139,7 +144,98 @@ final class CloudPushSender {
                 return stored[CloudPush.Field.title] as? String != record[CloudPush.Field.title] as? String
                     || stored[CloudPush.Field.body] as? String != record[CloudPush.Field.body] as? String
             }
-            if !fresh.isEmpty { save(fresh) }
+            guard !fresh.isEmpty else { return }
+            for record in fresh where record.recordType == CloudPush.waitingType {
+                if let paneID = record[CloudPush.Field.paneID] as? String,
+                   let text = await excerpt(paneID), !text.isEmpty {
+                    record[CloudPush.Field.excerpt] = text
+                }
+            }
+            save(fresh)
+        }
+    }
+
+    // MARK: Boards (#156)
+
+    /// Shortest gap between two board writes of one host.
+    private static let boardInterval: TimeInterval = 10
+    /// Boards are rewritten this often even without a change, so devices
+    /// can tell a quiet host from a Mac that stopped (`CloudBoard.maxAge`).
+    private static let boardRefresh: TimeInterval = 5 * 60
+
+    /// The latest board per host key, written or not.
+    @ObservationIgnored private var boards: [String: CloudBoard] = [:]
+    @ObservationIgnored private var writtenBoards: [String: CloudBoard] = [:]
+    @ObservationIgnored private var boardWrites: [String: Date] = [:]
+    @ObservationIgnored private var pendingBoards: Set<String> = []
+    @ObservationIgnored private var boardTimer: Timer?
+
+    /// The agents of the host with key fingerprint `hostKey`, for devices
+    /// that cannot reach it. Written right away after a quiet time, else at
+    /// most every `boardInterval`, with the newest state.
+    func sendBoard(_ items: [BoardItem], live: Bool, hostKey: String, hostName: String) {
+        let board = CloudBoard(
+            hostKey: hostKey,
+            hostName: hostName,
+            live: live,
+            updated: .now,
+            agents: items.map(WidgetSnapshot.Agent.init)
+        )
+        boards[hostKey] = board
+        startBoardTimer()
+        if let written = writtenBoards[hostKey], written.sameContent(as: board) { return }
+        scheduleBoard(hostKey)
+    }
+
+    /// Deletes the board of a host removed from this Mac, so devices stop
+    /// showing its agents.
+    func removeBoard(hostKey: String) {
+        boards[hostKey] = nil
+        writtenBoards[hostKey] = nil
+        boardWrites[hostKey] = nil
+        let operation = CKModifyRecordsOperation(
+            recordsToSave: nil,
+            recordIDsToDelete: [CloudBoard.recordID(hostKey: hostKey)]
+        )
+        operation.qualityOfService = .utility
+        CloudPush.container.privateCloudDatabase.add(operation)
+    }
+
+    private func scheduleBoard(_ hostKey: String) {
+        guard !pendingBoards.contains(hostKey) else { return }
+        pendingBoards.insert(hostKey)
+        let since = Date.now.timeIntervalSince(boardWrites[hostKey] ?? .distantPast)
+        let wait = max(0, Self.boardInterval - since)
+        Task { [weak self] in
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            self?.writeBoard(hostKey)
+        }
+    }
+
+    private func writeBoard(_ hostKey: String) {
+        pendingBoards.remove(hostKey)
+        guard let latest = boards[hostKey] else { return }
+        let board = CloudBoard(
+            hostKey: latest.hostKey,
+            hostName: latest.hostName,
+            live: latest.live,
+            updated: .now,
+            agents: latest.agents
+        )
+        boardWrites[hostKey] = board.updated
+        writtenBoards[hostKey] = board
+        save([board.record])
+    }
+
+    private func startBoardTimer() {
+        guard boardTimer == nil else { return }
+        boardTimer = Timer.scheduledTimer(withTimeInterval: Self.boardRefresh, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                for hostKey in self.boards.keys where !self.pendingBoards.contains(hostKey) {
+                    self.writeBoard(hostKey)
+                }
+            }
         }
     }
 
@@ -210,10 +306,30 @@ final class CloudPushSubscriptions {
             _ = try await CloudPush.container.privateCloudDatabase.modifySubscriptions(saving: subscriptions, deleting: [])
             active = true
             status = String(localized: "Aktiv: „wartet“ und „fertig“ kommen über iCloud, wenn die Mac-App auf dem Host läuft.")
+            // On its own: until a Mac wrote the first board, iCloud does not
+            // know the record type and refuses the subscription.
+            _ = try? await CloudPush.container.privateCloudDatabase.modifySubscriptions(saving: [Self.boardSubscription], deleting: [])
         } catch {
             active = false
             status = String(localized: "iCloud-Abo fehlgeschlagen: \(error.localizedDescription)")
         }
+    }
+
+    static let boardSubscriptionID = "\(CloudBoard.recordType)-v1"
+
+    /// A silent push per new board (#156), so the widgets fetch it. iOS
+    /// rations silent pushes; the widgets also fetch every few minutes.
+    private static var boardSubscription: CKQuerySubscription {
+        let subscription = CKQuerySubscription(
+            recordType: CloudBoard.recordType,
+            predicate: NSPredicate(value: true),
+            subscriptionID: boardSubscriptionID,
+            options: [.firesOnRecordCreation, .firesOnRecordUpdate]
+        )
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        return subscription
     }
 
     private static func subscription(_ type: String, waiting: Bool) -> CKQuerySubscription {
@@ -251,6 +367,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         application.registerForRemoteNotifications()
         Task { await CloudPushSubscriptions.shared.install() }
         return true
+    }
+
+    /// A new board from the Mac: the widgets fetch it themselves.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any]
+    ) async -> UIBackgroundFetchResult {
+        guard CKNotification(fromRemoteNotificationDictionary: userInfo)?.subscriptionID
+            == CloudPushSubscriptions.boardSubscriptionID
+        else { return .noData }
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
+        return .newData
     }
 }
 #endif

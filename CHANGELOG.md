@@ -315,6 +315,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   key bar (Claude Code takes its suggested prompt, a shell completes);
   Return in an empty field sends Enter to the pane. Mac, iPad and iPhone
   with a hardware keyboard, Windows and Linux.
+- Host boards in iCloud (#156): the Mac app writes the agents of each host
+  it pushes for as a `HostBoard` record (at most every 10 s, at least every
+  5 minutes) and adds the last 12 screen lines to "wartet" records
+  (`excerpt`, `HostSession.screenExcerpt`). iPhone, iPad and Apple TV take
+  the agents of hosts they cannot reach from there, and the iPhone widget
+  fetches the boards itself, woken by a silent push, so it stays current
+  when the app does not run. Groundwork for the Apple Watch (#161).
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.

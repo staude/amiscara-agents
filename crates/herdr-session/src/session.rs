@@ -58,6 +58,15 @@ impl From<claude::ClaudeError> for SessionError {
     }
 }
 
+impl From<pane::PaneError> for SessionError {
+    fn from(err: pane::PaneError) -> Self {
+        match err {
+            pane::PaneError::Transport(_) => Self::NotConnected(err.to_string()),
+            pane::PaneError::Json(_) => Self::Rejected(err.to_string()),
+        }
+    }
+}
+
 impl From<actions::ActionError> for SessionError {
     fn from(err: actions::ActionError) -> Self {
         match err {
@@ -263,6 +272,18 @@ impl Session {
     pub async fn send_prompt(&self, pane_id: &str, text: &str) -> Result<(), SessionError> {
         let conn = self.connection()?;
         Ok(actions::send_prompt(&conn, pane_id, text).await?)
+    }
+
+    /// The last `max_lines` lines with text of a pane's visible screen,
+    /// without styles, e.g. what a waiting agent asks (#156). Read only.
+    pub async fn screen_excerpt(
+        &self,
+        pane_id: &str,
+        max_lines: u32,
+    ) -> Result<String, SessionError> {
+        let conn = self.connection()?;
+        let read = pane::read_screen(&conn, pane_id).await?;
+        Ok(read.screen.excerpt(max_lines as usize))
     }
 
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.

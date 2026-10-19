@@ -287,6 +287,13 @@ impl HostSession {
         Ok(runtime().block_on(self.session.send_prompt(&pane_id, &text))?)
     }
 
+    /// The last `max_lines` lines with text of a pane's visible screen,
+    /// without styles, e.g. for the Watch (#156). Read only. Blocks for one
+    /// round trip; call it off the main thread.
+    pub fn screen_excerpt(&self, pane_id: String, max_lines: u32) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.screen_excerpt(&pane_id, max_lines))?)
+    }
+
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.
     /// Blocks for one round trip; call it off the main thread.
     pub fn send_keys(&self, pane_id: String, keys: Vec<String>) -> Result<(), FfiError> {
