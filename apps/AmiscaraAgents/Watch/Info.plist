@@ -24,6 +24,10 @@
 	<string>© 2026 Frank Neumann-Staude</string>
 	<key>WKApplication</key>
 	<true/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>net.staude.amiscara.agents</string>
 </dict>

@@ -329,6 +329,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the Mac's boards in iCloud, answers go to the iPhone, which sends them
   over its own session and is launched in the background for that. The
   answer buttons of notifications on the Watch go the same way.
+- Watch complications and Smart Stack (#158): circular with the number of
+  waiting agents, rectangular with the first one ("Space · Tab", agent,
+  host), inline and corner. They read the iPhone's snapshot the Watch app
+  leaves in the App Group and fetch the Mac's boards from iCloud; a board
+  push wakes the Watch app, which redraws them. A waiting agent raises the
+  widget in the Smart Stack; a tap opens it in the Watch app.
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.
