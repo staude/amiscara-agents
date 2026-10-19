@@ -248,9 +248,12 @@ cargo test
 (cd apps/desktop && npm run check)
 ```
 
-CI runs the Rust checks on Linux, macOS and Windows (without the desktop
-crate), checks the core for iOS and tvOS, and builds the desktop app with its
-installers on Ubuntu, Windows and macOS (artifacts of the "Desktop app" job).
+CI checks pull requests on Linux only: format, clippy, tests and the
+desktop app (without installers). The full chain (tests on macOS and
+Windows, the core for iOS and tvOS, the desktop app on all three systems)
+runs for `desktop-v*` tags and when started by hand (`gh workflow run
+ci.yml`), which also builds the installers as artifacts. Start it by hand
+before a release or after platform-specific changes.
 
 ## Release
 

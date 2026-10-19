@@ -314,6 +314,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- CI checks pull requests on Linux only; the full chain (macOS, Windows,
+  iOS and tvOS, desktop installers) runs for release tags and by hand, to
+  save Actions minutes. Pushes to `main` no longer run CI.
 - README covers all platforms: overview of Mac, iPad, iPhone, Apple TV,
   Windows and Linux with what each app does, notifications per platform and
   the release path of each.
