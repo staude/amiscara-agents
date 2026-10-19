@@ -1,14 +1,23 @@
 name: CI
 
-# Pull requests get the cheap Linux checks. The full chain (macOS and
-# Windows, iOS and tvOS, desktop builds on all systems) runs for release
-# tags and when started by hand (Actions > CI > Run workflow); installers
-# only by hand, a tag builds them in desktop-release.yml.
+# Runs only for release tags and when started by hand (Actions > CI > Run
+# workflow), to save Actions minutes: pull requests are checked on the
+# machine with scripts/check.sh. The full chain covers macOS and Windows,
+# iOS and tvOS and the desktop app on all systems; installers only by hand,
+# a tag builds them in desktop-release.yml. With scope "installers"
+# (`gh workflow run ci.yml -f scope=installers`) only the Windows (x64,
+# ARM64) and Linux installers are built, without the tests on macOS and
+# Windows.
 on:
-  pull_request:
   push:
     tags: ["desktop-v*"]
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "all: full chain with installers; installers: only the installers"
+        type: choice
+        options: [all, installers]
+        default: all
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -17,6 +26,7 @@ concurrency:
 jobs:
   lint:
     name: Format and clippy
+    if: inputs.scope != 'installers'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -31,10 +41,11 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }})
+    if: inputs.scope != 'installers'
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-15", "windows-latest"]') }}
+        os: [ubuntu-latest, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -45,7 +56,7 @@ jobs:
 
   apple-targets:
     name: Check iOS and tvOS targets
-    if: github.event_name != 'pull_request'
+    if: inputs.scope != 'installers'
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -67,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-22.04"]' || '["ubuntu-22.04", "windows-latest", "macos-15"]') }}
+        os: ${{ fromJSON(inputs.scope == 'installers' && '["ubuntu-22.04", "windows-latest"]' || '["ubuntu-22.04", "windows-latest", "macos-15"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     defaults:
@@ -118,4 +129,35 @@ jobs:
             target/release/bundle/msi/*.msi
             target/release/bundle/deb/*.deb
             target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
+  # Windows on ARM, cross-compiled on the x64 runner; Tauri builds only the
+  # NSIS installer for ARM64 (no MSI).
+  desktop-windows-arm:
+    name: Desktop app (Windows ARM64)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop-arm64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npx tauri build --verbose --target aarch64-pc-windows-msvc --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amiscara-agents-Windows-ARM64
+          path: target/aarch64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error

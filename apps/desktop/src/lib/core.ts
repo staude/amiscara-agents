@@ -34,6 +34,8 @@ export const sendPrompt = (hostId: string, paneId: string, text: string) =>
   invoke<void>("send_prompt", { hostId, paneId, text });
 export const sendKeys = (hostId: string, paneId: string, keys: string[]) =>
   invoke<void>("send_keys", { hostId, paneId, keys });
+export const sendText = (hostId: string, paneId: string, text: string) =>
+  invoke<void>("send_text", { hostId, paneId, text });
 
 export const submit = (hostId: string, paneId: string, text: string, isAgent: boolean) =>
   invoke<void>("submit", { hostId, paneId, text, isAgent });

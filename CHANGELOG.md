@@ -329,9 +329,27 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the Mac's boards in iCloud, answers go to the iPhone, which sends them
   over its own session and is launched in the background for that. The
   answer buttons of notifications on the Watch go the same way.
+- Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
+  desktop releases, with its own `windows-aarch64` entry for the updater.
+  `gh workflow run ci.yml -f scope=installers` builds only the installers.
+- Appearance setting "Wie das System" (default), "Hell" or "Dunkel":
+  Mac settings window (⌘,), iPad and iPhone in the sidebar menu, Windows
+  and Linux in the settings (⚙), including the window frame.
+- Live mode for slash commands: a prompt to an agent that starts with `/`
+  is typed straight into the agent's input line, so Claude Code shows its
+  commands and skills in the pane; ↑↓ pick, Tab takes a suggestion (typing
+  continues after it), Enter runs, Esc goes to the agent. All apps.
 
 ### Changed
 
+- The terminal is no longer always dark: it follows the app's appearance
+  or is set to light or dark on its own, with the color scheme Standard,
+  Solarized or Terminal (macOS), on all apps (Mac settings, the appearance
+  menu on iPad and iPhone, settings on Windows and Linux). "Mindestkontrast"
+  (on by default) lightens or darkens text colors below WCAG AA contrast,
+  so programs that pick colors for another background stay readable.
+- CI no longer runs for pull requests, only for `desktop-v*` tags and by
+  hand; `scripts/check.sh` runs the checks on the machine before a merge.
 - CI checks pull requests on Linux only; the full chain (macOS, Windows,
   iOS and tvOS, desktop installers) runs for release tags and by hand, to
   save Actions minutes. Pushes to `main` no longer run CI.

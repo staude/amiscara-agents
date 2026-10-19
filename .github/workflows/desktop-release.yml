@@ -52,18 +52,28 @@ jobs:
           id="$(gh api "repos/$RELEASES_OWNER/$RELEASES_REPO/releases" \
             -f tag_name="v$VERSION" -f target_commitish=main \
             -f name="Amiscara Agents $VERSION" -F draft=true \
-            -f body="Windows: setup.exe oder msi (nicht signiert, SmartScreen fragt einmal). Linux: AppImage oder deb." \
+            -f body="Windows: x64-setup.exe oder msi, für ARM-Geräte arm64-setup.exe (nicht signiert, SmartScreen fragt einmal). Linux: AppImage oder deb." \
             --jq .id)"
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.name }})
     needs: release
     environment: desktop-release
     strategy:
       fail-fast: true
       matrix:
-        os: [windows-latest, ubuntu-22.04]
+        include:
+          - name: Windows x64
+            os: windows-latest
+          # Cross-compiled; Tauri builds only NSIS for ARM64. The updater
+          # finds it as `windows-aarch64` in latest.json.
+          - name: Windows ARM64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            args: --target aarch64-pc-windows-msvc --bundles nsis
+          - name: Linux
+            os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -79,9 +89,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: desktop-release
+          key: desktop-release-${{ matrix.name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -98,6 +110,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
+          args: ${{ matrix.args }}
           owner: ${{ env.RELEASES_OWNER }}
           repo: ${{ env.RELEASES_REPO }}
           releaseId: ${{ needs.release.outputs.id }}

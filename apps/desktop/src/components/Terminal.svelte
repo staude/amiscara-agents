@@ -2,7 +2,7 @@
   import type { PaneModel } from "../lib/pane.svelte";
   import { prefs } from "../lib/prefs.svelte";
   import type { SearchMatch } from "../lib/search";
-  import { spanStyle } from "../lib/term";
+  import { css, spanStyle } from "../lib/term";
   import type { StyledSpan } from "../lib/types";
 
   // `history`: scrollback controls above the first line (selected pane only).
@@ -35,6 +35,8 @@
     const fitting = Math.floor((width - 20) / (fitColumns * 0.6));
     return Math.min(prefs.fontSize, Math.max(7, fitting));
   });
+
+  let theme = $derived(prefs.terminal);
 
   let byLine = $derived.by(() => {
     const map = new Map<number, { match: SearchMatch; index: number }[]>();
@@ -112,7 +114,8 @@
   bind:this={scroller}
   bind:clientWidth={width}
   onscroll={onScroll}
-  style="font-size: {fontSize}px"
+  class:dark={theme.dark}
+  style="font-size: {fontSize}px; --term-bg: {css(theme.background)}; --term-fg: {css(theme.foreground)}"
 >
   {#if history && model.content}
     <div class="history">
@@ -136,7 +139,7 @@
     {#each model.content.lines as line, index (index)}
       <div class="line" data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}<span
             class={part.mark}
-            style={part.mark ? "" : spanStyle(part.span)}>{part.text}</span
+            style={part.mark ? "" : spanStyle(part.span, theme)}>{part.text}</span
           >{/each}</div>
     {/each}
   {:else if model.error}
@@ -147,11 +150,9 @@
 </div>
 
 <style>
-  /* Always dark, like most terminals: agent TUIs pick truecolor values for
-     a dark background. */
+  /* Colors from the terminal settings (`prefs.terminal`). */
   .terminal {
-    --term-bg: #1c1c1f;
-    --term-fg: #e0e0e0;
+    color-scheme: light;
     background: var(--term-bg);
     color: var(--term-fg);
     font-family: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
@@ -162,6 +163,9 @@
     box-sizing: border-box;
     user-select: text;
     -webkit-user-select: text;
+  }
+  .terminal.dark {
+    color-scheme: dark;
   }
   .line {
     white-space: pre;
@@ -175,17 +179,17 @@
     margin-bottom: 8px;
     font-family: system-ui, sans-serif;
     font-size: 13px;
-    color: rgb(224 224 224 / 0.7);
+    color: color-mix(in srgb, var(--term-fg) 70%, transparent);
     user-select: none;
   }
   .history button {
-    background: rgb(255 255 255 / 0.08);
-    border-color: rgb(255 255 255 / 0.15);
+    background: color-mix(in srgb, var(--term-fg) 8%, transparent);
+    border-color: color-mix(in srgb, var(--term-fg) 15%, transparent);
     color: inherit;
   }
   .note {
     font-family: system-ui, sans-serif;
-    color: rgb(224 224 224 / 0.7);
+    color: color-mix(in srgb, var(--term-fg) 70%, transparent);
   }
   .match {
     background: rgb(242 204 64 / 0.75);
