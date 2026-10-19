@@ -314,6 +314,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- README covers all platforms: overview of Mac, iPad, iPhone, Apple TV,
+  Windows and Linux with what each app does, notifications per platform and
+  the release path of each.
 - Renamed the app to Amiscara Agents (#84): `apps/AmiscaraAgents` with targets
   and schemes `AmiscaraAgents` and `AmiscaraAgents-iOS`, bundle ID
   `net.staude.amiscara.agents`, QR and link scheme `amiscara-agents://add-host`
