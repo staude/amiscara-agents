@@ -94,7 +94,7 @@ jobs:
       # Without signed update files: the updater key is only for the release
       # workflow (environment desktop-release, tags desktop-v*).
       - if: runner.os != 'macOS'
-        run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: npx tauri build --verbose --config '{"bundle":{"createUpdaterArtifacts":false}}'
       - if: runner.os == 'macOS'
         run: npx tauri build --no-bundle
       - if: runner.os != 'macOS'
