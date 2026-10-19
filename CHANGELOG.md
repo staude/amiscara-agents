@@ -321,6 +321,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Appearance setting "Wie das System" (default), "Hell" or "Dunkel":
   Mac settings window (⌘,), iPad and iPhone in the sidebar menu, Windows
   and Linux in the settings (⚙), including the window frame.
+- Live mode for slash commands: a prompt to an agent that starts with `/`
+  is typed straight into the agent's input line, so Claude Code shows its
+  commands and skills in the pane; ↑↓ pick, Tab takes a suggestion (typing
+  continues after it), Enter runs, Esc goes to the agent. All apps.
 
 ### Changed
 
