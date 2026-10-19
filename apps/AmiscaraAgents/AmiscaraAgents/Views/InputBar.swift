@@ -400,6 +400,14 @@ struct InputBar: View {
             .textFieldStyle(.roundedBorder)
             .focused($composerFocused)
             .onSubmit(submit)
+            // Tab in an empty field goes to the pane, like the Tab key of the
+            // key bar: Claude Code takes its suggested prompt, a shell
+            // completes. With text, Tab keeps moving the focus.
+            .onKeyPress(.tab) {
+                guard text.isEmpty, attachments.isEmpty else { return .ignored }
+                send(keys: ["tab"])
+                return .handled
+            }
             #if os(iOS)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -448,7 +456,13 @@ struct InputBar: View {
     private func submit() {
         if dictation.isRunning { dictation.stop() }
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty || !attachments.isEmpty else { return }
+        // Return in an empty field is Enter for the pane, e.g. to send a
+        // suggestion taken with Tab.
+        guard !prompt.isEmpty || !attachments.isEmpty else {
+            text = ""
+            send(keys: ["enter"])
+            return
+        }
         let pending = attachments
         perform {
             let paths = pending.isEmpty ? [] : try await connection.upload(pending)
