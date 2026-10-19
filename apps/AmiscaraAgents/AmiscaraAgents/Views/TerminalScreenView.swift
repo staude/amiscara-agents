@@ -1,8 +1,7 @@
 import SwiftUI
 
 /// Draws a pane screen: one `Text` per line, styled runs as AttributedString.
-/// Always dark, like most terminals, because agent TUIs pick their truecolor
-/// values for a dark background.
+/// Light or dark with the app's appearance, like the desktop app.
 struct TerminalScreenView: View {
     let content: PaneContent
     /// Scrollback controls above the first line; `nil` hides them.
@@ -114,7 +113,6 @@ struct TerminalScreenView: View {
             #endif
         }
         .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
-        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -153,8 +151,26 @@ private struct HistoryHeader: View {
 }
 
 enum TerminalStyle {
-    static let background = Color(red: 0.11, green: 0.11, blue: 0.12)
-    static let foreground = Color(red: 0.88, green: 0.88, blue: 0.88)
+    static let background = adaptive(light: (1.00, 1.00, 1.00), dark: (0.11, 0.11, 0.12))
+    static let foreground = adaptive(light: (0.11, 0.12, 0.13), dark: (0.88, 0.88, 0.88))
+
+    /// A color that follows the light or dark appearance of the view.
+    private static func adaptive(
+        light: (Double, Double, Double),
+        dark: (Double, Double, Double)
+    ) -> Color {
+        #if os(macOS)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let (r, g, b) = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: r, green: g, blue: b, alpha: 1)
+        })
+        #else
+        Color(uiColor: UIColor { traits in
+            let (r, g, b) = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: r, green: g, blue: b, alpha: 1)
+        })
+        #endif
+    }
 
     static let match = Color(red: 0.95, green: 0.80, blue: 0.25).opacity(0.75)
     static let currentMatch = Color(red: 1.00, green: 0.55, blue: 0.10)

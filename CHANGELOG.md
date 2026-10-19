@@ -324,6 +324,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The terminal of the Mac, iPad and iPhone app follows the appearance:
+  light background in light mode, like the desktop app. Programs that
+  pick their colors for a light terminal were hard to read on the dark one.
 - CI no longer runs for pull requests, only for `desktop-v*` tags and by
   hand; `scripts/check.sh` runs the checks on the machine before a merge.
 - CI checks pull requests on Linux only; the full chain (macOS, Windows,
