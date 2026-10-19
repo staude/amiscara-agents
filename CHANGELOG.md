@@ -315,6 +315,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   key bar (Claude Code takes its suggested prompt, a shell completes);
   Return in an empty field sends Enter to the pane. Mac, iPad and iPhone
   with a hardware keyboard, Windows and Linux.
+- Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
+  desktop releases, with its own `windows-aarch64` entry for the updater.
+  `gh workflow run ci.yml -f scope=installers` builds only the installers.
 - Appearance setting "Wie das System" (default), "Hell" or "Dunkel":
   Mac settings window (⌘,), iPad and iPhone in the sidebar menu, Windows
   and Linux in the settings (⚙), including the window frame.
