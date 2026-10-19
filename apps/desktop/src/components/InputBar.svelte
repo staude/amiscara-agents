@@ -34,8 +34,9 @@
   let liveTyped = "";
   let liveAfterTab = $state(false);
   let liveQueue: Promise<void> = Promise.resolve();
+  // Never while the agent waits for approval: typed keys would answer its dialog.
   let isLive = $derived(
-    isAgent && attachments.length === 0 && (text.startsWith("/") || liveAfterTab),
+    isAgent && !isBlocked && attachments.length === 0 && (text.startsWith("/") || liveAfterTab),
   );
 
   /** Live input in order, without blocking the bar like `perform`. */
@@ -50,7 +51,7 @@
 
   /** Brings the agent's input line to the composer text; newlines would submit. */
   function syncLive() {
-    if (!isAgent || attachments.length > 0) return;
+    if (!isAgent || isBlocked || attachments.length > 0) return;
     const target = text.startsWith("/") || liveAfterTab ? text.replaceAll("\n", " ") : "";
     const { erase, insert } = liveEdit(liveTyped, target);
     if (erase === 0 && !insert) return;
@@ -63,9 +64,11 @@
     });
   }
 
-  // Another pane has its own input line: start live typing over.
+  // Another pane has its own input line, and an approval dialog replaces
+  // it: start live typing over.
   $effect(() => {
     void pane.paneId;
+    void isBlocked;
     liveTyped = "";
     liveAfterTab = false;
   });

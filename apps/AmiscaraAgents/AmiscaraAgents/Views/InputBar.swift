@@ -39,8 +39,11 @@ struct InputBar: View {
 
     private var isAgent: Bool { pane.agent != nil }
     private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
+    /// Never while the agent waits for approval: typed keys would answer
+    /// its dialog.
     private var isLive: Bool {
-        isAgent && attachments.isEmpty && (text.hasPrefix("/") || liveAfterTab || !liveTyped.isEmpty)
+        isAgent && !isBlocked && attachments.isEmpty
+            && (text.hasPrefix("/") || liveAfterTab || !liveTyped.isEmpty)
     }
 
     var body: some View {
@@ -442,6 +445,13 @@ struct InputBar: View {
                 liveTyped = ""
                 liveAfterTab = false
             }
+            // An approval dialog replaces the input line: start over after it.
+            .onChange(of: isBlocked) { _, blocked in
+                if blocked {
+                    liveTyped = ""
+                    liveAfterTab = false
+                }
+            }
             #if os(iOS)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -536,7 +546,7 @@ struct InputBar: View {
     /// Brings the agent's input line to the composer text in live mode.
     /// Newlines become spaces: in Claude Code a newline would submit.
     private func syncLive() {
-        guard isAgent, attachments.isEmpty else { return }
+        guard isAgent, !isBlocked, attachments.isEmpty else { return }
         let target = liveAfterTab || text.hasPrefix("/") ? text.replacingOccurrences(of: "\n", with: " ") : ""
         let edit = LiveEdit(from: liveTyped, to: target)
         guard !edit.isEmpty else { return }
