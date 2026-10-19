@@ -1,3 +1,5 @@
+import { terminalTheme, type TerminalAppearance, type TerminalScheme, type TerminalTheme } from "./term";
+
 // Per-device view settings, kept in the webview's storage. Losing them
 // (private mode, cleared data) only resets the view.
 
@@ -33,6 +35,28 @@ class Prefs {
   agentOrder = $state<AgentOrder>(read("agentOrder", "grouped"));
   fontSize = $state<number>(read("terminalFontSize", FONT_DEFAULT));
   theme = $state<Theme>(read("theme", "system"));
+  terminalAppearance = $state<TerminalAppearance>(read("terminalAppearance", "app"));
+  terminalScheme = $state<TerminalScheme>(read("terminalScheme", "standard"));
+  minContrast = $state<boolean>(read("terminalMinContrast", true));
+  /** The system's look, for "system" in `theme`. */
+  systemDark = $state(false);
+
+  constructor() {
+    try {
+      const query = matchMedia("(prefers-color-scheme: dark)");
+      this.systemDark = query.matches;
+      query.addEventListener("change", (e) => (this.systemDark = e.matches));
+    } catch {
+      // No media queries: light.
+    }
+  }
+
+  /** Colors of the panes from the terminal settings and the app's look. */
+  get terminal(): TerminalTheme {
+    const appDark = this.theme === "dark" || (this.theme === "system" && this.systemDark);
+    const dark = this.terminalAppearance === "app" ? appDark : this.terminalAppearance === "dark";
+    return terminalTheme(this.terminalScheme, dark, this.minContrast);
+  }
 
   isCollapsed(hostId: string, section: string): boolean {
     return this.collapsed.includes(`${hostId}/${section}`);
@@ -60,6 +84,21 @@ class Prefs {
   setTheme(theme: Theme) {
     this.theme = theme;
     write("theme", theme);
+  }
+
+  setTerminalAppearance(appearance: TerminalAppearance) {
+    this.terminalAppearance = appearance;
+    write("terminalAppearance", appearance);
+  }
+
+  setTerminalScheme(scheme: TerminalScheme) {
+    this.terminalScheme = scheme;
+    write("terminalScheme", scheme);
+  }
+
+  setMinContrast(on: boolean) {
+    this.minContrast = on;
+    write("terminalMinContrast", on);
   }
 }
 

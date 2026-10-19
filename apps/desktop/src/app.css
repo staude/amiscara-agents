@@ -53,23 +53,6 @@ body {
   color: var(--text);
 }
 
-:root {
-  --term-bg: #ffffff;
-  --term-fg: #1b1f20;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --term-bg: #0f1213;
-    --term-fg: #e6eaeb;
-  }
-}
-
-:root[data-theme="dark"] {
-  --term-bg: #0f1213;
-  --term-fg: #e6eaeb;
-}
-
 button,
 input,
 select,
