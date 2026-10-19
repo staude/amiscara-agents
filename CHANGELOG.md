@@ -311,6 +311,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   in the public repository `staude/amiscara-agents-releases`. The app looks
   for updates on start and in the settings, installs and restarts. Windows
   builds are not code signed yet.
+- Host boards in iCloud (#156): the Mac app writes the agents of each host
+  it pushes for as a `HostBoard` record (at most every 10 s, at least every
+  5 minutes) and adds the last 12 screen lines to "wartet" records
+  (`excerpt`, `HostSession.screenExcerpt`). iPhone, iPad and Apple TV take
+  the agents of hosts they cannot reach from there, and the iPhone widget
+  fetches the boards itself, woken by a silent push, so it stays current
+  when the app does not run. Groundwork for the Apple Watch (#161).
 
 ### Changed
 

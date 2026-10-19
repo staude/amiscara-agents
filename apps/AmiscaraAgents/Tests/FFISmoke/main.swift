@@ -123,6 +123,15 @@ guard let pane = update.board.first?.paneId ?? panes.first?.paneId else {
     print("skip pane: server has no panes")
     exit(0)
 }
+// The screen excerpt for the Watch (#156): at most the lines asked for,
+// none of them blank at the end.
+let excerpt = try session.screenExcerpt(paneId: pane, maxLines: 12)
+let excerptLines = excerpt.split(separator: "\n", omittingEmptySubsequences: false)
+guard excerptLines.count <= 12, excerptLines.last?.isEmpty != true || excerpt.isEmpty else {
+    fail("screen excerpt: \(excerptLines.count) lines")
+}
+print("ok   excerpt: \(excerptLines.count) lines, \(excerpt.count) characters")
+
 /// Uploads may be private screenshots: file 0600, directory 0700.
 func checkPrivate(_ path: String) {
     let mode = { (p: String) in

@@ -151,6 +151,9 @@ targets:
             CFBundleURLSchemes:
               - amiscara-agents
         NSLocalNetworkUsageDescription: "Amiscara Agents verbindet sich per SSH mit Rechnern in Ihrem Netz, auf denen herdr läuft."
+        # Silent pushes for new boards in iCloud (#156).
+        UIBackgroundModes:
+          - remote-notification
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
@@ -218,6 +221,11 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.net.staude.amiscara.agents
+        # Reads the Mac's boards (#156) when the app has not run.
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.net.staude.amiscara.agents
+        com.apple.developer.icloud-services:
+          - CloudKit
     info:
       path: Widget/Info-iOS.plist
       properties: *widgetInfo

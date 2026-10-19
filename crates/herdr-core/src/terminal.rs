@@ -144,7 +144,33 @@ impl Screen {
     pub fn text_lines(&self) -> Vec<String> {
         self.lines.iter().map(Line::text).collect()
     }
+
+    /// The last `max_lines` lines with text, without styles, for a small
+    /// screen such as the Watch (#156): trailing spaces trimmed, blank lines
+    /// at the bottom dropped, runs of blank lines folded into one, and each
+    /// line cut to [`EXCERPT_LINE_CHARS`] characters.
+    pub fn excerpt(&self, max_lines: usize) -> String {
+        let mut lines: Vec<String> = Vec::new();
+        for line in self.text_lines().iter().rev() {
+            if lines.len() == max_lines {
+                break;
+            }
+            let text: String = line.trim_end().chars().take(EXCERPT_LINE_CHARS).collect();
+            if text.is_empty() && lines.last().is_none_or(String::is_empty) {
+                continue;
+            }
+            lines.push(text);
+        }
+        while lines.last().is_some_and(String::is_empty) {
+            lines.pop();
+        }
+        lines.reverse();
+        lines.join("\n")
+    }
 }
+
+/// Longest line in [`Screen::excerpt`].
+pub const EXCERPT_LINE_CHARS: usize = 200;
 
 /// SGR parameters are digits, `;` and `:` only. A private marker such as
 /// `?` or `>` makes it a different sequence (e.g. `CSI > 4 m`).
@@ -379,6 +405,26 @@ mod tests {
         let screen = Screen::parse("ab\tc\r\n日本🙂x");
         assert_eq!(screen.text_lines()[0], "ab      c");
         assert_eq!(screen.lines[1].width(), 7);
+    }
+
+    #[test]
+    fn excerpt_keeps_the_last_lines_with_text() {
+        let screen = Screen::parse(
+            "old\r\n\x1b[1mDo you want to proceed?\x1b[0m   \r\n\r\n\r\n\
+             \u{276f} 1. Yes\r\n  2. No\r\n\r\n\r\n",
+        );
+        assert_eq!(
+            screen.excerpt(4),
+            "Do you want to proceed?\n\n\u{276f} 1. Yes\n  2. No"
+        );
+        assert_eq!(screen.excerpt(2), "\u{276f} 1. Yes\n  2. No");
+        assert_eq!(Screen::parse("\r\n\r\n").excerpt(5), "");
+    }
+
+    #[test]
+    fn excerpt_cuts_long_lines() {
+        let screen = Screen::parse(&"\u{2500}".repeat(EXCERPT_LINE_CHARS + 10));
+        assert_eq!(screen.excerpt(1).chars().count(), EXCERPT_LINE_CHARS);
     }
 
     #[test]

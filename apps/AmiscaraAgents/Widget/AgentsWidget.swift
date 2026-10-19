@@ -45,9 +45,25 @@ struct Provider: TimelineProvider {
         completion(Entry(date: .now, snapshot: context.isPreview && snapshot.hosts.isEmpty ? .preview : snapshot))
     }
 
-    /// One entry; the app reloads the widget when its data changes.
+    /// One entry; the app reloads the widget when its data changes. On iOS
+    /// the widget also takes the boards the Mac leaves in iCloud (#156) and
+    /// asks again after a while, so it stays current when the app does not
+    /// run.
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
+        #if os(iOS)
+        // WidgetKit calls the handler once from any thread; it is not marked
+        // `Sendable`.
+        nonisolated(unsafe) let completion = completion
+        Task {
+            let snapshot = WidgetSnapshot.load()
+            let keys = snapshot.hosts.compactMap(\.hostKey)
+            let boards = (try? await CloudBoard.fetch(hostKeys: keys)) ?? []
+            let entry = Entry(date: .now, snapshot: snapshot.merging(boards))
+            completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(15 * 60))))
+        }
+        #else
         completion(Timeline(entries: [Entry(date: .now, snapshot: WidgetSnapshot.load())], policy: .never))
+        #endif
     }
 }
 

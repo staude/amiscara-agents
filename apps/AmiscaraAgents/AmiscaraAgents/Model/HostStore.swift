@@ -48,22 +48,34 @@ final class HostStore {
                 .count)
             self.widgets.publish(self)
             #if os(macOS)
-            if connection.config.notificationsOn {
-                switch connection.config.kind {
-                case .local:
-                    self.cloudPush.send(update.attention, hostName: Host.current().localizedName ?? connection.config.name)
-                case .ssh:
-                    // Devices find the host by its pinned key (#125).
-                    if self.cloudPush.includeSSHHosts,
-                       let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey) {
-                        self.cloudPush.send(update.attention, hostKey: key, hostName: connection.config.name)
-                    }
+            if let (key, name) = self.cloudHost(of: connection) {
+                self.cloudPush.send(update.attention, hostKey: key, hostName: name) { [weak connection] paneID in
+                    await connection?.screenExcerpt(paneID: paneID, lines: CloudPush.excerptLines)
                 }
+                self.cloudPush.sendBoard(update.board, live: connection.isLive, hostKey: key, hostName: name)
             }
             #endif
         }
         return connection
     }
+
+    #if os(macOS)
+    /// Key fingerprint and name under which a host's events go to iCloud,
+    /// or `nil` when they do not: this Mac by its own host key, SSH hosts by
+    /// their pinned key (#125).
+    private func cloudHost(of connection: HostConnection) -> (key: String, name: String)? {
+        guard connection.config.notificationsOn else { return nil }
+        switch connection.config.kind {
+        case .local:
+            return cloudPush.hostKey.map { ($0, Host.current().localizedName ?? connection.config.name) }
+        case .ssh:
+            guard cloudPush.includeSSHHosts,
+                  let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
+            else { return nil }
+            return (key, connection.config.name)
+        }
+    }
+    #endif
 
     /// An answer key from a notification button. Launched for it in the
     /// background, the app first has to reconnect; iOS gives it some
@@ -112,6 +124,11 @@ final class HostStore {
     func remove(_ id: UUID) {
         guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
         let connection = connections[index]
+        #if os(macOS)
+        if let (key, _) = cloudHost(of: connection) {
+            cloudPush.removeBoard(hostKey: key)
+        }
+        #endif
         connection.stop()
         KeyStore.delete(for: id)
         connections.remove(at: index)
