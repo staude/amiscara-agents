@@ -15,6 +15,7 @@
   import { arrange } from "./lib/spaces";
   import { prefs } from "./lib/prefs.svelte";
   import { model } from "./lib/state.svelte";
+  import { updater } from "./lib/update.svelte";
   import type { HostConfig } from "./lib/types";
 
   let editing = $state<{ host: HostConfig | null } | null>(null);
@@ -22,6 +23,7 @@
 
   onMount(() => {
     model.load().catch((err) => (model.error = core.errorText(err)));
+    if (import.meta.env.MODE !== "mock") void updater.check(true);
     void core.onAddHostLink((url) => (linkDialog = { url }));
     void core.onOpenPane(({ hostId, workspaceId, paneId }) => {
       const workspace =
@@ -92,6 +94,17 @@
 <div class="layout">
   <Sidebar addHost={() => (editing = { host: null })} addLink={() => (linkDialog = { url: null })} />
   <main class="detail">
+    {#if updater.available}
+      <div class="update">
+        {#if updater.state === "downloading"}
+          Version {updater.available.version} wird geladen … {updater.progress ? `${updater.progress} %` : ""}
+        {:else}
+          Version {updater.available.version} ist verfügbar.
+          <button class="primary" onclick={() => updater.install()}>Installieren und neu starten</button>
+          {#if updater.error}<span class="update-error">{updater.error}</span>{/if}
+        {/if}
+      </div>
+    {/if}
     {#if model.selectedHost && model.selectedWorkspace}
       {#key `${model.selectedHost.id}/${model.selectedWorkspace.workspaceId}`}
         <WorkspaceView host={model.selectedHost} workspace={model.selectedWorkspace} />
@@ -172,6 +185,19 @@
     margin: 4px 0;
   }
   .meta {
+    font-size: 12px;
+  }
+  .update {
+    flex: none !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: color-mix(in srgb, var(--accent) 15%, var(--bg));
+    border-bottom: 1px solid var(--line);
+  }
+  .update-error {
+    color: var(--danger);
     font-size: 12px;
   }
   .error {

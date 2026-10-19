@@ -2,6 +2,7 @@
   import * as core from "../lib/core";
   import { ui } from "../lib/manage.svelte";
   import { model } from "../lib/state.svelte";
+  import { updater } from "../lib/update.svelte";
   import AgentPicker from "./AgentPicker.svelte";
   import Sheet from "./Sheet.svelte";
 
@@ -230,6 +231,14 @@
       />
       Mit dem System starten (im Infobereich, ohne Fenster)
     </label>
+    <div class="update-row">
+      <span>Version {model.info?.version}</span>
+      <button disabled={updater.state === "checking"} onclick={() => updater.check()}>Nach Updates suchen</button>
+      {#if updater.state === "checking"}<span class="hint">Suche …</span>{/if}
+      {#if updater.state === "current"}<span class="hint">Aktuell</span>{/if}
+      {#if updater.available}<span class="hint">Version {updater.available.version} verfügbar</span>{/if}
+    </div>
+    {#if updater.state === "failed" && updater.error}<p class="error">{updater.error}</p>{/if}
     <p class="hint">
       Das Fenster zu schließen lässt Amiscara Agents im Infobereich weiterlaufen, damit Benachrichtigungen ankommen.
       Beenden über das Symbol im Infobereich. Benachrichtigungen pro Host unter „Bearbeiten“.
@@ -245,6 +254,11 @@
   form {
     display: flex;
     flex-direction: column;
+    gap: 10px;
+  }
+  .update-row {
+    display: flex;
+    align-items: center;
     gap: 10px;
   }
   .check {
