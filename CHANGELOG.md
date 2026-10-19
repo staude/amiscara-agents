@@ -332,6 +332,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The Linux desktop build in CI ran out of disk space while bundling the
+  AppImage; the job (and the release workflow) now frees space first.
 - Device keys reach only the herdr socket (#132): new `authorized_keys`
   lines (host editor, Apple TV pairing) use `restrict` without
   `port-forwarding` and a forced command that connects every session to
