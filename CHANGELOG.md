@@ -311,6 +311,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   in the public repository `staude/amiscara-agents-releases`. The app looks
   for updates on start and in the settings, installs and restarts. Windows
   builds are not code signed yet.
+- Tab in an empty input field goes to the pane, like the Tab key of the
+  key bar (Claude Code takes its suggested prompt, a shell completes);
+  Return in an empty field sends Enter to the pane. Mac, iPad and iPhone
+  with a hardware keyboard, Windows and Linux.
 
 ### Changed
 
