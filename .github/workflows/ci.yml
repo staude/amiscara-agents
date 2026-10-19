@@ -1,9 +1,14 @@
 name: CI
 
+# Pull requests get the cheap Linux checks. The full chain (macOS and
+# Windows, iOS and tvOS, desktop builds on all systems) runs for release
+# tags and when started by hand (Actions > CI > Run workflow); installers
+# only by hand, a tag builds them in desktop-release.yml.
 on:
   pull_request:
   push:
-    branches: [main]
+    tags: ["desktop-v*"]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -29,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-15", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -40,6 +45,7 @@ jobs:
 
   apple-targets:
     name: Check iOS and tvOS targets
+    if: github.event_name != 'pull_request'
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -61,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-latest, macos-15]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-22.04"]' || '["ubuntu-22.04", "windows-latest", "macos-15"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     defaults:
@@ -72,7 +78,7 @@ jobs:
       # Debug, test and release builds plus the AppImage fill the runner's
       # disk ("No space left on device" while linuxdeploy strips libraries).
       - name: Free disk space
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch'
         working-directory: .
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - name: WebKitGTK and bundler tools
@@ -95,15 +101,15 @@ jobs:
       - run: npm run check
       - run: cargo clippy -p amiscara-desktop --all-targets --locked -- -D warnings
       - run: cargo test -p amiscara-desktop --locked
-      # Bundles for Windows (NSIS, MSI) and Linux (deb, AppImage); the Mac
-      # only checks that the app builds, it ships the SwiftUI app.
-      # Without signed update files: the updater key is only for the release
-      # workflow (environment desktop-release, tags desktop-v*).
-      - if: runner.os != 'macOS'
+      # Bundles for Windows (NSIS, MSI) and Linux (deb, AppImage), only when
+      # started by hand; the Mac only checks that the app builds, it ships
+      # the SwiftUI app. Without signed update files: the updater key is only
+      # for the release workflow (environment desktop-release, tags desktop-v*).
+      - if: github.event_name == 'workflow_dispatch' && runner.os != 'macOS'
         run: npx tauri build --verbose --config '{"bundle":{"createUpdaterArtifacts":false}}'
-      - if: runner.os == 'macOS'
+      - if: github.event_name == 'workflow_dispatch' && runner.os == 'macOS'
         run: npx tauri build --no-bundle
-      - if: runner.os != 'macOS'
+      - if: github.event_name == 'workflow_dispatch' && runner.os != 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: amiscara-agents-${{ runner.os }}
