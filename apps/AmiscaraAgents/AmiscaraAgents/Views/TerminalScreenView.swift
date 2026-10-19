@@ -1,8 +1,7 @@
 import SwiftUI
 
 /// Draws a pane screen: one `Text` per line, styled runs as AttributedString.
-/// Always dark, like most terminals, because agent TUIs pick their truecolor
-/// values for a dark background.
+/// Colors from the terminal settings (`TerminalTheme`).
 struct TerminalScreenView: View {
     let content: PaneContent
     /// Scrollback controls above the first line; `nil` hides them.
@@ -35,6 +34,12 @@ struct TerminalScreenView: View {
     }
 
     var body: some View {
+        TerminalThemeReader { theme in
+            lines(theme)
+        }
+    }
+
+    private func lines(_ theme: TerminalTheme) -> some View {
         ScrollViewReader { proxy in
             ScrollView([.vertical, .horizontal]) {
                 // A plain VStack: the visible screen is about 60 lines, and a
@@ -43,12 +48,13 @@ struct TerminalScreenView: View {
                 // it holds up to 1000 lines, which SwiftUI still lays out fast.
                 VStack(alignment: .leading, spacing: 0) {
                     if let history {
-                        HistoryHeader(model: history, content: content)
+                        HistoryHeader(model: history, content: content, theme: theme)
                             .padding(.bottom, 8)
                     }
                     ForEach(Array(content.lines.enumerated()), id: \.offset) { index, line in
                         Text(TerminalStyle.attributed(
                             line,
+                            theme: theme,
                             fontSize: fontSize,
                             matches: search.byLine[index] ?? [],
                             current: search.current
@@ -113,8 +119,6 @@ struct TerminalScreenView: View {
             .onChange(of: content.paneId) { remoteLine = nil }
             #endif
         }
-        .background(TerminalStyle.background, ignoresSafeAreaEdges: [])
-        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -122,6 +126,7 @@ struct TerminalScreenView: View {
 private struct HistoryHeader: View {
     let model: PaneModel
     let content: PaneContent
+    let theme: TerminalTheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -147,20 +152,18 @@ private struct HistoryHeader: View {
         }
         .font(.callout)
         .buttonStyle(.bordered)
-        .foregroundStyle(TerminalStyle.foreground.opacity(0.7))
+        .foregroundStyle(theme.foreground.color.opacity(0.7))
         .fixedSize()
     }
 }
 
 enum TerminalStyle {
-    static let background = Color(red: 0.11, green: 0.11, blue: 0.12)
-    static let foreground = Color(red: 0.88, green: 0.88, blue: 0.88)
-
     static let match = Color(red: 0.95, green: 0.80, blue: 0.25).opacity(0.75)
     static let currentMatch = Color(red: 1.00, green: 0.55, blue: 0.10)
 
     static func attributed(
         _ line: StyledLine,
+        theme: TerminalTheme,
         fontSize: Double,
         matches: [SearchMatch] = [],
         current: SearchMatch? = nil
@@ -168,18 +171,18 @@ enum TerminalStyle {
         var result = AttributedString()
         for span in line.spans {
             var part = AttributedString(span.text)
-            var fg = color(span.fg)
-            var bg = color(span.bg)
+            var fg = rgb(span.fg, theme)
+            var bg = rgb(span.bg, theme)
             if span.inverse {
                 swap(&fg, &bg)
-                fg = fg ?? background
-                bg = bg ?? foreground
+                fg = fg ?? theme.background
+                bg = bg ?? theme.foreground
             }
-            var foreground = fg ?? Self.foreground
+            var foreground = theme.readable(fg ?? theme.foreground, on: bg ?? theme.background).color
             if span.dim { foreground = foreground.opacity(0.55) }
             if span.hidden { foreground = .clear }
             part.foregroundColor = foreground
-            if let bg { part.backgroundColor = bg }
+            if let bg { part.backgroundColor = bg.color }
             part.font = .system(size: fontSize, weight: span.bold ? .bold : .regular, design: .monospaced)
                 .italic(span.italic)
             if span.underline { part.underlineStyle = .single }
@@ -197,37 +200,29 @@ enum TerminalStyle {
         return result
     }
 
-    static func color(_ color: TermColor) -> Color? {
+    static func rgb(_ color: TermColor, _ theme: TerminalTheme) -> RGB? {
         switch color {
         case .default:
             return nil
         case .rgb(let r, let g, let b):
-            return Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255)
+            return RGB(Double(r) / 255, Double(g) / 255, Double(b) / 255)
         case .indexed(let index):
-            return indexed(Int(index))
+            return indexed(Int(index), theme)
         }
     }
 
-    /// xterm palette: 16 base colors, 6x6x6 cube, 24 greys.
-    private static func indexed(_ index: Int) -> Color {
+    /// xterm palette: 16 base colors from the theme, 6x6x6 cube, 24 greys.
+    private static func indexed(_ index: Int, _ theme: TerminalTheme) -> RGB {
         switch index {
         case 0..<16:
-            let (r, g, b) = base[index]
-            return Color(red: r, green: g, blue: b)
+            return theme.base[index]
         case 16..<232:
             let n = index - 16
             let level = { (v: Int) in v == 0 ? 0.0 : (Double(v) * 40 + 55) / 255 }
-            return Color(red: level(n / 36), green: level(n / 6 % 6), blue: level(n % 6))
+            return RGB(level(n / 36), level(n / 6 % 6), level(n % 6))
         default:
             let v = (Double(index - 232) * 10 + 8) / 255
-            return Color(red: v, green: v, blue: v)
+            return RGB(v, v, v)
         }
     }
-
-    private static let base: [(Double, Double, Double)] = [
-        (0.00, 0.00, 0.00), (0.80, 0.24, 0.24), (0.36, 0.72, 0.36), (0.80, 0.68, 0.24),
-        (0.26, 0.46, 0.84), (0.69, 0.36, 0.78), (0.24, 0.68, 0.74), (0.80, 0.80, 0.80),
-        (0.46, 0.46, 0.46), (0.96, 0.40, 0.40), (0.52, 0.88, 0.52), (0.96, 0.86, 0.40),
-        (0.46, 0.64, 0.98), (0.86, 0.52, 0.96), (0.42, 0.86, 0.92), (1.00, 1.00, 1.00),
-    ]
 }

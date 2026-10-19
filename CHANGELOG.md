@@ -324,6 +324,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The terminal is no longer always dark: it follows the app's appearance
+  or is set to light or dark on its own, with the color scheme Standard,
+  Solarized or Terminal (macOS), on all apps (Mac settings, the appearance
+  menu on iPad and iPhone, settings on Windows and Linux). "Mindestkontrast"
+  (on by default) lightens or darkens text colors below WCAG AA contrast,
+  so programs that pick colors for another background stay readable.
 - CI no longer runs for pull requests, only for `desktop-v*` tags and by
   hand; `scripts/check.sh` runs the checks on the machine before a merge.
 - CI checks pull requests on Linux only; the full chain (macOS, Windows,

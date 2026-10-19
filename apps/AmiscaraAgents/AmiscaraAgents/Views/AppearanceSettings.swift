@@ -66,9 +66,13 @@ struct SettingsView: View {
         Form {
             AppearancePicker()
                 .pickerStyle(.radioGroup)
+            Section("Terminal") {
+                TerminalSettings()
+            }
         }
-        .padding(20)
-        .frame(width: 360)
+        .formStyle(.grouped)
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 #endif
