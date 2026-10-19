@@ -14,8 +14,10 @@
   font-size: 14px;
 }
 
+/* Dark as the system says, unless the settings fix light (data-theme on
+   the root, see applyTheme); or fixed dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #15191a;
     --sidebar: #1c2122;
     --text: #e6eaeb;
@@ -23,6 +25,20 @@
     --line: #2c3335;
     --accent: #2fd1a5;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #15191a;
+  --sidebar: #1c2122;
+  --text: #e6eaeb;
+  --secondary: #98a2a5;
+  --line: #2c3335;
+  --accent: #2fd1a5;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 html,
@@ -43,10 +59,15 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --term-bg: #0f1213;
     --term-fg: #e6eaeb;
   }
+}
+
+:root[data-theme="dark"] {
+  --term-bg: #0f1213;
+  --term-fg: #e6eaeb;
 }
 
 button,

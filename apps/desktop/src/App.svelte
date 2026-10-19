@@ -13,13 +13,15 @@
   import { ui } from "./lib/manage.svelte";
   import { nav } from "./lib/nav.svelte";
   import { arrange } from "./lib/spaces";
-  import { prefs } from "./lib/prefs.svelte";
+  import { applyTheme, prefs } from "./lib/prefs.svelte";
   import { model } from "./lib/state.svelte";
   import { updater } from "./lib/update.svelte";
   import type { HostConfig } from "./lib/types";
 
   let editing = $state<{ host: HostConfig | null } | null>(null);
   let linkDialog = $state<{ url: string | null } | null>(null);
+
+  $effect(() => applyTheme(prefs.theme));
 
   onMount(() => {
     model.load().catch((err) => (model.error = core.errorText(err)));

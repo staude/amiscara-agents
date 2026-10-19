@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as core from "../lib/core";
   import { ui } from "../lib/manage.svelte";
+  import { prefs, type Theme } from "../lib/prefs.svelte";
   import { model } from "../lib/state.svelte";
   import { updater } from "../lib/update.svelte";
   import AgentPicker from "./AgentPicker.svelte";
@@ -230,6 +231,14 @@
         }}
       />
       Mit dem System starten (im Infobereich, ohne Fenster)
+    </label>
+    <label class="field">
+      <span>Erscheinungsbild</span>
+      <select value={prefs.theme} onchange={(e) => prefs.setTheme(e.currentTarget.value as Theme)}>
+        <option value="system">Wie das System</option>
+        <option value="light">Hell</option>
+        <option value="dark">Dunkel</option>
+      </select>
     </label>
     <div class="update-row">
       <span>Version {model.info?.version}</span>

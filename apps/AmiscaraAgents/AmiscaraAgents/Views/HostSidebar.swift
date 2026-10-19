@@ -67,6 +67,14 @@ struct HostSidebar: View {
                     .help(String(localized: "Space oder Agent suchen (⌘K)"))
                     .disabled(store.connections.isEmpty)
             }
+            #if os(iOS)
+            // The Mac has its settings window (⌘,) for this.
+            ToolbarItem(placement: .secondaryAction) {
+                Menu("Erscheinungsbild", systemImage: "circle.lefthalf.filled") {
+                    AppearancePicker()
+                }
+            }
+            #endif
         }
         .overlay {
             if store.connections.isEmpty {
