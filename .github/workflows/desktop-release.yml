@@ -68,6 +68,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      # Room for the AppImage, as in ci.yml.
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - name: WebKitGTK and bundler tools
         if: runner.os == 'Linux'
         run: |
