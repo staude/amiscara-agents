@@ -69,6 +69,12 @@ jobs:
         working-directory: apps/desktop
     steps:
       - uses: actions/checkout@v4
+      # Debug, test and release builds plus the AppImage fill the runner's
+      # disk ("No space left on device" while linuxdeploy strips libraries).
+      - name: Free disk space
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
       - name: WebKitGTK and bundler tools
         if: runner.os == 'Linux'
         run: |
@@ -94,7 +100,7 @@ jobs:
       # Without signed update files: the updater key is only for the release
       # workflow (environment desktop-release, tags desktop-v*).
       - if: runner.os != 'macOS'
-        run: npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: npx tauri build --verbose --config '{"bundle":{"createUpdaterArtifacts":false}}'
       - if: runner.os == 'macOS'
         run: npx tauri build --no-bundle
       - if: runner.os != 'macOS'
