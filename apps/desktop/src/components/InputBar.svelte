@@ -78,10 +78,26 @@
   }
 
   function onComposerKey(event: KeyboardEvent) {
-    // Enter sends, Shift+Enter starts a new line.
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    if (event.isComposing) return;
+    const empty = !text.trim() && attachments.length === 0;
+    const plain = !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey;
+    // Enter sends, Shift+Enter starts a new line; in an empty field Enter
+    // goes to the pane, e.g. to send a suggestion taken with Tab.
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      submit();
+      if (empty) {
+        text = "";
+        void sendKeys(["enter"]);
+      } else {
+        submit();
+      }
+    }
+    // Tab in an empty field goes to the pane like the Tab key of the key
+    // bar: Claude Code takes its suggested prompt, a shell completes. With
+    // text, Tab keeps moving the focus.
+    if (event.key === "Tab" && plain && empty) {
+      event.preventDefault();
+      void sendKeys(["tab"]);
     }
   }
 
