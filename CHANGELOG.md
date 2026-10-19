@@ -318,6 +318,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- CI no longer runs for pull requests, only for `desktop-v*` tags and by
+  hand; `scripts/check.sh` runs the checks on the machine before a merge.
 - CI checks pull requests on Linux only; the full chain (macOS, Windows,
   iOS and tvOS, desktop installers) runs for release tags and by hand, to
   save Actions minutes. Pushes to `main` no longer run CI.

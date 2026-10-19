@@ -1,11 +1,11 @@
 name: CI
 
-# Pull requests get the cheap Linux checks. The full chain (macOS and
-# Windows, iOS and tvOS, desktop builds on all systems) runs for release
-# tags and when started by hand (Actions > CI > Run workflow); installers
-# only by hand, a tag builds them in desktop-release.yml.
+# Runs only for release tags and when started by hand (Actions > CI > Run
+# workflow), to save Actions minutes: pull requests are checked on the
+# machine with scripts/check.sh. The full chain covers macOS and Windows,
+# iOS and tvOS and the desktop app on all systems; installers only by hand,
+# a tag builds them in desktop-release.yml.
 on:
-  pull_request:
   push:
     tags: ["desktop-v*"]
   workflow_dispatch:
