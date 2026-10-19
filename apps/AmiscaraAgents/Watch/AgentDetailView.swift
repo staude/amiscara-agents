@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// One agent: its state and, while it waits, what it asks with the answer
-/// keys below. The keys go to the iPhone, which sends them to herdr.
+/// keys below; otherwise quick replies and a dictated or scribbled prompt
+/// (#159). Everything goes to the iPhone, which sends it to herdr.
 struct AgentDetailView: View {
     let ref: AgentRef
     @Environment(WatchStore.self) private var store
@@ -23,6 +24,8 @@ struct AgentDetailView: View {
                     if entry.agent.state == .blocked {
                         question
                         keys
+                    } else {
+                        prompts
                     }
                     if let result {
                         resultLabel(result)
@@ -86,12 +89,44 @@ struct AgentDetailView: View {
             HStack(spacing: 6) {
                 ForEach(answers.prefix(3), id: \.key) { answer in
                     keyButton(answer.key, title: answer.title)
+                        // Double tap sends the first answer.
+                        .handGestureShortcut(.primaryAction, isEnabled: answer.key == answers.first?.key)
                 }
             }
             HStack(spacing: 6) {
                 ForEach(answers.dropFirst(3), id: \.key) { answer in
                     keyButton(answer.key, title: answer.title)
                 }
+            }
+        }
+        .disabled(sending != nil)
+    }
+
+    /// Not while the agent waits: a prompt would land in its question.
+    private var prompts: some View {
+        VStack(spacing: 6) {
+            TextFieldLink {
+                Label("Prompt", systemImage: "mic")
+                    .frame(maxWidth: .infinity)
+            } onSubmit: { text in
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                sendPrompt(trimmed)
+            }
+            .buttonStyle(.borderedProminent)
+            ForEach(store.quickReplies, id: \.self) { reply in
+                Button {
+                    sendPrompt(reply)
+                } label: {
+                    if sending == reply {
+                        ProgressView()
+                    } else {
+                        Text(reply)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.bordered)
             }
         }
         .disabled(sending != nil)
@@ -120,6 +155,16 @@ struct AgentDetailView: View {
             Label(message, systemImage: "exclamationmark.triangle")
                 .font(.footnote)
                 .foregroundStyle(.orange)
+        }
+    }
+
+    private func sendPrompt(_ text: String) {
+        sending = text
+        result = nil
+        Task {
+            let error = await store.prompt(text, to: ref)
+            sending = nil
+            result = error.map(Result.failed) ?? .sent(String(localized: "Prompt"))
         }
     }
 

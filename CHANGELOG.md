@@ -329,6 +329,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the Mac's boards in iCloud, answers go to the iPhone, which sends them
   over its own session and is launched in the background for that. The
   answer buttons of notifications on the Watch go the same way.
+- Prompts from the Watch (#159): in the detail of an agent that does not
+  wait, the iPhone's quick replies (sent along in the application context)
+  and a prompt to dictate or scribble; they go out through the iPhone as
+  `agent.prompt`. Double tap sends the first answer key of a waiting agent.
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.
