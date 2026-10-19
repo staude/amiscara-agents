@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { prepare, release, shellQuoted, type Attachment } from "../lib/attachments";
   import * as core from "../lib/core";
+  import { liveEdit } from "../lib/live";
   import { nav, type KeySender } from "../lib/nav.svelte";
   import { model } from "../lib/state.svelte";
   import type { HostConfig, PaneItem } from "../lib/types";
@@ -25,6 +26,49 @@
   let live = $derived(model.isLive(host.id));
   let uploadAllowed = $derived(host.kind === "local" || (host.allowUpload ?? false));
   let canSend = $derived(text.trim().length > 0 || attachments.length > 0);
+
+  // Live mode: while an agent's composer starts with "/", or after a
+  // suggestion was taken with Tab, every change goes straight into the
+  // agent's own input line, so Claude Code shows its suggestions in the
+  // pane. `liveTyped` is what that line got from the composer.
+  let liveTyped = "";
+  let liveAfterTab = $state(false);
+  let liveQueue: Promise<void> = Promise.resolve();
+  let isLive = $derived(
+    isAgent && attachments.length === 0 && (text.startsWith("/") || liveAfterTab),
+  );
+
+  /** Live input in order, without blocking the bar like `perform`. */
+  function enqueueLive(step: () => Promise<void>) {
+    error = null;
+    liveQueue = liveQueue.then(step).catch((err) => {
+      error = core.errorText(err);
+    });
+  }
+
+  const liveKey = (key: string) => enqueueLive(() => core.sendKeys(host.id, pane.paneId, [key]));
+
+  /** Brings the agent's input line to the composer text; newlines would submit. */
+  function syncLive() {
+    if (!isAgent || attachments.length > 0) return;
+    const target = text.startsWith("/") || liveAfterTab ? text.replaceAll("\n", " ") : "";
+    const { erase, insert } = liveEdit(liveTyped, target);
+    if (erase === 0 && !insert) return;
+    liveTyped = target;
+    const hostId = host.id;
+    const paneId = pane.paneId;
+    enqueueLive(async () => {
+      if (erase > 0) await core.sendKeys(hostId, paneId, Array(erase).fill("backspace"));
+      if (insert) await core.sendText(hostId, paneId, insert);
+    });
+  }
+
+  // Another pane has its own input line: start live typing over.
+  $effect(() => {
+    void pane.paneId;
+    liveTyped = "";
+    liveAfterTab = false;
+  });
 
   onMount(() => {
     core.quickReplies().then((list) => (replies = list));
@@ -79,6 +123,10 @@
 
   function onComposerKey(event: KeyboardEvent) {
     if (event.isComposing) return;
+    if (isLive && onLiveKey(event)) {
+      event.preventDefault();
+      return;
+    }
     const empty = !text.trim() && attachments.length === 0;
     const plain = !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey;
     // Enter sends, Shift+Enter starts a new line; in an empty field Enter
@@ -99,6 +147,39 @@
       event.preventDefault();
       void sendKeys(["tab"]);
     }
+  }
+
+  /** Keys for the agent in live mode; false for keys the composer keeps. */
+  function onLiveKey(event: KeyboardEvent): boolean {
+    if (event.ctrlKey || event.altKey || event.metaKey) return false;
+    switch (event.key) {
+      case "Enter":
+        if (event.shiftKey) return false;
+        liveKey("enter");
+        break;
+      case "Tab":
+        if (event.shiftKey) return false;
+        // Claude completes in its own line; the composer starts over and
+        // keeps typing after the completion.
+        liveKey("tab");
+        liveAfterTab = true;
+        break;
+      case "ArrowUp":
+        liveKey("up");
+        return true;
+      case "ArrowDown":
+        liveKey("down");
+        return true;
+      case "Escape":
+        liveKey("esc");
+        return true;
+      default:
+        return false;
+    }
+    if (event.key === "Enter") liveAfterTab = false;
+    liveTyped = "";
+    text = "";
+    return true;
   }
 
   const uploadOff = () =>
@@ -213,6 +294,9 @@
       </div>
     {/if}
 
+    {#if isLive}
+      <p class="live">Live an {pane.agent}: ↑↓ wählen, Tab übernimmt, Enter führt aus</p>
+    {/if}
     <div class="composer">
       <button
         class="attach"
@@ -234,6 +318,7 @@
         rows={Math.min(8, Math.max(1, text.split("\n").length))}
         placeholder={isAgent ? `Prompt an ${pane.agent}` : "Befehl"}
         onkeydown={onComposerKey}
+        oninput={syncLive}
         onpaste={onPaste}
       ></textarea>
       <button class="primary" disabled={!canSend} onclick={submit}>{isAgent ? "Senden" : "Ausführen"}</button>
@@ -360,6 +445,11 @@
     border: none;
     background: none;
     padding: 4px;
+  }
+  .live {
+    margin: 0;
+    font-size: 12px;
+    color: var(--secondary);
   }
   .error {
     color: var(--danger);

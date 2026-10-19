@@ -33,7 +33,9 @@ devices), so a host is set up the same way everywhere.
   `~/.claude/projects` on the host.
 - Input under the pane: prompts to agents, text to shells, keys such as
   Enter, Esc or 1/2/3 to answer an agent waiting for approval, quick replies.
-  Each host has a switch to keep it read-only.
+  Each host has a switch to keep it read-only. A prompt starting with `/`
+  goes live into the agent's own input line, so Claude Code shows its
+  commands and skills in the pane (↑↓ pick, Tab takes, Enter runs).
 - New space, tab (with an agent) and worktree, rename, close.
 - Files and images uploaded to `~/.amiscara-agents/uploads/` on the host,
   their paths appended to the prompt (needs SFTP, see below).

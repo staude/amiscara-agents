@@ -23,6 +23,14 @@ struct InputBar: View {
     /// Composer text from before dictation started; the transcript follows it.
     @State private var textBeforeDictation = ""
     @State private var editingQuickReplies = false
+    /// Live mode: while an agent's composer starts with "/", or after a
+    /// suggestion was taken with Tab, every change goes straight into the
+    /// agent's own input line, so Claude Code shows its suggestions in the
+    /// pane. `liveTyped` is what that line got from the composer.
+    @State private var liveTyped = ""
+    @State private var liveAfterTab = false
+    /// Live input in order, without blocking the bar like `perform`.
+    @State private var liveQueue: Task<Void, Never>?
     private let quickReplies = QuickReplyStore.shared
     #if os(macOS)
     /// Key monitor for ⌘V in the composer, see `catchImagePaste`.
@@ -31,6 +39,9 @@ struct InputBar: View {
 
     private var isAgent: Bool { pane.agent != nil }
     private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
+    private var isLive: Bool {
+        isAgent && attachments.isEmpty && (text.hasPrefix("/") || liveAfterTab || !liveTyped.isEmpty)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -41,6 +52,11 @@ struct InputBar: View {
             keyRow
             if !attachments.isEmpty {
                 attachmentRow
+            }
+            if isLive {
+                Label("Live an \(pane.agent ?? "Agent"): ↑↓ wählen, Tab übernimmt, Enter führt aus", systemImage: "dot.radiowaves.left.and.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             composer
             if let error {
@@ -404,9 +420,27 @@ struct InputBar: View {
             // key bar: Claude Code takes its suggested prompt, a shell
             // completes. With text, Tab keeps moving the focus.
             .onKeyPress(.tab) {
+                if isLive {
+                    // Claude completes in its own line; the composer starts
+                    // over and keeps typing after the completion.
+                    liveKey("tab")
+                    liveTyped = ""
+                    liveAfterTab = true
+                    text = ""
+                    return .handled
+                }
                 guard text.isEmpty, attachments.isEmpty else { return .ignored }
                 send(keys: ["tab"])
                 return .handled
+            }
+            .onKeyPress(.upArrow) { liveArrow("up") }
+            .onKeyPress(.downArrow) { liveArrow("down") }
+            .onKeyPress(.escape) { liveArrow("esc") }
+            .onChange(of: text) { syncLive() }
+            // Another pane has its own input line: start live typing over.
+            .onChange(of: pane.paneId) {
+                liveTyped = ""
+                liveAfterTab = false
             }
             #if os(iOS)
             .toolbar {
@@ -455,6 +489,13 @@ struct InputBar: View {
 
     private func submit() {
         if dictation.isRunning { dictation.stop() }
+        if isLive {
+            liveKey("enter")
+            liveTyped = ""
+            liveAfterTab = false
+            text = ""
+            return
+        }
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         // Return in an empty field is Enter for the pane, e.g. to send a
         // suggestion taken with Tab.
@@ -492,6 +533,52 @@ struct InputBar: View {
 
     /// Runs a send; the composer gets its focus back only if it had it, so
     /// a tap on the key bar does not bring up the keyboard on iOS.
+    /// Brings the agent's input line to the composer text in live mode.
+    /// Newlines become spaces: in Claude Code a newline would submit.
+    private func syncLive() {
+        guard isAgent, attachments.isEmpty else { return }
+        let target = liveAfterTab || text.hasPrefix("/") ? text.replacingOccurrences(of: "\n", with: " ") : ""
+        let edit = LiveEdit(from: liveTyped, to: target)
+        guard !edit.isEmpty else { return }
+        liveTyped = target
+        let paneID = pane.paneId
+        enqueueLive { connection in
+            if edit.erase > 0 {
+                try await connection.send(keys: Array(repeating: "backspace", count: edit.erase), to: paneID)
+            }
+            if !edit.insert.isEmpty {
+                try await connection.send(text: edit.insert, to: paneID)
+            }
+        }
+    }
+
+    private func liveKey(_ key: String) {
+        let paneID = pane.paneId
+        enqueueLive { try await $0.send(keys: [key], to: paneID) }
+    }
+
+    /// Arrow keys and Esc go to the agent in live mode, to pick from or
+    /// close its suggestions.
+    private func liveArrow(_ key: String) -> KeyPress.Result {
+        guard isLive else { return .ignored }
+        liveKey(key)
+        return .handled
+    }
+
+    private func enqueueLive(_ step: @escaping @MainActor (HostConnection) async throws -> Void) {
+        let previous = liveQueue
+        let connection = connection
+        error = nil
+        liveQueue = Task { @MainActor in
+            await previous?.value
+            do {
+                try await step(connection)
+            } catch {
+                self.error = inputErrorMessage(error)
+            }
+        }
+    }
+
     private func perform(_ action: @escaping @MainActor () async throws -> Void) {
         let refocus = composerFocused
         sending = true
