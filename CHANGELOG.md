@@ -335,6 +335,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   leaves in the App Group and fetch the Mac's boards from iCloud; a board
   push wakes the Watch app, which redraws them. A waiting agent raises the
   widget in the Smart Stack; a tap opens it in the Watch app.
+- Prompts from the Watch (#159): in the detail of an agent that does not
+  wait, the iPhone's quick replies (sent along in the application context)
+  and a prompt to dictate or scribble; they go out through the iPhone as
+  `agent.prompt`. Double tap sends the first answer key of a waiting agent.
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.

@@ -42,6 +42,8 @@ final class WatchStore: NSObject {
     private(set) var refreshing = false
     /// Set when a notification is tapped; the list opens it.
     var openRequest: AgentRef?
+    /// The iPhone's quick replies (#159), also across launches.
+    private(set) var quickReplies: [String]
 
     /// The last snapshot from the iPhone, also across launches.
     @ObservationIgnored private var phoneSnapshot: WidgetSnapshot
@@ -49,12 +51,14 @@ final class WatchStore: NSObject {
     @ObservationIgnored private let center = UNUserNotificationCenter.current()
 
     private static let snapshotDefaultsKey = "phoneSnapshot"
+    private static let quickRepliesDefaultsKey = "quickReplies"
 
     override init() {
         let stored = UserDefaults.standard.data(forKey: Self.snapshotDefaultsKey)
             .flatMap { try? JSONDecoder().decode(WidgetSnapshot.self, from: $0) }
         phoneSnapshot = stored ?? .empty
         snapshot = stored ?? .empty
+        quickReplies = UserDefaults.standard.stringArray(forKey: Self.quickRepliesDefaultsKey) ?? []
         super.init()
         if WCSession.isSupported() {
             WCSession.default.delegate = self
@@ -103,11 +107,22 @@ final class WatchStore: NSObject {
 
     /// Asks the iPhone to send `key`; `nil` when it went out, else why not.
     func answer(_ key: String, to ref: AgentRef) async -> String? {
+        await request(WatchMessage.answer(host: ref.hostID, pane: ref.paneID, key: key))
+    }
+
+    /// Asks the iPhone to send `text` as a prompt (#159); `nil` when it
+    /// went out, else why not.
+    func prompt(_ text: String, to ref: AgentRef) async -> String? {
+        await request(WatchMessage.prompt(host: ref.hostID, pane: ref.paneID, text: text))
+    }
+
+    private func request(_ message: [String: Any]) async -> String? {
         let session = WCSession.default
         guard session.activationState == .activated, session.isReachable else {
             return String(localized: "iPhone nicht erreichbar.")
         }
-        let message = WatchMessage.answer(host: ref.hostID, pane: ref.paneID, key: key)
+        // WatchConnectivity takes property lists; they are not `Sendable`.
+        nonisolated(unsafe) let message = message
         let error: String? = await withCheckedContinuation { continuation in
             session.sendMessage(message) { reply in
                 continuation.resume(returning: WatchMessage.parseReply(reply))
@@ -130,6 +145,11 @@ final class WatchStore: NSObject {
         }
     }
 
+    fileprivate func apply(quickReplies: [String]) {
+        self.quickReplies = quickReplies
+        UserDefaults.standard.set(quickReplies, forKey: Self.quickRepliesDefaultsKey)
+    }
+
     /// Leaves the phone's snapshot for the complications (#158), which add
     /// the boards themselves, and redraws them.
     private func publishToComplications() {
@@ -147,14 +167,20 @@ final class WatchStore: NSObject {
 
 extension WatchStore: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        let context = session.receivedApplicationContext
-        guard let data = context[WatchMessage.snapshotKey] as? Data else { return }
-        Task { @MainActor in apply(phone: data) }
+        receive(session.receivedApplicationContext)
     }
 
     nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        guard let data = applicationContext[WatchMessage.snapshotKey] as? Data else { return }
-        Task { @MainActor in apply(phone: data) }
+        receive(applicationContext)
+    }
+
+    private nonisolated func receive(_ context: [String: Any]) {
+        let data = context[WatchMessage.snapshotKey] as? Data
+        let replies = context[WatchMessage.quickRepliesKey] as? [String]
+        Task { @MainActor in
+            if let data { apply(phone: data) }
+            if let replies { apply(quickReplies: replies) }
+        }
     }
 }
 

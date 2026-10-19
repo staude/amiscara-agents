@@ -34,6 +34,9 @@ final class HostStore {
         WatchBridge.shared.answer = { [weak self] host, pane, key in
             await self?.answerError(key, to: pane, on: host) ?? String(localized: "Die App ist nicht bereit.")
         }
+        WatchBridge.shared.prompt = { [weak self] host, pane, text in
+            await self?.promptError(text, to: pane, on: host) ?? String(localized: "Die App ist nicht bereit.")
+        }
         #endif
         notifier.hostForKey = { [weak self] key in
             self?.connections.first { CloudPush.hostKey(forPublicKey: $0.config.pinnedHostKey) == key }?.id
@@ -92,6 +95,18 @@ final class HostStore {
     /// Like `answer`, with the reason when the key did not go out, e.g.
     /// for the Watch (#157).
     func answerError(_ key: String, to paneID: String, on hostID: UUID) async -> String? {
+        await sendError(on: hostID) { try await $0.send(keys: [key], to: paneID) }
+    }
+
+    /// Sends `text` as a prompt to the agent in `paneID`, for the Watch
+    /// (#159); `nil` when it went out, else why not.
+    func promptError(_ text: String, to paneID: String, on hostID: UUID) async -> String? {
+        await sendError(on: hostID) { try await $0.submit(text, to: paneID, isAgent: true) }
+    }
+
+    /// Runs `send` on the host's connection, reconnecting first: launched
+    /// in the background, the app has some seconds for that.
+    private func sendError(on hostID: UUID, _ send: (HostConnection) async throws -> Void) async -> String? {
         guard let connection = connection(for: hostID) else {
             return String(localized: "Diesen Host gibt es auf dem iPhone nicht mehr.")
         }
@@ -102,7 +117,7 @@ final class HostStore {
             try? await Task.sleep(for: .milliseconds(250))
         }
         do {
-            try await connection.send(keys: [key], to: paneID)
+            try await send(connection)
             return nil
         } catch {
             return inputErrorMessage(error)
