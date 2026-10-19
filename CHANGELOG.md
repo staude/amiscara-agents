@@ -329,6 +329,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the Mac's boards in iCloud, answers go to the iPhone, which sends them
   over its own session and is launched in the background for that. The
   answer buttons of notifications on the Watch go the same way.
+- Command channel through iCloud (#160): when the iPhone is out of reach,
+  the Watch leaves its answer key as an `AgentCommand` record; the Mac app
+  runs it on the host and writes an `AgentCommandResult` back. Off by
+  default ("Befehle von der Apple Watch annehmen" in the Mac's push
+  settings); only the keys 1, 2, 3, Enter, Esc and prompts, keys only while
+  the agent waits, the host's "Eingaben erlauben" applies, commands expire
+  after 60 s and run once (the Mac that deletes the record runs it). The
+  Mac app registers for remote notifications for this.
 - Windows on ARM (ARM64): NSIS installer cross-compiled in CI and in
   desktop releases, with its own `windows-aarch64` entry for the updater.
   `gh workflow run ci.yml -f scope=installers` builds only the installers.

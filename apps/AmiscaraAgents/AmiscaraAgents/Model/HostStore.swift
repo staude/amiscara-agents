@@ -40,6 +40,9 @@ final class HostStore {
         }
         widgets.start(self)
         widgets.publish(self)
+        #if os(macOS)
+        startCloudCommands()
+        #endif
     }
 
     /// A connection wired to notifications and the badge.
@@ -68,7 +71,7 @@ final class HostStore {
     /// Key fingerprint and name under which a host's events go to iCloud,
     /// or `nil` when they do not: this Mac by its own host key, SSH hosts by
     /// their pinned key (#125).
-    private func cloudHost(of connection: HostConnection) -> (key: String, name: String)? {
+    func cloudHost(of connection: HostConnection) -> (key: String, name: String)? {
         guard connection.config.notificationsOn else { return nil }
         switch connection.config.kind {
         case .local:

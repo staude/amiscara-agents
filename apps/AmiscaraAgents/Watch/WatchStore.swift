@@ -96,11 +96,14 @@ final class WatchStore: NSObject {
         return Excerpt(text: text, since: record.modificationDate)
     }
 
-    /// Asks the iPhone to send `key`; `nil` when it went out, else why not.
+    /// Asks the iPhone to send `key`, or the Mac through iCloud when the
+    /// iPhone is out of reach (#160); `nil` when it went out, else why not.
     func answer(_ key: String, to ref: AgentRef) async -> String? {
         let session = WCSession.default
         guard session.activationState == .activated, session.isReachable else {
-            return String(localized: "iPhone nicht erreichbar.")
+            let error = await sendThroughCloud(.key(key), to: ref)
+            WKInterfaceDevice.current().play(error == nil ? .success : .failure)
+            return error
         }
         let message = WatchMessage.answer(host: ref.hostID, pane: ref.paneID, key: key)
         let error: String? = await withCheckedContinuation { continuation in
@@ -113,6 +116,35 @@ final class WatchStore: NSObject {
         WKInterfaceDevice.current().play(error == nil ? .success : .failure)
         return error
     }
+
+    /// Leaves the command in iCloud for the Mac app on the host and waits
+    /// for its result (#160). Without an answer in time the command is
+    /// taken back, so it does not run late.
+    private func sendThroughCloud(_ action: CloudCommand.Action, to ref: AgentRef) async -> String? {
+        guard let hostKey = host(ref.hostID)?.hostKey else {
+            return String(localized: "iPhone nicht erreichbar.")
+        }
+        let record = CloudCommand(hostKey: hostKey, paneID: ref.paneID, action: action).record()
+        let database = CloudPush.container.privateCloudDatabase
+        do {
+            _ = try await database.save(record)
+        } catch {
+            return String(localized: "iPhone nicht erreichbar, iCloud: \(error.localizedDescription)")
+        }
+        let resultID = CloudCommand.resultID(for: record.recordID)
+        for _ in 0..<Self.cloudWaitSeconds {
+            try? await Task.sleep(for: .seconds(1))
+            if let result = try? await database.record(for: resultID) {
+                _ = try? await database.deleteRecord(withID: resultID)
+                return CloudCommand.error(fromResult: result)
+            }
+        }
+        _ = try? await database.deleteRecord(withID: record.recordID)
+        return String(localized: "iPhone nicht erreichbar, und kein Mac hat den Befehl angenommen. Auf dem Mac „Befehle von der Apple Watch annehmen“ einschalten.")
+    }
+
+    /// How long the Watch waits for the Mac's result.
+    private static let cloudWaitSeconds = 30
 
     /// The agent of a notification: pushes from iCloud name the host by its
     /// key fingerprint, the iPhone's own ones by its id.
