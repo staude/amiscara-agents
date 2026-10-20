@@ -3,6 +3,8 @@ package net.staude.amiscara.agents.model
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +46,32 @@ class Connections(private val hosts: HostRepository, scope: CoroutineScope) {
     /** Starts the host's session again right away, e.g. "Jetzt verbinden". */
     fun reconnect(id: String) {
         hosts.get(id)?.let(::start)
+    }
+
+    /** The live session of a host, for following panes; `null` while stopped. */
+    fun session(id: String): HostSession? = running[id]?.session
+
+    /**
+     * Runs one input action (prompt, keys, upload) off the main thread.
+     * A failure carries a German message for the user ([HostException]).
+     * Call from the main thread.
+     */
+    suspend fun <T> input(hostId: String, action: (HostSession) -> T): Result<T> {
+        if (hosts.get(hostId)?.allowInput == false) {
+            return Result.failure(HostException("Eingaben sind für diesen Host ausgeschaltet."))
+        }
+        val session = running[hostId]?.session
+            ?: return Result.failure(HostException("Keine Verbindung zum Host."))
+        return withContext(Dispatchers.IO) {
+            try {
+                Result.success(action(session))
+            } catch (e: FfiException) {
+                Result.failure(HostException(inputErrorMessage(e)))
+            } catch (e: IllegalStateException) {
+                // The session was stopped meanwhile (host changed or removed).
+                Result.failure(HostException("Keine Verbindung zum Host."))
+            }
+        }
     }
 
     /** Starts every session again, e.g. once the local network is allowed. */
@@ -105,4 +133,13 @@ class Connections(private val hosts: HostRepository, scope: CoroutineScope) {
         }
         updateState.update { it - id }
     }
+}
+
+/** German text for a failed input, as `inputErrorMessage` in the Apple apps. */
+fun inputErrorMessage(error: FfiException): String = when (error) {
+    is FfiException.AgentBlocked -> "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten."
+    is FfiException.NotConnected -> "Keine Verbindung zum Host."
+    is FfiException.Upload -> "Hochladen fehlgeschlagen: ${error.message}"
+    is FfiException.Files -> "Dateien auf dem Host nicht lesbar: ${error.message}"
+    else -> error.message ?: error.toString()
 }
