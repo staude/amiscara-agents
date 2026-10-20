@@ -30,10 +30,6 @@
     <string name="hint_refused">Der Rechner lehnt die Verbindung ab. Ist SSH dort eingeschaltet?</string>
     <string name="hint_socket">SSH klappt, aber der herdr-Socket nicht. Läuft herdr dort, und stimmt der Socket-Pfad?</string>
     <string name="protocol_unsupported">Der Server spricht eine herdr-Protokollversion, die diese App nicht kennt.</string>
-    <plurals name="agents_waiting">
-        <item quantity="one">%1$d Agent wartet</item>
-        <item quantity="other">%1$d Agents warten</item>
-    </plurals>
 
     <!-- Host details -->
     <string name="connect_now">Jetzt verbinden</string>
@@ -83,6 +79,52 @@
     <string name="local_network_missing">Ohne Zugriff aufs lokale Netz erreicht die App keine Rechner im Heimnetz oder im VPN (NetBird).</string>
     <string name="local_network_allow">Erlauben</string>
     <string name="open_settings">Einstellungen</string>
+
+    <!-- Sidebar -->
+    <string name="spaces">Spaces</string>
+    <string name="agents">Agents</string>
+    <string name="host_details">Host-Details</string>
+    <string name="state_blocked">wartet</string>
+    <string name="state_working">arbeitet</string>
+    <string name="state_done">fertig</string>
+    <string name="state_idle">bereit</string>
+    <string name="state_unknown">unbekannt</string>
+    <string name="shell">Shell</string>
+    <string name="choose_space">Links einen Space oder Agent wählen.</string>
+
+    <!-- Space and terminal -->
+    <string name="space_gone">Diesen Space gibt es nicht mehr.</string>
+    <string name="no_connection">Keine Verbindung zum Host.</string>
+    <string name="loading">Lade …</string>
+    <string name="history_more">↑ Älteren Verlauf laden</string>
+    <string name="history_loading">Verlauf wird geladen …</string>
+    <string name="history_none">Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen.</string>
+    <plurals name="history_limit">
+        <item quantity="one">Mehr als %1$d Zeile liefert herdr nicht.</item>
+        <item quantity="other">Mehr als %1$d Zeilen liefert herdr nicht.</item>
+    </plurals>
+    <string name="history_start">Anfang des Verlaufs</string>
+    <string name="history_hide">Nur Bildschirm</string>
+    <string name="search">Suchen</string>
+    <string name="search_placeholder">Im Pane suchen</string>
+    <string name="search_count">%1$d/%2$d</string>
+    <string name="search_none">Keine Treffer</string>
+    <string name="search_previous">Vorheriger Treffer</string>
+    <string name="search_next">Nächster Treffer</string>
+    <string name="search_close">Suche schließen</string>
+
+    <!-- Input bar -->
+    <string name="waiting_answer">Wartet auf Antwort</string>
+    <string name="answer_confirm">Bestätigen</string>
+    <string name="composer_agent">Prompt an %1$s</string>
+    <string name="composer_shell">Befehl</string>
+    <string name="send">Senden</string>
+    <string name="attach">Anhängen</string>
+    <string name="attach_photo">Foto</string>
+    <string name="attach_file">Datei</string>
+    <string name="input_off">Eingaben sind für diesen Host ausgeschaltet.</string>
+    <string name="upload_off">Dateien hochladen ist für %1$s aus. Einschalten unter „Bearbeiten“ › „Dateien hochladen (SFTP)“.</string>
+    <string name="live_hint">Live: Jede Eingabe geht sofort an den Agent. Tab übernimmt einen Vorschlag.</string>
 
     <!-- Scanner -->
     <string name="scan_hint">Den QR-Code aus „Host teilen“ der Mac-App ins Bild halten.</string>
