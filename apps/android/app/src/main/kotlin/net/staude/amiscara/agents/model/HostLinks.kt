@@ -36,7 +36,16 @@ sealed interface AppLink {
     data class AddHost(val text: String) : AppLink
 
     /** `amiscara-agents://open?host=...&workspace=...&pane=...`. */
-    data class Open(val hostId: String, val workspaceId: String?, val paneId: String?) : AppLink
+    data class Open(val hostId: String, val workspaceId: String?, val paneId: String?) : AppLink {
+        /** The link itself, for notifications and the widget. */
+        fun uri(): Uri = Uri.Builder().scheme("amiscara-agents").authority("open")
+            .appendQueryParameter("host", hostId)
+            .apply {
+                workspaceId?.let { appendQueryParameter("workspace", it) }
+                paneId?.let { appendQueryParameter("pane", it) }
+            }
+            .build()
+    }
 
     companion object {
         fun parse(uri: Uri): AppLink? {

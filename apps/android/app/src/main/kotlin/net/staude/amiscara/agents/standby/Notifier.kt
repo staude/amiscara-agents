@@ -9,11 +9,11 @@ import android.os.Build
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.net.toUri
 import net.staude.amiscara.agents.MainActivity
 import net.staude.amiscara.agents.R
 import net.staude.amiscara.agents.core.AgentState
 import net.staude.amiscara.agents.core.BoardItem
+import net.staude.amiscara.agents.model.AppLink
 import net.staude.amiscara.agents.model.HostRepository
 
 /**
@@ -88,7 +88,7 @@ class Notifier(private val context: Context, private val hosts: HostRepository) 
         val place = item.workspaceGroup?.let { "${item.workspaceName} ($it)" } ?: item.workspaceName
         val subtitle = "$hostName · $place · Tab ${item.tabLabel}"
         val tag = tag(hostId, item.paneId)
-        val open = Intent(Intent.ACTION_VIEW, openLink(hostId, item.workspaceId, item.paneId), context, MainActivity::class.java)
+        val open = Intent(Intent.ACTION_VIEW, AppLink.Open(hostId, item.workspaceId, item.paneId).uri(), context, MainActivity::class.java)
         val builder = NotificationCompat.Builder(context, if (blocked) CHANNEL_WAITING else CHANNEL_DONE)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(if (blocked) R.string.notify_waiting else R.string.notify_done, agent))
@@ -127,13 +127,5 @@ class Notifier(private val context: Context, private val hosts: HostRepository) 
         private val ANSWERS = listOf("1", "2", "3")
 
         private fun tag(hostId: String, paneId: String) = "$hostId/$paneId"
-
-        /** The same link `amiscara-agents://open` that other apps may open. */
-        private fun openLink(hostId: String, workspaceId: String, paneId: String) =
-            "amiscara-agents://open".toUri().buildUpon()
-                .appendQueryParameter("host", hostId)
-                .appendQueryParameter("workspace", workspaceId)
-                .appendQueryParameter("pane", paneId)
-                .build()
     }
 }

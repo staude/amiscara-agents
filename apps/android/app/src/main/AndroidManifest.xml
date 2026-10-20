@@ -70,6 +70,19 @@
                 android:value="true" />
         </service>
 
+        <!-- Exported for the launcher, which hosts the widget. -->
+        <receiver
+            android:name=".widget.AgentsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agents_widget" />
+        </receiver>
+
         <receiver
             android:name=".standby.AnswerReceiver"
             android:exported="false" />
