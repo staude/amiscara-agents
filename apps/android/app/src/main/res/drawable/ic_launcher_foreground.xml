@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Panels, prompt and dot of apps/desktop/icon.svg, scaled into the safe
+     zone of an adaptive icon (66 of 108 dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.68"
+        android:scaleY="0.68"
+        android:translateY="34">
+        <path
+            android:fillAlpha="0.22"
+            android:fillColor="#2BB3A3"
+            android:pathData="M399,200h416a72,72 0,0 1,72 72v286a72,72 0,0 1,-72 72h-416a72,72 0,0 1,-72 -72v-286a72,72 0,0 1,72 -72z" />
+        <path
+            android:fillAlpha="0.34"
+            android:fillColor="#2FD1A5"
+            android:pathData="M304,295h416a72,72 0,0 1,72 72v286a72,72 0,0 1,-72 72h-416a72,72 0,0 1,-72 -72v-286a72,72 0,0 1,72 -72z" />
+        <path
+            android:fillAlpha="0.88"
+            android:fillColor="#14A08C"
+            android:pathData="M209,390h416a72,72 0,0 1,72 72v286a72,72 0,0 1,-72 72h-416a72,72 0,0 1,-72 -72v-286a72,72 0,0 1,72 -72z" />
+        <path
+            android:pathData="M257,520L352,605L257,690"
+            android:strokeWidth="46"
+            android:strokeColor="#F2FFFB"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:fillColor="#F2FFFB"
+            android:pathData="M430,667h94a23,23 0,0 1,0 46h-94a23,23 0,0 1,0 -46z" />
+        <path
+            android:fillColor="#FF9F0A"
+            android:pathData="M767,282a38,38 0,1 0,76 0a38,38 0,1 0,-76 0z" />
+    </group>
+</vector>
