@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.staude.amiscara.agents.model.AppLink
@@ -15,8 +16,11 @@ import net.staude.amiscara.agents.model.HostRepository
 import net.staude.amiscara.agents.model.KeyVault
 import net.staude.amiscara.agents.model.Settings
 import net.staude.amiscara.agents.model.Shortcuts
+import net.staude.amiscara.agents.standby.Notifier
+import net.staude.amiscara.agents.standby.StandbyService
+import net.staude.amiscara.agents.standby.StandbyTile
 
-/** Holds the app-wide state: hosts, their sessions and opened links. */
+/** Holds the app-wide state: hosts, their sessions, notifications and opened links. */
 class AmiscaraApp : Application() {
     lateinit var hosts: HostRepository
         private set
@@ -24,6 +28,11 @@ class AmiscaraApp : Application() {
         private set
     lateinit var settings: Settings
         private set
+    lateinit var notifier: Notifier
+        private set
+
+    /** Main thread work that outlives the screens: sessions, standby, answers. */
+    val scope: CoroutineScope = MainScope()
 
     /**
      * The link the user just scanned or pasted. Only this one may pin its
@@ -52,20 +61,41 @@ class AmiscaraApp : Application() {
      */
     val localNetworkAllowed = MutableStateFlow(true)
 
-    /** Whether the app asked for the local network in this run already. */
-    var localNetworkAsked = false
+    /** Whether the app asked for the local network and notifications in this run. */
+    var permissionsAsked = false
 
     override fun onCreate() {
         super.onCreate()
         settings = Settings(this)
         hosts = HostRepository(this, KeyVault(this))
-        connections = Connections(hosts, MainScope())
+        notifier = Notifier(this, hosts)
+        connections = Connections(hosts, scope, notifier::notify)
         localNetworkAllowed.value = hasLocalNetwork()
-        // Coming back after a while: try failed hosts at once instead of
-        // waiting for the next attempt.
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) = connections.reconnectStale()
+            override fun onStart(owner: LifecycleOwner) {
+                // Coming back after a while: try failed hosts at once
+                // instead of waiting for the next attempt.
+                connections.reconnectStale()
+                // In front, the app may start the service, e.g. after the
+                // system ended it.
+                StandbyService.apply(this@AmiscaraApp, settings.standby.value)
+            }
+
+            override fun onResume(owner: LifecycleOwner) {
+                notifier.appActive = true
+            }
+
+            override fun onPause(owner: LifecycleOwner) {
+                notifier.appActive = false
+            }
         })
+    }
+
+    /** Turns the standby on or off, from the settings, the tile or its notification. */
+    fun setStandby(on: Boolean) {
+        settings.setStandby(on)
+        StandbyService.apply(this, on)
+        StandbyTile.refresh(this)
     }
 
     /** Checks the permission again; sessions start over once it is there. */

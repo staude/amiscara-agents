@@ -216,6 +216,35 @@
     <string name="settings_about">Über</string>
     <string name="settings_version">Version %1$s, herdr-Protokoll %2$d</string>
 
+    <!-- Notifications and standby -->
+    <string name="channel_waiting">Agent wartet</string>
+    <string name="channel_waiting_text">Ein Agent wartet auf eine Antwort, mit Knöpfen zum Antworten.</string>
+    <string name="channel_done">Agent fertig</string>
+    <string name="channel_done_text">Ein Agent hat seine Aufgabe beendet.</string>
+    <string name="channel_standby_text">Dauerhafte Anzeige, solange die Bereitschaft läuft.</string>
+    <string name="notify_waiting">%1$s wartet</string>
+    <string name="notify_done">%1$s ist fertig</string>
+    <string name="answer_failed">Antwort nicht gesendet: %1$s</string>
+    <string name="standby">Bereitschaft</string>
+    <string name="standby_stop">Beenden</string>
+    <plurals name="standby_hosts">
+        <item quantity="one">%1$d von %2$d Host verbunden</item>
+        <item quantity="other">%1$d von %2$d Hosts verbunden</item>
+    </plurals>
+    <plurals name="standby_waiting">
+        <item quantity="one">%1$d Agent wartet</item>
+        <item quantity="other">%1$d Agents warten</item>
+    </plurals>
+    <string name="settings_notifications">Benachrichtigungen</string>
+    <string name="settings_standby_text">Hält die Verbindungen zu den Hosts offen, auch wenn die App nicht im Vordergrund ist, damit Benachrichtigungen ankommen. Android zeigt dafür eine dauerhafte Benachrichtigung. Braucht etwas mehr Akku. Auch als Kachel in den Schnelleinstellungen.</string>
+    <string name="settings_standby_boot">Nach dem Gerätestart einschalten</string>
+    <string name="settings_notifications_off">Benachrichtigungen sind für die App ausgeschaltet.</string>
+    <string name="settings_notifications_allow">Erlauben</string>
+    <string name="settings_battery_hint">Die Akku-Optimierung kann die Bereitschaft auf manchen Geräten beenden. Unter „Akku“ lässt sich die App davon ausnehmen.</string>
+    <string name="settings_battery_open">Akku-Einstellungen</string>
+    <string name="settings_notifications_text">Ohne Bereitschaft kommen Benachrichtigungen nur, solange Android die App laufen lässt. Pro Host abschaltbar unter „Bearbeiten“.</string>
+    <string name="host_notify">Benachrichtigen, wenn ein Agent wartet oder fertig ist</string>
+
     <!-- Scanner -->
     <string name="scan_hint">Den QR-Code aus „Host teilen“ der Mac-App ins Bild halten.</string>
     <string name="camera_denied">Ohne Kamera kein Scan. Erlauben Sie den Zugriff in den Einstellungen, oder fügen Sie den Link ein.</string>

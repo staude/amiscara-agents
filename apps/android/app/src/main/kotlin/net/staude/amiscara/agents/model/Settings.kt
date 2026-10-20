@@ -27,8 +27,9 @@ data class TerminalPrefs(
 }
 
 /**
- * Per-device settings in shared preferences: the terminal look and the
- * quick replies of the input bar (same defaults as the other apps).
+ * Per-device settings in shared preferences: the terminal look, the quick
+ * replies of the input bar (same defaults as the other apps) and the
+ * standby.
  */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -39,6 +40,24 @@ class Settings(context: Context) {
 
     private val repliesState = MutableStateFlow(loadReplies())
     val quickReplies: StateFlow<List<String>> = repliesState.asStateFlow()
+
+    private val standbyState = MutableStateFlow(prefs.getBoolean("standby", false))
+    /** Whether the standby service keeps the sessions open in the background. */
+    val standby: StateFlow<Boolean> = standbyState.asStateFlow()
+
+    private val standbyOnBootState = MutableStateFlow(prefs.getBoolean("standbyOnBoot", true))
+    /** Whether the standby comes back after the device starts. */
+    val standbyOnBoot: StateFlow<Boolean> = standbyOnBootState.asStateFlow()
+
+    fun setStandby(on: Boolean) {
+        prefs.edit { putBoolean("standby", on) }
+        standbyState.value = on
+    }
+
+    fun setStandbyOnBoot(on: Boolean) {
+        prefs.edit { putBoolean("standbyOnBoot", on) }
+        standbyOnBootState.value = on
+    }
 
     fun setTerminal(value: TerminalPrefs) {
         val clamped = value.copy(fontSize = value.fontSize.coerceIn(TerminalPrefs.FONT_RANGE))

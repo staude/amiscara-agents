@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One-color form of the app icon (front panel, prompt and dot) for the
+     status bar and the Quick Settings tile. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="1.25"
+        android:scaleY="1.25"
+        android:translateX="22"
+        android:translateY="-20">
+        <path
+            android:pathData="M209,390h416a72,72 0,0 1,72 72v286a72,72 0,0 1,-72 72h-416a72,72 0,0 1,-72 -72v-286a72,72 0,0 1,72 -72z"
+            android:strokeWidth="46"
+            android:strokeColor="#FFFFFFFF" />
+        <path
+            android:pathData="M257,520L352,605L257,690"
+            android:strokeWidth="46"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M430,667h94a23,23 0,0 1,0 46h-94a23,23 0,0 1,0 -46z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M767,282a58,58 0,1 0,116 0a58,58 0,1 0,-116 0z" />
+    </group>
+</vector>

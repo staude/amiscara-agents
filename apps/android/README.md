@@ -86,6 +86,24 @@ Opening `apps/android` in Android Studio works the same way.
 - Settings: terminal light/dark, color scheme, minimum contrast, font size,
   quick replies.
 
+## Notifications and standby
+
+- Notifications when an agent starts waiting or is done (texts as in the
+  other apps), one per pane; not for the pane on screen. A tap opens the
+  pane. A waiting agent's notification has the buttons 1, 2 and 3 (Android
+  shows three at most); they send the key also when the app is closed, after
+  unlocking. Off per host in the host editor. Android 13 and newer ask for
+  the permission once there is a host.
+- There is no push: without the standby, notifications only come while
+  Android lets the app run. "Bereitschaft" (settings, Quick Settings tile)
+  keeps the process and its sessions alive in a foreground service of type
+  `specialUse` with an ongoing notification (hosts connected, agents
+  waiting, "Beenden"). It comes back after an app update and, if wanted,
+  after the device starts. The settings point to the battery optimization
+  while it applies.
+- Code: `standby/` (`Notifier`, `StandbyService`, `AnswerReceiver`,
+  `BootReceiver`, `StandbyTile`).
+
 Keyboard (hardware keyboard on a tablet or phone):
 
 | Keys | Action |

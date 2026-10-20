@@ -8,8 +8,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import net.staude.amiscara.agents.core.BoardItem
 import net.staude.amiscara.agents.core.FfiException
 import net.staude.amiscara.agents.core.HostSession
 import net.staude.amiscara.agents.core.HostStatus
@@ -20,9 +23,14 @@ import net.staude.amiscara.agents.core.SessionUpdate
  * One live [HostSession] per host, kept in step with the [HostRepository]:
  * a new or changed host (address, key, trusted host key) starts its session
  * again, a removed one stops. Runs on the main thread; the core reports on
- * background threads into [updates].
+ * background threads into [updates], and agents that started waiting or
+ * finished into [attention] (on that thread).
  */
-class Connections(private val hosts: HostRepository, scope: CoroutineScope) {
+class Connections(
+    private val hosts: HostRepository,
+    scope: CoroutineScope,
+    private val attention: (hostId: String, items: List<BoardItem>) -> Unit = { _, _ -> },
+) {
     private class Running(val config: HostConfig, val session: HostSession)
 
     private val running = mutableMapOf<String, Running>()
@@ -74,6 +82,21 @@ class Connections(private val hosts: HostRepository, scope: CoroutineScope) {
         }
     }
 
+    /**
+     * Sends keys from outside the app's screens, e.g. a notification's
+     * answer button: waits for the host to be live first. `fresh` starts a
+     * new connection before, for when the old one may have died unnoticed
+     * while the app was frozen in the background. Not repeated on failure:
+     * the key may have arrived.
+     */
+    suspend fun sendWhenLive(hostId: String, paneId: String, keys: List<String>, fresh: Boolean): Result<Unit> {
+        val status = updates.value[hostId]?.status
+        if (fresh || status is HostStatus.Retrying || status is HostStatus.Failed) reconnect(hostId)
+        withTimeoutOrNull(LIVE_TIMEOUT_MS) { updates.first { it[hostId]?.status is HostStatus.Live } }
+            ?: return Result.failure(HostException("Keine Verbindung zum Host."))
+        return input(hostId) { it.sendKeys(paneId, keys) }
+    }
+
     /** Starts every session again, e.g. once the local network is allowed. */
     fun reconnectAll() {
         running.values.map { it.config }.forEach(::start)
@@ -111,7 +134,9 @@ class Connections(private val hosts: HostRepository, scope: CoroutineScope) {
         generations[host.id] = generation
         val observer = object : SessionObserver {
             override fun onUpdate(update: SessionUpdate) {
-                if (generations[host.id] == generation) updateState.update { it + (host.id to update) }
+                if (generations[host.id] != generation) return
+                updateState.update { it + (host.id to update) }
+                if (update.attention.isNotEmpty()) attention(host.id, update.attention)
             }
         }
         try {
@@ -132,6 +157,11 @@ class Connections(private val hosts: HostRepository, scope: CoroutineScope) {
             it.close()
         }
         updateState.update { it - id }
+    }
+
+    private companion object {
+        /** How long [sendWhenLive] waits for the connection. */
+        const val LIVE_TIMEOUT_MS = 15_000L
     }
 }
 
