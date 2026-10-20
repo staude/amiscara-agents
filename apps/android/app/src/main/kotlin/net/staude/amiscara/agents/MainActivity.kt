@@ -13,6 +13,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = application as AmiscaraApp
+        dropExtras(intent)
         if (savedInstanceState == null) handle(intent)
         setContent {
             AmiscaraTheme {
@@ -29,7 +30,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        dropExtras(intent)
         handle(intent)
+    }
+
+    /**
+     * The activity is exported, and Navigation follows deep link extras in
+     * its intent to any screen with any arguments. The app reads only the
+     * link (`data`), so every extra goes.
+     */
+    private fun dropExtras(intent: Intent) {
+        intent.replaceExtras(Bundle())
+        setIntent(intent)
     }
 
     private fun handle(intent: Intent) {

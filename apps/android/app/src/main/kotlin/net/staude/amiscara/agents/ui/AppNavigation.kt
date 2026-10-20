@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -28,7 +29,7 @@ data class HostRoute(val id: String)
 data class EditHostRoute(val id: String? = null)
 
 @Serializable
-data class AddLinkRoute(val text: String, val trusted: Boolean)
+data class AddLinkRoute(val text: String)
 
 @Serializable
 object ScanRoute
@@ -56,7 +57,7 @@ fun AppNavigation(app: AmiscaraApp) {
         app.openedLink.collect { link ->
             when (link) {
                 null -> return@collect
-                is AppLink.AddHost -> nav.navigate(AddLinkRoute(link.text, trusted = false))
+                is AppLink.AddHost -> nav.navigate(AddLinkRoute(link.text))
                 is AppLink.Open -> if (app.hosts.get(link.hostId) != null) {
                     nav.navigate(HostRoute(link.hostId)) { popUpTo(HostsRoute) }
                 } else {
@@ -74,7 +75,10 @@ fun AppNavigation(app: AmiscaraApp) {
                 openHost = { nav.navigate(HostRoute(it)) },
                 addHost = { nav.navigate(EditHostRoute()) },
                 scan = { nav.navigate(ScanRoute) },
-                addLink = { nav.navigate(AddLinkRoute(it, trusted = true)) },
+                addLink = {
+                    app.trustLink(it)
+                    nav.navigate(AddLinkRoute(it))
+                },
                 askLocalNetwork = { askLocalNetwork.launch(AmiscaraApp.LOCAL_NETWORK) },
             )
         }
@@ -86,12 +90,15 @@ fun AppNavigation(app: AmiscaraApp) {
             HostEditorScreen(app, entry.toRoute<EditHostRoute>().id, back = { nav.popBackStack() }, saved = { nav.showHost(it) })
         }
         composable<AddLinkRoute> { entry ->
-            val route = entry.toRoute<AddLinkRoute>()
-            AddLinkScreen(app, route.text, route.trusted, back = { nav.popBackStack() }, added = { nav.showHost(it) })
+            val text = entry.toRoute<AddLinkRoute>().text
+            // Decided once per screen, from memory only (see AmiscaraApp.trustLink).
+            val trusted = rememberSaveable(text) { app.takeTrust(text) }
+            AddLinkScreen(app, text, trusted, back = { nav.popBackStack() }, added = { nav.showHost(it) })
         }
         composable<ScanRoute> {
             ScannerScreen(back = { nav.popBackStack() }, scanned = {
-                nav.navigate(AddLinkRoute(it, trusted = true)) { popUpTo(HostsRoute) }
+                app.trustLink(it)
+                nav.navigate(AddLinkRoute(it)) { popUpTo(HostsRoute) }
             })
         }
     }

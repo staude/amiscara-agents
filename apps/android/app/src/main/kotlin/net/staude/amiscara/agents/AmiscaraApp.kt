@@ -21,6 +21,20 @@ class AmiscaraApp : Application() {
     lateinit var connections: Connections
         private set
 
+    /**
+     * The link the user just scanned or pasted. Only this one may pin its
+     * host key; the trust never travels in a route or intent, which another
+     * app could set when starting the exported activity.
+     */
+    private var trustedLink: String? = null
+
+    fun trustLink(text: String) {
+        trustedLink = text
+    }
+
+    /** Whether `text` is the link the user scanned or pasted; asks once. */
+    fun takeTrust(text: String): Boolean = (trustedLink == text).also { if (it) trustedLink = null }
+
     /** A link opened from outside the app, until the UI took it. */
     val openedLink = MutableStateFlow<AppLink?>(null)
 
