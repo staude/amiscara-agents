@@ -1,3 +1,4 @@
+import java.util.Properties
 import javax.inject.Inject
 
 plugins {
@@ -45,6 +46,19 @@ abstract class BuildRustCore @Inject constructor(private val exec: ExecOperation
     }
 }
 
+/** `version.properties`, kept by `scripts/android-release.sh`. */
+val versions = Properties().apply { rootProject.file("version.properties").inputStream().use(::load) }
+
+/**
+ * The Play upload key, outside the repository: `keystore.properties` (not
+ * checked in) names the file and alias, the password comes from the
+ * environment (`scripts/android-release.sh` takes it from the Keychain).
+ * Without them the release build stays unsigned.
+ */
+val upload = rootProject.file("keystore.properties").takeIf { it.exists() }
+    ?.let { file -> Properties().apply { file.inputStream().use(::load) } }
+val uploadPassword: String? = System.getenv("AMISCARA_UPLOAD_KEY_PASSWORD")
+
 android {
     namespace = "net.staude.amiscara.agents"
     compileSdk = 37
@@ -56,8 +70,8 @@ android {
         applicationId = "net.staude.amiscara.agents"
         minSdk = 29
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = versions.getProperty("versionCode").toInt()
+        versionName = versions.getProperty("versionName")
         // The ABIs build-android-ffi.sh builds; JNA would bring more, which
         // would then miss the core.
         ndk {
@@ -65,9 +79,22 @@ android {
         }
     }
 
+    signingConfigs {
+        if (upload != null && uploadPassword != null) {
+            create("upload") {
+                storeFile = file(upload.getProperty("storeFile"))
+                keyAlias = upload.getProperty("keyAlias")
+                storePassword = uploadPassword
+                keyPassword = uploadPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // R8 would need keep rules for JNA and the UniFFI bindings.
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
 
@@ -109,6 +136,8 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
     implementation("${libs.jna.get()}@aar")
