@@ -1,12 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Amiscara Agents</string>
-    <string name="probe_core_loaded">Rust-Core geladen</string>
-    <string name="probe_protocol">herdr-Protokoll %1$d</string>
-    <plurals name="probe_history">
-        <item quantity="one">Verlauf bis %1$d Zeile</item>
-        <item quantity="other">Verlauf bis %1$d Zeilen</item>
+
+    <!-- Common -->
+    <string name="back">Zurück</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="save">Sichern</string>
+    <string name="more">Mehr</string>
+
+    <!-- Host list -->
+    <string name="hosts_empty">Noch kein Host. Legen Sie einen an oder scannen Sie den QR-Code aus „Host teilen“ der Mac-App.</string>
+    <string name="host_add">Host hinzufügen</string>
+    <string name="scan_qr">QR-Code scannen</string>
+    <string name="paste_link">Link einfügen</string>
+    <string name="paste_link_hint">Den Link „amiscara-agents://add-host?…“ einfügen, z. B. aus „Host teilen“ der Mac-App.</string>
+    <string name="next">Weiter</string>
+
+    <!-- Status -->
+    <string name="status_connecting">Verbinde …</string>
+    <string name="status_live">Verbunden</string>
+    <string name="status_live_version">Verbunden, herdr %1$s</string>
+    <string name="status_retrying">Verbindung fehlgeschlagen, Versuch %1$d. Die App versucht es weiter.</string>
+    <string name="status_key_unknown">Host-Key muss bestätigt werden</string>
+    <string name="status_key_changed">Host-Key hat sich geändert</string>
+    <string name="status_failed">Anmeldung abgelehnt</string>
+    <string name="status_not_started">Nicht gestartet</string>
+    <string name="hint_failed">Steht die Schlüsselzeile dieses Geräts in ~/.ssh/authorized_keys auf dem Rechner?</string>
+    <string name="hint_unreachable">Der Rechner ist nicht erreichbar. Läuft das VPN (NetBird) auf diesem Gerät, und stimmt der Hostname?</string>
+    <string name="hint_refused">Der Rechner lehnt die Verbindung ab. Ist SSH dort eingeschaltet?</string>
+    <string name="hint_socket">SSH klappt, aber der herdr-Socket nicht. Läuft herdr dort, und stimmt der Socket-Pfad?</string>
+    <string name="protocol_unsupported">Der Server spricht eine herdr-Protokollversion, die diese App nicht kennt.</string>
+    <plurals name="agents_waiting">
+        <item quantity="one">%1$d Agent wartet</item>
+        <item quantity="other">%1$d Agents warten</item>
     </plurals>
-    <string name="probe_generate_key">Testschlüssel erzeugen</string>
-    <string name="probe_core_failed">Rust-Core nicht geladen: %1$s</string>
+
+    <!-- Host details -->
+    <string name="connect_now">Jetzt verbinden</string>
+    <string name="edit">Bearbeiten</string>
+    <string name="remove">Entfernen</string>
+    <string name="remove_title">„%1$s“ entfernen?</string>
+    <string name="remove_text">Der Schlüssel dieses Geräts für den Host wird gelöscht. Die Zeile in authorized_keys auf dem Rechner bleibt stehen, bis Sie sie dort entfernen.</string>
+    <string name="key_unknown_text">Erste Verbindung zu %1$s. Stimmt der Fingerabdruck mit dem des Rechners überein?</string>
+    <string name="key_changed_text">Der Host-Key von %1$s ist ein anderer als beim letzten Mal. Das passiert nach einer Neuinstallation, kann aber auch ein Angriff sein. Nur bestätigen, wenn Sie den Grund kennen.</string>
+    <string name="key_check_command">Auf dem Rechner: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</string>
+    <string name="trust_host_key">Host-Key vertrauen</string>
+    <string name="device_key">Schlüssel dieses Geräts</string>
+    <string name="device_key_text">Diese Zeile auf %1$s in ~/.ssh/authorized_keys eintragen. Sie lässt nur den herdr-Socket zu.</string>
+    <string name="device_key_text_sftp">Diese Zeile auf %1$s in ~/.ssh/authorized_keys eintragen. Sie lässt nur den herdr-Socket und Dateien per SFTP zu.</string>
+    <string name="copy_line">Zeile kopieren</string>
+    <string name="copied">Kopiert</string>
+    <string name="share_line">Teilen</string>
+    <string name="new_key">Neuer Schlüssel</string>
+    <string name="new_key_title">Neuen Schlüssel erzeugen?</string>
+    <string name="new_key_text">Die alte Zeile in authorized_keys funktioniert danach nicht mehr. Die neue müssen Sie auf dem Rechner eintragen.</string>
+    <string name="create">Erzeugen</string>
+
+    <!-- Host editor -->
+    <string name="host_edit">Host bearbeiten</string>
+    <string name="field_name">Name</string>
+    <string name="field_name_placeholder">z. B. work</string>
+    <string name="field_host">Host</string>
+    <string name="field_host_placeholder">work.staude.internal oder IP</string>
+    <string name="field_port">Port</string>
+    <string name="field_user">Benutzer</string>
+    <string name="field_system">System</string>
+    <string name="field_socket">Socket</string>
+    <string name="allow_input">Eingaben an Agents senden (Prompts, Tasten, Anlegen und Schließen)</string>
+    <string name="allow_upload">Dateien hochladen (SFTP, Zugriff auf alle Dateien des Benutzers)</string>
+    <string name="group_spaces">Spaces nach „Bereich/Name“ gruppieren</string>
+
+    <!-- Add from link -->
+    <string name="link_title">Host aus Link hinzufügen</string>
+    <string name="link_host_key">Host-Key</string>
+    <string name="link_socket_default">Standard</string>
+    <string name="link_trusted">Der Host-Key aus dem Link gilt als bestätigt. Danach die Schlüsselzeile dieses Geräts auf dem Rechner eintragen.</string>
+    <string name="link_untrusted">Dieser Link wurde von außen geöffnet. Prüfen Sie Host und Benutzer. Den Fingerabdruck fragt die App bei der ersten Verbindung ab.</string>
+    <string name="link_add">Hinzufügen</string>
+    <string name="open_unknown_host">Diesen Host gibt es auf diesem Gerät nicht.</string>
+
+    <!-- Local network (Android 17) -->
+    <string name="local_network_missing">Ohne Zugriff aufs lokale Netz erreicht die App keine Rechner im Heimnetz oder im VPN (NetBird).</string>
+    <string name="local_network_allow">Erlauben</string>
+    <string name="open_settings">Einstellungen</string>
+
+    <!-- Scanner -->
+    <string name="scan_hint">Den QR-Code aus „Host teilen“ der Mac-App ins Bild halten.</string>
+    <string name="camera_denied">Ohne Kamera kein Scan. Erlauben Sie den Zugriff in den Einstellungen, oder fügen Sie den Link ein.</string>
+    <string name="camera_allow">Kamera erlauben</string>
 </resources>
