@@ -58,6 +58,13 @@ class Settings(context: Context) {
         repliesState.value = list
     }
 
+    /** The agent a dialog last started (`key` per dialog); `null` for a plain shell. */
+    fun agentKind(key: String): String? = prefs.getString("agentKind.$key", null)
+
+    fun setAgentKind(key: String, kind: String?) {
+        prefs.edit { if (kind == null) remove("agentKind.$key") else putString("agentKind.$key", kind) }
+    }
+
     private fun loadTerminal() = TerminalPrefs(
         appearance = enumOr(prefs.getString("terminalAppearance", null), TerminalAppearance.APP),
         scheme = enumOr(prefs.getString("terminalScheme", null), TerminalScheme.STANDARD),

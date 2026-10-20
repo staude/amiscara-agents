@@ -1,7 +1,9 @@
 package net.staude.amiscara.agents
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +29,12 @@ class MainActivity : ComponentActivity() {
         // The user may have allowed the local network in the settings.
         (application as AmiscaraApp).refreshLocalNetwork()
     }
+
+    // Activity.dispatchKeyEvent is public API; androidx.core only marks its
+    // own override restricted. Shortcuts must come before the focused view.
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        (application as AmiscaraApp).shortcuts.dispatch(event) || super.dispatchKeyEvent(event)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
