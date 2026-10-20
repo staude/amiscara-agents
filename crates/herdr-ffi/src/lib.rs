@@ -504,6 +504,8 @@ fn key_error(err: TransportError) -> FfiError {
 fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| {
+        #[cfg(target_os = "android")]
+        log_panics_to_logcat();
         tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .thread_name("herdr-core")
@@ -511,4 +513,21 @@ fn runtime() -> &'static Runtime {
             .build()
             .unwrap_or_else(|err| panic!("cannot start the tokio runtime: {err}"))
     })
+}
+
+/// Android drops stderr, so a panic in a background task (which ends that
+/// task quietly) would leave no trace. Writes panics to logcat, tag
+/// `herdr-ffi`, before the default handling.
+#[cfg(target_os = "android")]
+fn log_panics_to_logcat() {
+    android_logger::init_once(
+        android_logger::Config::default()
+            .with_tag("herdr-ffi")
+            .with_max_level(log::LevelFilter::Warn),
+    );
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("{info}");
+        default(info);
+    }));
 }
