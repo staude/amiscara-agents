@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Amiscara Agents</string>
+    <string name="probe_core_loaded">Rust-Core geladen</string>
+    <string name="probe_protocol">herdr-Protokoll %1$d</string>
+    <plurals name="probe_history">
+        <item quantity="one">Verlauf bis %1$d Zeile</item>
+        <item quantity="other">Verlauf bis %1$d Zeilen</item>
+    </plurals>
+    <string name="probe_generate_key">Testschlüssel erzeugen</string>
+    <string name="probe_core_failed">Rust-Core nicht geladen: %1$s</string>
+</resources>

@@ -1,0 +1,6 @@
+# Settings for the generated bindings; Swift uses the defaults.
+[bindings.kotlin]
+package_name = "net.staude.amiscara.agents.core"
+# Android flavour: the cleaner checks the API level (java.lang.ref.Cleaner
+# only exists from Android 13 on) and annotations come from androidx.
+android = true

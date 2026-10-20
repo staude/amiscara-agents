@@ -357,6 +357,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   is typed straight into the agent's input line, so Claude Code shows its
   commands and skills in the pane; ↑↓ pick, Tab takes a suggestion (typing
   continues after it), Enter runs, Esc goes to the agent. All apps.
+- Android app scaffold under `apps/android` (Kotlin, Jetpack Compose, minSdk
+  29): Gradle builds `herdr-ffi` with `scripts/build-android-ffi.sh`
+  (cargo-ndk, Kotlin bindings through UniFFI) and a first screen checks
+  that the core loads; `scripts/install-android.sh`, `scripts/check.sh
+  --android` and an Android job in the full CI chain (#173).
 
 ### Changed
 

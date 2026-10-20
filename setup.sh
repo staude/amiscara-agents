@@ -28,3 +28,12 @@ if [[ "$(uname)" == "Darwin" ]]; then
     scripts/build-ffi.sh debug all
     (cd apps/AmiscaraAgents && xcodegen generate)
 fi
+
+# Android app: only when an Android SDK is there (Android Studio). The NDK
+# comes from the SDK manager (version in apps/android/app/build.gradle.kts).
+android_home="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+if [[ -d "$android_home" ]] && command -v rustup >/dev/null 2>&1; then
+    rustup target add aarch64-linux-android x86_64-linux-android
+    command -v cargo-ndk >/dev/null 2>&1 || cargo install cargo-ndk --locked
+    [[ -d "$android_home/ndk" ]] || echo "No NDK yet: sdkmanager \"ndk;29.0.14206865\"" >&2
+fi
