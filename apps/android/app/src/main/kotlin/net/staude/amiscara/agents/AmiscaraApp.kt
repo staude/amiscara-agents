@@ -13,12 +13,15 @@ import net.staude.amiscara.agents.model.AppLink
 import net.staude.amiscara.agents.model.Connections
 import net.staude.amiscara.agents.model.HostRepository
 import net.staude.amiscara.agents.model.KeyVault
+import net.staude.amiscara.agents.model.Settings
 
 /** Holds the app-wide state: hosts, their sessions and opened links. */
 class AmiscaraApp : Application() {
     lateinit var hosts: HostRepository
         private set
     lateinit var connections: Connections
+        private set
+    lateinit var settings: Settings
         private set
 
     /**
@@ -50,6 +53,7 @@ class AmiscaraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        settings = Settings(this)
         hosts = HostRepository(this, KeyVault(this))
         connections = Connections(hosts, MainScope())
         localNetworkAllowed.value = hasLocalNetwork()

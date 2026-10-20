@@ -368,6 +368,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   link (an opened link's host key is not trusted), reconnect in the
   foreground, and the Android 17 local network permission (#174).
 - `herdr-ffi` writes Rust panics to logcat on Android (#174).
+- Android: main view with spaces and agents per host, side by side from
+  700 dp, a space with tabs, split panes on wide screens, the terminal with
+  pinch zoom, history and search, and the input bar with answers, key bar,
+  quick replies, photo and file attachments and live mode (#175).
 
 ### Changed
 

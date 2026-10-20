@@ -55,6 +55,23 @@ Opening `apps/android` in Android Studio works the same way.
   "Verbinde …".
 - Rust panics go to logcat with the tag `herdr-ffi`.
 
+## Main view
+
+- Start screen: per host its state, spaces (name groups, worktrees indented,
+  branch below) and agents, most urgent first. From 700 dp width (tablet,
+  foldable, phone in landscape) the selected space shows on the right.
+- A space: tabs, the selected pane's terminal and the input bar. A split
+  tab shows its panes as herdr draws them on a wide screen (the selected
+  one live, the others read slowly); on a phone chips pick the pane.
+- Terminal: lines keep the pane's width and scroll both ways, pinch changes
+  the font size (8 to 28), older history loads in steps up to 1000 lines,
+  search marks hits. Color schemes and minimum contrast as in the other
+  apps (`ui/TerminalTheme.kt`); the settings for them follow in #176.
+- Input bar: answers 1, 2, 3, Bestätigen, Abbrechen while an agent waits,
+  key bar and quick replies in one row, photos and files as attachments
+  (needs "Dateien hochladen"), live mode for slash commands. A prompt goes
+  to an agent with `agent.prompt`, to a shell as text plus Enter.
+
 ## Emulator
 
 The AVD `Pixel_9` (Android 17, arm64) runs on work, also without a window:
