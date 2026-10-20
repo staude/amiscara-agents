@@ -372,6 +372,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   700 dp, a space with tabs, split panes on wide screens, the terminal with
   pinch zoom, history and search, and the input bar with answers, key bar,
   quick replies, photo and file attachments and live mode (#175).
+- Android: create, rename and close spaces, tabs and worktrees, start and
+  name agents, the Claude Code conversation, quick switcher, settings for
+  the terminal and the quick replies, and the keyboard shortcuts of the
+  other apps (#176).
 
 ### Changed
 
