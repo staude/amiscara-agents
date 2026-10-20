@@ -3,7 +3,7 @@ name: CI
 # Runs only for release tags and when started by hand (Actions > CI > Run
 # workflow), to save Actions minutes: pull requests are checked on the
 # machine with scripts/check.sh. The full chain covers macOS and Windows,
-# iOS and tvOS and the desktop app on all systems; installers only by hand,
+# iOS and tvOS, Android and the desktop app on all systems; installers only by hand,
 # a tag builds them in desktop-release.yml. With scope "installers"
 # (`gh workflow run ci.yml -f scope=installers`) only the Windows (x64,
 # ARM64) and Linux installers are built, without the tests on macOS and
@@ -72,6 +72,34 @@ jobs:
       - run: cargo check -p herdr-ffi --locked --target aarch64-apple-tvos
         env:
           TVOS_DEPLOYMENT_TARGET: "26.0"
+
+  android:
+    name: Android app
+    if: inputs.scope != 'installers'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      # NDK and platform of app/build.gradle.kts; the runner's SDK has others.
+      - run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.14206865" "platforms;android-37.0" >/dev/null
+      # Gradle hands the NDK to scripts/build-android-ffi.sh.
+      - run: ./gradlew assembleDebug lintDebug
 
   desktop:
     name: Desktop app (${{ matrix.os }})
