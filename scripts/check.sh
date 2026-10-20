@@ -32,6 +32,10 @@ if $apple; then
     done
 fi
 if $android; then
+    # Code under cfg(target_os = "android") only compiles for the phone.
+    export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+    export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/29.0.14206865}"
+    cargo ndk -t arm64-v8a -P 29 clippy -p herdr-ffi --locked -- -D warnings
     (cd apps/android && ./gradlew -q assembleDebug lintDebug)
 fi
 echo "All checks passed."

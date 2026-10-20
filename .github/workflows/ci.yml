@@ -90,6 +90,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android, x86_64-linux-android
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           key: android
@@ -98,6 +99,9 @@ jobs:
           tool: cargo-ndk
       # NDK and platform of app/build.gradle.kts; the runner's SDK has others.
       - run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.14206865" "platforms;android-37.0" >/dev/null
+      - run: cargo ndk -t arm64-v8a -P 29 clippy -p herdr-ffi --locked -- -D warnings
+        env:
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/29.0.14206865
       # Gradle hands the NDK to scripts/build-android-ffi.sh.
       - run: ./gradlew assembleDebug lintDebug
 
