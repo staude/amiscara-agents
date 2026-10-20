@@ -376,6 +376,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   name agents, the Claude Code conversation, quick switcher, settings for
   the terminal and the quick replies, and the keyboard shortcuts of the
   other apps (#176).
+- Android: notifications when an agent waits or is done, with answer
+  buttons that also work while the app is closed, and a standby
+  (foreground service, Quick Settings tile, start on boot) that keeps the
+  sessions open in the background (#177).
 
 ### Changed
 
