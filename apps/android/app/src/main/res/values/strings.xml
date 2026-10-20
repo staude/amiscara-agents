@@ -126,6 +126,96 @@
     <string name="upload_off">Dateien hochladen ist für %1$s aus. Einschalten unter „Bearbeiten“ › „Dateien hochladen (SFTP)“.</string>
     <string name="live_hint">Live: Jede Eingabe geht sofort an den Agent. Tab übernimmt einen Vorschlag.</string>
 
+    <!-- Management -->
+    <string name="menu_reconnect">Neu verbinden</string>
+    <string name="menu_new_space">Neuer Space …</string>
+    <string name="menu_new_tab">Neuer Tab …</string>
+    <string name="new_tab_title">Neuer Tab</string>
+    <string name="menu_new_worktree">Neuer Worktree …</string>
+    <string name="menu_rename_space">Space umbenennen …</string>
+    <string name="menu_rename_tab">Tab umbenennen …</string>
+    <string name="menu_name_agent">Agent benennen …</string>
+    <string name="menu_start_agent">Agent starten …</string>
+    <string name="start_button">Starten</string>
+    <string name="agent_kind">Agent</string>
+    <string name="menu_close_tab">Tab schließen …</string>
+    <string name="menu_close_space">Space schließen …</string>
+    <string name="menu_conversation">Gesprächsverlauf</string>
+    <string name="menu_font_larger">Schrift größer</string>
+    <string name="menu_font_smaller">Schrift kleiner</string>
+    <string name="menu_font_reset">Schrift zurücksetzen</string>
+    <string name="settings">Einstellungen</string>
+    <string name="new_space_title">Neuer Space auf %1$s</string>
+    <string name="new_worktree_title">Neuer Worktree von %1$s</string>
+    <string name="field_directory">Verzeichnis</string>
+    <string name="field_branch">Branch</string>
+    <string name="field_base">Basis</string>
+    <string name="placeholder_space">z. B. Dorfkino</string>
+    <string name="placeholder_space_group">z. B. Privat/Dorfkino</string>
+    <string name="placeholder_branch">z. B. feature/login</string>
+    <string name="placeholder_worktree_name">wie der Branch</string>
+    <string name="group_hint">Mit „Bereich/Name“ landet der Space in der Gruppe „Bereich“. herdr selbst zeigt den vollen Namen.</string>
+    <string name="worktree_hint">Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.</string>
+    <string name="worktree_running">git worktree add läuft …</string>
+    <string name="agent_start">Agent starten</string>
+    <string name="agent_none">Keinen, nur Shell</string>
+    <string name="create_button">Anlegen</string>
+    <string name="close_button">Schließen</string>
+    <string name="created_without_agent">Angelegt, aber der Agent startete nicht: %1$s</string>
+    <string name="rename_space_title">Space umbenennen</string>
+    <string name="rename_tab_title">Tab umbenennen</string>
+    <string name="name_agent_title">Agent benennen</string>
+    <string name="name_agent_placeholder">z. B. reviewer</string>
+    <string name="name_agent_hint">Kleinbuchstaben, Ziffern, - und _, höchstens 32 Zeichen. Leer lassen entfernt den Namen.</string>
+    <string name="close_space_title">Space „%1$s“ schließen?</string>
+    <string name="close_tab_title">Tab „%1$s“ schließen?</string>
+    <string name="close_working">Darin arbeitet noch ein Agent. Schließen beendet ihn und alles, was in den Panes läuft.</string>
+    <string name="close_blocked">Darin wartet ein Agent auf eine Antwort. Schließen beendet ihn und alles, was in den Panes läuft.</string>
+    <string name="close_plain">Schließen beendet alles, was in den Panes läuft.</string>
+    <string name="close_worktree_one">Der Worktree-Space darunter wird mit geschlossen, sein Verzeichnis bleibt.</string>
+    <plurals name="close_worktree_many">
+        <item quantity="one">Der %1$d Worktree-Space darunter wird mit geschlossen, sein Verzeichnis bleibt.</item>
+        <item quantity="other">Die %1$d Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben.</item>
+    </plurals>
+    <string name="close_failed">Schließen fehlgeschlagen: %1$s</string>
+
+    <!-- Quick switcher -->
+    <string name="switcher">Schnellsuche</string>
+    <string name="switcher_placeholder">Space oder Agent</string>
+    <string name="switcher_empty">Nichts gefunden</string>
+
+    <!-- Conversation -->
+    <string name="conversation_title">Gesprächsverlauf</string>
+    <string name="conversation_copy">Alles kopieren</string>
+    <string name="conversation_reload">Neu laden</string>
+    <string name="conversation_older">Ältere Einträge laden</string>
+    <string name="conversation_start">Anfang des Gesprächs</string>
+    <string name="conversation_searching">Sitzung wird gesucht …</string>
+    <string name="conversation_empty">Noch keine Einträge</string>
+    <string name="conversation_error">Verlauf nicht lesbar: %1$s</string>
+    <string name="conversation_you">Du</string>
+
+    <!-- Settings -->
+    <string name="settings_terminal">Terminal</string>
+    <string name="settings_appearance">Darstellung</string>
+    <string name="appearance_app">Wie die App</string>
+    <string name="appearance_light">Hell</string>
+    <string name="appearance_dark">Dunkel</string>
+    <string name="settings_scheme">Farbschema</string>
+    <string name="scheme_standard">Standard</string>
+    <string name="scheme_solarized">Solarized</string>
+    <string name="scheme_apple">macOS</string>
+    <string name="settings_min_contrast">Mindestkontrast</string>
+    <string name="settings_min_contrast_hint">Hellt zu schwache Schriftfarben auf oder dunkelt sie ab</string>
+    <string name="settings_font_size">Schriftgröße %1$d</string>
+    <string name="settings_quick_replies">Schnellantworten</string>
+    <string name="settings_quick_replies_hint">Erscheinen in der Eingabeleiste und gehen mit einem Tipp an den Agent.</string>
+    <string name="settings_reply_add">Antwort hinzufügen</string>
+    <string name="settings_shortcuts">Tastenkürzel</string>
+    <string name="settings_shortcuts_text">Strg+K Schnellsuche · Strg+1 … 9 Space · Strg+Umschalt+[ / ] Tab · Strg+F Suchen · Strg+Plus / Minus / 0 Schrift · Strg+Alt+1 … 3 Antwort · Strg+Alt+Pfeile, Strg+. Esc, Strg+Umschalt+Enter Enter</string>
+    <string name="settings_about">Über</string>
+    <string name="settings_version">Version %1$s, herdr-Protokoll %2$d</string>
+
     <!-- Scanner -->
     <string name="scan_hint">Den QR-Code aus „Host teilen“ der Mac-App ins Bild halten.</string>
     <string name="camera_denied">Ohne Kamera kein Scan. Erlauben Sie den Zugriff in den Einstellungen, oder fügen Sie den Link ein.</string>

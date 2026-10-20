@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -215,6 +216,27 @@ fun InputBar(app: AmiscaraApp, host: HostConfig, pane: PaneItem, connected: Bool
                     .onFailure { error = it.message }
             }
         }
+    }
+
+    // Ctrl+Alt+1 … 3 answer, Ctrl+Alt+arrows, Ctrl+. Esc, Ctrl+Shift+Enter Enter.
+    KeyShortcuts(app) { event ->
+        if (!enabled || sending) return@KeyShortcuts false
+        val digit = event.digit()
+        val arrow = when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> "up"
+            KeyEvent.KEYCODE_DPAD_DOWN -> "down"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "left"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
+            else -> null
+        }
+        when {
+            event.isAltPressed && isBlocked && digit != null && digit <= 3 -> sendKeys(listOf("$digit"))
+            event.isAltPressed && arrow != null -> barKey(arrow)
+            !event.isAltPressed && event.keyCode == KeyEvent.KEYCODE_PERIOD -> barKey("esc")
+            event.isShiftPressed && event.keyCode == KeyEvent.KEYCODE_ENTER -> barKey("enter")
+            else -> return@KeyShortcuts false
+        }
+        true
     }
 
     val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { add(it, images = true) }

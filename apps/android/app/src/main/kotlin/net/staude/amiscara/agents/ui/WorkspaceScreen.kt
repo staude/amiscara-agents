@@ -1,5 +1,7 @@
 package net.staude.amiscara.agents.ui
 
+import android.view.KeyEvent
+import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -21,9 +23,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,15 +46,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
 import net.staude.amiscara.agents.core.HostSession
@@ -56,6 +65,9 @@ import net.staude.amiscara.agents.core.HostStatus
 import net.staude.amiscara.agents.core.PaneItem
 import net.staude.amiscara.agents.core.TabItem
 import net.staude.amiscara.agents.model.PaneModel
+import net.staude.amiscara.agents.model.SpaceSelection
+import net.staude.amiscara.agents.model.TerminalPrefs
+import net.staude.amiscara.agents.model.arrange
 import net.staude.amiscara.agents.model.TerminalAppearance
 
 /** Follows a pane while it is on screen; a new session starts a new follower. */
@@ -95,6 +107,10 @@ fun WorkspaceScreen(
     initialPaneId: String?,
     wide: Boolean,
     back: (() -> Unit)?,
+    open: (SpaceSelection) -> Unit,
+    manage: (ManageDialog) -> Unit,
+    openConversation: (paneId: String) -> Unit,
+    gone: () -> Unit,
 ) {
     val hosts by app.hosts.hosts.collectAsStateWithLifecycle()
     val updates by app.connections.updates.collectAsStateWithLifecycle()
@@ -109,13 +125,81 @@ fun WorkspaceScreen(
                 ?: workspace?.activeTabId,
         )
     }
-    val tab = workspace?.tabs?.firstOrNull { it.tabId == tabId } ?: workspace?.tabs?.firstOrNull()
     var paneId by rememberSaveable(hostId, workspaceId, initialPaneId) { mutableStateOf(initialPaneId) }
+    // A pane asked for (agent, new tab) picks its tab once herdr reports it.
+    val tab = workspace?.tabs?.firstOrNull { tab -> paneId != null && tab.panes.any { it.paneId == paneId } }
+        ?: workspace?.tabs?.firstOrNull { it.tabId == tabId }
+        ?: workspace?.tabs?.firstOrNull()
     val pane = tab?.panes?.firstOrNull { it.paneId == paneId } ?: tab?.let(::defaultPane)
 
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var currentHit by remember { mutableIntStateOf(0) }
+    var menu by remember { mutableStateOf(false) }
+    // Closed here or elsewhere: leave once the live session no longer has it.
+    var seen by remember { mutableStateOf(false) }
+    LaunchedEffect(workspace != null, connected) {
+        if (workspace != null) seen = true else if (seen && connected) gone()
+    }
+    val writable = connected && host?.allowInput != false
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val zoom = { delta: Float ->
+        val prefs = app.settings.terminal.value
+        val size = if (delta == 0f) TerminalPrefs.DEFAULT_FONT_SIZE else prefs.fontSize + delta
+        app.settings.setTerminal(prefs.copy(fontSize = size))
+    }
+
+    /** An input action off the main thread; failures as a toast. */
+    fun act(action: suspend () -> Unit) {
+        scope.launch {
+            try {
+                action()
+            } catch (e: Exception) {
+                Toast.makeText(context, e.message ?: e.toString(), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    KeyShortcuts(app) { event ->
+        val tabs = workspace?.tabs.orEmpty()
+        val index = tabs.indexOfFirst { it.tabId == tab?.tabId }
+        fun moveTab(step: Int): Boolean {
+            if (tabs.size < 2) return false
+            tabId = tabs[(index + step + tabs.size) % tabs.size].tabId
+            paneId = null
+            return true
+        }
+        when {
+            event.isAltPressed -> false
+            event.keyCode == KeyEvent.KEYCODE_F -> {
+                searching = !searching
+                true
+            }
+            event.keyCode == KeyEvent.KEYCODE_PAGE_UP -> moveTab(-1)
+            event.keyCode == KeyEvent.KEYCODE_PAGE_DOWN -> moveTab(1)
+            event.isShiftPressed && event.keyCode == KeyEvent.KEYCODE_LEFT_BRACKET -> moveTab(-1)
+            event.isShiftPressed && event.keyCode == KeyEvent.KEYCODE_RIGHT_BRACKET -> moveTab(1)
+            event.keyCode in setOf(KeyEvent.KEYCODE_PLUS, KeyEvent.KEYCODE_EQUALS, KeyEvent.KEYCODE_NUMPAD_ADD) -> {
+                zoom(1f)
+                true
+            }
+            event.keyCode in setOf(KeyEvent.KEYCODE_MINUS, KeyEvent.KEYCODE_NUMPAD_SUBTRACT) -> {
+                zoom(-1f)
+                true
+            }
+            event.keyCode == KeyEvent.KEYCODE_0 -> {
+                zoom(0f)
+                true
+            }
+            // Ctrl+1 … 9: the space at that place on this host.
+            event.digit() != null && !event.isShiftPressed -> {
+                val spaces = update?.let(::arrange).orEmpty()
+                spaces.getOrNull(event.digit()!! - 1)?.let { open(SpaceSelection(hostId, it.workspace.workspaceId)) } != null
+            }
+            else -> false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -136,6 +220,57 @@ fun WorkspaceScreen(
                 actions = {
                     IconButton(onClick = { searching = !searching }) {
                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                    }
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            val choose = { action: () -> Unit ->
+                                menu = false
+                                action()
+                            }
+                            if (workspace != null && writable) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.menu_new_tab)) }, onClick = {
+                                    choose { manage(ManageDialog.NewTab(hostId, workspaceId)) }
+                                })
+                                if (pane != null && pane.agent == null) {
+                                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_start_agent)) }, onClick = {
+                                        choose { manage(ManageDialog.StartAgent(hostId, pane.paneId)) }
+                                    })
+                                }
+                                if (pane?.agent != null) {
+                                    DropdownMenuItem(text = { Text(stringResource(R.string.menu_name_agent)) }, onClick = {
+                                        choose { manage(ManageDialog.Rename(hostId, ManageDialog.Target.AGENT, pane.paneId, pane.name.orEmpty())) }
+                                    })
+                                }
+                                HorizontalDivider()
+                            }
+                            if (pane?.agent == "claude") {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.menu_conversation)) }, onClick = {
+                                    choose { openConversation(pane.paneId) }
+                                })
+                            }
+                            if (workspace != null && tab != null && writable) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.menu_rename_tab)) }, onClick = {
+                                    choose { manage(ManageDialog.Rename(hostId, ManageDialog.Target.TAB, tab.tabId, tab.label)) }
+                                })
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.menu_close_tab), color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        choose {
+                                            manage(ManageDialog.Close(hostId, ManageDialog.Target.TAB, tab.tabId, tab.label, tab.agentState, 0))
+                                        }
+                                    },
+                                )
+                                HorizontalDivider()
+                                SpaceMenuItems(hostId, workspace, update?.workspaces.orEmpty()) { choose { manage(it) } }
+                                HorizontalDivider()
+                            }
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_font_larger)) }, onClick = { zoom(1f) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_font_smaller)) }, onClick = { zoom(-1f) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_font_reset)) }, onClick = { choose { zoom(0f) } })
+                        }
                     }
                 },
             )

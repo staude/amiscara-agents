@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -47,15 +48,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.serialization.Serializable
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
 import net.staude.amiscara.agents.core.HostStatus
+import net.staude.amiscara.agents.core.WorkspaceItem
 import net.staude.amiscara.agents.model.SpaceBlock
 import net.staude.amiscara.agents.model.SpaceEntry
+import net.staude.amiscara.agents.model.SpaceSelection
 import net.staude.amiscara.agents.model.arrange
 import net.staude.amiscara.agents.model.blocks
+import net.staude.amiscara.agents.model.closingState
+import net.staude.amiscara.agents.model.linkedWorktrees
 import net.staude.amiscara.agents.model.place
+import net.staude.amiscara.agents.model.repositoryOf
 import net.staude.amiscara.agents.model.title
 
 /**
@@ -74,6 +79,9 @@ fun Sidebar(
     scan: () -> Unit,
     addLink: (String) -> Unit,
     askLocalNetwork: () -> Unit,
+    openSwitcher: () -> Unit,
+    openSettings: () -> Unit,
+    manage: (ManageDialog) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val hosts by app.hosts.hosts.collectAsStateWithLifecycle()
@@ -89,6 +97,9 @@ fun Sidebar(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    IconButton(onClick = openSwitcher, enabled = hosts.isNotEmpty()) {
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.switcher))
+                    }
                     Box {
                         IconButton(onClick = { menu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
@@ -105,6 +116,10 @@ fun Sidebar(
                             DropdownMenuItem(text = { Text(stringResource(R.string.paste_link)) }, onClick = {
                                 menu = false
                                 pasting = true
+                            })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.settings)) }, onClick = {
+                                menu = false
+                                openSettings()
                             })
                         }
                     }
@@ -131,14 +146,38 @@ fun Sidebar(
                     val update = updates[host.id]
                     val startError = startErrors[host.id]
                     val live = update?.status == HostStatus.Live
+                    val writable = live && host.allowInput != false
                     item(key = "host-${host.id}") {
+                        var hostMenu by remember { mutableStateOf(false) }
                         ListItem(
                             modifier = Modifier.clickable { openHost(host.id) },
                             leadingContent = { StatusDot(update, startError) },
                             headlineContent = { Text(host.name, style = MaterialTheme.typography.titleMedium) },
                             supportingContent = if (live) null else ({ Text(statusSummary(update, startError)) }),
                             trailingContent = {
-                                Icon(Icons.Default.Info, contentDescription = stringResource(R.string.host_details))
+                                Box {
+                                    IconButton(onClick = { hostMenu = true }) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more))
+                                    }
+                                    DropdownMenu(expanded = hostMenu, onDismissRequest = { hostMenu = false }) {
+                                        DropdownMenuItem(text = { Text(stringResource(R.string.host_details)) }, onClick = {
+                                            hostMenu = false
+                                            openHost(host.id)
+                                        })
+                                        DropdownMenuItem(text = { Text(stringResource(R.string.menu_reconnect)) }, onClick = {
+                                            hostMenu = false
+                                            app.connections.reconnect(host.id)
+                                        })
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.menu_new_space)) },
+                                            enabled = writable,
+                                            onClick = {
+                                                hostMenu = false
+                                                manage(ManageDialog.NewSpace(host.id))
+                                            },
+                                        )
+                                    }
+                                }
                             },
                         )
                     }
@@ -150,13 +189,13 @@ fun Sidebar(
                     for (block in blocks(entries)) {
                         when (block) {
                             is SpaceBlock.Space -> item(key = "space-${host.id}-${block.entry.workspace.workspaceId}") {
-                                SpaceRow(block.entry, host.id, selected, grouped = false, openSpace)
+                                SpaceRow(block.entry, update.workspaces, host.id, writable, selected, grouped = false, openSpace, manage)
                             }
                             is SpaceBlock.Group -> {
                                 item(key = "group-${host.id}-${block.name}") { GroupLabel(block.name) }
                                 for (entry in block.entries) {
                                     item(key = "space-${host.id}-${entry.workspace.workspaceId}") {
-                                        SpaceRow(entry, host.id, selected, grouped = true, openSpace)
+                                        SpaceRow(entry, update.workspaces, host.id, writable, selected, grouped = true, openSpace, manage)
                                     }
                                 }
                             }
@@ -171,6 +210,7 @@ fun Sidebar(
                             CompactRow(
                                 selected = selected == selection,
                                 onClick = { openSpace(selection) },
+                                onLongClick = if (writable) ({ manage(ManageDialog.Rename(host.id, ManageDialog.Target.AGENT, agent.paneId, agent.name.orEmpty())) }) else null,
                                 indent = 0,
                                 leading = { AgentDot(agent.agentState) },
                                 title = agent.title,
@@ -194,15 +234,12 @@ fun Sidebar(
     }
 }
 
-/** What the right side (or the next screen) shows: a space, maybe a pane. */
-@Serializable
-data class SpaceSelection(val hostId: String, val workspaceId: String, val paneId: String? = null)
-
 /** A sidebar row, flatter than a Material list item. */
 @Composable
 private fun CompactRow(
     selected: Boolean,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     indent: Int,
     leading: @Composable () -> Unit,
     title: String,
@@ -214,7 +251,7 @@ private fun CompactRow(
             .padding(horizontal = 8.dp)
             .clip(MaterialTheme.shapes.small)
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = (8 + indent).dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -249,20 +286,69 @@ private fun GroupLabel(name: String) {
     )
 }
 
+/** A space; a long press opens rename, new worktree and close. */
 @Composable
-private fun SpaceRow(entry: SpaceEntry, hostId: String, selected: SpaceSelection?, grouped: Boolean, open: (SpaceSelection) -> Unit) {
+private fun SpaceRow(
+    entry: SpaceEntry,
+    all: List<WorkspaceItem>,
+    hostId: String,
+    writable: Boolean,
+    selected: SpaceSelection?,
+    grouped: Boolean,
+    open: (SpaceSelection) -> Unit,
+    manage: (ManageDialog) -> Unit,
+) {
     val workspace = entry.workspace
     val indent = (if (grouped) 16 else 0) + (if (entry.nested) 16 else 0)
     val isSelected = selected?.hostId == hostId && selected.workspaceId == workspace.workspaceId
     val hasAgents = workspace.tabs.any { tab -> tab.panes.any { it.agent != null } }
     val details = listOfNotNull(workspace.branch) + workspace.tokens.map { it.value }
-    CompactRow(
-        selected = isSelected,
-        onClick = { open(SpaceSelection(hostId, workspace.workspaceId)) },
-        indent = indent,
-        leading = { AgentDot(workspace.agentState.takeIf { hasAgents }) },
-        title = workspace.worktreeName ?: workspace.name,
-        subtitle = details.joinToString(" · ").ifEmpty { null },
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        CompactRow(
+            selected = isSelected,
+            onClick = { open(SpaceSelection(hostId, workspace.workspaceId)) },
+            onLongClick = if (writable) ({ menu = true }) else null,
+            indent = indent,
+            leading = { AgentDot(workspace.agentState.takeIf { hasAgents }) },
+            title = workspace.worktreeName ?: workspace.name,
+            subtitle = details.joinToString(" · ").ifEmpty { null },
+        )
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            SpaceMenuItems(hostId, workspace, all) {
+                menu = false
+                manage(it)
+            }
+        }
+    }
+}
+
+/** Rename, new worktree and close of a space; also in the space's own menu. */
+@Composable
+fun SpaceMenuItems(hostId: String, workspace: WorkspaceItem, all: List<WorkspaceItem>, manage: (ManageDialog) -> Unit) {
+    DropdownMenuItem(text = { Text(stringResource(R.string.menu_rename_space)) }, onClick = {
+        manage(ManageDialog.Rename(hostId, ManageDialog.Target.SPACE, workspace.workspaceId, workspace.label))
+    })
+    repositoryOf(workspace, all)?.let { repo ->
+        DropdownMenuItem(text = { Text(stringResource(R.string.menu_new_worktree)) }, onClick = {
+            manage(ManageDialog.NewWorktree(hostId, repo.workspaceId, repo.label))
+        })
+    }
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.menu_close_space), color = MaterialTheme.colorScheme.error) },
+        onClick = {
+            val worktrees = linkedWorktrees(workspace, all)
+            manage(
+                ManageDialog.Close(
+                    hostId,
+                    ManageDialog.Target.SPACE,
+                    workspace.workspaceId,
+                    workspace.worktreeName ?: workspace.name,
+                    closingState(listOf(workspace) + worktrees),
+                    worktrees.size,
+                ),
+            )
+        },
     )
 }
 

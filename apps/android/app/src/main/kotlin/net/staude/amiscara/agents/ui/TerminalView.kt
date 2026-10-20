@@ -167,14 +167,14 @@ private fun HistoryRow(state: PaneModel.State, theme: TerminalTheme, onLoadMore:
                 CircularProgressIndicator(Modifier.padding(8.dp).width(16.dp), strokeWidth = 2.dp, color = color)
                 Text(stringResource(R.string.history_loading), color = color)
             }
-            state.canLoadMoreHistory -> TextButton(onClick = onLoadMore) { Text(stringResource(R.string.history_more)) }
+            state.canLoadMoreHistory -> TextButton(onClick = onLoadMore) { Text(stringResource(R.string.history_more), color = color) }
             state.hasNoHistory -> Text(stringResource(R.string.history_none), color = color, modifier = Modifier.padding(8.dp))
             loaded > 0 && truncated ->
                 Text(pluralStringResource(R.plurals.history_limit, loaded, loaded), color = color, modifier = Modifier.padding(8.dp))
             loaded > 0 -> Text(stringResource(R.string.history_start), color = color, modifier = Modifier.padding(8.dp))
         }
         if (loaded > 0 && !state.isLoadingHistory) {
-            TextButton(onClick = onHide) { Text(stringResource(R.string.history_hide)) }
+            TextButton(onClick = onHide) { Text(stringResource(R.string.history_hide), color = color) }
         }
     }
 }
