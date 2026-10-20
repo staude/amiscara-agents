@@ -380,6 +380,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   buttons that also work while the app is closed, and a standby
   (foreground service, Quick Settings tile, start on boot) that keeps the
   sessions open in the background (#177).
+- Android: home screen widget with the waiting and working agents of all
+  hosts, `scripts/android-upload-key.sh` and `scripts/android-release.sh`
+  for signed App Bundles, and the Play Console texts in
+  `docs/play-store.md` (#178).
 
 ### Changed
 

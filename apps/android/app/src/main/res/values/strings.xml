@@ -245,6 +245,24 @@
     <string name="settings_notifications_text">Ohne Bereitschaft kommen Benachrichtigungen nur, solange Android die App laufen lässt. Pro Host abschaltbar unter „Bearbeiten“.</string>
     <string name="host_notify">Benachrichtigen, wenn ein Agent wartet oder fertig ist</string>
 
+    <!-- Widget -->
+    <string name="widget_title">Agents</string>
+    <string name="widget_description">Wartende und arbeitende Agents auf allen Hosts.</string>
+    <string name="widget_waits">wartet</string>
+    <string name="widget_wait">warten</string>
+    <plurals name="widget_working">
+        <item quantity="one">%1$d arbeitet</item>
+        <item quantity="other">%1$d arbeiten</item>
+    </plurals>
+    <plurals name="widget_waiting_count">
+        <item quantity="one">%1$d wartet</item>
+        <item quantity="other">%1$d warten</item>
+    </plurals>
+    <string name="widget_no_data">Noch keine Daten. Öffnen Sie die App einmal.</string>
+    <string name="widget_no_agents">Keine Agents.</string>
+    <string name="widget_no_data_short">Keine Daten</string>
+    <string name="widget_updated">Stand %1$s</string>
+
     <!-- Scanner -->
     <string name="scan_hint">Den QR-Code aus „Host teilen“ der Mac-App ins Bild halten.</string>
     <string name="camera_denied">Ohne Kamera kein Scan. Erlauben Sie den Zugriff in den Einstellungen, oder fügen Sie den Link ein.</string>

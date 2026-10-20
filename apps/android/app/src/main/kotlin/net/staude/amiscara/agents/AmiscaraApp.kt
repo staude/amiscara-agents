@@ -9,6 +9,12 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
+import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.staude.amiscara.agents.model.AppLink
 import net.staude.amiscara.agents.model.Connections
@@ -19,6 +25,9 @@ import net.staude.amiscara.agents.model.Shortcuts
 import net.staude.amiscara.agents.standby.Notifier
 import net.staude.amiscara.agents.standby.StandbyService
 import net.staude.amiscara.agents.standby.StandbyTile
+import net.staude.amiscara.agents.widget.AgentsWidget
+import net.staude.amiscara.agents.widget.WidgetData
+import net.staude.amiscara.agents.widget.WidgetSnapshot
 
 /** Holds the app-wide state: hosts, their sessions, notifications and opened links. */
 class AmiscaraApp : Application() {
@@ -29,6 +38,8 @@ class AmiscaraApp : Application() {
     lateinit var settings: Settings
         private set
     lateinit var notifier: Notifier
+        private set
+    lateinit var widgetData: WidgetData
         private set
 
     /** Main thread work that outlives the screens: sessions, standby, answers. */
@@ -71,6 +82,17 @@ class AmiscaraApp : Application() {
         notifier = Notifier(this, hosts)
         connections = Connections(hosts, scope, notifier::notify)
         localNetworkAllowed.value = hasLocalNetwork()
+        widgetData = WidgetData(this)
+        // The widget follows the live hosts, at most once a second.
+        scope.launch {
+            combine(hosts.hosts, connections.updates) { list, updates -> WidgetSnapshot.of(list, updates, System.currentTimeMillis()) }
+                .filterNotNull()
+                .conflate()
+                .collect {
+                    if (widgetData.save(it)) AgentsWidget().updateAll(this@AmiscaraApp)
+                    delay(1_000)
+                }
+        }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 // Coming back after a while: try failed hosts at once
