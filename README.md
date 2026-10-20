@@ -20,7 +20,7 @@ their `herdr-*` names: they describe the herdr protocol, not the app.
 | Apple Watch | SwiftUI, `apps/AmiscaraAgents/Watch` | watchOS 26 | none: through the iPhone and iCloud | mirrored from the iPhone | with the iOS app |
 | Windows | Tauri 2, `apps/desktop` | Windows 10, x64 or ARM64 | SSH | toasts, while in the tray | installer from the releases repo |
 | Linux | Tauri 2, `apps/desktop` | WebKitGTK 4.1 | this machine (socket) and SSH | libnotify, while in the tray | AppImage or deb from the releases repo |
-| Android (in progress, #179) | Kotlin, Compose, `apps/android` | Android 10 | SSH | while the standby service runs (planned) | `scripts/install-android.sh`, later Google Play |
+| Android | Kotlin, Compose, `apps/android` | Android 10 | SSH | with answer buttons, while the app or its standby service runs | `scripts/install-android.sh`, Google Play (testing) |
 
 All apps share the same host model, the same restricted `authorized_keys` line
 and the same `amiscara-agents://add-host?v=1&...` link (QR code on the Apple
@@ -250,6 +250,11 @@ Needs Android Studio (SDK, JDK) and the NDK the app names in
 `apps/android/app/build.gradle.kts`. Gradle builds the Rust core itself
 before compiling. Details: [apps/android/README.md](apps/android/README.md).
 Plan and phases: #179.
+
+Release to Google Play: `scripts/android-upload-key.sh` once, then
+`scripts/android-release.sh <version>` per upload (signed App Bundle, higher
+`versionCode`, tag `android-v<version>`). Console texts, data safety and
+the steps: [docs/play-store.md](docs/play-store.md).
 
 ## Testing input
 

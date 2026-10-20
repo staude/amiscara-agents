@@ -104,6 +104,28 @@ Opening `apps/android` in Android Studio works the same way.
 - Code: `standby/` (`Notifier`, `StandbyService`, `AnswerReceiver`,
   `BootReceiver`, `StandbyTile`).
 
+## Widget
+
+Glance widget "Agents" like the one of the Apple apps: small, the number
+of waiting agents and working ones (a tap opens the first waiting agent);
+from about three cells wide, the agents of all hosts with their state, as
+many as fit, each opening its pane. It shows the last state the app saw
+("Stand 14:05"), live while the app or the standby runs; the snapshot is
+kept in the preferences for after the process ended (`widget/`).
+
+## Release
+
+```sh
+../../scripts/android-upload-key.sh         # once: upload key, password in the Keychain
+../../scripts/android-release.sh 0.2.0      # per upload: versionCode + 1, signed .aab, tag
+```
+
+`version.properties` holds `versionName` and `versionCode`. The release
+build is signed only with `keystore.properties` (not checked in) and the
+password in `AMISCARA_UPLOAD_KEY_PASSWORD`, which the release script takes
+from the Keychain. Google keeps the app signing key (Play App Signing).
+Play Console texts and steps: `docs/play-store.md`.
+
 Keyboard (hardware keyboard on a tablet or phone):
 
 | Keys | Action |
