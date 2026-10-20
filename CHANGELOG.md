@@ -362,6 +362,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   (cargo-ndk, Kotlin bindings through UniFFI) and a first screen checks
   that the core loads; `scripts/install-android.sh`, `scripts/check.sh
   --android` and an Android job in the full CI chain (#173).
+- Android: hosts with a key of their own (Android Keystore), the restricted
+  `authorized_keys` line to copy or share, host key confirmation, live
+  connection state with hints, editor, adding by QR code, pasted or opened
+  link (an opened link's host key is not trusted), reconnect in the
+  foreground, and the Android 17 local network permission (#174).
+- `herdr-ffi` writes Rust panics to logcat on Android (#174).
 
 ### Changed
 
