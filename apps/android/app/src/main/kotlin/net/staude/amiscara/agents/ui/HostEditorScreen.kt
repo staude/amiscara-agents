@@ -56,6 +56,7 @@ fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved:
     var allowInput by remember { mutableStateOf(initial?.allowInput ?: true) }
     var allowUpload by remember { mutableStateOf(initial?.allowUpload ?: false) }
     var groupSpaces by remember { mutableStateOf(initial?.groupSpacesByName ?: true) }
+    var notify by remember { mutableStateOf(initial?.notify ?: true) }
     var error by remember { mutableStateOf<String?>(null) }
 
     val effectiveSocket = if (socketTouched) socket else if (user.isBlank()) "" else HostConfig.defaultSocket(user.trim(), macHost)
@@ -70,6 +71,7 @@ fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved:
             allowInput = allowInput,
             allowUpload = allowUpload,
             groupSpaces = groupSpaces,
+            notify = notify,
         )
         try {
             saved(app.hosts.save(draft).id)
@@ -157,6 +159,7 @@ fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved:
             SwitchRow(stringResource(R.string.allow_input), allowInput) { allowInput = it }
             SwitchRow(stringResource(R.string.allow_upload), allowUpload) { allowUpload = it }
             SwitchRow(stringResource(R.string.group_spaces), groupSpaces) { groupSpaces = it }
+            SwitchRow(stringResource(R.string.host_notify), notify) { notify = it }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }

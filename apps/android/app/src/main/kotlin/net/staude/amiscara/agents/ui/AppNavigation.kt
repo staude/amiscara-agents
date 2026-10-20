@@ -1,5 +1,8 @@
 package net.staude.amiscara.agents.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -74,12 +77,24 @@ fun AppNavigation(app: AmiscaraApp) {
         app.refreshLocalNetwork()
     }
 
-    // Asked once there is a host to reach, not on the empty first start.
+    val askFirstStart = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        app.refreshLocalNetwork()
+    }
+
+    // Asked once there is a host to reach, not on the empty first start:
+    // the local network and, from Android 13, notifications.
     LaunchedEffect(hosts.isNotEmpty(), localNetwork) {
-        if (hosts.isNotEmpty() && !localNetwork && !app.localNetworkAsked) {
-            app.localNetworkAsked = true
-            askLocalNetwork.launch(AmiscaraApp.LOCAL_NETWORK)
+        if (hosts.isEmpty() || app.permissionsAsked) return@LaunchedEffect
+        app.permissionsAsked = true
+        val missing = buildList {
+            if (!localNetwork) add(AmiscaraApp.LOCAL_NETWORK)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
+        if (missing.isNotEmpty()) askFirstStart.launch(missing.toTypedArray())
     }
 
     LaunchedEffect(Unit) {

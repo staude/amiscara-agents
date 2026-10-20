@@ -1,6 +1,15 @@
 package net.staude.amiscara.agents.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings as SystemSettings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,11 +41,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.BuildConfig
@@ -47,8 +60,9 @@ import net.staude.amiscara.agents.model.TerminalPrefs
 import net.staude.amiscara.agents.model.TerminalScheme
 
 /**
- * Settings of this device: terminal look and font, quick replies, the
- * keyboard shortcuts. Per host settings are in the host editor.
+ * Settings of this device: standby and notifications, terminal look and
+ * font, quick replies, the keyboard shortcuts. Per host settings are in the
+ * host editor.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +75,35 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
         back()
     }
     BackHandler(onBack = leave)
+
+    val context = LocalContext.current
+    val standby by app.settings.standby.collectAsStateWithLifecycle()
+    val standbyOnBoot by app.settings.standbyOnBoot.collectAsStateWithLifecycle()
+    // Both can change in the system settings meanwhile.
+    var notificationsAllowed by remember { mutableStateOf(app.notifier.allowed()) }
+    var batteryExempt by remember { mutableStateOf(context.batteryExempt()) }
+    LifecycleResumeEffect(Unit) {
+        notificationsAllowed = app.notifier.allowed()
+        batteryExempt = context.batteryExempt()
+        onPauseOrDispose {}
+    }
+    // Android asks twice at most; after a refusal the system settings help.
+    var refused by remember { mutableStateOf(false) }
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        notificationsAllowed = app.notifier.allowed()
+        refused = !granted
+    }
+    val allowNotifications = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !refused &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            context.startActivity(
+                Intent(SystemSettings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(SystemSettings.EXTRA_APP_PACKAGE, context.packageName),
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -78,6 +121,35 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Section(stringResource(R.string.settings_notifications))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.standby))
+                    Text(stringResource(R.string.settings_standby_text), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = standby,
+                    onCheckedChange = {
+                        app.setStandby(it)
+                        if (it && !notificationsAllowed) allowNotifications()
+                    },
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.settings_standby_boot), Modifier.weight(1f))
+                Switch(checked = standbyOnBoot, onCheckedChange = app.settings::setStandbyOnBoot, enabled = standby)
+            }
+            if (!notificationsAllowed) {
+                Hint(stringResource(R.string.settings_notifications_off), stringResource(R.string.settings_notifications_allow), allowNotifications)
+            }
+            if (standby && !batteryExempt) {
+                Hint(stringResource(R.string.settings_battery_hint), stringResource(R.string.settings_battery_open)) {
+                    context.startActivity(Intent(SystemSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }
+            Text(stringResource(R.string.settings_notifications_text), style = MaterialTheme.typography.bodySmall)
+
+            HorizontalDivider()
             Section(stringResource(R.string.settings_terminal))
             Text(stringResource(R.string.settings_appearance), style = MaterialTheme.typography.labelLarge)
             Choice(
@@ -153,6 +225,18 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
         }
     }
 }
+
+/** A note with a button that fixes it. */
+@Composable
+private fun Hint(text: String, action: String, onClick: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text, Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = onClick) { Text(action) }
+    }
+}
+
+private fun Context.batteryExempt(): Boolean =
+    getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
 
 @Composable
 private fun Section(title: String) {

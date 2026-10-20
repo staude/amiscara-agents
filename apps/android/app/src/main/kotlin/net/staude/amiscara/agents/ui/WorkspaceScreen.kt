@@ -131,6 +131,12 @@ fun WorkspaceScreen(
         ?: workspace?.tabs?.firstOrNull { it.tabId == tabId }
         ?: workspace?.tabs?.firstOrNull()
     val pane = tab?.panes?.firstOrNull { it.paneId == paneId } ?: tab?.let(::defaultPane)
+    // The pane on screen gets no notifications while the app is in front.
+    val shown = pane?.let { hostId to it.paneId }
+    DisposableEffect(shown) {
+        app.notifier.visiblePane = shown
+        onDispose { if (app.notifier.visiblePane == shown) app.notifier.visiblePane = null }
+    }
 
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
