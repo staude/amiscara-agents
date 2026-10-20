@@ -66,11 +66,39 @@ Opening `apps/android` in Android Studio works the same way.
 - Terminal: lines keep the pane's width and scroll both ways, pinch changes
   the font size (8 to 28), older history loads in steps up to 1000 lines,
   search marks hits. Color schemes and minimum contrast as in the other
-  apps (`ui/TerminalTheme.kt`); the settings for them follow in #176.
+  apps (`ui/TerminalTheme.kt`).
 - Input bar: answers 1, 2, 3, Bestätigen, Abbrechen while an agent waits,
   key bar and quick replies in one row, photos and files as attachments
   (needs "Dateien hochladen"), live mode for slash commands. A prompt goes
   to an agent with `agent.prompt`, to a shell as text plus Enter.
+
+## Managing and settings
+
+- Host menu (⋮ in the sidebar): details, reconnect, new space. A long press
+  on a space renames it, makes a worktree from its repository or closes it
+  (with its linked worktrees); on an agent it names the agent.
+- Space menu (⋮ top right): new tab, start an agent in a shell pane, name
+  the agent, the Claude Code conversation (needs SFTP for the key), rename
+  or close tab and space, font size. New space, tab and worktree can start
+  an agent right away; the dialogs remember the last choice.
+- Quick switcher (🔍 or Ctrl+K): spaces and agents on all hosts, matched
+  like the other apps.
+- Settings: terminal light/dark, color scheme, minimum contrast, font size,
+  quick replies.
+
+Keyboard (hardware keyboard on a tablet or phone):
+
+| Keys | Action |
+|---|---|
+| Ctrl+K | Quick switcher |
+| Ctrl+1 … 9 | Space by position on the current host |
+| Ctrl+Shift+[ / ], Ctrl+PageUp/Down | Previous / next tab |
+| Ctrl+F | Search in the pane |
+| Ctrl+plus / minus / 0 | Terminal font size |
+| Ctrl+Alt+1 … 3 | Answer a waiting agent |
+| Ctrl+Alt+arrows, Ctrl+., Ctrl+Shift+Enter | Arrow keys, Esc, Enter to the pane |
+
+Ctrl+Alt shortcuts are ignored for keys typed with AltGr.
 
 ## Emulator
 

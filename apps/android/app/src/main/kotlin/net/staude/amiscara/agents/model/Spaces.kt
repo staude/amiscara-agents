@@ -1,5 +1,6 @@
 package net.staude.amiscara.agents.model
 
+import kotlinx.serialization.Serializable
 import net.staude.amiscara.agents.core.BoardItem
 import net.staude.amiscara.agents.core.SessionUpdate
 import net.staude.amiscara.agents.core.WorkspaceItem
@@ -7,6 +8,10 @@ import net.staude.amiscara.agents.core.WorkspaceItem
 // The sidebar's order, like `HostSidebar.swift` and `spaces.ts`: spaces in
 // the core's order (worktrees after their repository, name groups
 // together), agents most urgent first.
+
+/** What the right side (or the next screen) shows: a space, maybe a pane. */
+@Serializable
+data class SpaceSelection(val hostId: String, val workspaceId: String, val paneId: String? = null)
 
 data class SpaceEntry(val workspace: WorkspaceItem, val nested: Boolean)
 

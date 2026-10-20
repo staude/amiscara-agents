@@ -78,6 +78,8 @@ android {
 
     buildFeatures {
         compose = true
+        // Version for the settings screen.
+        buildConfig = true
     }
 }
 

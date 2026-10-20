@@ -1,5 +1,6 @@
 package net.staude.amiscara.agents.ui
 
+import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,6 +36,7 @@ import kotlinx.serialization.Serializable
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
 import net.staude.amiscara.agents.model.AppLink
+import net.staude.amiscara.agents.model.SpaceSelection
 
 @Serializable
 object HostsRoute
@@ -53,6 +56,12 @@ data class AddLinkRoute(val text: String)
 
 @Serializable
 object ScanRoute
+
+@Serializable
+object SettingsRoute
+
+@Serializable
+data class ConversationRoute(val hostId: String, val paneId: String)
 
 /** The screens of the app and the links opened from outside. */
 @Composable
@@ -89,20 +98,43 @@ fun AppNavigation(app: AmiscaraApp) {
         }
     }
 
-    NavHost(nav, startDestination = HostsRoute) {
-        composable<HostsRoute> {
-            var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf<SpaceSelection?>(null) }
-            BoxWithConstraints {
-                // Side by side from about a small tablet or a phone in landscape.
-                val wide = maxWidth >= 700.dp
+    // The space beside the sidebar on a wide screen; a narrow one opens it
+    // as a screen of its own.
+    var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf<SpaceSelection?>(null) }
+    var dialog by remember { mutableStateOf<ManageDialog?>(null) }
+    var switcher by remember { mutableStateOf(false) }
+
+    KeyShortcuts(app) { event ->
+        if (event.keyCode == KeyEvent.KEYCODE_K && !event.isAltPressed && hosts.isNotEmpty()) {
+            switcher = true
+            true
+        } else {
+            false
+        }
+    }
+
+    BoxWithConstraints {
+        // Side by side from about a small tablet or a phone in landscape.
+        val wide = maxWidth >= 700.dp
+        val openSpace: (SpaceSelection) -> Unit = { target ->
+            if (wide) {
+                selection = target
+                nav.popBackStack(HostsRoute, inclusive = false)
+            } else {
+                nav.navigate(SpaceRoute(target.hostId, target.workspaceId, target.paneId)) { popUpTo(HostsRoute) }
+            }
+        }
+        val manage = { value: ManageDialog -> dialog = value }
+        val openConversation = { hostId: String, paneId: String -> nav.navigate(ConversationRoute(hostId, paneId)) }
+
+        NavHost(nav, startDestination = HostsRoute) {
+            composable<HostsRoute> {
                 val sidebar = @Composable { modifier: Modifier ->
                     Sidebar(
                         app = app,
                         selected = selection.takeIf { wide },
                         openHost = { nav.navigate(HostRoute(it)) },
-                        openSpace = {
-                            if (wide) selection = it else nav.navigate(SpaceRoute(it.hostId, it.workspaceId, it.paneId))
-                        },
+                        openSpace = openSpace,
                         addHost = { nav.navigate(EditHostRoute()) },
                         scan = { nav.navigate(ScanRoute) },
                         addLink = {
@@ -110,6 +142,9 @@ fun AppNavigation(app: AmiscaraApp) {
                             nav.navigate(AddLinkRoute(it))
                         },
                         askLocalNetwork = { askLocalNetwork.launch(AmiscaraApp.LOCAL_NETWORK) },
+                        openSwitcher = { switcher = true },
+                        openSettings = { nav.navigate(SettingsRoute) },
+                        manage = manage,
                         modifier = modifier,
                     )
                 }
@@ -125,7 +160,11 @@ fun AppNavigation(app: AmiscaraApp) {
                         } else {
                             // A new selection starts the space view over (tab, pane, search).
                             key(current) {
-                                WorkspaceScreen(app, current.hostId, current.workspaceId, current.paneId, wide = true, back = null)
+                                WorkspaceScreen(
+                                    app, current.hostId, current.workspaceId, current.paneId, wide = true, back = null,
+                                    open = openSpace, manage = manage, openConversation = { openConversation(current.hostId, it) },
+                                    gone = { selection = null },
+                                )
                             }
                         }
                     }
@@ -133,31 +172,48 @@ fun AppNavigation(app: AmiscaraApp) {
                     sidebar(Modifier)
                 }
             }
-        }
-        composable<SpaceRoute> { entry ->
-            val route = entry.toRoute<SpaceRoute>()
-            BoxWithConstraints {
-                WorkspaceScreen(app, route.hostId, route.workspaceId, route.paneId, wide = maxWidth >= 700.dp, back = { nav.popBackStack() })
+            composable<SpaceRoute> { entry ->
+                val route = entry.toRoute<SpaceRoute>()
+                WorkspaceScreen(
+                    app, route.hostId, route.workspaceId, route.paneId, wide = wide, back = { nav.popBackStack() },
+                    open = openSpace, manage = manage, openConversation = { openConversation(route.hostId, it) },
+                    gone = { nav.popBackStack() },
+                )
+            }
+            composable<HostRoute> { entry ->
+                val id = entry.toRoute<HostRoute>().id
+                HostDetailScreen(app, id, back = { nav.popBackStack() }, edit = { nav.navigate(EditHostRoute(id)) })
+            }
+            composable<EditHostRoute> { entry ->
+                HostEditorScreen(app, entry.toRoute<EditHostRoute>().id, back = { nav.popBackStack() }, saved = { nav.showHost(it) })
+            }
+            composable<AddLinkRoute> { entry ->
+                val text = entry.toRoute<AddLinkRoute>().text
+                // Decided once per screen, from memory only (see AmiscaraApp.trustLink).
+                val trusted = rememberSaveable(text) { app.takeTrust(text) }
+                AddLinkScreen(app, text, trusted, back = { nav.popBackStack() }, added = { nav.showHost(it) })
+            }
+            composable<SettingsRoute> {
+                SettingsScreen(app, back = { nav.popBackStack() })
+            }
+            composable<ConversationRoute> { entry ->
+                val route = entry.toRoute<ConversationRoute>()
+                ConversationScreen(app, route.hostId, route.paneId, back = { nav.popBackStack() })
+            }
+            composable<ScanRoute> {
+                ScannerScreen(back = { nav.popBackStack() }, scanned = {
+                    app.trustLink(it)
+                    nav.navigate(AddLinkRoute(it)) { popUpTo(HostsRoute) }
+                })
             }
         }
-        composable<HostRoute> { entry ->
-            val id = entry.toRoute<HostRoute>().id
-            HostDetailScreen(app, id, back = { nav.popBackStack() }, edit = { nav.navigate(EditHostRoute(id)) })
-        }
-        composable<EditHostRoute> { entry ->
-            HostEditorScreen(app, entry.toRoute<EditHostRoute>().id, back = { nav.popBackStack() }, saved = { nav.showHost(it) })
-        }
-        composable<AddLinkRoute> { entry ->
-            val text = entry.toRoute<AddLinkRoute>().text
-            // Decided once per screen, from memory only (see AmiscaraApp.trustLink).
-            val trusted = rememberSaveable(text) { app.takeTrust(text) }
-            AddLinkScreen(app, text, trusted, back = { nav.popBackStack() }, added = { nav.showHost(it) })
-        }
-        composable<ScanRoute> {
-            ScannerScreen(back = { nav.popBackStack() }, scanned = {
-                app.trustLink(it)
-                nav.navigate(AddLinkRoute(it)) { popUpTo(HostsRoute) }
-            })
+
+        dialog?.let { ManageDialogView(app, it, dismiss = { dialog = null }, created = openSpace) }
+        if (switcher) {
+            QuickSwitcher(app, dismiss = { switcher = false }) {
+                switcher = false
+                openSpace(it)
+            }
         }
     }
 }

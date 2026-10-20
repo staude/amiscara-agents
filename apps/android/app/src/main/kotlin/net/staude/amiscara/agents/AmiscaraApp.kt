@@ -14,6 +14,7 @@ import net.staude.amiscara.agents.model.Connections
 import net.staude.amiscara.agents.model.HostRepository
 import net.staude.amiscara.agents.model.KeyVault
 import net.staude.amiscara.agents.model.Settings
+import net.staude.amiscara.agents.model.Shortcuts
 
 /** Holds the app-wide state: hosts, their sessions and opened links. */
 class AmiscaraApp : Application() {
@@ -37,6 +38,9 @@ class AmiscaraApp : Application() {
 
     /** Whether `text` is the link the user scanned or pasted; asks once. */
     fun takeTrust(text: String): Boolean = (trustedLink == text).also { if (it) trustedLink = null }
+
+    /** Hardware keyboard shortcuts of the screens on display. */
+    val shortcuts = Shortcuts()
 
     /** A link opened from outside the app, until the UI took it. */
     val openedLink = MutableStateFlow<AppLink?>(null)
