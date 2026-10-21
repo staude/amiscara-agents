@@ -202,6 +202,8 @@ pub struct StyledSpan {
     pub inverse: bool,
     pub hidden: bool,
     pub strikethrough: bool,
+    /// Web address to open on a click (#186).
+    pub link: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize)]
@@ -427,6 +429,7 @@ fn styled_span(span: &Span) -> StyledSpan {
         inverse: style.inverse,
         hidden: style.hidden,
         strikethrough: style.strikethrough,
+        link: span.link.clone(),
     }
 }
 

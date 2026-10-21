@@ -179,6 +179,8 @@ pub struct StyledSpan {
     pub inverse: bool,
     pub hidden: bool,
     pub strikethrough: bool,
+    /// Web address to open on a click (#186).
+    pub link: Option<String>,
 }
 
 #[uniffi::remote(Enum)]
