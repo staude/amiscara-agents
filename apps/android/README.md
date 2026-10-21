@@ -65,7 +65,7 @@ Opening `apps/android` in Android Studio works the same way.
   one live, the others read slowly); on a phone chips pick the pane.
 - Terminal: lines keep the pane's width and scroll both ways, pinch changes
   the font size (8 to 28), older history loads in steps up to 1000 lines,
-  search marks hits. Color schemes and minimum contrast as in the other
+  search marks hits, web addresses open in the browser. Color schemes and minimum contrast as in the other
   apps (`ui/TerminalTheme.kt`).
 - Input bar: answers 1, 2, 3, Bestätigen, Abbrechen while an agent waits,
   key bar and quick replies in one row, photos and files as attachments
