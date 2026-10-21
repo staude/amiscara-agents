@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import type { PaneModel } from "../lib/pane.svelte";
   import { prefs } from "../lib/prefs.svelte";
   import type { SearchMatch } from "../lib/search";
@@ -75,6 +76,13 @@
     return out;
   }
 
+  /** A click on a web address opens it in the browser (#186), unless it ends a text selection. */
+  function openLink(event: MouseEvent, link: string) {
+    event.preventDefault();
+    if (!window.getSelection()?.isCollapsed) return;
+    openUrl(link).catch(() => window.open(link, "_blank"));
+  }
+
   function onScroll() {
     if (!scroller) return;
     fromBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
@@ -137,10 +145,15 @@
   {/if}
   {#if model.content}
     {#each model.content.lines as line, index (index)}
-      <div class="line" data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}<span
-            class={part.mark}
-            style={part.mark ? "" : spanStyle(part.span, theme)}>{part.text}</span
-          >{/each}</div>
+      <div class="line" data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}{#if part.span.link}<a
+              href={part.span.link}
+              class={part.mark}
+              style={part.mark ? "" : spanStyle(part.span, theme)}
+              onclick={(event) => openLink(event, part.span.link!)}>{part.text}</a
+            >{:else}<span
+              class={part.mark}
+              style={part.mark ? "" : spanStyle(part.span, theme)}>{part.text}</span
+            >{/if}{/each}</div>
     {/each}
   {:else if model.error}
     <p class="note">Pane nicht lesbar: {model.error}</p>
@@ -190,6 +203,10 @@
   .note {
     font-family: system-ui, sans-serif;
     color: color-mix(in srgb, var(--term-fg) 70%, transparent);
+  }
+  a {
+    color: inherit;
+    text-decoration: underline;
   }
   .match {
     background: rgb(242 204 64 / 0.75);

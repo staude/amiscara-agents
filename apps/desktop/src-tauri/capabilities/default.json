@@ -9,6 +9,7 @@
     "core:default",
     "core:window:allow-set-theme",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "opener:default"
   ]
 }

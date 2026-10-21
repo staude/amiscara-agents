@@ -177,6 +177,7 @@ const span = (text: string, fg: Parameters<typeof color>[0] = "default", bold = 
   inverse: false,
   hidden: false,
   strikethrough: false,
+  link: null,
 });
 
 function screen(paneId: string, history: number): PaneContent {
@@ -192,6 +193,7 @@ function screen(paneId: string, history: number): PaneContent {
   lines.push([span("  ⎿  Read 753 lines", 8)]);
   lines.push([span("⏺ ", 2), span("Bash", "default", true), span("(cargo clippy -p amiscara-desktop)")]);
   lines.push([span("  ⎿  Finished `dev` profile in 0.70s", 8)]);
+  lines.push([span("  PR: "), { ...span("https://github.com/staude/amiscara-agents/pull/186"), link: "https://github.com/staude/amiscara-agents/pull/186" }]);
   for (let i = 0; i < 24; i++) lines.push([span(`   ${String(i + 1).padStart(3)} `, 8), span("let model = new PaneModel(hostId, paneId, live);", 6)]);
   if (paneId === "p1") {
     lines.push([span("Do you want to proceed?", "default", true)]);

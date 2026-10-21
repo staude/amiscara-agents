@@ -155,6 +155,8 @@ export interface StyledSpan {
   inverse: boolean;
   hidden: boolean;
   strikethrough: boolean;
+  /** Web address to open on a click (#186). */
+  link: string | null;
 }
 
 export interface PaneContent {
