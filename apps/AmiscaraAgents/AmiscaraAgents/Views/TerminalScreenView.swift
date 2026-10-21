@@ -187,6 +187,13 @@ enum TerminalStyle {
                 .italic(span.italic)
             if span.underline { part.underlineStyle = .single }
             if span.strikethrough { part.strikethroughStyle = .single }
+            #if !os(tvOS)
+            // A web address in the output opens in the browser (#186).
+            if let link = span.link, let url = URL(string: link) {
+                part.link = url
+                part.underlineStyle = .single
+            }
+            #endif
             result += part
         }
         for match in matches {

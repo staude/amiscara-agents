@@ -2,11 +2,14 @@ package net.staude.amiscara.agents.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import kotlin.math.max
 import kotlin.math.min
@@ -110,11 +113,21 @@ data class TerminalTheme(
     /** One terminal line with search hits marked: character ranges and their color. */
     fun line(line: StyledLine, marks: List<Pair<IntRange, Color>> = emptyList()): AnnotatedString =
         buildAnnotatedString {
-            for (span in line.spans) withStyle(style(span)) { append(span.text) }
+            for (span in line.spans) {
+                // A web address in the output opens in the browser (#186).
+                val link = span.link
+                if (link == null) {
+                    withStyle(style(span)) { append(span.text) }
+                } else {
+                    withLink(LinkAnnotation.Url(link, LINK)) { withStyle(style(span)) { append(span.text) } }
+                }
+            }
             for ((range, color) in marks) addStyle(SpanStyle(background = color, color = Color.Black), range.first, range.last + 1)
         }
 
     companion object {
+        private val LINK = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))
+
         /** Contrast ratio text gets at least with `minContrast` (WCAG AA). */
         const val CONTRAST_TARGET = 4.5
 
