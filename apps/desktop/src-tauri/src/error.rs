@@ -31,6 +31,7 @@ impl AppError {
                 SessionError::Upload(_) => "upload",
                 SessionError::InvalidLink(_) => "invalidLink",
                 SessionError::Files(_) => "files",
+                SessionError::AgentWorking(_) => "agentWorking",
             },
             Self::Store(_) => "store",
             Self::KeyStore(_) => "keyStore",

@@ -267,6 +267,10 @@
       <input type="checkbox" checked={prefs.minContrast} onchange={(e) => prefs.setMinContrast(e.currentTarget.checked)} />
       Mindestkontrast: zu schwache Schriftfarben aufhellen oder abdunkeln
     </label>
+    <label class="check">
+      <input type="checkbox" checked={prefs.fullscreenScroll} onchange={(e) => prefs.setFullscreenScroll(e.currentTarget.checked)} />
+      Vollbild-Agenten scrollen: blättert in Claude Code und holt seinen Verlauf, bewegt dabei auch die Ansicht auf dem Host
+    </label>
     <div class="update-row">
       <span>Version {model.info?.version}</span>
       <button disabled={updater.state === "checking"} onclick={() => updater.check()}>Nach Updates suchen</button>
