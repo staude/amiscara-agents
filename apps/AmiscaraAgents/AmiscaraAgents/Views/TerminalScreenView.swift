@@ -123,37 +123,78 @@ struct TerminalScreenView: View {
 }
 
 /// First row of the pane: load older lines, or say why there are none.
+/// For a full-screen agent, which herdr keeps no scrollback for, it can
+/// fetch the agent's transcript or page through its own view (#187).
 private struct HistoryHeader: View {
     let model: PaneModel
     let content: PaneContent
     let theme: TerminalTheme
+    @AppStorage(PaneModel.fullscreenScrollKey) private var fullscreenScroll = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            if model.isLoadingHistory {
-                ProgressView().controlSize(.small)
-                Text("Verlauf wird geladen …")
-            } else if model.canLoadMoreHistory {
-                Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
-                    model.loadMoreHistory()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                if model.isLoadingHistory {
+                    ProgressView().controlSize(.small)
+                    Text("Verlauf wird geladen …")
+                } else if model.isLoadingAgentHistory {
+                    ProgressView().controlSize(.small)
+                    Text("Verlauf wird vom Agenten geholt …")
+                } else if model.agentHistory != nil {
+                    Text("Verlauf des Agenten, ohne Farben")
+                    Button("Aktualisieren", systemImage: "arrow.clockwise") {
+                        model.loadAgentHistory()
+                    }
+                } else if model.canLoadMoreHistory {
+                    Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
+                        model.loadMoreHistory()
+                    }
+                } else if model.hasNoHistory, fullscreenScroll {
+                    fullscreenControls
+                } else if model.hasNoHistory {
+                    Text(noHistory)
+                } else if content.historyLines > 0, content.truncated {
+                    Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
+                } else if content.historyLines > 0 {
+                    Text("Anfang des Verlaufs")
                 }
-            } else if model.hasNoHistory {
-                Text("Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen.")
-            } else if content.historyLines > 0, content.truncated {
-                Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
-            } else if content.historyLines > 0 {
-                Text("Anfang des Verlaufs")
+                if content.historyLines > 0 {
+                    Button("Nur Bildschirm", systemImage: "rectangle.compress.vertical") {
+                        model.hideHistory()
+                    }
+                }
             }
-            if content.historyLines > 0 {
-                Button("Nur Bildschirm", systemImage: "rectangle.compress.vertical") {
-                    model.hideHistory()
-                }
+            if let error = model.agentError {
+                Label(error, systemImage: "exclamationmark.triangle")
             }
         }
         .font(.callout)
         .buttonStyle(.bordered)
         .foregroundStyle(theme.foreground.color.opacity(0.7))
         .fixedSize()
+    }
+
+    private var noHistory: LocalizedStringKey {
+        #if os(tvOS)
+        "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen."
+        #else
+        "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten."
+        #endif
+    }
+
+    /// Both move the agent's view on the host too, which the setting
+    /// accepts.
+    @ViewBuilder private var fullscreenControls: some View {
+        Button("Verlauf vom Agenten holen", systemImage: "text.alignleft") {
+            model.loadAgentHistory()
+        }
+        .help(String(localized: "Geht nur, wenn der Agent nicht arbeitet"))
+        Group {
+            Button("Seite hoch", systemImage: "chevron.up") { model.scrollAgent(.pageUp) }
+            Button("Seite runter", systemImage: "chevron.down") { model.scrollAgent(.pageDown) }
+            Button("Ans Ende", systemImage: "arrow.down.to.line") { model.scrollAgent(.bottom) }
+        }
+        .labelStyle(.iconOnly)
     }
 }
 
