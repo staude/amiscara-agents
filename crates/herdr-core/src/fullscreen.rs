@@ -49,7 +49,7 @@ const PRECISION: u32 = 25;
 /// herdr 0.9.5 falls back to the bare screen when the history is shorter
 /// than the rows asked for (the last page at the top does not line up), so
 /// after such a read the request narrows down until one comes back whole,
-/// which loses at most [`PRECISION`] rows at the top.
+/// which loses at most [`PRECISION`] rows at the top (herdr#5462).
 pub async fn read_history(conn: &Connection, pane_id: &str) -> Result<PaneScreen, HistoryError> {
     let mut asked = MAX_HISTORY_LINES;
     let mut best = read_agent(conn, pane_id, asked).await?;
