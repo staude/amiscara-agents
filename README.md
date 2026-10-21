@@ -32,7 +32,8 @@ devices), so a host is set up the same way everywhere.
   all hosts, waiting agents first; `Bereich/Name` spaces grouped (see below).
 - The live pane screen, split tabs side by side, search, scrollback up to
   1000 lines, font zoom; for Claude panes the conversation itself, read from
-  `~/.claude/projects` on the host.
+  `~/.claude/projects` on the host, and optionally paging through
+  full-screen agents and fetching their transcript (#187).
 - Input under the pane: prompts to agents, text to shells, keys such as
   Enter, Esc or 1/2/3 to answer an agent waiting for approval, quick replies.
   Each host has a switch to keep it read-only. A prompt starting with `/`
