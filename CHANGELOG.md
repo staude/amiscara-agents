@@ -384,6 +384,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   hosts, `scripts/android-upload-key.sh` and `scripts/android-release.sh`
   for signed App Bundles, and the Play Console texts in
   `docs/play-store.md` (#178).
+- Web addresses in a pane's output are links in all apps (not on tvOS):
+  found in the text by `herdr-core::terminal`, since herdr drops OSC 8
+  targets; an address the terminal or an agent wrapped links all its parts
+  to the whole address. The desktop app opens them through
+  `tauri-plugin-opener` (#186).
 
 ### Changed
 

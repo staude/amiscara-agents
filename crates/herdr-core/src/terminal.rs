@@ -7,8 +7,11 @@
 //! SGR into runs of equally styled text, which maps directly onto
 //! `AttributedString` in SwiftUI and spans in a web view. Any other escape
 //! sequence is skipped, so a newer herdr cannot break the view.
+//!
+//! herdr drops the targets of OSC 8 hyperlinks from this format, so links
+//! are web addresses found in the text (#186).
 
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum Color {
@@ -37,6 +40,9 @@ pub struct Style {
 pub struct Span {
     pub text: String,
     pub style: Style,
+    /// The web address this text belongs to; a wrapped address links all
+    /// of its parts to the whole of it.
+    pub link: Option<String>,
 }
 
 impl Span {
@@ -66,6 +72,7 @@ impl Line {
             _ => self.spans.push(Span {
                 text: ch.to_string(),
                 style,
+                link: None,
             }),
         }
     }
@@ -137,7 +144,61 @@ impl Screen {
         if !input.ends_with('\n') {
             lines.push(line);
         }
-        Self { lines }
+        let mut screen = Self { lines };
+        screen.mark_links();
+        screen
+    }
+
+    /// Finds web addresses and puts them on the spans as links.
+    fn mark_links(&mut self) {
+        if !self
+            .lines
+            .iter()
+            .any(|line| line.spans.iter().any(|span| span.text.contains("://")))
+        {
+            return;
+        }
+        let rows: Vec<Vec<char>> = self
+            .lines
+            .iter()
+            .map(|line| line.text().chars().collect())
+            .collect();
+        let found = find_links(&rows);
+        if found.is_empty() {
+            return;
+        }
+        let mut marks: Vec<Vec<Option<usize>>> =
+            rows.iter().map(|row| vec![None; row.len()]).collect();
+        for (index, link) in found.iter().enumerate() {
+            for &(row, start, end) in &link.parts {
+                marks[row][start..end].fill(Some(index));
+            }
+        }
+        for (line, marks) in self.lines.iter_mut().zip(&marks) {
+            if marks.iter().all(Option::is_none) {
+                continue;
+            }
+            let cells: Vec<(char, Style)> = line
+                .spans
+                .iter()
+                .flat_map(|span| span.text.chars().map(move |c| (c, span.style)))
+                .collect();
+            let mut spans: Vec<Span> = Vec::new();
+            for ((c, style), mark) in cells.into_iter().zip(marks) {
+                let link = mark.map(|index| &found[index].url);
+                match spans.last_mut() {
+                    Some(span) if span.style == style && span.link.as_ref() == link => {
+                        span.text.push(c)
+                    }
+                    _ => spans.push(Span {
+                        text: c.to_string(),
+                        style,
+                        link: link.cloned(),
+                    }),
+                }
+            }
+            line.spans = spans;
+        }
     }
 
     /// The text without styles, one entry per line.
@@ -167,6 +228,137 @@ impl Screen {
         lines.reverse();
         lines.join("\n")
     }
+}
+
+/// A web address and where it stands: `(row, start, end)` in characters,
+/// more than one part when it wraps.
+#[derive(Debug, PartialEq, Eq)]
+struct FoundLink {
+    url: String,
+    parts: Vec<(usize, usize, usize)>,
+}
+
+/// A screen narrower than this has no full lines to wrap at.
+const MIN_WRAP_WIDTH: usize = 40;
+
+/// `http://` and `https://` addresses. One that reaches the right edge of a
+/// full line goes on in the next line when that line is not indented (the
+/// terminal wrapped it) or the address began its line (an agent such as
+/// Claude Code wraps with an indent, but moves a word to the next line
+/// first, so an address that only ends at the edge stands alone).
+fn find_links(rows: &[Vec<char>]) -> Vec<FoundLink> {
+    let trimmed = |row: &[char]| row.len() - row.iter().rev().take_while(|c| **c == ' ').count();
+    let indent = |row: &[char]| row.iter().take_while(|c| **c == ' ').count();
+    let width = |row: &[char]| {
+        row[..trimmed(row)]
+            .iter()
+            .map(|c| c.width().unwrap_or(0))
+            .sum::<usize>()
+    };
+    let full = rows.iter().map(|row| width(row)).max().unwrap_or(0);
+
+    let mut found = Vec::new();
+    let (mut row, mut col) = (0, 0);
+    while row < rows.len() {
+        let Some(start) = url_start(&rows[row], col) else {
+            row += 1;
+            col = 0;
+            continue;
+        };
+        let end = url_end(&rows[row], start);
+        let mut url: String = rows[row][start..end].iter().collect();
+        let mut parts = vec![(row, start, end)];
+        let (mut at, mut part_start, mut part_end) = (row, start, end);
+        while full >= MIN_WRAP_WIDTH
+            && part_end == trimmed(&rows[at])
+            && width(&rows[at]) == full
+            && at + 1 < rows.len()
+            && (indent(&rows[at + 1]) == 0 || part_start == indent(&rows[at]))
+        {
+            let next = &rows[at + 1];
+            let from = indent(next);
+            let to = url_end(next, from);
+            if to == from {
+                break;
+            }
+            url.extend(&next[from..to]);
+            parts.push((at + 1, from, to));
+            (at, part_start, part_end) = (at + 1, from, to);
+        }
+        let cut = trailing_punctuation(&url);
+        for _ in 0..cut {
+            url.pop();
+        }
+        let mut left = cut;
+        while left > 0 {
+            let last = parts.last_mut().expect("an address has a part");
+            let take = left.min(last.2 - last.1);
+            last.2 -= take;
+            left -= take;
+            if last.1 == last.2 {
+                parts.pop();
+            }
+        }
+        (row, col) = (at, part_end);
+        if url
+            .split_once("://")
+            .is_some_and(|(_, rest)| !rest.is_empty())
+        {
+            found.push(FoundLink { url, parts });
+        }
+    }
+    found
+}
+
+/// The next `http://` or `https://` at or after `from` that does not stand
+/// inside a word.
+fn url_start(row: &[char], from: usize) -> Option<usize> {
+    (from..row.len()).find(|&i| {
+        (i == 0 || !row[i - 1].is_alphanumeric())
+            && ["https://", "http://"].iter().any(|scheme| {
+                row[i..]
+                    .iter()
+                    .copied()
+                    .take(scheme.len())
+                    .eq(scheme.chars())
+            })
+    })
+}
+
+fn url_end(row: &[char], from: usize) -> usize {
+    from + row[from..].iter().take_while(|c| is_url_char(**c)).count()
+}
+
+/// Not whitespace, quotes or angle brackets, and no box drawing a TUI puts
+/// around text.
+fn is_url_char(c: char) -> bool {
+    !(c.is_whitespace()
+        || c.is_control()
+        || matches!(c, '<' | '>' | '"' | '\'' | '`' | '\u{2500}'..='\u{259f}'))
+}
+
+/// Characters at the end that close the sentence rather than the address:
+/// `.`, `,`, `:` and the like, and a `)` or `]` without its opening one.
+fn trailing_punctuation(url: &str) -> usize {
+    let mut chars: Vec<char> = url.chars().collect();
+    let mut cut = 0;
+    while let Some(&last) = chars.last() {
+        let unbalanced = |open: char, close: char| {
+            last == close
+                && chars.iter().filter(|c| **c == open).count()
+                    < chars.iter().filter(|c| **c == close).count()
+        };
+        if matches!(last, '.' | ',' | ';' | ':' | '!' | '?')
+            || unbalanced('(', ')')
+            || unbalanced('[', ']')
+        {
+            chars.pop();
+            cut += 1;
+        } else {
+            break;
+        }
+    }
+    cut
 }
 
 /// Longest line in [`Screen::excerpt`].
@@ -425,6 +617,133 @@ mod tests {
     fn excerpt_cuts_long_lines() {
         let screen = Screen::parse(&"\u{2500}".repeat(EXCERPT_LINE_CHARS + 10));
         assert_eq!(screen.excerpt(1).chars().count(), EXCERPT_LINE_CHARS);
+    }
+
+    fn links(screen: &Screen) -> Vec<(String, String)> {
+        screen
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .filter_map(|span| Some((span.text.clone(), span.link.clone()?)))
+            .collect()
+    }
+
+    fn link(text: &str, url: &str) -> (String, String) {
+        (text.to_string(), url.to_string())
+    }
+
+    /// A full-width rule as Claude Code and shell prompts draw one.
+    fn rule(width: usize) -> String {
+        "\u{2500}".repeat(width)
+    }
+
+    #[test]
+    fn web_addresses_become_links() {
+        let screen = Screen::parse("  PR: https://github.com/o/r/pull/1 and http://x.y/a?b=1&c=2");
+        assert_eq!(
+            links(&screen),
+            [
+                link(
+                    "https://github.com/o/r/pull/1",
+                    "https://github.com/o/r/pull/1"
+                ),
+                link("http://x.y/a?b=1&c=2", "http://x.y/a?b=1&c=2"),
+            ]
+        );
+        assert_eq!(
+            screen.text_lines(),
+            ["  PR: https://github.com/o/r/pull/1 and http://x.y/a?b=1&c=2"]
+        );
+    }
+
+    #[test]
+    fn link_keeps_the_styles_it_crosses() {
+        let screen = Screen::parse("see \x1b[1mhttps://a.b/\x1b[0mc d");
+        let bold = Style {
+            bold: true,
+            ..Style::default()
+        };
+        let spans: Vec<_> = screen.lines[0]
+            .spans
+            .iter()
+            .map(|s| (s.text.as_str(), s.style, s.link.as_deref()))
+            .collect();
+        assert_eq!(
+            spans,
+            [
+                ("see ", Style::default(), None),
+                ("https://a.b/", bold, Some("https://a.b/c")),
+                ("c", Style::default(), Some("https://a.b/c")),
+                (" d", Style::default(), None),
+            ]
+        );
+    }
+
+    #[test]
+    fn sentence_punctuation_is_not_part_of_the_link() {
+        let screen = Screen::parse(
+            "(siehe https://x.y/issues/3238). Oder https://x.y/wiki/A_(B), \"https://q.r\" <https://s.t>",
+        );
+        let urls: Vec<String> = links(&screen).into_iter().map(|(_, url)| url).collect();
+        assert_eq!(
+            urls,
+            [
+                "https://x.y/issues/3238",
+                "https://x.y/wiki/A_(B)",
+                "https://q.r",
+                "https://s.t"
+            ]
+        );
+    }
+
+    #[test]
+    fn no_link_without_host_or_inside_a_word() {
+        let screen = Screen::parse("https:// and xhttps://a.b and ftp://c.d");
+        assert!(links(&screen).is_empty());
+    }
+
+    #[test]
+    fn box_drawing_ends_a_link() {
+        let screen = Screen::parse("\u{2502} https://a.b/c\u{2502}");
+        assert_eq!(links(&screen), [link("https://a.b/c", "https://a.b/c")]);
+    }
+
+    #[test]
+    fn address_wrapped_by_the_terminal_links_both_parts() {
+        let first = format!("$ open https://example.com/{}", "a".repeat(33));
+        assert_eq!(first.len(), 60);
+        let screen = Screen::parse(&format!("{}\r\n{first}\r\nbcd/e?f=1 rest\r\n$ ", rule(60)));
+        let url = format!("https://example.com/{}bcd/e?f=1", "a".repeat(33));
+        assert_eq!(
+            links(&screen),
+            [link(&first[7..], &url), link("bcd/e?f=1", &url)]
+        );
+    }
+
+    #[test]
+    fn indented_address_wrapped_by_an_agent_links_both_parts() {
+        let first = format!("  https://example.com/{}", "a".repeat(38));
+        let screen = Screen::parse(&format!("{}\r\n{first}\r\n  tail.\r\n  next", rule(60)));
+        let url = format!("https://example.com/{}tail", "a".repeat(38));
+        assert_eq!(
+            links(&screen),
+            [link(&first[2..], &url), link("tail", &url)]
+        );
+    }
+
+    #[test]
+    fn address_that_only_ends_at_the_edge_stays_alone() {
+        // Claude Code moved the next word down; the address did not wrap.
+        let first = format!("  Link: https://example.com/{}", "a".repeat(32));
+        let screen = Screen::parse(&format!("{}\r\n{first}\r\n  bearbeiten", rule(60)));
+        let url = format!("https://example.com/{}", "a".repeat(32));
+        assert_eq!(links(&screen), [link(&url, &url)]);
+    }
+
+    #[test]
+    fn short_line_does_not_wrap() {
+        let screen = Screen::parse(&format!("{}\r\nhttps://a.b/c\r\nnext", rule(60)));
+        assert_eq!(links(&screen), [link("https://a.b/c", "https://a.b/c")]);
     }
 
     #[test]
