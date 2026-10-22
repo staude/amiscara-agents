@@ -28,6 +28,7 @@ import net.staude.amiscara.agents.standby.StandbyTile
 import net.staude.amiscara.agents.widget.AgentsWidget
 import net.staude.amiscara.agents.widget.WidgetData
 import net.staude.amiscara.agents.widget.WidgetSnapshot
+import net.staude.amiscara.agents.model.Texts
 
 /** Holds the app-wide state: hosts, their sessions, notifications and opened links. */
 class AmiscaraApp : Application() {
@@ -77,6 +78,7 @@ class AmiscaraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Texts.init(this)
         settings = Settings(this)
         hosts = HostRepository(this, KeyVault(this))
         notifier = Notifier(this, hosts)

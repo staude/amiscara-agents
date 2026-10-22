@@ -124,7 +124,7 @@ fun ManageDialogView(app: AmiscaraApp, dialog: ManageDialog, dismiss: () -> Unit
                 onConfirm = { create(agent) { it.createWorkspace(name.trim().ifEmpty { null }, directory.trim().ifEmpty { "~" }) } },
             ) {
                 Field(name, { name = it }, stringResource(R.string.field_name), stringResource(if (groupHint != null) R.string.placeholder_space_group else R.string.placeholder_space))
-                Field(directory, { directory = it }, stringResource(R.string.field_directory), "~/dev/projekt")
+                Field(directory, { directory = it }, stringResource(R.string.field_directory), stringResource(R.string.placeholder_directory))
                 groupHint?.let { Hint(it) }
                 AgentPicker(app, dialog.hostId, agent) {
                     agent = it
