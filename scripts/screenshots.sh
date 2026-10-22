@@ -43,8 +43,24 @@ pane() {
 }
 
 pids=()
+keys=~/.ssh/authorized_keys
+key_comment=amiscara-agents-screenshots-demo
+keys_backup=""
+emulator_started=false
 cleanup() {
     for pid in ${pids[@]+"${pids[@]}"}; do kill "$pid" 2>/dev/null || true; done
+    if [[ -n "$keys_backup" ]]; then
+        # Only the demo line goes; the file must then match the backup.
+        grep -v " $key_comment\$" "$keys" >"$keys_backup.new" || true
+        cat "$keys_backup.new" >"$keys"
+        rm -f "$keys_backup.new"
+        if cmp -s "$keys" "$keys_backup"; then
+            rm -f "$keys_backup"
+        else
+            echo "screenshots: $keys differs from its backup $keys_backup, check it" >&2
+        fi
+    fi
+    if $emulator_started; then adb emu kill >/dev/null 2>&1 || true; fi
     for udid in ${booted[@]+"${booted[@]}"}; do xcrun simctl shutdown "$udid" 2>/dev/null || true; done
     if ! $keep; then python3 "$here/seed.py" --stop; fi
 }
@@ -158,6 +174,68 @@ sim() {
     if $bars; then xcrun simctl status_bar "$udid" clear; fi
 }
 
+# --- Android (emulator) -------------------------------------------------
+# The emulator reaches the Mac over SSH at 10.0.2.2 with a throwaway key
+# whose line in authorized_keys only opens the demo session's socket (no
+# SFTP, so no conversation view); the line is removed again at the end.
+android() {
+    step "Android app (debug build)"
+    (cd apps/android && ./gradlew -q :app:assembleDebug)
+    if ! adb get-state >/dev/null 2>&1; then
+        step "Emulator ${ANDROID_AVD:-Pixel_9}"
+        "${ANDROID_HOME:-$HOME/Library/Android/sdk}/emulator/emulator" -avd "${ANDROID_AVD:-Pixel_9}" \
+            -no-window -no-audio -no-boot-anim -no-snapshot-save >"$root/emulator.log" 2>&1 &
+        emulator_started=true
+        adb wait-for-device
+        until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == 1 ]]; do sleep 2; done
+    fi
+    adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk >/dev/null
+    local app=net.staude.amiscara.agents
+    for permission in android.permission.POST_NOTIFICATIONS android.permission.ACCESS_LOCAL_NETWORK; do
+        adb shell pm grant "$app" "$permission" 2>/dev/null || true
+    done
+    adb shell cmd uimode night "$([[ $appearance == dark ]] && echo yes || echo no)" >/dev/null
+
+    step "Demo key for 10.0.2.2"
+    ssh-keygen -q -t ed25519 -N "" -C "$key_comment" -f "$root/demo-key"
+    keys_backup="$out/.authorized_keys.backup"
+    cp -p "$keys" "$keys_backup"
+    # shellcheck disable=SC2016 # $SSH_ORIGINAL_COMMAND is for sshd
+    printf 'restrict,command="case \\"$SSH_ORIGINAL_COMMAND\\" in *sftp*) exit 1 ;; *) exec nc -U \\"%s\\" ;; esac" %s\n' \
+        "$socket" "$(cat "$root/demo-key.pub")" >>"$keys"
+    local key host_key
+    key=$(base64 <"$root/demo-key" | tr -d '\n')
+    host_key=$(ssh-keyscan -t ed25519 127.0.0.1 2>/dev/null | awk '!/^#/ {printf "%s %s", $2, $3}' | base64 | tr -d '\n')
+
+    # Clean status bar: 9:41, full battery, no notifications.
+    adb shell settings put global sysui_demo_allowed 1
+    local demo=com.android.systemui.demo
+    adb shell am broadcast -a $demo -e command enter >/dev/null
+    adb shell am broadcast -a $demo -e command clock -e hhmm 0941 >/dev/null
+    adb shell am broadcast -a $demo -e command battery -e level 100 -e plugged false >/dev/null
+    adb shell am broadcast -a $demo -e command network -e wifi show -e level 4 >/dev/null
+    adb shell am broadcast -a $demo -e command notifications -e visible false >/dev/null
+
+    mkdir -p "$out/android"
+    local entry shot space where view search target
+    for entry in "hosts||||" "${views[@]}" "settings|||settings|"; do
+        IFS='|' read -r shot space where view search <<<"$entry"
+        [[ "$shot" == conversation || "$shot" == search ]] && continue
+        target=""
+        # shellcheck disable=SC2086 # where is "tab index"
+        [[ -n "$space" ]] && target=$(pane "$space" $where)
+        adb shell am start -S -W -n "$app/.MainActivity" \
+            --es demoHost 10.0.2.2 --es demoUser "$USER" --es demoSocket "$socket" \
+            --es demoKey "$key" --es demoHostKey "$host_key" \
+            --es demoPane "'$target'" --es demoView "'$view'" >/dev/null
+        sleep 8
+        adb exec-out screencap -p >"$out/android/$shot.png"
+        echo "    $out/android/$shot.png"
+    done
+    adb shell am force-stop "$app"
+    adb shell am broadcast -a $demo -e command exit >/dev/null
+}
+
 want mac && mac
 if want ios || want ipad; then
     step "iOS app for the simulator"
@@ -168,6 +246,7 @@ if want ios || want ipad; then
     want ipad && sim ipad "${IPAD_SIM:-$(sim_id "iPad Pro 13-inch (M5)")}" "$ios_app" true \
         "${views[@]}"
 fi
+want android && android
 if want tvos; then
     step "tvOS app for the simulator"
     sim_build AmiscaraAgents-tvOS "tvOS Simulator"

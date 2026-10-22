@@ -39,6 +39,7 @@ import kotlinx.serialization.Serializable
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
 import net.staude.amiscara.agents.model.AppLink
+import net.staude.amiscara.agents.model.Demo
 import net.staude.amiscara.agents.model.SpaceSelection
 
 @Serializable
@@ -97,6 +98,8 @@ fun AppNavigation(app: AmiscaraApp) {
         if (missing.isNotEmpty()) askFirstStart.launch(missing.toTypedArray())
     }
 
+    var switcher by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         app.openedLink.collect { link ->
             when (link) {
@@ -108,6 +111,17 @@ fun AppNavigation(app: AmiscaraApp) {
                 } else {
                     Toast.makeText(context, R.string.open_unknown_host, Toast.LENGTH_LONG).show()
                 }
+                is AppLink.Demo -> {
+                    link.paneId?.let {
+                        nav.navigate(SpaceRoute(Demo.HOST_ID, it.substringBefore(':'), it)) { popUpTo(HostsRoute) }
+                    }
+                    when (link.view) {
+                        "settings" -> nav.navigate(SettingsRoute)
+                        "conversation" -> link.paneId?.let { nav.navigate(ConversationRoute(Demo.HOST_ID, it)) }
+                        "switcher" -> switcher = true
+                        "addHost" -> nav.navigate(EditHostRoute())
+                    }
+                }
             }
             app.openedLink.value = null
         }
@@ -117,7 +131,6 @@ fun AppNavigation(app: AmiscaraApp) {
     // as a screen of its own.
     var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf<SpaceSelection?>(null) }
     var dialog by remember { mutableStateOf<ManageDialog?>(null) }
-    var switcher by remember { mutableStateOf(false) }
 
     KeyShortcuts(app) { event ->
         if (event.keyCode == KeyEvent.KEYCODE_K && !event.isAltPressed && hosts.isNotEmpty()) {

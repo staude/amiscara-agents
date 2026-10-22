@@ -7,6 +7,7 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import net.staude.amiscara.agents.model.Demo
 import net.staude.amiscara.agents.ui.AmiscaraTheme
 import net.staude.amiscara.agents.ui.AppNavigation
 
@@ -15,8 +16,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = application as AmiscaraApp
+        val demo = Demo.read(intent.extras, app.hosts)
         dropExtras(intent)
         if (savedInstanceState == null) handle(intent)
+        demo?.let { app.openedLink.value = it }
         setContent {
             AmiscaraTheme {
                 AppNavigation(app)
@@ -38,8 +41,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        val demo = Demo.read(intent.extras, (application as AmiscaraApp).hosts)
         dropExtras(intent)
         handle(intent)
+        demo?.let { (application as AmiscaraApp).openedLink.value = it }
     }
 
     /**
