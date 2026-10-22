@@ -5,20 +5,24 @@
 # or to disk.
 #
 #   scripts/apple-ci-secrets.sh --key-id <id> --issuer-id <uuid> --key <AuthKey_<id>.p8> \
-#       [--devid <developer-id.p12>] [--dist <apple-distribution.p12>] [--sparkle <sparkle-key>]
+#       [--devid <developer-id.p12>] [--devid-profile <profile>] [--dist <apple-distribution.p12>] \
+#       [--sparkle <sparkle-key>]
 #
 # Without --devid or --dist the workflow signs with cloud-managed
 # certificates, which needs an API key of the Admin role. Passwords of
 # the .p12 files are asked for and not echoed. --sparkle takes the private
 # Sparkle key exported with `generate_keys --account amiscara-agents -x
-# <file>`; delete that file afterwards. See docs/release.md.
+# <file>`; delete that file afterwards. --devid-profile takes the
+# Developer ID provisioning profile "Amiscara Agents Developer ID"
+# (developer.apple.com > Profiles), which scripts/ExportOptions.plist
+# names. See docs/release.md.
 set -euo pipefail
 
 env="apple-release"
-key_id="" issuer_id="" key="" devid="" dist="" sparkle=""
+key_id="" issuer_id="" key="" devid="" devid_profile="" dist="" sparkle=""
 
 die() { echo "apple-ci-secrets: $*" >&2; exit 1; }
-usage() { sed -n '7,8p' "$0" | sed 's/^# //'; exit 1; }
+usage() { sed -n '7,9p' "$0" | sed 's/^# //'; exit 1; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -26,6 +30,7 @@ while [[ $# -gt 0 ]]; do
         --issuer-id) issuer_id="${2:-}"; shift 2 ;;
         --key) key="${2:-}"; shift 2 ;;
         --devid) devid="${2:-}"; shift 2 ;;
+        --devid-profile) devid_profile="${2:-}"; shift 2 ;;
         --dist) dist="${2:-}"; shift 2 ;;
         --sparkle) sparkle="${2:-}"; shift 2 ;;
         *) usage ;;
@@ -35,6 +40,7 @@ done
 [[ -n "$key_id" && -n "$issuer_id" && -n "$key" ]] || usage
 [[ -f "$key" ]] || die "no file at $key"
 [[ -z "$devid" || -f "$devid" ]] || die "no file at $devid"
+[[ -z "$devid_profile" || -f "$devid_profile" ]] || die "no file at $devid_profile"
 [[ -z "$dist" || -f "$dist" ]] || die "no file at $dist"
 [[ -z "$sparkle" || -s "$sparkle" ]] || die "no key in $sparkle"
 command -v gh >/dev/null || die "gh not found (brew install gh)"
@@ -80,6 +86,9 @@ if [[ -n "$devid" ]]; then
     password=$(p12_password "$devid")
     base64 <"$devid" | secret APPLE_DEVID_P12
     printf '%s' "$password" | secret APPLE_DEVID_P12_PASSWORD
+fi
+if [[ -n "$devid_profile" ]]; then
+    base64 <"$devid_profile" | secret APPLE_DEVID_PROFILE
 fi
 if [[ -n "$dist" ]]; then
     password=$(p12_password "$dist")

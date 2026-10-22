@@ -6,7 +6,17 @@
     <string>developer-id</string>
     <key>teamID</key>
     <string>7N2W4T6UPV</string>
+    <!-- Manual: the Developer ID profile is an explicit one, which an
+         API key can see (Xcode's own team profiles stay invisible to it).
+         The app needs a profile for iCloud, push and the app group. -->
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Developer ID Application</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>net.staude.amiscara.agents</key>
+        <string>Amiscara Agents Developer ID</string>
+    </dict>
 </dict>
 </plist>

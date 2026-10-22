@@ -4,15 +4,20 @@
 # temporary keychain that codesign finds. `--cleanup` removes both.
 #
 # Input from secrets: APPLE_API_KEY_P8 (base64), KEYCHAIN_PASSWORD, and
-# optionally P12 (base64) with P12_PASSWORD.
+# optionally P12 (base64) with P12_PASSWORD and PROFILE (base64), a
+# provisioning profile for manual signing.
 set -euo pipefail
 
 dir="$RUNNER_TEMP/apple"
 keychain="$dir/signing.keychain-db"
+profiles="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
 
 if [[ "${1:-}" == "--cleanup" ]]; then
     if [[ -f "$keychain" ]]; then
         security delete-keychain "$keychain" || true
+    fi
+    if [[ -f "$dir/profile-path" ]]; then
+        rm -f "$(cat "$dir/profile-path")"
     fi
     rm -rf "${dir:?}"
     exit 0
@@ -24,6 +29,15 @@ fi
 mkdir -p "$dir"
 chmod 700 "$dir"
 printf '%s' "$APPLE_API_KEY_P8" | base64 --decode >"$dir/AuthKey.p8"
+
+if [[ -n "${PROFILE:-}" ]]; then
+    printf '%s' "$PROFILE" | base64 --decode >"$dir/profile.provisionprofile"
+    uuid=$(security cms -D -i "$dir/profile.provisionprofile" | plutil -extract UUID raw -)
+    mkdir -p "$profiles"
+    mv "$dir/profile.provisionprofile" "$profiles/$uuid.provisionprofile"
+    echo "$profiles/$uuid.provisionprofile" >"$dir/profile-path"
+    echo "Provisioning profile $uuid installed."
+fi
 
 if [[ -z "${P12:-}" ]]; then
     echo "No certificate in the secrets: Xcode signs with a cloud-managed one (API key with the Admin role)."
