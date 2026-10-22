@@ -1,0 +1,80 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "Agent in ${applicationName} öffnen" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open an agent in ${applicationName}"
+          }
+        }
+      }
+    },
+    "Frag ${applicationName}, welche Agents warten" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask ${applicationName} which agents are waiting"
+          }
+        }
+      }
+    },
+    "Wartende Agents in ${applicationName}" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting agents in ${applicationName}"
+          }
+        }
+      }
+    },
+    "Welche Agents warten in ${applicationName}?" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Welche Agents warten in ${applicationName}?",
+              "Wartende Agents in ${applicationName}",
+              "Frag ${applicationName}, welche Agents warten"
+            ]
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Which agents are waiting in ${applicationName}?"
+          }
+        }
+      }
+    },
+    "Öffne Agent in ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Öffne Agent in ${applicationName}",
+              "Agent in ${applicationName} öffnen"
+            ]
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Open agent in ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
