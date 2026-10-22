@@ -520,7 +520,7 @@ impl Session {
     pub fn follow_pane(&self, pane_id: String, live: bool, sink: impl PaneSink) -> PaneFollow {
         let state = self.state.lock().ok().and_then(|state| state.clone());
         let (pacing_tx, pacing) = watch::channel(pacing_for(live));
-        let (history_tx, history) = watch::channel(0);
+        let (reading_tx, reading) = watch::channel(pane::Reading::default());
         let (stop_tx, mut stop) = watch::channel(false);
         self.runtime.spawn(async move {
             let Some(mut state) = state else {
@@ -533,7 +533,7 @@ impl Session {
                         &conn,
                         &pane_id,
                         pacing.clone(),
-                        history.clone(),
+                        reading.clone(),
                         stop.clone(),
                         &sink,
                     )
@@ -555,7 +555,7 @@ impl Session {
         PaneFollow {
             stop: stop_tx,
             pacing: pacing_tx,
-            history: history_tx,
+            reading: reading_tx,
         }
     }
 }
@@ -578,12 +578,12 @@ async fn follow_once(
     conn: &Connection,
     pane_id: &str,
     pacing: watch::Receiver<Pacing>,
-    history: watch::Receiver<u32>,
+    reading: watch::Receiver<pane::Reading>,
     mut stop: watch::Receiver<bool>,
     sink: &impl PaneSink,
 ) -> Result<(), String> {
     let (tx, mut rx) = watch::channel(None);
-    let follow = pane::follow_with_history(conn, pane_id, pacing, history, &tx);
+    let follow = pane::follow_with_history(conn, pane_id, pacing, reading, &tx);
     tokio::pin!(follow);
     // Owns `rx`: when it ends, the follower sees nobody watching and returns
     // at its next pause.
@@ -621,7 +621,7 @@ const STOP_GRACE: Duration = Duration::from_secs(10);
 pub struct PaneFollow {
     stop: watch::Sender<bool>,
     pacing: watch::Sender<Pacing>,
-    history: watch::Sender<u32>,
+    reading: watch::Sender<pane::Reading>,
 }
 
 impl PaneFollow {
@@ -647,8 +647,20 @@ impl PaneFollow {
     /// `herdr_core::pane::MAX_HISTORY_LINES`. Content with the new value
     /// follows at once.
     pub fn set_history_lines(&self, lines: u32) {
-        self.history
-            .send_replace(lines.min(pane::MAX_HISTORY_LINES));
+        let lines = lines.min(pane::MAX_HISTORY_LINES);
+        self.reading
+            .send_modify(|reading| reading.history_lines = lines);
+    }
+
+    /// Joins the rows the terminal wrapped at the pane width into whole
+    /// lines, for a client that wraps them at its own width (#191). Content
+    /// with the new value follows at once.
+    pub fn set_unwrap(&self, unwrap: bool) {
+        self.reading.send_if_modified(|reading| {
+            let changed = reading.unwrap != unwrap;
+            reading.unwrap = unwrap;
+            changed
+        });
     }
 }
 
