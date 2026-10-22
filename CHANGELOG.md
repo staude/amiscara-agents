@@ -432,6 +432,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   See `docs/screenshots.md`.
 - Screenshots of all apps in the README, from the seeded demo, kept in
   `docs/screenshots` by `scripts/screenshots/publish.sh` (#199).
+- Android in English (#207): English is the default language, German stays
+  in `values-de`; texts built in code (errors, default quick replies) come
+  from the resources too, and Android 13 and later offer the per-app
+  language setting (`locales_config.xml`).
 - The desktop app (Windows, Linux) speaks German and English: the system
   language decides, English when it is neither, or the new setting
   "Sprache" / "Language". Tray menu, notifications and the default quick

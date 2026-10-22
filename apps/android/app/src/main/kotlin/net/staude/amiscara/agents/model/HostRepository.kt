@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import net.staude.amiscara.agents.core.AddHostLink
 import net.staude.amiscara.agents.core.defaultRemoteSocket
 import net.staude.amiscara.agents.core.generateSshKey
+import net.staude.amiscara.agents.R
 
 /** A host could not be saved; the message is German and meant for the user. */
 class HostException(message: String) : Exception(message)
@@ -53,10 +54,10 @@ class HostRepository(context: Context, private val vault: KeyVault) {
             user = draft.user.trim(),
             socketPath = draft.socketPath.trim(),
         )
-        if (host.host.isEmpty() || host.user.isEmpty()) throw HostException("Host und Benutzer fehlen.")
-        if (host.port !in 1..65535) throw HostException("Der Port muss zwischen 1 und 65535 liegen.")
+        if (host.host.isEmpty() || host.user.isEmpty()) throw HostException(Texts.get(R.string.error_host_user_missing))
+        if (host.port !in 1..65535) throw HostException(Texts.get(R.string.error_port_range))
         if (!host.socketPath.startsWith("/")) {
-            throw HostException("Der Socket-Pfad muss absolut sein, z. B. /Users/frank/.config/herdr/herdr.sock.")
+            throw HostException(Texts.get(R.string.error_socket_absolute))
         }
         if (host.name.isEmpty()) host = host.copy(name = host.host)
         if (host.publicKey == null || vault.load(host.id) == null) {
@@ -75,7 +76,7 @@ class HostRepository(context: Context, private val vault: KeyVault) {
     /** Replaces the host's key; the old line in `authorized_keys` stops working. */
     @Synchronized
     fun regenerateKey(id: String): HostConfig {
-        val host = get(id)?.copy(publicKey = newKey(id)) ?: throw HostException("Diesen Host gibt es nicht mehr.")
+        val host = get(id)?.copy(publicKey = newKey(id)) ?: throw HostException(Texts.get(R.string.error_host_gone))
         put(host)
         return host
     }

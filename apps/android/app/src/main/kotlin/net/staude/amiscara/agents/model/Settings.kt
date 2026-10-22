@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import net.staude.amiscara.agents.R
 
 /** Light or dark terminal: as the app (default) or fixed. */
 enum class TerminalAppearance { APP, LIGHT, DARK }
@@ -37,6 +38,8 @@ data class TerminalPrefs(
  */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    /** Shown until the user changes the list, as in the other apps. */
+    private val defaultReplies = context.resources.getStringArray(R.array.default_quick_replies).toList()
     private val json = Json
 
     private val terminalState = MutableStateFlow(loadTerminal())
@@ -101,13 +104,9 @@ class Settings(context: Context) {
 
     private fun loadReplies(): List<String> =
         prefs.getString("quickReplies", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
-            ?: DEFAULT_REPLIES
+            ?: defaultReplies
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
         enumValues<T>().firstOrNull { it.name == name } ?: default
 
-    private companion object {
-        /** Shown until the user changes the list, as in the other apps. */
-        val DEFAULT_REPLIES = listOf("weiter", "/compact", "Bitte committen", "Commit und PR erstellen")
-    }
 }

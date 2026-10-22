@@ -1,282 +1,307 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- German for now; only strings_link.xml has values-de yet (#207). -->
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name">Amiscara Agents</string>
+<!-- English is the default language; German is in values-de (#207). -->
+<resources>
+    <string name="app_name" translatable="false">Amiscara Agents</string>
 
     <!-- Common -->
-    <string name="back">Zurück</string>
-    <string name="cancel">Abbrechen</string>
-    <string name="save">Sichern</string>
-    <string name="more">Mehr</string>
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="more">More</string>
 
     <!-- Host list -->
-    <string name="hosts_empty">Noch kein Host. Legen Sie einen an oder scannen Sie den QR-Code aus „Host teilen“ der Mac-App.</string>
-    <string name="host_add">Host hinzufügen</string>
-    <string name="scan_qr">QR-Code scannen</string>
-    <string name="paste_link">Link einfügen</string>
-    <string name="paste_link_hint">Den Link „amiscara-agents://add-host?…“ einfügen, z. B. aus „Host teilen“ der Mac-App.</string>
-    <string name="next">Weiter</string>
+    <string name="hosts_empty">No host yet. Add one or scan the QR code from \"Share host\" in the Mac app.</string>
+    <string name="host_add">Add host</string>
+    <string name="scan_qr">Scan QR code</string>
+    <string name="paste_link">Paste link</string>
+    <string name="paste_link_hint">Paste the link \"amiscara-agents://add-host?…\", for example from \"Share host\" in the Mac app.</string>
+    <string name="next">Next</string>
 
     <!-- Status -->
-    <string name="status_connecting">Verbinde …</string>
-    <string name="status_live">Verbunden</string>
-    <string name="status_live_version">Verbunden, herdr %1$s</string>
-    <string name="status_retrying">Verbindung fehlgeschlagen, Versuch %1$d. Die App versucht es weiter.</string>
-    <string name="status_key_unknown">Host-Key muss bestätigt werden</string>
-    <string name="status_key_changed">Host-Key hat sich geändert</string>
-    <string name="status_failed">Anmeldung abgelehnt</string>
-    <string name="status_not_started">Nicht gestartet</string>
-    <string name="hint_failed">Steht die Schlüsselzeile dieses Geräts in ~/.ssh/authorized_keys auf dem Rechner?</string>
-    <string name="hint_unreachable">Der Rechner ist nicht erreichbar. Läuft das VPN (NetBird) auf diesem Gerät, und stimmt der Hostname?</string>
-    <string name="hint_refused">Der Rechner lehnt die Verbindung ab. Ist SSH dort eingeschaltet?</string>
-    <string name="hint_socket">SSH klappt, aber der herdr-Socket nicht. Läuft herdr dort, und stimmt der Socket-Pfad?</string>
-    <string name="protocol_unsupported">Der Server spricht eine herdr-Protokollversion, die diese App nicht kennt.</string>
+    <string name="status_connecting">Connecting …</string>
+    <string name="status_live">Connected</string>
+    <string name="status_live_version">Connected, herdr %1$s</string>
+    <string name="status_retrying">Connection failed, attempt %1$d. The app keeps trying.</string>
+    <string name="status_key_unknown">Host key needs to be confirmed</string>
+    <string name="status_key_changed">Host key has changed</string>
+    <string name="status_failed">Login refused</string>
+    <string name="status_not_started">Not started</string>
+    <string name="hint_failed">Is this device\'s key line in ~/.ssh/authorized_keys on the computer?</string>
+    <string name="hint_unreachable">The computer is not reachable. Is the VPN (NetBird) running on this device, and is the host name right?</string>
+    <string name="hint_refused">The computer refuses the connection. Is SSH turned on there?</string>
+    <string name="hint_socket">SSH works, but the herdr socket does not. Is herdr running there, and is the socket path right?</string>
+    <string name="protocol_unsupported">The server speaks a herdr protocol version this app does not know.</string>
 
     <!-- Host details -->
-    <string name="connect_now">Jetzt verbinden</string>
-    <string name="edit">Bearbeiten</string>
-    <string name="remove">Entfernen</string>
-    <string name="remove_title">„%1$s“ entfernen?</string>
-    <string name="remove_text">Der Schlüssel dieses Geräts für den Host wird gelöscht. Die Zeile in authorized_keys auf dem Rechner bleibt stehen, bis Sie sie dort entfernen.</string>
-    <string name="key_unknown_text">Erste Verbindung zu %1$s. Stimmt der Fingerabdruck mit dem des Rechners überein?</string>
-    <string name="key_changed_text">Der Host-Key von %1$s ist ein anderer als beim letzten Mal. Das passiert nach einer Neuinstallation, kann aber auch ein Angriff sein. Nur bestätigen, wenn Sie den Grund kennen.</string>
-    <string name="key_check_command">Auf dem Rechner: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</string>
-    <string name="trust_host_key">Host-Key vertrauen</string>
-    <string name="device_key">Schlüssel dieses Geräts</string>
-    <string name="device_key_text">Diese Zeile auf %1$s in ~/.ssh/authorized_keys eintragen. Sie lässt nur den herdr-Socket zu.</string>
-    <string name="device_key_text_sftp">Diese Zeile auf %1$s in ~/.ssh/authorized_keys eintragen. Sie lässt nur den herdr-Socket und Dateien per SFTP zu.</string>
-    <string name="copy_line">Zeile kopieren</string>
-    <string name="copied">Kopiert</string>
-    <string name="share_line">Teilen</string>
-    <string name="new_key">Neuer Schlüssel</string>
-    <string name="new_key_title">Neuen Schlüssel erzeugen?</string>
-    <string name="new_key_text">Die alte Zeile in authorized_keys funktioniert danach nicht mehr. Die neue müssen Sie auf dem Rechner eintragen.</string>
-    <string name="create">Erzeugen</string>
+    <string name="connect_now">Connect now</string>
+    <string name="edit">Edit</string>
+    <string name="remove">Remove</string>
+    <string name="remove_title">Remove \"%1$s\"?</string>
+    <string name="remove_text">This device\'s key for the host is deleted. The line in authorized_keys on the computer stays until you remove it there.</string>
+    <string name="key_unknown_text">First connection to %1$s. Does the fingerprint match the computer\'s?</string>
+    <string name="key_changed_text">The host key of %1$s differs from last time. That happens after a reinstall, but it can also be an attack. Only confirm if you know the reason.</string>
+    <string name="key_check_command">On the computer: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</string>
+    <string name="trust_host_key">Trust host key</string>
+    <string name="device_key">This device\'s key</string>
+    <string name="device_key_text">Add this line to ~/.ssh/authorized_keys on %1$s. It allows the herdr socket only.</string>
+    <string name="device_key_text_sftp">Add this line to ~/.ssh/authorized_keys on %1$s. It allows only the herdr socket and files over SFTP.</string>
+    <string name="copy_line">Copy line</string>
+    <string name="copied">Copied</string>
+    <string name="share_line">Share</string>
+    <string name="new_key">New key</string>
+    <string name="new_key_title">Create a new key?</string>
+    <string name="new_key_text">The old line in authorized_keys stops working. You need to add the new one on the computer.</string>
+    <string name="create">Create</string>
 
     <!-- Host editor -->
-    <string name="host_edit">Host bearbeiten</string>
+    <string name="host_edit">Edit host</string>
     <string name="field_name">Name</string>
-    <string name="field_name_placeholder">z. B. work</string>
+    <string name="field_name_placeholder">e.g. work</string>
     <string name="field_host">Host</string>
-    <string name="field_host_placeholder">mac.example.internal oder IP</string>
+    <string name="field_host_placeholder">mac.example.internal or IP</string>
     <string name="field_port">Port</string>
-    <string name="field_user">Benutzer</string>
+    <string name="field_user">User</string>
     <string name="field_system">System</string>
     <string name="field_socket">Socket</string>
-    <string name="allow_input">Eingaben an Agents senden (Prompts, Tasten, Anlegen und Schließen)</string>
-    <string name="allow_upload">Dateien hochladen (SFTP, Zugriff auf alle Dateien des Benutzers)</string>
-    <string name="group_spaces">Spaces nach „Bereich/Name“ gruppieren</string>
+    <string name="allow_input">Send input to agents (prompts, keys, creating and closing)</string>
+    <string name="allow_upload">Upload files (SFTP, access to all of the user\'s files)</string>
+    <string name="group_spaces">Group spaces by \"Area/Name\"</string>
 
     <!-- Add from link -->
-    <string name="link_title">Host aus Link hinzufügen</string>
-    <string name="link_host_key">Host-Key</string>
-    <string name="link_socket_default">Standard</string>
-    <string name="link_trusted">Der Host-Key aus dem Link gilt als bestätigt. Danach die Schlüsselzeile dieses Geräts auf dem Rechner eintragen.</string>
-    <string name="link_untrusted">Dieser Link wurde von außen geöffnet. Prüfen Sie Host und Benutzer. Den Fingerabdruck fragt die App bei der ersten Verbindung ab.</string>
-    <string name="link_add">Hinzufügen</string>
-    <string name="open_unknown_host">Diesen Host gibt es auf diesem Gerät nicht.</string>
+    <string name="link_title">Add host from link</string>
+    <string name="link_host_key">Host key</string>
+    <string name="link_socket_default">Default</string>
+    <string name="link_trusted">The host key from the link counts as confirmed. Then add this device\'s key line on the computer.</string>
+    <string name="link_untrusted">This link was opened from outside. Check host and user. The app asks for the fingerprint on the first connection.</string>
+    <string name="link_add">Add</string>
+    <string name="open_unknown_host">This host does not exist on this device.</string>
 
     <!-- Local network (Android 17) -->
-    <string name="local_network_missing">Ohne Zugriff aufs lokale Netz erreicht die App keine Rechner im Heimnetz oder im VPN (NetBird).</string>
-    <string name="local_network_allow">Erlauben</string>
-    <string name="open_settings">Einstellungen</string>
+    <string name="local_network_missing">Without access to the local network the app cannot reach computers in the home network or the VPN (NetBird).</string>
+    <string name="local_network_allow">Allow</string>
+    <string name="open_settings">Settings</string>
 
     <!-- Sidebar -->
     <string name="spaces">Spaces</string>
     <string name="agents">Agents</string>
-    <string name="host_details">Host-Details</string>
-    <string name="state_blocked">wartet</string>
-    <string name="state_working">arbeitet</string>
-    <string name="state_done">fertig</string>
-    <string name="state_idle">bereit</string>
-    <string name="state_unknown">unbekannt</string>
+    <string name="host_details">Host details</string>
+    <string name="state_blocked">waiting</string>
+    <string name="state_working">working</string>
+    <string name="state_done">done</string>
+    <string name="state_idle">ready</string>
+    <string name="state_unknown">unknown</string>
     <string name="shell">Shell</string>
-    <string name="choose_space">Links einen Space oder Agent wählen.</string>
+    <string name="choose_space">Choose a space or agent on the left.</string>
 
     <!-- Space and terminal -->
-    <string name="space_gone">Diesen Space gibt es nicht mehr.</string>
-    <string name="no_connection">Keine Verbindung zum Host.</string>
-    <string name="loading">Lade …</string>
-    <string name="history_more">↑ Älteren Verlauf laden</string>
-    <string name="history_loading">Verlauf wird geladen …</string>
-    <string name="history_none">Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten.</string>
+    <string name="space_gone">This space no longer exists.</string>
+    <string name="no_connection">No connection to the host.</string>
+    <string name="loading">Loading …</string>
+    <string name="history_more">↑ Load older history</string>
+    <string name="history_loading">Loading history …</string>
+    <string name="history_none">No history: herdr keeps none for full-screen programs such as Claude Code. Paging can be turned on in the settings.</string>
     <plurals name="history_limit">
-        <item quantity="one">Mehr als %1$d Zeile liefert herdr nicht.</item>
-        <item quantity="other">Mehr als %1$d Zeilen liefert herdr nicht.</item>
+        <item quantity="one">herdr delivers no more than %1$d line.</item>
+        <item quantity="other">herdr delivers no more than %1$d lines.</item>
     </plurals>
-    <string name="history_start">Anfang des Verlaufs</string>
-    <string name="history_hide">Nur Bildschirm</string>
-    <string name="history_agent_load">Verlauf vom Agenten holen</string>
-    <string name="history_agent_loading">Verlauf wird vom Agenten geholt …</string>
-    <string name="history_agent">Verlauf des Agenten, ohne Farben</string>
-    <string name="history_agent_reload">Aktualisieren</string>
-    <string name="scroll_page_up">Seite hoch</string>
-    <string name="scroll_page_down">Seite runter</string>
-    <string name="scroll_bottom">Ans Ende</string>
-    <string name="search">Suchen</string>
-    <string name="search_placeholder">Im Pane suchen</string>
-    <string name="search_count">%1$d/%2$d</string>
-    <string name="search_none">Keine Treffer</string>
-    <string name="search_previous">Vorheriger Treffer</string>
-    <string name="search_next">Nächster Treffer</string>
-    <string name="search_close">Suche schließen</string>
+    <string name="history_start">Start of history</string>
+    <string name="history_hide">Screen only</string>
+    <string name="history_agent_load">Fetch history from the agent</string>
+    <string name="history_agent_loading">Fetching history from the agent …</string>
+    <string name="history_agent">The agent\'s history, without colors</string>
+    <string name="history_agent_reload">Refresh</string>
+    <string name="scroll_page_up">Page up</string>
+    <string name="scroll_page_down">Page down</string>
+    <string name="scroll_bottom">To the end</string>
+    <string name="search">Search</string>
+    <string name="search_placeholder">Search in pane</string>
+    <string name="search_count" translatable="false">%1$d/%2$d</string>
+    <string name="search_none">No matches</string>
+    <string name="search_previous">Previous match</string>
+    <string name="search_next">Next match</string>
+    <string name="search_close">Close search</string>
 
     <!-- Input bar -->
-    <string name="waiting_answer">Wartet auf Antwort</string>
-    <string name="answer_confirm">Bestätigen</string>
-    <string name="composer_agent">Prompt an %1$s</string>
-    <string name="composer_shell">Befehl</string>
-    <string name="send">Senden</string>
-    <string name="attach">Anhängen</string>
-    <string name="attach_photo">Foto</string>
-    <string name="attach_file">Datei</string>
-    <string name="input_off">Eingaben sind für diesen Host ausgeschaltet.</string>
-    <string name="upload_off">Dateien hochladen ist für %1$s aus. Einschalten unter „Bearbeiten“ › „Dateien hochladen (SFTP)“.</string>
-    <string name="live_hint">Live: Jede Eingabe geht sofort an den Agent. Tab übernimmt einen Vorschlag.</string>
+    <string name="waiting_answer">Waiting for an answer</string>
+    <string name="answer_confirm">Confirm</string>
+    <string name="composer_agent">Prompt to %1$s</string>
+    <string name="composer_shell">Command</string>
+    <string name="send">Send</string>
+    <string name="attach">Attach</string>
+    <string name="attach_photo">Photo</string>
+    <string name="attach_file">File</string>
+    <string name="input_off">Input is turned off for this host.</string>
+    <string name="upload_off">Uploading files is off for %1$s. Turn it on under \"Edit\" › \"Upload files (SFTP)\".</string>
+    <string name="live_hint">Live: every keystroke goes straight to the agent. Tab takes a suggestion.</string>
 
     <!-- Management -->
-    <string name="menu_reconnect">Neu verbinden</string>
-    <string name="menu_new_space">Neuer Space …</string>
-    <string name="menu_new_tab">Neuer Tab …</string>
-    <string name="new_tab_title">Neuer Tab</string>
-    <string name="menu_new_worktree">Neuer Worktree …</string>
-    <string name="menu_rename_space">Space umbenennen …</string>
-    <string name="menu_rename_tab">Tab umbenennen …</string>
-    <string name="menu_name_agent">Agent benennen …</string>
-    <string name="menu_start_agent">Agent starten …</string>
-    <string name="start_button">Starten</string>
+    <string name="menu_reconnect">Reconnect</string>
+    <string name="menu_new_space">New space …</string>
+    <string name="menu_new_tab">New tab …</string>
+    <string name="new_tab_title">New tab</string>
+    <string name="menu_new_worktree">New worktree …</string>
+    <string name="menu_rename_space">Rename space …</string>
+    <string name="menu_rename_tab">Rename tab …</string>
+    <string name="menu_name_agent">Name agent …</string>
+    <string name="menu_start_agent">Start agent …</string>
+    <string name="start_button">Start</string>
     <string name="agent_kind">Agent</string>
-    <string name="menu_close_tab">Tab schließen …</string>
-    <string name="menu_close_space">Space schließen …</string>
-    <string name="menu_conversation">Gesprächsverlauf</string>
-    <string name="menu_font_larger">Schrift größer</string>
-    <string name="menu_font_smaller">Schrift kleiner</string>
-    <string name="menu_font_reset">Schrift zurücksetzen</string>
-    <string name="settings">Einstellungen</string>
-    <string name="new_space_title">Neuer Space auf %1$s</string>
-    <string name="new_worktree_title">Neuer Worktree von %1$s</string>
-    <string name="field_directory">Verzeichnis</string>
+    <string name="menu_close_tab">Close tab …</string>
+    <string name="menu_close_space">Close space …</string>
+    <string name="menu_conversation">Conversation</string>
+    <string name="menu_font_larger">Larger text</string>
+    <string name="menu_font_smaller">Smaller text</string>
+    <string name="menu_font_reset">Reset text size</string>
+    <string name="settings">Settings</string>
+    <string name="new_space_title">New space on %1$s</string>
+    <string name="new_worktree_title">New worktree of %1$s</string>
+    <string name="field_directory">Directory</string>
     <string name="field_branch">Branch</string>
-    <string name="field_base">Basis</string>
-    <string name="placeholder_space">z. B. Dorfkino</string>
-    <string name="placeholder_space_group">z. B. Privat/Dorfkino</string>
-    <string name="placeholder_branch">z. B. feature/login</string>
-    <string name="placeholder_worktree_name">wie der Branch</string>
-    <string name="group_hint">Mit „Bereich/Name“ landet der Space in der Gruppe „Bereich“. herdr selbst zeigt den vollen Namen.</string>
-    <string name="worktree_hint">Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.</string>
-    <string name="worktree_running">git worktree add läuft …</string>
-    <string name="agent_start">Agent starten</string>
-    <string name="agent_none">Keinen, nur Shell</string>
-    <string name="create_button">Anlegen</string>
-    <string name="close_button">Schließen</string>
-    <string name="created_without_agent">Angelegt, aber der Agent startete nicht: %1$s</string>
-    <string name="rename_space_title">Space umbenennen</string>
-    <string name="rename_tab_title">Tab umbenennen</string>
-    <string name="name_agent_title">Agent benennen</string>
-    <string name="name_agent_placeholder">z. B. reviewer</string>
-    <string name="name_agent_hint">Kleinbuchstaben, Ziffern, - und _, höchstens 32 Zeichen. Leer lassen entfernt den Namen.</string>
-    <string name="close_space_title">Space „%1$s“ schließen?</string>
-    <string name="close_tab_title">Tab „%1$s“ schließen?</string>
-    <string name="close_working">Darin arbeitet noch ein Agent. Schließen beendet ihn und alles, was in den Panes läuft.</string>
-    <string name="close_blocked">Darin wartet ein Agent auf eine Antwort. Schließen beendet ihn und alles, was in den Panes läuft.</string>
-    <string name="close_plain">Schließen beendet alles, was in den Panes läuft.</string>
-    <string name="close_worktree_one">Der Worktree-Space darunter wird mit geschlossen, sein Verzeichnis bleibt.</string>
+    <string name="field_base">Base</string>
+    <string name="placeholder_space">e.g. shop</string>
+    <string name="placeholder_space_group">e.g. Clients/shop</string>
+    <string name="placeholder_branch">e.g. feature/login</string>
+    <string name="placeholder_worktree_name">same as the branch</string>
+    <string name="placeholder_directory">~/dev/project</string>
+    <string name="group_hint">With \"Area/Name\" the space goes into the group \"Area\". herdr itself shows the full name.</string>
+    <string name="worktree_hint">Without a branch, herdr picks a name. herdr checks out an existing branch. The worktree lives in herdr\'s worktree directory.</string>
+    <string name="worktree_running">Running git worktree add …</string>
+    <string name="agent_start">Start agent</string>
+    <string name="agent_none">None, shell only</string>
+    <string name="create_button">Create</string>
+    <string name="close_button">Close</string>
+    <string name="created_without_agent">Created, but the agent did not start: %1$s</string>
+    <string name="rename_space_title">Rename space</string>
+    <string name="rename_tab_title">Rename tab</string>
+    <string name="name_agent_title">Name agent</string>
+    <string name="name_agent_placeholder">e.g. reviewer</string>
+    <string name="name_agent_hint">Lowercase letters, digits, - and _, at most 32 characters. Leave empty to remove the name.</string>
+    <string name="close_space_title">Close space \"%1$s\"?</string>
+    <string name="close_tab_title">Close tab \"%1$s\"?</string>
+    <string name="close_working">An agent is still working in it. Closing ends it and everything running in the panes.</string>
+    <string name="close_blocked">An agent in it is waiting for an answer. Closing ends it and everything running in the panes.</string>
+    <string name="close_plain">Closing ends everything running in the panes.</string>
+    <string name="close_worktree_one">The worktree space below is closed as well; its directory stays.</string>
     <plurals name="close_worktree_many">
-        <item quantity="one">Der %1$d Worktree-Space darunter wird mit geschlossen, sein Verzeichnis bleibt.</item>
-        <item quantity="other">Die %1$d Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben.</item>
+        <item quantity="one">The %1$d worktree space below is closed as well; its directory stays.</item>
+        <item quantity="other">The %1$d worktree spaces below are closed as well; their directories stay.</item>
     </plurals>
-    <string name="close_failed">Schließen fehlgeschlagen: %1$s</string>
+    <string name="close_failed">Closing failed: %1$s</string>
 
     <!-- Quick switcher -->
-    <string name="switcher">Schnellsuche</string>
-    <string name="switcher_placeholder">Space oder Agent</string>
-    <string name="switcher_empty">Nichts gefunden</string>
+    <string name="switcher">Quick switcher</string>
+    <string name="switcher_placeholder">Space or agent</string>
+    <string name="switcher_empty">Nothing found</string>
 
     <!-- Conversation -->
-    <string name="conversation_title">Gesprächsverlauf</string>
-    <string name="conversation_copy">Alles kopieren</string>
-    <string name="conversation_reload">Neu laden</string>
-    <string name="conversation_older">Ältere Einträge laden</string>
-    <string name="conversation_start">Anfang des Gesprächs</string>
-    <string name="conversation_searching">Sitzung wird gesucht …</string>
-    <string name="conversation_empty">Noch keine Einträge</string>
-    <string name="conversation_error">Verlauf nicht lesbar: %1$s</string>
-    <string name="conversation_you">Du</string>
+    <string name="conversation_title">Conversation</string>
+    <string name="conversation_copy">Copy all</string>
+    <string name="conversation_reload">Reload</string>
+    <string name="conversation_older">Load older entries</string>
+    <string name="conversation_start">Start of the conversation</string>
+    <string name="conversation_searching">Looking for the session …</string>
+    <string name="conversation_empty">No entries yet</string>
+    <string name="conversation_error">Cannot read the history: %1$s</string>
+    <string name="conversation_you">You</string>
 
     <!-- Settings -->
     <string name="settings_terminal">Terminal</string>
-    <string name="settings_appearance">Darstellung</string>
-    <string name="appearance_app">Wie die App</string>
-    <string name="appearance_light">Hell</string>
-    <string name="appearance_dark">Dunkel</string>
-    <string name="settings_scheme">Farbschema</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="appearance_app">Like the app</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
+    <string name="settings_scheme">Color scheme</string>
     <string name="scheme_standard">Standard</string>
-    <string name="scheme_solarized">Solarized</string>
-    <string name="scheme_apple">macOS</string>
-    <string name="settings_min_contrast">Mindestkontrast</string>
-    <string name="settings_min_contrast_hint">Hellt zu schwache Schriftfarben auf oder dunkelt sie ab</string>
-    <string name="settings_wrap_lines">Zeilen umbrechen (experimentell)</string>
-    <string name="settings_wrap_lines_hint">Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal umgebrochen hat, setzt die App wieder zusammen und bricht es an der Bildschirmbreite um. Vollbild-Agenten wie Claude Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.</string>
-    <string name="settings_fullscreen_scroll">Vollbild-Agenten scrollen</string>
-    <string name="settings_fullscreen_scroll_hint">Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host</string>
-    <string name="settings_font_size">Schriftgröße %1$d</string>
-    <string name="settings_quick_replies">Schnellantworten</string>
-    <string name="settings_quick_replies_hint">Erscheinen in der Eingabeleiste und gehen mit einem Tipp an den Agent.</string>
-    <string name="settings_reply_add">Antwort hinzufügen</string>
-    <string name="settings_shortcuts">Tastenkürzel</string>
-    <string name="settings_shortcuts_text">Strg+K Schnellsuche · Strg+1 … 9 Space · Strg+Umschalt+[ / ] Tab · Strg+F Suchen · Strg+Plus / Minus / 0 Schrift · Strg+Alt+1 … 3 Antwort · Strg+Alt+Pfeile, Strg+. Esc, Strg+Umschalt+Enter Enter</string>
-    <string name="settings_about">Über</string>
-    <string name="settings_version">Version %1$s, herdr-Protokoll %2$d</string>
+    <string name="scheme_solarized" translatable="false">Solarized</string>
+    <string name="scheme_apple" translatable="false">macOS</string>
+    <string name="settings_min_contrast">Minimum contrast</string>
+    <string name="settings_min_contrast_hint">Lightens or darkens text colors that are too faint</string>
+    <string name="settings_wrap_lines">Wrap lines (experimental)</string>
+    <string name="settings_wrap_lines_hint">Not intended by herdr: herdr delivers lines at the width of the pane on the host. The app joins what the terminal wrapped and wraps it again at the screen width. Full-screen agents such as Claude Code wrap their own lines; their lines and frames are only cut off or wrapped a second time.</string>
+    <string name="settings_fullscreen_scroll">Scroll full-screen agents</string>
+    <string name="settings_fullscreen_scroll_hint">Pages through Claude Code and fetches its history; this also moves the view on the host</string>
+    <string name="settings_font_size">Text size %1$d</string>
+    <string name="settings_quick_replies">Quick replies</string>
+    <string name="settings_quick_replies_hint">Shown in the input bar; one tap sends them to the agent.</string>
+    <string name="settings_reply_add">Add reply</string>
+    <string name="settings_shortcuts">Keyboard shortcuts</string>
+    <string name="settings_shortcuts_text">Ctrl+K quick switcher · Ctrl+1 … 9 space · Ctrl+Shift+[ / ] tab · Ctrl+F search · Ctrl+Plus / Minus / 0 text size · Ctrl+Alt+1 … 3 answer · Ctrl+Alt+arrows, Ctrl+. Esc, Ctrl+Shift+Enter Enter</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s, herdr protocol %2$d</string>
 
     <!-- Notifications and standby -->
-    <string name="channel_waiting">Agent wartet</string>
-    <string name="channel_waiting_text">Ein Agent wartet auf eine Antwort, mit Knöpfen zum Antworten.</string>
-    <string name="channel_done">Agent fertig</string>
-    <string name="channel_done_text">Ein Agent hat seine Aufgabe beendet.</string>
-    <string name="channel_standby_text">Dauerhafte Anzeige, solange die Bereitschaft läuft.</string>
-    <string name="notify_waiting">%1$s wartet</string>
-    <string name="notify_done">%1$s ist fertig</string>
-    <string name="answer_failed">Antwort nicht gesendet: %1$s</string>
-    <string name="standby">Bereitschaft</string>
-    <string name="standby_stop">Beenden</string>
+    <string name="channel_waiting">Agent waiting</string>
+    <string name="channel_waiting_text">An agent is waiting for an answer, with buttons to answer.</string>
+    <string name="channel_done">Agent done</string>
+    <string name="channel_done_text">An agent has finished its task.</string>
+    <string name="channel_standby_text">Shown for as long as standby runs.</string>
+    <string name="notify_waiting">%1$s is waiting</string>
+    <string name="notify_done">%1$s is done</string>
+    <string name="answer_failed">Answer not sent: %1$s</string>
+    <string name="standby">Standby</string>
+    <string name="standby_stop">Stop</string>
     <plurals name="standby_hosts">
-        <item quantity="one">%1$d von %2$d Host verbunden</item>
-        <item quantity="other">%1$d von %2$d Hosts verbunden</item>
+        <item quantity="one">%1$d of %2$d host connected</item>
+        <item quantity="other">%1$d of %2$d hosts connected</item>
     </plurals>
     <plurals name="standby_waiting">
-        <item quantity="one">%1$d Agent wartet</item>
-        <item quantity="other">%1$d Agents warten</item>
+        <item quantity="one">%1$d agent waiting</item>
+        <item quantity="other">%1$d agents waiting</item>
     </plurals>
-    <string name="settings_notifications">Benachrichtigungen</string>
-    <string name="settings_standby_text">Hält die Verbindungen zu den Hosts offen, auch wenn die App nicht im Vordergrund ist, damit Benachrichtigungen ankommen. Android zeigt dafür eine dauerhafte Benachrichtigung. Braucht etwas mehr Akku. Auch als Kachel in den Schnelleinstellungen.</string>
-    <string name="settings_standby_boot">Nach dem Gerätestart einschalten</string>
-    <string name="settings_notifications_off">Benachrichtigungen sind für die App ausgeschaltet.</string>
-    <string name="settings_notifications_allow">Erlauben</string>
-    <string name="settings_battery_hint">Die Akku-Optimierung kann die Bereitschaft auf manchen Geräten beenden. Unter „Akku“ lässt sich die App davon ausnehmen.</string>
-    <string name="settings_battery_open">Akku-Einstellungen</string>
-    <string name="settings_notifications_text">Ohne Bereitschaft kommen Benachrichtigungen nur, solange Android die App laufen lässt. Pro Host abschaltbar unter „Bearbeiten“.</string>
-    <string name="host_notify">Benachrichtigen, wenn ein Agent wartet oder fertig ist</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_standby_text">Keeps the connections to the hosts open while the app is not in the foreground, so notifications arrive. Android shows a persistent notification for it. Uses a bit more battery. Also available as a Quick Settings tile.</string>
+    <string name="settings_standby_boot">Turn on after the device starts</string>
+    <string name="settings_notifications_off">Notifications are turned off for the app.</string>
+    <string name="settings_notifications_allow">Allow</string>
+    <string name="settings_battery_hint">On some devices battery optimization can end standby. The app can be excluded from it under \"Battery\".</string>
+    <string name="settings_battery_open">Battery settings</string>
+    <string name="settings_notifications_text">Without standby, notifications only arrive while Android keeps the app running. They can be turned off per host under \"Edit\".</string>
+    <string name="host_notify">Notify when an agent is waiting or done</string>
 
     <!-- Widget -->
     <string name="widget_title">Agents</string>
-    <string name="widget_description">Wartende und arbeitende Agents auf allen Hosts.</string>
-    <string name="widget_waits">wartet</string>
-    <string name="widget_wait">warten</string>
+    <string name="widget_description">Waiting and working agents on all hosts.</string>
+    <string name="widget_waits">waiting</string>
+    <string name="widget_wait">waiting</string>
     <plurals name="widget_working">
-        <item quantity="one">%1$d arbeitet</item>
-        <item quantity="other">%1$d arbeiten</item>
+        <item quantity="one">%1$d working</item>
+        <item quantity="other">%1$d working</item>
     </plurals>
     <plurals name="widget_waiting_count">
-        <item quantity="one">%1$d wartet</item>
-        <item quantity="other">%1$d warten</item>
+        <item quantity="one">%1$d waiting</item>
+        <item quantity="other">%1$d waiting</item>
     </plurals>
-    <string name="widget_no_data">Noch keine Daten. Öffnen Sie die App einmal.</string>
-    <string name="widget_no_agents">Keine Agents.</string>
-    <string name="widget_no_data_short">Keine Daten</string>
-    <string name="widget_updated">Stand %1$s</string>
+    <string name="widget_no_data">No data yet. Open the app once.</string>
+    <string name="widget_no_agents">No agents.</string>
+    <string name="widget_no_data_short">No data</string>
+    <string name="widget_updated">As of %1$s</string>
 
     <!-- Scanner -->
-    <string name="scan_hint">Den QR-Code aus „Host teilen“ der Mac-App ins Bild halten.</string>
-    <string name="camera_denied">Ohne Kamera kein Scan. Erlauben Sie den Zugriff in den Einstellungen, oder fügen Sie den Link ein.</string>
-    <string name="camera_allow">Kamera erlauben</string>
+    <string name="scan_hint">Hold the QR code from \"Share host\" in the Mac app in front of the camera.</string>
+    <string name="camera_denied">No scan without the camera. Allow access in the settings, or paste the link.</string>
+    <string name="camera_allow">Allow camera</string>
+
+    <!-- Errors built in code -->
+    <string name="error_key_missing">This host has no key. Create a new one.</string>
+    <string name="error_agent_blocked">The agent is waiting for an answer. Answer it first.</string>
+    <string name="error_upload">Upload failed: %1$s</string>
+    <string name="error_files">Cannot read files on the host: %1$s</string>
+    <string name="error_agent_working">The agent is working. Its history is available once it is done; paging works already.</string>
+    <string name="error_host_key_conflict">\"%1$s\" at the same address trusts a different host key. The link was not added. Check the host key on the server.</string>
+    <string name="error_host_user_missing">Host and user are missing.</string>
+    <string name="error_port_range">The port must be between 1 and 65535.</string>
+    <string name="error_socket_absolute">The socket path must be absolute, e.g. /Users/me/.config/herdr/herdr.sock.</string>
+    <string name="error_host_gone">This host no longer exists.</string>
+    <string name="error_agent_name_invalid">Only lowercase letters, digits, - and _ are allowed, starting with a letter.</string>
+    <string name="error_agent_name_taken">Another agent already has this name.</string>
+    <string name="error_pane_unreadable">Cannot read the pane.</string>
+    <string name="error_file_unreadable">Cannot read the file</string>
+
+    <!-- Default quick replies, until the user changes the list -->
+    <string-array name="default_quick_replies">
+        <item>continue</item>
+        <item>/compact</item>
+        <item>Please commit</item>
+        <item>Commit and create a PR</item>
+    </string-array>
 </resources>
