@@ -38,6 +38,8 @@ class Prefs {
   terminalAppearance = $state<TerminalAppearance>(read("terminalAppearance", "app"));
   terminalScheme = $state<TerminalScheme>(read("terminalScheme", "standard"));
   minContrast = $state<boolean>(read("terminalMinContrast", true));
+  /** Wrap long lines at the view width instead of scrolling sideways (#191). */
+  wrapLines = $state<boolean>(read("terminalWrapLines", false));
   /** The system's look, for "system" in `theme`. */
   systemDark = $state(false);
 
@@ -99,6 +101,11 @@ class Prefs {
   setMinContrast(on: boolean) {
     this.minContrast = on;
     write("terminalMinContrast", on);
+  }
+
+  setWrapLines(on: boolean) {
+    this.wrapLines = on;
+    write("terminalWrapLines", on);
   }
 }
 

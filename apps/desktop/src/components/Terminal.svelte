@@ -3,7 +3,7 @@
   import type { PaneModel } from "../lib/pane.svelte";
   import { prefs } from "../lib/prefs.svelte";
   import type { SearchMatch } from "../lib/search";
-  import { css, spanStyle } from "../lib/term";
+  import { css, isRule, spanStyle } from "../lib/term";
   import type { StyledSpan } from "../lib/types";
 
   // `history`: scrollback controls above the first line (selected pane only).
@@ -38,6 +38,9 @@
   });
 
   let theme = $derived(prefs.terminal);
+  let wrap = $derived(prefs.wrapLines);
+
+  $effect(() => model.setUnwrap(wrap));
 
   let byLine = $derived.by(() => {
     const map = new Map<number, { match: SearchMatch; index: number }[]>();
@@ -123,6 +126,7 @@
   bind:clientWidth={width}
   onscroll={onScroll}
   class:dark={theme.dark}
+  class:wrap
   style="font-size: {fontSize}px; --term-bg: {css(theme.background)}; --term-fg: {css(theme.foreground)}"
 >
   {#if history && model.content}
@@ -145,7 +149,7 @@
   {/if}
   {#if model.content}
     {#each model.content.lines as line, index (index)}
-      <div class="line" data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}{#if part.span.link}<a
+      <div class="line" class:rule={wrap && isRule(line.spans)} data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}{#if part.span.link}<a
               href={part.span.link}
               class={part.mark}
               style={part.mark ? "" : spanStyle(part.span, theme)}
@@ -184,6 +188,19 @@
     white-space: pre;
     min-height: 1.25em;
     width: max-content;
+  }
+  /* Long lines wrap at the view width; frames are clipped instead (#191). */
+  .wrap {
+    overflow-x: hidden;
+  }
+  .wrap .line {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    width: auto;
+  }
+  .wrap .line.rule {
+    white-space: pre;
+    overflow: hidden;
   }
   .history {
     display: flex;

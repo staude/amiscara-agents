@@ -91,6 +91,7 @@ export interface Follower {
   stop(): void;
   setLive(live: boolean): void;
   setHistoryLines(lines: number): void;
+  setUnwrap(unwrap: boolean): void;
 }
 
 /** Follows a pane until `stop`; events go to `onEvent`. */
@@ -113,6 +114,9 @@ export async function followPane(
     },
     setHistoryLines(lines) {
       void invoke("set_follow_history", { followId, lines });
+    },
+    setUnwrap(unwrap) {
+      void invoke("set_follow_unwrap", { followId, unwrap });
     },
   };
 }
