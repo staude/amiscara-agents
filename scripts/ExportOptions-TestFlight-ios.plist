@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>destination</key>
+    <string>upload</string>
+    <key>teamID</key>
+    <string>7N2W4T6UPV</string>
+    <!-- Manual: explicit App Store profiles, which an API key can see
+         (Xcode's own team profiles stay invisible to it). -->
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>net.staude.amiscara.agents</key>
+        <string>Amiscara Agents App Store iOS</string>
+        <key>net.staude.amiscara.agents.widget</key>
+        <string>Amiscara Agents App Store iOS Widget</string>
+        <key>net.staude.amiscara.agents.watchkitapp</key>
+        <string>Amiscara Agents App Store Watch</string>
+        <key>net.staude.amiscara.agents.watchkitapp.widget</key>
+        <string>Amiscara Agents App Store Watch Widget</string>
+    </dict>
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+</dict>
+</plist>
