@@ -66,10 +66,12 @@ struct TerminalScreenView: View {
                                 .fixedSize()
                                 .frame(minHeight: fontSize * 1.25, alignment: .leading)
                         } else if line.isRule {
-                            // A frame would break apart: clip it instead.
-                            text
-                                .fixedSize()
-                                .frame(maxWidth: .infinity, minHeight: fontSize * 1.25, alignment: .leading)
+                            // A frame would break apart: clip it instead. As an
+                            // overlay, so its full width does not widen the
+                            // view and squeeze the sidebar.
+                            Color.clear
+                                .frame(maxWidth: .infinity, minHeight: fontSize * 1.25)
+                                .overlay(alignment: .leading) { text.fixedSize() }
                                 .clipped()
                         } else {
                             text
@@ -145,6 +147,7 @@ private struct HistoryHeader: View {
     let content: PaneContent
     let theme: TerminalTheme
     @AppStorage(PaneModel.fullscreenScrollKey) private var fullscreenScroll = false
+    @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -186,7 +189,8 @@ private struct HistoryHeader: View {
         .font(.callout)
         .buttonStyle(.bordered)
         .foregroundStyle(theme.foreground.color.opacity(0.7))
-        .fixedSize()
+        // Wrapping lines: the hints wrap too, or they widen the view.
+        .fixedSize(horizontal: !wrapLines, vertical: true)
     }
 
     private var noHistory: LocalizedStringKey {

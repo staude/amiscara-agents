@@ -481,6 +481,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Apple apps with "Zeilen umbrechen" on: a frame line of a wide pane (such
+  as Claude Code's rules) no longer widens the terminal beyond the window,
+  which squeezed the Mac sidebar to half its width and cut the wrapped
+  lines off at the right; the history hints wrap as well (#191).
 - The Mac release signs with an explicit Developer ID provisioning profile
   ("Amiscara Agents Developer ID", secret `APPLE_DEVID_PROFILE` in CI):
   an App Store Connect API key neither sees Xcode's own team profiles nor
