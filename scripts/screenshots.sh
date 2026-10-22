@@ -267,8 +267,9 @@ desktop() {
         IFS='|' read -r shot space where view search <<<"$entry"
         # shellcheck disable=SC2086 # where is "tab index"
         target=$(pane "$space" $where)
-        HOME="$root/home" AMISCARA_DEMO=$(printf '{"space":"%s","pane":"%s","view":"%s","search":"%s","appearance":"%s"}' \
-            "$space" "$target" "$view" "$search" "$appearance") \
+        # SCREENSHOT_LANG=de|en: the app's language instead of the system's.
+        HOME="$root/home" AMISCARA_DEMO=$(printf '{"space":"%s","pane":"%s","view":"%s","search":"%s","appearance":"%s","lang":"%s"}' \
+            "$space" "$target" "$view" "$search" "$appearance" "${SCREENSHOT_LANG:-}") \
             target/debug/amiscara-desktop >"$root/desktop.log" 2>&1 &
         pid=$!
         pids+=("$pid")
