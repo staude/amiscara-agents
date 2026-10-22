@@ -54,6 +54,7 @@ private struct PaneTile: View {
     /// Only the selected tile searches, like only it loads history; ⌘F and
     /// ⌘G act on it.
     @State private var search = PaneSearchState()
+    @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
 
     var body: some View {
         let matches = isSelected ? search.matches(in: model.content) : []
@@ -89,6 +90,7 @@ private struct PaneTile: View {
             model.setLive(selected)
             if !selected { search.close() }
         }
+        .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
     }
 
     private var header: some View {

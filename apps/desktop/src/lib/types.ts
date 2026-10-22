@@ -170,6 +170,9 @@ export type PaneEvent =
   | { kind: "content"; data: PaneContent }
   | { kind: "error"; data: string };
 
+/** A step through a full-screen agent's own view (#187). */
+export type ScrollStep = "pageUp" | "pageDown" | "bottom";
+
 export type TranscriptKind = "user" | "assistant" | "tool";
 
 export interface TranscriptEntry {

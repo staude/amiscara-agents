@@ -7,7 +7,9 @@ import type {
   AppError,
   AppInfo,
   HostConfig,
+  PaneContent,
   PaneEvent,
+  ScrollStep,
   SessionUpdate,
   TranscriptCursor,
   TranscriptPage,
@@ -41,6 +43,10 @@ export const submit = (hostId: string, paneId: string, text: string, isAgent: bo
   invoke<void>("submit", { hostId, paneId, text, isAgent });
 export const claudeHistory = (hostId: string, paneId: string, before: TranscriptCursor | null) =>
   invoke<TranscriptPage>("claude_history", { hostId, paneId, before });
+export const agentHistory = (hostId: string, paneId: string) =>
+  invoke<PaneContent>("agent_history", { hostId, paneId });
+export const scrollAgent = (hostId: string, paneId: string, step: ScrollStep) =>
+  invoke<void>("scroll_agent", { hostId, paneId, step });
 export const quickReplies = () => invoke<string[]>("quick_replies");
 export const saveQuickReplies = (replies: string[]) =>
   invoke<void>("save_quick_replies", { replies });
@@ -91,6 +97,7 @@ export interface Follower {
   stop(): void;
   setLive(live: boolean): void;
   setHistoryLines(lines: number): void;
+  setUnwrap(unwrap: boolean): void;
 }
 
 /** Follows a pane until `stop`; events go to `onEvent`. */
@@ -113,6 +120,9 @@ export async function followPane(
     },
     setHistoryLines(lines) {
       void invoke("set_follow_history", { followId, lines });
+    },
+    setUnwrap(unwrap) {
+      void invoke("set_follow_unwrap", { followId, unwrap });
     },
   };
 }
