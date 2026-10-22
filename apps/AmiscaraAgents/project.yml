@@ -24,6 +24,12 @@ settings:
     # The pre-build script runs cargo and writes Generated/, outside the sandbox.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_EMIT_LOC_STRINGS: YES
+packages:
+  # Updates of the Mac app, which is distributed outside the App Store
+  # (UpdaterController.swift, docs/release.md).
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.2"
 targets:
   AmiscaraAgents:
     type: application
@@ -46,6 +52,8 @@ targets:
       - framework: Generated/HerdrFFI.xcframework
         embed: false
       - target: AmiscaraAgentsWidget
+      - package: Sparkle
+        product: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
@@ -92,6 +100,16 @@ targets:
           - CFBundleURLName: net.staude.amiscara.agents.add-host
             CFBundleURLSchemes:
               - amiscara-agents
+        # Sparkle: the feed is an asset of the release `updates`, which
+        # scripts/release.sh and apple-release.yml replace with each Mac
+        # release. The public key belongs to the private key in the
+        # maintainer's keychain (generate_keys --account amiscara-agents)
+        # and the CI secret SPARKLE_ED_PRIVATE_KEY.
+        SUFeedURL: https://github.com/staude/amiscara-agents/releases/download/updates/appcast.xml
+        SUPublicEDKey: kKLJaOdPFbh5wzDWhNuiJZJHWZ6mR4l/hWsMumZiRdQ=
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: true
+        SUScheduledCheckInterval: 86400
   AmiscaraAgents-iOS:
     type: application
     platform: iOS
