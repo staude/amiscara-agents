@@ -56,7 +56,7 @@ struct HostEditorView: View {
                 if config.kind == .ssh {
                     importSection
                     Section("Server") {
-                        TextField("Host", text: $config.host, prompt: Text("work.staude.internal"))
+                        TextField("Host", text: $config.host, prompt: Text("mac.example.internal"))
                             .technicalInput()
                         TextField("Port", value: $config.port, format: .number.grouping(.never))
                         TextField("Benutzer", text: $config.user)

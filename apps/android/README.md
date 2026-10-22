@@ -142,7 +142,7 @@ Ctrl+Alt shortcuts are ignored for keys typed with AltGr.
 
 ## Emulator
 
-The AVD `Pixel_9` (Android 17, arm64) runs on work, also without a window:
+An AVD such as `Pixel_9` (Android 17, arm64) also runs without a window:
 
 ```sh
 ~/Library/Android/sdk/emulator/emulator -avd Pixel_9 -no-window -no-audio &

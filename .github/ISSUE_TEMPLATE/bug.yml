@@ -1,0 +1,64 @@
+name: Bug report
+description: Something does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please leave out host names, IP addresses, keys and
+        other private data from logs and screenshots.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a host over SSH
+        2. Open a pane with Claude Code
+        3. ...
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Mac
+        - iPhone
+        - iPad
+        - Apple TV
+        - Apple Watch
+        - Android
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: From the about window or settings, or the commit you built.
+  - type: input
+    id: herdr
+    attributes:
+      label: herdr version
+      description: "`herdr --version` on the host"
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      options:
+        - Local socket (same machine)
+        - SSH in the local network
+        - SSH over a VPN (NetBird, Tailscale, WireGuard, ...)
+        - SSH over the internet
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Console output, logcat (`herdr-ffi`) or a screenshot, without private data.

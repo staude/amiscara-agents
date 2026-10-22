@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The checks before a merge, on this machine: CI runs only for releases
-# (desktop-v* tags) and by hand, to save Actions minutes.
+# The checks to run before pushing; CI runs the same and more for every
+# pull request.
 # --apple also builds the Mac and iOS schemes (needs ./setup.sh once),
 # --android the Android app with lint (needs the NDK and cargo-ndk).
 set -euo pipefail

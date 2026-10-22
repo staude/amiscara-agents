@@ -308,8 +308,8 @@ mod tests {
     #[test]
     fn project_dir_like_claude_code() {
         assert_eq!(
-            project_dir("/Users/staude/dev/Sites/enon/.claude/worktrees/x_y"),
-            ".claude/projects/-Users-staude-dev-Sites-enon--claude-worktrees-x-y"
+            project_dir("/Users/me/dev/shop/.claude/worktrees/x_y"),
+            ".claude/projects/-Users-me-dev-shop--claude-worktrees-x-y"
         );
     }
 
