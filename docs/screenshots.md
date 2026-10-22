@@ -11,7 +11,11 @@ scripts/screenshots.sh --appearance light    # default: dark
 scripts/screenshots.sh --keep                # leave the demo session running
 ```
 
-The PNGs land in `target/screenshots/<platform>/<view>.png`:
+The PNGs land in `target/screenshots/<platform>/<view>.png`.
+`scripts/screenshots/publish.sh` copies them scaled down into
+`docs/screenshots/<platform>/`, which the README shows; commit those after
+a new round. The Apple Watch is not captured yet (it needs a paired iPhone
+and Watch simulator).
 
 | Platform | How | Views |
 |---|---|---|

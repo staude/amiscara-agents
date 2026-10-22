@@ -36,8 +36,38 @@ key the apps use reaches the herdr socket and nothing else.
 
 ## Screenshots
 
-Screenshots will follow here (Mac, iPad, iPhone, Apple Watch, Apple TV,
-Android, Windows).
+All screenshots come from a seeded demo session with fictional projects
+(see [docs/screenshots.md](docs/screenshots.md)); the app's interface is
+German. More views per platform are in [docs/screenshots](docs/screenshots).
+
+**Mac:** an agent waiting for approval, with the answer bar under the pane.
+
+<img src="docs/screenshots/mac/space-waiting.png" alt="Mac app with an agent waiting for approval" width="100%">
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/mac/split-tab.png" alt="Mac: split tab with three panes"><br><sub>Mac: a split tab as herdr lays it out</sub></td>
+<td width="50%"><img src="docs/screenshots/mac/conversation.png" alt="Mac: Claude Code conversation"><br><sub>Mac: the Claude Code conversation of a pane</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/mac/quick-switcher.png" alt="Mac: quick switcher"><br><sub>Mac: quick switcher across all hosts</sub></td>
+<td width="50%"><img src="docs/screenshots/desktop/space-waiting.png" alt="Windows and Linux app"><br><sub>Windows and Linux: the same views in the desktop app</sub></td>
+</tr>
+</table>
+
+**iPad, iPhone and Android**
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/ipad/split-tab.png" alt="iPad: split tab"><br><sub>iPad: split tab</sub></td>
+<td width="25%"><img src="docs/screenshots/ios/space-waiting.png" alt="iPhone: waiting agent"><br><sub>iPhone: waiting agent</sub></td>
+<td width="25%"><img src="docs/screenshots/android/hosts.png" alt="Android: hosts, spaces and agents"><br><sub>Android: hosts, spaces, agents</sub></td>
+</tr>
+</table>
+
+**Apple TV:** the agents of all hosts on the big screen.
+
+<img src="docs/screenshots/tvos/spaces.png" alt="Apple TV: agents board" width="100%">
 
 ## Platforms
 

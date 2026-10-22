@@ -430,6 +430,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   TV simulators, the Android emulator and the desktop app in a demo mode of
   their debug builds and saves the important views to `target/screenshots`.
   See `docs/screenshots.md`.
+- Screenshots of all apps in the README, from the seeded demo, kept in
+  `docs/screenshots` by `scripts/screenshots/publish.sh` (#199).
 
 ### Changed
 
