@@ -5,7 +5,7 @@
 //! Format, version 1 (one line, fields in any order, each at most once):
 //!
 //! ```text
-//! amiscara-agents://add-host?v=1&name=work&host=work.staude.internal&port=22
+//! amiscara-agents://add-host?v=1&name=work&host=mac.example.internal&port=22
 //!     &user=frank&socket=/Users/frank/.config/herdr/herdr.sock
 //!     &key=ssh-ed25519%20AAAAC3Nz...
 //! ```
@@ -324,7 +324,7 @@ mod tests {
     fn sample() -> AddHostLink {
         AddHostLink {
             name: "work".into(),
-            host: "work.staude.internal".into(),
+            host: "mac.example.internal".into(),
             port: 2222,
             user: "frank".into(),
             socket_path: "/Users/frank/.config/herdr/herdr.sock".into(),

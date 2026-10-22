@@ -76,7 +76,7 @@
     {#if draft.kind === "ssh"}
       <label class="row">
         <span>Host</span>
-        <input bind:value={draft.host} placeholder="work.staude.internal oder IP" required />
+        <input bind:value={draft.host} placeholder="mac.example.internal oder IP" required />
       </label>
       <label class="row">
         <span>Port</span>

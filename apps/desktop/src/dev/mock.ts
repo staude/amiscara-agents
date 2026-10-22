@@ -19,7 +19,7 @@ const host = (id: string, name: string, kind: "ssh" | "local"): HostConfig => ({
   id,
   name,
   kind,
-  host: kind === "ssh" ? "work.staude.internal" : "",
+  host: kind === "ssh" ? "mac.example.internal" : "",
   port: 22,
   user: "frank",
   socketPath: "/Users/frank/.config/herdr/herdr.sock",
@@ -184,7 +184,7 @@ function screen(paneId: string, history: number): PaneContent {
   const lines: StyledSpan[][] = [];
   for (let i = history; i > 0; i--) lines.push([span(`scrollback line ${i} `, 8), span("ok", 2)]);
   lines.push([span("╭─ ", [215, 119, 87]), span("Claude Code", [215, 119, 87], true), span(" ─────────────────────╮", [215, 119, 87])]);
-  lines.push([span("│ ", [215, 119, 87]), span("cwd: ~/dev/amiscara/amiscara-agents", 7)]);
+  lines.push([span("│ ", [215, 119, 87]), span("cwd: ~/dev/project", 7)]);
   lines.push([span("╰──────────────────────────────────╯", [215, 119, 87])]);
   lines.push([]);
   lines.push([span("> ", 8), span("mach mit 144 weiter")]);

@@ -22,7 +22,7 @@ use serde_json::json;
 #[derive(Parser)]
 #[command(about = "Read-only probe for a herdr server")]
 struct Cli {
-    /// Connect over SSH, e.g. `staude@work.staude.internal` or `user@host:2222`.
+    /// Connect over SSH, e.g. `me@mac.example.internal` or `user@host:2222`.
     #[arg(long)]
     ssh: Option<String>,
     /// Private key for SSH. Without it the SSH agent is used.

@@ -42,7 +42,7 @@ extension HostStore {
         return nil
     }
 
-    /// "Work.Staude.Internal." and "work.staude.internal" are one host.
+    /// "Mac.Example.Internal." and "mac.example.internal" are one host.
     static func normalizedHost(_ host: String) -> String {
         var host = host.trimmingCharacters(in: .whitespaces).lowercased()
         while host.hasSuffix(".") { host.removeLast() }

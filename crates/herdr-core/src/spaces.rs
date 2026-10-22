@@ -244,7 +244,7 @@ mod tests {
             space("w1", 1, "Arbeit/energieausweis"),
             space("w2", 2, "notes"),
             space("w3", 3, "Privat/Bürgertreff"),
-            space("w4", 4, "Arbeit / torromail"),
+            space("w4", 4, "Arbeit / mailer"),
             space("w5", 5, "Privat/Dorfkino"),
             space("w6", 6, "scratch"),
         ];
@@ -327,7 +327,7 @@ mod tests {
             space("w2", 2, "notes"),
             space("w3", 3, "Privat/Bürgertreff"),
             worktree("w4", 4, "feature/x", "kino"),
-            space("w5", 5, "Arbeit/torromail"),
+            space("w5", 5, "Arbeit/mailer"),
             worktree("w6", 6, "feature/y", "other"),
         ];
         // Worktrees still sit under their repository; nothing else moves.
@@ -350,7 +350,7 @@ mod tests {
                 "feature/x",
                 "notes",
                 "Privat/Bürgertreff",
-                "Arbeit/torromail",
+                "Arbeit/mailer",
                 "feature/y"
             ]
         );

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/staude/amiscara-agents/security/advisories/new
+    about: Please report security issues privately, not as an issue.
+  - name: herdr itself
+    url: https://herdr.dev
+    about: Problems with herdr (the server, its TUI or CLI) belong to the herdr project.
