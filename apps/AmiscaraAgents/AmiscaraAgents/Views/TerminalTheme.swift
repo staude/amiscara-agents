@@ -180,6 +180,7 @@ struct TerminalSettings: View {
     @AppStorage(TerminalAppearance.storageKey) private var appearance: TerminalAppearance = .app
     @AppStorage(TerminalScheme.storageKey) private var scheme: TerminalScheme = .standard
     @AppStorage(TerminalScheme.contrastKey) private var minContrast = true
+    @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
 
     var body: some View {
         Picker("Terminal", selection: $appearance) {
@@ -194,6 +195,11 @@ struct TerminalSettings: View {
         }
         Toggle("Mindestkontrast", isOn: $minContrast)
             .help(String(localized: "Hellt zu schwache Schriftfarben auf oder dunkelt sie ab"))
+        Toggle(isOn: $wrapLines) {
+            Text("Zeilen umbrechen (experimentell)")
+            Text("Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal umgebrochen hat, setzt die App wieder zusammen und bricht es an der Fensterbreite um. Vollbild-Agenten wie Claude Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.")
+        }
+        .help(String(localized: "Lange Zeilen an der Fensterbreite umbrechen statt seitlich zu scrollen"))
     }
 }
 #endif

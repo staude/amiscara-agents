@@ -19,6 +19,11 @@ final class PaneModel {
     /// `HostConnection.generation` the follower belongs to.
     @ObservationIgnored private var generation: Int?
     @ObservationIgnored private var live = true
+    /// Lines the terminal wrapped come joined, see `setUnwrap`.
+    @ObservationIgnored private var unwrap = false
+
+    /// The setting "Zeilen umbrechen" (#191).
+    static let wrapLinesKey = "terminalWrapLines"
 
     /// Each load asks for the next step; herdr returns at most
     /// `maxHistoryLines()` rows, and every step is polled again while the
@@ -97,6 +102,17 @@ final class PaneModel {
             }
         )
         follow = connection.followPane(paneID, live: live, observer: bridge)
+        if unwrap { follow?.setUnwrap(unwrap: true) }
+    }
+
+    /// Joins the rows the terminal wrapped at the pane width, for a view
+    /// that wraps lines at its own width (#191). Drops loaded history, whose
+    /// row count would no longer match the screen's.
+    func setUnwrap(_ unwrap: Bool) {
+        guard unwrap != self.unwrap else { return }
+        self.unwrap = unwrap
+        if historyLines > 0 { hideHistory() }
+        follow?.setUnwrap(unwrap: unwrap)
     }
 
     /// Switches the pace without restarting; the pane is read once right away.
@@ -108,8 +124,6 @@ final class PaneModel {
         // read there would cost the most for the pane looked at least.
         if !live, historyLines > 0 { hideHistory() }
     }
-
-
 }
 
 final class PaneBridge: PaneObserver {
