@@ -410,6 +410,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   GitHub security advisories), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
   issue and pull request templates, and `docs/third-party-notices.md` on
   the licenses of the bundled dependencies.
+- Reproducible screenshots of all apps (#199): `scripts/screenshots.sh`
+  builds a demo with fictional projects in a herdr session of its own
+  (`scripts/screenshots/`), starts the Mac app, the iPhone, iPad and Apple
+  TV simulators, the Android emulator and the desktop app in a demo mode of
+  their debug builds and saves the important views to `target/screenshots`.
+  See `docs/screenshots.md`.
 
 ### Changed
 

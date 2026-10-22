@@ -493,6 +493,9 @@ and push to `main`: tests on Linux, macOS and Windows, the core for iOS and
 tvOS, the Android app, the desktop app on all three systems. Started by hand
 it also builds the installers as artifacts.
 
+`scripts/screenshots.sh` takes the screenshots of all apps from a seeded
+demo with fictional projects, see [docs/screenshots.md](docs/screenshots.md).
+
 `scripts/ffi-smoke.sh` exercises the Swift bindings without the UI against
 the local server; with `HERDR_SMOKE_SSH=user@host HERDR_SMOKE_KEY=<key>` it
 also runs the SSH and host key flow.
