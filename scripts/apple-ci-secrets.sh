@@ -38,8 +38,21 @@ command -v gh >/dev/null || die "gh not found (brew install gh)"
 repo=$(cd "$(dirname "$0")" && gh repo view --json nameWithOwner --jq .nameWithOwner)
 
 # The environment keeps the secrets away from pull requests and other
-# branches; its deployment rules are set in the repository settings.
-gh api -X PUT "repos/$repo/environments/$env" >/dev/null
+# refs: it is created with its deployment rules before any secret goes in,
+# so only `main` and tags `apple-v*` can use them. Running the script again
+# keeps the rules that exist.
+gh api -X PUT "repos/$repo/environments/$env" \
+    -F "deployment_branch_policy[protected_branches]=false" \
+    -F "deployment_branch_policy[custom_branch_policies]=true" >/dev/null
+policies=$(gh api "repos/$repo/environments/$env/deployment-branch-policies" \
+    --jq '.branch_policies[] | "\(.type // "branch"):\(.name)"')
+allow() {
+    grep -qxF "$1:$2" <<<"$policies" && return
+    gh api -X POST "repos/$repo/environments/$env/deployment-branch-policies" \
+        -f "name=$2" -f "type=$1" >/dev/null
+}
+allow branch main
+allow tag 'apple-v*'
 
 secret() { gh secret set "$1" --env "$env" --repo "$repo"; }
 

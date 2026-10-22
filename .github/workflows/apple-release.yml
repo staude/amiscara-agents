@@ -8,6 +8,9 @@ name: Apple release
 # - testflight: iPhone/iPad app (with the Watch app) and Apple TV app,
 #   uploaded to App Store Connect for TestFlight.
 #
+# Only `main` and tags `apple-v*` run it, like the environment's deployment
+# rules; a run from another branch skips both jobs.
+#
 # A tag `apple-v<version>` runs both; by hand (Actions > Apple release >
 # Run workflow, or `gh workflow run apple-release.yml -f target=mac`) one
 # of them. The build number is `<CURRENT_PROJECT_VERSION>.<run>.<attempt>`,
@@ -42,7 +45,7 @@ env:
 jobs:
   mac:
     name: Mac app (notarized)
-    if: github.event_name == 'push' || inputs.target != 'testflight'
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/apple-v')) && (github.event_name == 'push' || inputs.target != 'testflight')
     environment: apple-release
     runs-on: xcode-27
     timeout-minutes: 60
@@ -106,7 +109,7 @@ jobs:
 
   testflight:
     name: TestFlight (iOS and tvOS)
-    if: github.event_name == 'push' || inputs.target != 'mac'
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/apple-v')) && (github.event_name == 'push' || inputs.target != 'mac')
     environment: apple-release
     runs-on: xcode-27
     timeout-minutes: 90
