@@ -111,3 +111,17 @@ extension FocusedValues {
     @Entry var keySender: KeySender?
     @Entry var paneSearch: PaneSearchActions?
 }
+
+#if os(macOS)
+/// "Nach Updates suchen …" in the app menu, below "Über Amiscara Agents".
+struct UpdateCommands: Commands {
+    @State private var updater = UpdaterController.shared
+
+    var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Nach Updates suchen …") { updater.checkForUpdates() }
+                .disabled(!updater.isAvailable)
+        }
+    }
+}
+#endif

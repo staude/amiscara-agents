@@ -69,10 +69,46 @@ struct SettingsView: View {
             Section("Terminal") {
                 TerminalSettings()
             }
+            UpdateSettings()
         }
         .formStyle(.grouped)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Updates as in Kastellan: automatically every 24 hours, or now.
+private struct UpdateSettings: View {
+    @State private var updater = UpdaterController.shared
+
+    var body: some View {
+        Section {
+            Toggle("Automatisch nach Updates suchen", isOn: $updater.automaticallyChecksForUpdates)
+                .disabled(!updater.isAvailable)
+            LabeledContent {
+                Button("Jetzt suchen") { updater.checkForUpdates() }
+                    .disabled(!updater.isAvailable)
+            } label: {
+                Text("Version \(Self.version)")
+                if let last = updater.lastUpdateCheckDate {
+                    Text("Zuletzt gesucht \(last.formatted(.relative(presentation: .named)))")
+                }
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            Text(updater.isAvailable
+                 ? "Amiscara Agents sucht beim Start und danach alle 24 Stunden nach einer neuen Version. Updates laden im Hintergrund und werden beim nächsten Beenden installiert."
+                 : "Dieser Build aktualisiert sich nicht selbst (Entwickler-Build). Neue Versionen gibt es unter github.com/staude/amiscara-agents/releases.")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
     }
 }
 #endif
