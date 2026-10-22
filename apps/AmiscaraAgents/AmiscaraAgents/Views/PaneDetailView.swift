@@ -7,6 +7,7 @@ struct PaneDetailView: View {
     @State private var model = PaneModel()
     @State private var search = PaneSearchState()
     @State private var showingConversation = false
+    @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
 
     var body: some View {
         let matches = search.matches(in: model.content)
@@ -47,6 +48,7 @@ struct PaneDetailView: View {
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
         }
         .onChange(of: selection) { search.matchIndex = nil }
+        .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         .sheet(isPresented: $showingConversation) {
             if let selection, let connection = store.connection(for: selection.hostID) {
                 ConversationView(connection: connection, paneID: selection.paneID)

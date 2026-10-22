@@ -38,6 +38,8 @@ class Prefs {
   terminalAppearance = $state<TerminalAppearance>(read("terminalAppearance", "app"));
   terminalScheme = $state<TerminalScheme>(read("terminalScheme", "standard"));
   minContrast = $state<boolean>(read("terminalMinContrast", true));
+  /** Wrap long lines at the view width instead of scrolling sideways (#191). */
+  wrapLines = $state<boolean>(read("terminalWrapLines", false));
   /** Offer the steps through full-screen agents, which move the host's view too (#187). */
   fullscreenScroll = $state<boolean>(read("scrollFullscreenAgents", false));
   /** The system's look, for "system" in `theme`. */
@@ -101,6 +103,11 @@ class Prefs {
   setMinContrast(on: boolean) {
     this.minContrast = on;
     write("terminalMinContrast", on);
+  }
+
+  setWrapLines(on: boolean) {
+    this.wrapLines = on;
+    write("terminalWrapLines", on);
   }
 
   setFullscreenScroll(on: boolean) {

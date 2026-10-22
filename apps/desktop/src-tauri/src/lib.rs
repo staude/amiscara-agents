@@ -76,6 +76,7 @@ pub fn run() {
             app::stop_follow,
             app::set_follow_live,
             app::set_follow_history,
+            app::set_follow_unwrap,
             app::send_prompt,
             app::send_keys,
             app::send_text,

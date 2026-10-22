@@ -13,6 +13,8 @@ struct TerminalScreenView: View {
     /// history too, since it is part of `content`.
     var search = SearchHighlight()
     @AppStorage("terminalFontSize") private var preferredFontSize = Platform.defaultTerminalFontSize
+    /// Long lines wrap at the view width instead of scrolling sideways (#191).
+    @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
     @State private var width: CGFloat = 0
     /// Set once the user scrolled, so the first layout (which may briefly sit
     /// at the top before the bottom anchor applies) cannot load history.
@@ -41,7 +43,7 @@ struct TerminalScreenView: View {
 
     private func lines(_ theme: TerminalTheme) -> some View {
         ScrollViewReader { proxy in
-            ScrollView([.vertical, .horizontal]) {
+            ScrollView(wrapLines ? .vertical : [.vertical, .horizontal]) {
                 // A plain VStack: the visible screen is about 60 lines, and a
                 // LazyVStack in a two-axis scroll view could stay undrawn until
                 // the content changed (a black pane on the iPad). With history
@@ -52,15 +54,28 @@ struct TerminalScreenView: View {
                             .padding(.bottom, 8)
                     }
                     ForEach(Array(content.lines.enumerated()), id: \.offset) { index, line in
-                        Text(TerminalStyle.attributed(
+                        let text = Text(TerminalStyle.attributed(
                             line,
                             theme: theme,
                             fontSize: fontSize,
                             matches: search.byLine[index] ?? [],
                             current: search.current
                         ))
-                        .fixedSize()
-                        .frame(minHeight: fontSize * 1.25, alignment: .leading)
+                        if !wrapLines {
+                            text
+                                .fixedSize()
+                                .frame(minHeight: fontSize * 1.25, alignment: .leading)
+                        } else if line.isRule {
+                            // A frame would break apart: clip it instead.
+                            text
+                                .fixedSize()
+                                .frame(maxWidth: .infinity, minHeight: fontSize * 1.25, alignment: .leading)
+                                .clipped()
+                        } else {
+                            text
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, minHeight: fontSize * 1.25, alignment: .leading)
+                        }
                     }
                 }
                 .padding(10)
@@ -272,5 +287,24 @@ enum TerminalStyle {
             let v = (Double(index - 232) * 10 + 8) / 255
             return RGB(v, v, v)
         }
+    }
+}
+
+extension StyledLine {
+    /// A row drawn only with box-drawing and block characters, such as a
+    /// frame or a rule of a full-screen program: wrapping would break it
+    /// apart, so a wrapping view clips it instead (#191).
+    var isRule: Bool {
+        var hasBox = false
+        for span in spans {
+            for scalar in span.text.unicodeScalars {
+                if (0x2500...0x259F).contains(scalar.value) {
+                    hasBox = true
+                } else if !CharacterSet.whitespaces.contains(scalar) {
+                    return false
+                }
+            }
+        }
+        return hasBox
     }
 }

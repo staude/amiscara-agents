@@ -72,10 +72,11 @@ import net.staude.amiscara.agents.model.TerminalAppearance
 
 /** Follows a pane while it is on screen; a new session starts a new follower. */
 @Composable
-private fun rememberPane(session: HostSession, paneId: String, live: Boolean): PaneModel {
+private fun rememberPane(session: HostSession, paneId: String, live: Boolean, wrap: Boolean): PaneModel {
     val model = remember(session, paneId) { PaneModel(session, paneId, live) }
     DisposableEffect(model) { onDispose { model.stop() } }
     LaunchedEffect(model, live) { model.setLive(live) }
+    LaunchedEffect(model, wrap) { model.setUnwrap(wrap) }
     return model
 }
 
@@ -327,10 +328,11 @@ fun WorkspaceScreen(
             val (theme, fontSize) = rememberTerminalTheme(app)
             val terminalPrefs by app.settings.terminal.collectAsStateWithLifecycle()
             val setFont = { size: Float -> app.settings.setTerminal(app.settings.terminal.value.copy(fontSize = size)) }
+            val wrap = app.settings.terminal.collectAsStateWithLifecycle().value.wrapLines
             if (session == null) {
                 Text(stringResource(R.string.no_connection), Modifier.padding(16.dp).weight(1f))
             } else {
-                val selected = rememberPane(session, pane.paneId, live = true)
+                val selected = rememberPane(session, pane.paneId, live = true, wrap = wrap)
                 val state by selected.flow.collectAsStateWithLifecycle()
                 val hits = remember(state.content, query, searching) { if (searching) searchHits(state.content, query) else emptyList() }
                 if (searching) {
@@ -343,6 +345,7 @@ fun WorkspaceScreen(
                     val selectedView = @Composable {
                         TerminalView(
                             state, theme, fontSize, Modifier.fillMaxSize(),
+                            wrap = wrap,
                             onFontSize = setFont,
                             onLoadMore = selected::loadMoreHistory,
                             onHideHistory = selected::hideHistory,
@@ -353,7 +356,7 @@ fun WorkspaceScreen(
                         )
                     }
                     if (split) {
-                        SplitPanes(tab, pane.paneId, session, theme, fontSize, onSelect = { paneId = it }, selectedView = selectedView)
+                        SplitPanes(tab, pane.paneId, session, theme, fontSize, wrap, onSelect = { paneId = it }, selectedView = selectedView)
                     } else {
                         selectedView()
                     }
@@ -382,6 +385,7 @@ private fun SplitPanes(
     session: HostSession,
     theme: TerminalTheme,
     fontSize: Float,
+    wrap: Boolean,
     onSelect: (String) -> Unit,
     selectedView: @Composable () -> Unit,
 ) {
@@ -403,9 +407,9 @@ private fun SplitPanes(
                     selectedView()
                 } else {
                     // The selected pane has its own live follower above.
-                    val model = rememberPane(session, frame.paneId, live = false)
+                    val model = rememberPane(session, frame.paneId, live = false, wrap = wrap)
                     val state by model.flow.collectAsStateWithLifecycle()
-                    TerminalView(state, theme, fontSize * 0.85f, Modifier.fillMaxSize(), interactive = false)
+                    TerminalView(state, theme, fontSize * 0.85f, Modifier.fillMaxSize(), interactive = false, wrap = wrap)
                 }
             }
         }

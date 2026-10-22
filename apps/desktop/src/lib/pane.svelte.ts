@@ -29,6 +29,8 @@ export class PaneModel {
   private screenRows = $state(0);
   private follower: core.Follower | null = null;
   private live: boolean;
+  /** Lines the terminal wrapped come joined, see `setUnwrap`. */
+  private unwrap = false;
   private stopped = false;
 
   constructor(
@@ -53,6 +55,7 @@ export class PaneModel {
         else {
           this.follower = follower;
           if (this.live !== live) follower.setLive(this.live);
+          if (this.unwrap) follower.setUnwrap(true);
         }
       })
       .catch((err) => (this.error = core.errorText(err)));
@@ -99,6 +102,18 @@ export class PaneModel {
     this.agentHistory = null;
     this.agentError = null;
     this.follower?.setHistoryLines(0);
+  }
+
+  /**
+   * Joins the rows the terminal wrapped at the pane width, for a view that
+   * wraps lines at its own width (#191). Drops loaded history, whose row
+   * count would no longer match the screen's.
+   */
+  setUnwrap(unwrap: boolean) {
+    if (unwrap === this.unwrap) return;
+    this.unwrap = unwrap;
+    if (this.historyLines > 0) this.hideHistory();
+    this.follower?.setUnwrap(unwrap);
   }
 
   /**
