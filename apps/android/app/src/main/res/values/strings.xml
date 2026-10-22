@@ -57,7 +57,7 @@
     <string name="field_name">Name</string>
     <string name="field_name_placeholder">z. B. work</string>
     <string name="field_host">Host</string>
-    <string name="field_host_placeholder">work.staude.internal oder IP</string>
+    <string name="field_host_placeholder">mac.example.internal oder IP</string>
     <string name="field_port">Port</string>
     <string name="field_user">Benutzer</string>
     <string name="field_system">System</string>

@@ -215,7 +215,7 @@ private key never leaves it. iPhone and TV need the same Apple ID.
 **Network:** the Apple TV reaches a host **only directly in the home network**
 (plain IP or Bonjour name). There is no NetBird (or other VPN client) for
 tvOS, so addresses that only work through the VPN, such as
-`work.staude.internal` or `100.x` Tailnet IPs, do not work on the TV. The Mac
+`mac.example.internal` or `100.x` Tailnet IPs, do not work on the TV. The Mac
 app on a host therefore publishes its Bonjour name (`<LocalHostName>.local`)
 in iCloud under its SSH host key, and the TV connects through it; the pinned
 host key is still checked. For hosts without a running Mac app (e.g. a Linux

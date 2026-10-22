@@ -6,7 +6,7 @@ import android.net.Uri
 // strict checks live in Rust (`herdr_session::link`); this only connects
 // them to the app, like `HostLink.swift`.
 
-/** "Work.Staude.Internal." and "work.staude.internal" are one host. */
+/** "Mac.Example.Internal." and "mac.example.internal" are one host. */
 fun normalizedHost(host: String): String = host.trim().lowercase().trimEnd('.')
 
 /** Same algorithm and key data; the comment does not matter. */
