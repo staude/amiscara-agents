@@ -50,7 +50,7 @@
 	<key>SUFeedURL</key>
 	<string>https://github.com/staude/amiscara-agents/releases/download/updates/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>__SPARKLE_PUBLIC_KEY__</string>
+	<string>kKLJaOdPFbh5wzDWhNuiJZJHWZ6mR4l/hWsMumZiRdQ=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 </dict>

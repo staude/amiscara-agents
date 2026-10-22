@@ -102,12 +102,11 @@ targets:
               - amiscara-agents
         # Sparkle: the feed is an asset of the release `updates`, which
         # scripts/release.sh and apple-release.yml replace with each Mac
-        # release. The public key belongs to the private key in Frank's
-        # keychain (generate_keys --account amiscara-agents); while it is
-        # the placeholder, the app does not look for updates and
-        # release.sh refuses to build.
+        # release. The public key belongs to the private key in the
+        # maintainer's keychain (generate_keys --account amiscara-agents)
+        # and the CI secret SPARKLE_ED_PRIVATE_KEY.
         SUFeedURL: https://github.com/staude/amiscara-agents/releases/download/updates/appcast.xml
-        SUPublicEDKey: __SPARKLE_PUBLIC_KEY__
+        SUPublicEDKey: kKLJaOdPFbh5wzDWhNuiJZJHWZ6mR4l/hWsMumZiRdQ=
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: true
         SUScheduledCheckInterval: 86400
