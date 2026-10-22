@@ -175,11 +175,13 @@ struct TerminalThemeReader<Content: View>: View {
 }
 
 #if !os(tvOS)
-/// Terminal settings: light or dark, color scheme, minimum contrast.
+/// Terminal settings: light or dark, color scheme, minimum contrast,
+/// scrolling of full-screen agents.
 struct TerminalSettings: View {
     @AppStorage(TerminalAppearance.storageKey) private var appearance: TerminalAppearance = .app
     @AppStorage(TerminalScheme.storageKey) private var scheme: TerminalScheme = .standard
     @AppStorage(TerminalScheme.contrastKey) private var minContrast = true
+    @AppStorage(PaneModel.fullscreenScrollKey) private var fullscreenScroll = false
 
     var body: some View {
         Picker("Terminal", selection: $appearance) {
@@ -194,6 +196,8 @@ struct TerminalSettings: View {
         }
         Toggle("Mindestkontrast", isOn: $minContrast)
             .help(String(localized: "Hellt zu schwache Schriftfarben auf oder dunkelt sie ab"))
+        Toggle("Vollbild-Agenten scrollen", isOn: $fullscreenScroll)
+            .help(String(localized: "Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host"))
     }
 }
 #endif

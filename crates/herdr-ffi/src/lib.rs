@@ -21,9 +21,9 @@ pub use add_host::{
     public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot,
-    SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor,
-    TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
+    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate,
+    SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
+    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -57,6 +57,9 @@ pub enum FfiError {
     /// Claude Code session for the pane.
     #[error("{0}")]
     Files(String),
+    /// herdr collects a full-screen agent's history only while it is idle.
+    #[error("{0}")]
+    AgentWorking(String),
 }
 
 impl From<SessionError> for FfiError {
@@ -70,6 +73,7 @@ impl From<SessionError> for FfiError {
             SessionError::Upload(message) => Self::Upload(message),
             SessionError::InvalidLink(message) => Self::InvalidLink(message),
             SessionError::Files(message) => Self::Files(message),
+            SessionError::AgentWorking(message) => Self::AgentWorking(message),
         }
     }
 }
@@ -373,6 +377,20 @@ impl HostSession {
         before: Option<TranscriptCursor>,
     ) -> Result<TranscriptPage, FfiError> {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
+    }
+
+    /// The transcript of a full-screen agent such as Claude Code as plain
+    /// text, which herdr collects by scrolling the idle agent's view on the
+    /// host; fails with `AgentWorking` otherwise. Blocks for a moment; call
+    /// it off the main thread.
+    pub fn agent_history(&self, pane_id: String) -> Result<PaneContent, FfiError> {
+        Ok(runtime().block_on(self.session.agent_history(&pane_id))?)
+    }
+
+    /// Scrolls the view of a full-screen agent, also on the host; end with
+    /// `ScrollStep::Bottom`. Blocks for one round trip.
+    pub fn scroll_agent(&self, pane_id: String, step: ScrollStep) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.scroll_agent(&pane_id, step))?)
     }
 
     /// Renames a space. Blocks for one round trip.

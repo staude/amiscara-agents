@@ -1,12 +1,19 @@
 package net.staude.amiscara.agents.model
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import net.staude.amiscara.agents.core.FfiException
 import net.staude.amiscara.agents.core.HostSession
 import net.staude.amiscara.agents.core.PaneContent
 import net.staude.amiscara.agents.core.PaneFollow
 import net.staude.amiscara.agents.core.PaneObserver
+import net.staude.amiscara.agents.core.ScrollStep
 import net.staude.amiscara.agents.core.maxHistoryLines
 
 /**
@@ -14,20 +21,34 @@ import net.staude.amiscara.agents.core.maxHistoryLines
  * `PaneModel.swift` and `pane.svelte.ts`. Only a live pane (the selected
  * one) loads history. Call [stop] when the pane leaves the screen.
  */
-class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
+class PaneModel(private val session: HostSession, val paneId: String, live: Boolean) {
     data class State(
-        val content: PaneContent? = null,
+        /** The followed screen, with scrollback when asked for. */
+        val followed: PaneContent? = null,
         val error: String? = null,
         /** History rows asked for; 0 shows only the visible screen. */
         val historyLines: Int = 0,
         /** Rows of the last screen-only read, to tell whether history added any. */
         val screenRows: Int = 0,
+        /**
+         * The transcript of a full-screen agent such as Claude Code, which
+         * herdr keeps no scrollback for (#187): read once on request and
+         * shown instead of the live screen until [hideHistory]. Plain text.
+         */
+        val agentHistory: PaneContent? = null,
+        val loadingAgentHistory: Boolean = false,
+        /** Why the last step through a full-screen agent failed. */
+        val agentError: String? = null,
     ) {
-        val isLoadingHistory: Boolean get() = historyLines > (content?.historyLines?.toInt() ?: 0)
+        /** What the pane view shows: the agent's transcript, else the live screen. */
+        val content: PaneContent? get() = agentHistory ?: followed
+
+        val isLoadingHistory: Boolean get() = historyLines > (followed?.historyLines?.toInt() ?: 0)
 
         val canLoadMoreHistory: Boolean
             get() {
-                val c = content ?: return false
+                val c = followed ?: return false
+                if (agentHistory != null) return false
                 if (isLoadingHistory) return false
                 return c.historyLines == 0u || (c.truncated && c.historyLines < maxHistory)
             }
@@ -35,8 +56,8 @@ class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
         /** History read, but nothing above the screen: full-screen programs. */
         val hasNoHistory: Boolean
             get() {
-                val c = content ?: return false
-                if (isLoadingHistory || c.historyLines == 0u || c.truncated) return false
+                val c = followed ?: return false
+                if (agentHistory != null || isLoadingHistory || c.historyLines == 0u || c.truncated) return false
                 return screenRows > 0 && c.lines.size <= screenRows
             }
     }
@@ -45,11 +66,14 @@ class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
     val flow: StateFlow<State> = state.asStateFlow()
 
     private var live = live
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** The app scrolled the agent's own view up, also on the host; undone in [stop]. */
+    @Volatile private var agentScrolled = false
     private val follow: PaneFollow = session.followPanePaced(paneId, live, object : PaneObserver {
         override fun onContent(content: PaneContent) {
             state.value = state.value.let {
                 it.copy(
-                    content = content,
+                    followed = content,
                     error = null,
                     screenRows = if (content.historyLines == 0u) content.lines.size else it.screenRows,
                 )
@@ -73,8 +97,38 @@ class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
     }
 
     fun hideHistory() {
-        state.value = state.value.copy(historyLines = 0)
+        state.value = state.value.copy(historyLines = 0, agentHistory = null, agentError = null)
         follow.setHistoryLines(0u)
+    }
+
+    /**
+     * Reads the transcript of the full-screen agent in the pane. herdr
+     * scrolls the agent on the host through it and back down, which takes
+     * a moment and works only while the agent is idle.
+     */
+    fun loadAgentHistory() {
+        if (state.value.loadingAgentHistory) return
+        state.value = state.value.copy(loadingAgentHistory = true, agentError = null)
+        scope.launch {
+            state.value = try {
+                state.value.copy(agentHistory = session.agentHistory(paneId), loadingAgentHistory = false)
+            } catch (e: FfiException) {
+                state.value.copy(agentError = inputErrorMessage(e), loadingAgentHistory = false)
+            }
+        }
+    }
+
+    /** Scrolls the full-screen agent's own view; the live screen follows. */
+    fun scrollAgent(step: ScrollStep) {
+        agentScrolled = step != ScrollStep.BOTTOM
+        state.value = state.value.copy(agentError = null)
+        scope.launch {
+            try {
+                session.scrollAgent(paneId, step)
+            } catch (e: FfiException) {
+                state.value = state.value.copy(agentError = inputErrorMessage(e))
+            }
+        }
     }
 
     /** The fast pace for the selected pane, the slow one beside it. */
@@ -88,6 +142,12 @@ class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
     fun stop() {
         follow.stop()
         follow.close()
+        if (agentScrolled) {
+            scope.launch { runCatching { session.scrollAgent(paneId, ScrollStep.BOTTOM) } }
+                .invokeOnCompletion { scope.cancel() }
+        } else {
+            scope.cancel()
+        }
     }
 
     private companion object {
