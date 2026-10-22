@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, type MessageKey } from "../lib/i18n.svelte";
   import { onMount } from "svelte";
   import { prepare, release, shellQuoted, type Attachment } from "../lib/attachments";
   import * as core from "../lib/core";
@@ -194,8 +195,7 @@
     return true;
   }
 
-  const uploadOff = () =>
-    (error = `Dateien hochladen ist für ${host.name} aus. Einschalten unter „Bearbeiten“ › „Dateien hochladen (SFTP)“.`);
+  const uploadOff = () => (error = t("uploadOffFor", { host: host.name }));
 
   async function add(files: File[]) {
     if (files.length === 0) return;
@@ -242,15 +242,15 @@
     replies = await core.quickReplies();
   }
 
-  const KEYS: [string, string, string][] = [
-    ["Esc", "esc", "Escape (Strg+.)"],
-    ["Tab", "tab", "Tab"],
-    ["⌃C", "ctrl+c", "Strg+C"],
-    ["↑", "up", "Pfeil nach oben (Strg+Alt+↑)"],
-    ["↓", "down", "Pfeil nach unten (Strg+Alt+↓)"],
-    ["←", "left", "Pfeil nach links (Strg+Alt+←)"],
-    ["→", "right", "Pfeil nach rechts (Strg+Alt+→)"],
-    ["↩", "enter", "Enter (Strg+Umschalt+Enter)"],
+  const KEYS: [string, string, MessageKey][] = [
+    ["Esc", "esc", "keyEsc"],
+    ["Tab", "tab", "keyTab"],
+    ["⌃C", "ctrl+c", "keyCtrlC"],
+    ["↑", "up", "keyUp"],
+    ["↓", "down", "keyDown"],
+    ["←", "left", "keyLeft"],
+    ["→", "right", "keyRight"],
+    ["↩", "enter", "keyEnter"],
   ];
 </script>
 
@@ -265,29 +265,29 @@
   <fieldset disabled={sending || !live}>
     {#if isBlocked}
       <div class="answers">
-        <span class="waiting">✋ Wartet auf Antwort</span>
+        <span class="waiting">✋ {t("waitingForAnswer")}</span>
         <span class="spacer"></span>
         {#each ["1", "2", "3"] as key (key)}
-          <button title="Option {key} wählen (Strg+Alt+{key})" onclick={() => sendKeys([key])}>{key}</button>
+          <button title={t("chooseOption", { key })} onclick={() => sendKeys([key])}>{key}</button>
         {/each}
-        <button class="confirm" title="Strg+Umschalt+Enter" onclick={() => sendKeys(["enter"])}>↩ Bestätigen</button>
-        <button onclick={() => sendKeys(["esc"])}>Abbrechen</button>
+        <button class="confirm" title={t("confirmShortcut")} onclick={() => sendKeys(["enter"])}>↩ {t("confirm")}</button>
+        <button onclick={() => sendKeys(["esc"])}>{t("cancel")}</button>
       </div>
     {/if}
 
     <div class="row scroll">
       {#each replies as reply, index (index)}
-        <button class="small" title="Senden: {reply}" onclick={() => sendReply(reply)}>{reply}</button>
+        <button class="small" title={t("sendReply", { reply })} onclick={() => sendReply(reply)}>{reply}</button>
       {/each}
-      <button class="small" title="Schnellantworten bearbeiten" onclick={() => (editingReplies = true)}>
-        {replies.length ? "✎" : "Schnellantworten"}
+      <button class="small" title={t("editQuickReplies")} onclick={() => (editingReplies = true)}>
+        {replies.length ? "✎" : t("quickReplies")}
       </button>
     </div>
 
     <div class="row scroll">
       {#each KEYS as [label, key, help], index (key)}
         {#if index === 3}<span class="sep"></span>{/if}
-        <button class="small" title={help} onclick={() => sendKeys([key])}>{label}</button>
+        <button class="small" title={t(help)} onclick={() => sendKeys([key])}>{label}</button>
       {/each}
     </div>
 
@@ -300,19 +300,19 @@
             {:else}
               <span class="file">📄<br />{item.fileName}</span>
             {/if}
-            <button class="remove" title="Entfernen" onclick={() => removeAttachment(item)}>✕</button>
+            <button class="remove" title={t("remove")} onclick={() => removeAttachment(item)}>✕</button>
           </div>
         {/each}
       </div>
     {/if}
 
     {#if isLive}
-      <p class="live">Live an {pane.agent}: ↑↓ wählen, Tab übernimmt, Enter führt aus</p>
+      <p class="live">{t("liveHint", { agent: pane.agent ?? "" })}</p>
     {/if}
     <div class="composer">
       <button
         class="attach"
-        title={uploadAllowed ? "Datei anhängen (auch per Drag & Drop oder Einfügen)" : "Dateien hochladen ist für diesen Host aus"}
+        title={uploadAllowed ? t("attachFile") : t("uploadOffHere")}
         onclick={() => (uploadAllowed ? filePicker?.click() : uploadOff())}>📎</button
       >
       <input
@@ -328,12 +328,12 @@
       <textarea
         bind:value={text}
         rows={Math.min(8, Math.max(1, text.split("\n").length))}
-        placeholder={isAgent ? `Prompt an ${pane.agent}` : "Befehl"}
+        placeholder={isAgent ? t("promptTo", { agent: pane.agent ?? "" }) : t("command")}
         onkeydown={onComposerKey}
         oninput={syncLive}
         onpaste={onPaste}
       ></textarea>
-      <button class="primary" disabled={!canSend} onclick={submit}>{isAgent ? "Senden" : "Ausführen"}</button>
+      <button class="primary" disabled={!canSend} onclick={submit}>{isAgent ? t("send") : t("run")}</button>
     </div>
   </fieldset>
   {#if error}<p class="error">⚠ {error}</p>{/if}

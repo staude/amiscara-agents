@@ -1,6 +1,7 @@
 // Creating, renaming and closing in herdr: which dialog or menu is open.
 // Sidebar and tab bar ask for one, App shows it.
 
+import { t } from "./i18n.svelte";
 import { model } from "./state.svelte";
 import type { AgentState, WorkspaceItem } from "./types";
 
@@ -78,7 +79,7 @@ export function spaceMenu(hostId: string, workspace: WorkspaceItem): (MenuItem |
   const repo = repositoryOf(workspace, model.updates[hostId]?.workspaces ?? []);
   return [
     {
-      label: "Umbenennen …",
+      label: t("renameMenu"),
       disabled: !writable,
       action: () =>
         (ui.dialog = { kind: "rename", hostId, target: "space", id: workspace.workspaceId, current: workspace.label }),
@@ -86,13 +87,13 @@ export function spaceMenu(hostId: string, workspace: WorkspaceItem): (MenuItem |
     ...(repo
       ? [
           {
-            label: "Neuer Worktree …",
+            label: t("newWorktreeMenu"),
             disabled: !writable,
             action: () => (ui.dialog = { kind: "newWorktree", hostId, repository: repo }),
           },
         ]
       : []),
     null,
-    { label: "Space schließen …", danger: true, disabled: !writable, action: () => closeSpace(hostId, workspace) },
+    { label: t("closeSpaceMenu"), danger: true, disabled: !writable, action: () => closeSpace(hostId, workspace) },
   ];
 }

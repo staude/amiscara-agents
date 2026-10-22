@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { stateLabel } from "../lib/spaces";
   import { model } from "../lib/state.svelte";
   import { entries, filter } from "../lib/switcher";
@@ -49,9 +50,9 @@
 </script>
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
-  <div class="switcher" role="dialog" aria-label="Schnell wechseln">
+  <div class="switcher" role="dialog" aria-label={t("quickSwitch")}>
     <!-- svelte-ignore a11y_autofocus -->
-    <input bind:value={query} onkeydown={onKey} placeholder="Space oder Agent suchen" autofocus spellcheck="false" />
+    <input bind:value={query} onkeydown={onKey} placeholder={t("findSpaceOrAgent")} autofocus spellcheck="false" />
     <ul bind:this={list}>
       {#each shown as entry, at (entry.id)}
         <li>
@@ -63,14 +64,14 @@
           >
             <StatusDot state={entry.state} />
             <span class="text">
-              <span class="title">{entry.title}{#if entry.kind === "agent" && entry.state && entry.state !== "idle"}<span class="state {entry.state}">{stateLabel[entry.state]}</span>{/if}</span>
+              <span class="title">{entry.title}{#if entry.kind === "agent" && entry.state && entry.state !== "idle"}<span class="state {entry.state}">{stateLabel(entry.state)}</span>{/if}</span>
               {#if entry.subtitle}<span class="sub">{entry.subtitle}</span>{/if}
             </span>
             <span class="kind">{entry.kind === "space" ? "Space" : "Agent"}{severalHosts ? ` · ${entry.hostName}` : ""}</span>
           </button>
         </li>
       {:else}
-        <li class="none">Nichts gefunden</li>
+        <li class="none">{t("nothingFound")}</li>
       {/each}
     </ul>
   </div>

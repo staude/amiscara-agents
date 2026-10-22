@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { untrack } from "svelte";
   import * as core from "../lib/core";
   import { model } from "../lib/state.svelte";
@@ -49,40 +50,32 @@
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
   <div class="sheet">
-    <h2>Host aus Link hinzufügen</h2>
+    <h2>{t("addHostFromLink")}</h2>
     {#if !url}
-      <p class="small">
-        Den Link „amiscara-agents://add-host?…“ einfügen, z. B. aus „Host teilen“ der Mac-App.
-      </p>
+      <p class="small">{t("pasteLinkHint")}</p>
       <textarea bind:value={text} rows="4" placeholder="amiscara-agents://add-host?v=1&…"></textarea>
     {/if}
     {#if link}
       <dl>
-        <dt>Name</dt>
+        <dt>{t("name")}</dt>
         <dd>{link.name || link.host}</dd>
         <dt>Host</dt>
         <dd>{link.user}@{link.host}:{link.port}</dd>
         <dt>Socket</dt>
-        <dd>{link.socketPath || "Standard"}</dd>
-        <dt>Host-Key</dt>
+        <dd>{link.socketPath || t("defaultSocket")}</dd>
+        <dt>{t("hostKey")}</dt>
         <dd class="mono">{fingerprint}</dd>
       </dl>
       {#if url}
-        <p class="warn">
-          Dieser Link wurde von außen geöffnet. Prüfen Sie Host und Benutzer. Den Fingerabdruck fragt die
-          App bei der ersten Verbindung ab.
-        </p>
+        <p class="warn">{t("linkUntrusted")}</p>
       {:else}
-        <p class="small">
-          Der Host-Key aus dem eingefügten Link gilt als bestätigt. Danach die Schlüsselzeile dieses
-          Geräts auf dem Rechner eintragen.
-        </p>
+        <p class="small">{t("linkTrusted")}</p>
       {/if}
     {/if}
     {#if error}<p class="error">{error}</p>{/if}
     <div class="buttons">
-      <button onclick={close}>Abbrechen</button>
-      <button class="primary" disabled={!link} onclick={add}>Hinzufügen</button>
+      <button onclick={close}>{t("cancel")}</button>
+      <button class="primary" disabled={!link} onclick={add}>{t("add")}</button>
     </div>
   </div>
 </div>

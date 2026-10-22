@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import * as core from "../lib/core";
 
   // Which agent to start in a new space, tab or worktree: none, or one of
@@ -33,9 +34,9 @@
 </script>
 
 <label class="field">
-  <span>Agent starten</span>
+  <span>{t("startAgent")}</span>
   <select value={kind ?? ""} onchange={(e) => remember(e.currentTarget.value || null)}>
-    <option value="">Keinen, nur Shell</option>
+    <option value="">{t("noAgentShellOnly")}</option>
     {#each options as option (option)}
       <option value={option}>{option}</option>
     {/each}

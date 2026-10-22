@@ -23,7 +23,13 @@ export interface HostConfig {
 
 export interface AppError {
   kind: string;
+  /** English, for logs; `errorText` puts known errors in the user's language. */
   message: string;
+  /** For `kind: "config"`, see `ConfigError` in error.rs. */
+  code?: string;
+  host?: string;
+  /** For `kind: "invalidLink"`, see `LinkError` in herdr-session. */
+  link?: { problem: string; field?: string; host?: string; user?: string };
 }
 
 export interface AppInfo {
@@ -199,4 +205,6 @@ export interface DemoTarget {
   view?: string;
   search?: string;
   appearance?: string;
+  /** "de" or "en" instead of the system's language (#207). */
+  lang?: string;
 }

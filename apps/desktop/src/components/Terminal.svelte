@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import type { PaneModel } from "../lib/pane.svelte";
   import { canWrite } from "../lib/manage.svelte";
@@ -136,28 +137,28 @@
   {#if history && model.content}
     <div class="history">
       {#if model.isLoadingHistory}
-        <span>Verlauf wird geladen …</span>
+        <span>{t("historyLoading")}</span>
       {:else if model.loadingAgentHistory}
-        <span>Verlauf wird vom Agenten geholt …</span>
+        <span>{t("agentHistoryLoading")}</span>
       {:else if model.agentHistory}
-        <span>Verlauf des Agenten, ohne Farben</span>
-        <button onclick={() => model.loadAgentHistory()}>Aktualisieren</button>
+        <span>{t("agentHistoryShown")}</span>
+        <button onclick={() => model.loadAgentHistory()}>{t("refresh")}</button>
       {:else if model.canLoadMoreHistory}
-        <button onclick={() => model.loadMoreHistory()}>↑ Älteren Verlauf laden</button>
+        <button onclick={() => model.loadMoreHistory()}>↑ {t("loadOlderHistory")}</button>
       {:else if model.hasNoHistory && fullscreen}
-        <button onclick={() => model.loadAgentHistory()} title="Geht nur, wenn der Agent nicht arbeitet">Verlauf vom Agenten holen</button>
-        <button onclick={() => model.scrollAgent("pageUp")} title="Seite hoch" aria-label="Seite hoch">↑</button>
-        <button onclick={() => model.scrollAgent("pageDown")} title="Seite runter" aria-label="Seite runter">↓</button>
-        <button onclick={() => model.scrollAgent("bottom")}>Ans Ende</button>
+        <button onclick={() => model.loadAgentHistory()} title={t("onlyWhenAgentIdle")}>{t("fetchAgentHistory")}</button>
+        <button onclick={() => model.scrollAgent("pageUp")} title={t("pageUp")} aria-label={t("pageUp")}>↑</button>
+        <button onclick={() => model.scrollAgent("pageDown")} title={t("pageDown")} aria-label={t("pageDown")}>↓</button>
+        <button onclick={() => model.scrollAgent("bottom")}>{t("toEnd")}</button>
       {:else if model.hasNoHistory}
-        <span>Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten.</span>
+        <span>{t("noHistoryFullscreen")}</span>
       {:else if model.content.historyLines > 0 && model.content.truncated}
-        <span>Mehr als {model.content.historyLines} Zeilen liefert herdr nicht.</span>
+        <span>{t("historyTruncated", { n: model.content.historyLines })}</span>
       {:else if model.content.historyLines > 0}
-        <span>Anfang des Verlaufs</span>
+        <span>{t("historyStart")}</span>
       {/if}
       {#if model.content.historyLines > 0 && !model.loadingAgentHistory}
-        <button onclick={() => model.hideHistory()}>Nur Bildschirm</button>
+        <button onclick={() => model.hideHistory()}>{t("screenOnly")}</button>
       {/if}
       {#if model.agentError}
         <span>{model.agentError}</span>
@@ -177,9 +178,9 @@
             >{/if}{/each}</div>
     {/each}
   {:else if model.error}
-    <p class="note">Pane nicht lesbar: {model.error}</p>
+    <p class="note">{t("paneUnreadable", { error: model.error })}</p>
   {:else}
-    <p class="note">Lade …</p>
+    <p class="note">{t("loading")}</p>
   {/if}
 </div>
 

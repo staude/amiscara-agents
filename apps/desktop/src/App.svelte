@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n, t } from "./lib/i18n.svelte";
   import { onMount } from "svelte";
   import { openDemo } from "./lib/demo.svelte";
   import ContextMenu from "./components/ContextMenu.svelte";
@@ -23,6 +24,11 @@
   let linkDialog = $state<{ url: string | null } | null>(null);
 
   $effect(() => applyTheme(prefs.theme));
+  // The Rust side words the tray, notifications and defaults in the same language.
+  $effect(() => {
+    document.documentElement.lang = i18n.lang;
+    if (import.meta.env.MODE !== "mock") core.setLanguage(i18n.lang).catch(() => {});
+  });
 
   onMount(() => {
     model
@@ -103,10 +109,10 @@
     {#if updater.available}
       <div class="update">
         {#if updater.state === "downloading"}
-          Version {updater.available.version} wird geladen … {updater.progress ? `${updater.progress} %` : ""}
+          {t("updateLoading", { version: updater.available.version })} {updater.progress ? `${updater.progress} %` : ""}
         {:else}
-          Version {updater.available.version} ist verfügbar.
-          <button class="primary" onclick={() => updater.install()}>Installieren und neu starten</button>
+          {t("updateAvailable", { version: updater.available.version })}
+          <button class="primary" onclick={() => updater.install()}>{t("updateInstall")}</button>
           {#if updater.error}<span class="update-error">{updater.error}</span>{/if}
         {/if}
       </div>
@@ -116,7 +122,7 @@
         <WorkspaceView host={model.selectedHost} workspace={model.selectedWorkspace} />
       {/key}
     {:else if model.selectedHost && model.selection?.workspaceId}
-      <p class="placeholder-text">Space wird geladen …</p>
+      <p class="placeholder-text">{t("spaceLoading")}</p>
     {:else if model.selectedHost}
       <div class="scroll">
         <HostPanel host={model.selectedHost} edit={() => (editing = { host: model.selectedHost ?? null })} />
@@ -124,13 +130,13 @@
     {:else}
       <div class="placeholder">
         <h1>Amiscara Agents</h1>
-        <p>Fügen Sie einen Host hinzu, um seine Agents zu sehen.</p>
+        <p>{t("welcomeHint")}</p>
         <p>
-          <button class="primary" onclick={() => (editing = { host: null })}>Host hinzufügen</button>
-          <button onclick={() => (linkDialog = { url: null })}>Link einfügen</button>
+          <button class="primary" onclick={() => (editing = { host: null })}>{t("addHost")}</button>
+          <button onclick={() => (linkDialog = { url: null })}>{t("pasteLink")}</button>
         </p>
         {#if model.info}
-          <p class="meta">Version {model.info.version}, herdr-Protokoll {model.info.protocol}</p>
+          <p class="meta">{t("versionInfo", { version: model.info.version, protocol: model.info.protocol })}</p>
         {/if}
       </div>
     {/if}

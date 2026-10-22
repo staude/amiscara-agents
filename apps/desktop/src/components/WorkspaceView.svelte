@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { untrack } from "svelte";
   import * as core from "../lib/core";
   import { demo } from "../lib/demo.svelte";
@@ -36,7 +37,7 @@
     const step = (delta: number) => {
       const tabs = workspace.tabs;
       if (tabs.length < 2) return;
-      const at = Math.max(0, tabs.findIndex((t) => t.tabId === tabId));
+      const at = Math.max(0, tabs.findIndex((other) => other.tabId === tabId));
       selectTab(tabs[(at + (delta % tabs.length) + tabs.length) % tabs.length]);
     };
     nav.stepTab = step;
@@ -67,12 +68,12 @@
   function tabMenu(item: TabItem): (MenuItem | null)[] {
     return [
       {
-        label: "Umbenennen …",
+        label: t("renameMenu"),
         disabled: !canWrite(host.id),
         action: () => (ui.dialog = { kind: "rename", hostId: host.id, target: "tab", id: item.tabId, current: item.label }),
       },
       null,
-      { label: "Tab schließen …", danger: true, disabled: !canWrite(host.id), action: () => closeTab(item) },
+      { label: t("closeTabMenu"), danger: true, disabled: !canWrite(host.id), action: () => closeTab(item) },
     ];
   }
 
@@ -92,13 +93,13 @@
   function moreMenu(event: MouseEvent) {
     const repo = repositoryOf(workspace, model.updates[host.id]?.workspaces ?? []);
     openMenu(event, [
-      ...agentKinds.map((kind) => ({ label: `Neuer Tab mit ${kind}`, action: () => void newTab(kind) })),
+      ...agentKinds.map((kind) => ({ label: t("newTabWith", { agent: kind }), action: () => void newTab(kind) })),
       null,
       ...(repo
-        ? [{ label: "Neuer Worktree …", action: () => (ui.dialog = { kind: "newWorktree", hostId: host.id, repository: repo }) }]
+        ? [{ label: t("newWorktreeMenu"), action: () => (ui.dialog = { kind: "newWorktree", hostId: host.id, repository: repo }) }]
         : []),
-      ...(tab ? [{ label: "Tab schließen …", danger: true, action: () => tab && closeTab(tab) }] : []),
-      { label: "Space schließen …", danger: true, action: () => closeSpace(host.id, workspace) },
+      ...(tab ? [{ label: t("closeTabMenu"), danger: true, action: () => tab && closeTab(tab) }] : []),
+      { label: t("closeSpaceMenu"), danger: true, action: () => closeSpace(host.id, workspace) },
     ]);
   }
 
@@ -113,19 +114,19 @@
 
   function focus(wanted: string | null) {
     const tabs = workspace.tabs;
-    const byPane = wanted ? tabs.find((t) => t.panes.some((p) => p.paneId === wanted)) : undefined;
+    const byPane = wanted ? tabs.find((item) => item.panes.some((p) => p.paneId === wanted)) : undefined;
     if (byPane && wanted) {
       tabId = byPane.tabId;
       paneId = wanted;
     } else {
-      selectTab(tabs.find((t) => t.tabId === workspace.activeTabId) ?? tabs[0]);
+      selectTab(tabs.find((item) => item.tabId === workspace.activeTabId) ?? tabs[0]);
     }
   }
 
   // The shown tab was closed: herdr's active tab instead.
   $effect(() => {
-    if (tabId && !workspace.tabs.some((t) => t.tabId === tabId)) {
-      selectTab(workspace.tabs.find((t) => t.tabId === workspace.activeTabId) ?? workspace.tabs[0]);
+    if (tabId && !workspace.tabs.some((item) => item.tabId === tabId)) {
+      selectTab(workspace.tabs.find((item) => item.tabId === workspace.activeTabId) ?? workspace.tabs[0]);
     }
   });
 
@@ -134,7 +135,7 @@
     paneId = (tab?.panes.find((p) => p.focused) ?? tab?.panes[0])?.paneId ?? null;
   }
 
-  let tab = $derived(workspace.tabs.find((t) => t.tabId === tabId));
+  let tab = $derived(workspace.tabs.find((item) => item.tabId === tabId));
   let pane = $derived(tab?.panes.find((p) => p.paneId === paneId));
   // herdr's zoom is ignored on purpose: the window has room for all panes.
   let layout = $derived(tab?.layout && tab.layout.panes.length > 1 ? tab.layout : null);
@@ -154,8 +155,8 @@
       </button>
     {/each}
     {#if canWrite(host.id)}
-      <button class="tool" title="Neuer Tab" onclick={() => newTab()}>+</button>
-      <button class="tool" title="Neuer Tab mit Agent, Worktree, Schließen" onclick={moreMenu}>✦</button>
+      <button class="tool" title={t("newTab")} onclick={() => newTab()}>+</button>
+      <button class="tool" title={t("moreTabActions")} onclick={moreMenu}>✦</button>
     {/if}
     <span class="spacer"></span>
     <span class="where">
@@ -195,7 +196,7 @@
         />
       {/key}
     {:else}
-      <p class="empty">Keine Pane in diesem Tab.</p>
+      <p class="empty">{t("noPaneInTab")}</p>
     {/if}
   </div>
 
