@@ -121,11 +121,7 @@ pub fn refresh(app: &AppHandle, waiting: &WaitingAgents) {
     if let Ok(image) = Image::from_bytes(icon) {
         let _ = tray.set_icon(Some(image));
     }
-    let _ = tray.set_tooltip(Some(match count {
-        0 => "Amiscara Agents".to_owned(),
-        1 => "Amiscara Agents: 1 Agent wartet".to_owned(),
-        n => format!("Amiscara Agents: {n} Agents warten"),
-    }));
+    let _ = tray.set_tooltip(Some(crate::i18n::tray_tooltip(count)));
 }
 
 fn build_menu(app: &AppHandle, waiting: &WaitingAgents) -> tauri::Result<Menu<tauri::Wry>> {
@@ -135,7 +131,7 @@ fn build_menu(app: &AppHandle, waiting: &WaitingAgents) -> tauri::Result<Menu<ta
         menu.append(&MenuItem::with_id(
             app,
             "none",
-            "Kein Agent wartet",
+            crate::i18n::tr("Kein Agent wartet", "No agent waiting"),
             false,
             None::<&str>,
         )?)?;
@@ -158,14 +154,14 @@ fn build_menu(app: &AppHandle, waiting: &WaitingAgents) -> tauri::Result<Menu<ta
     menu.append(&MenuItem::with_id(
         app,
         "open",
-        "Amiscara Agents öffnen",
+        crate::i18n::tr("Amiscara Agents öffnen", "Open Amiscara Agents"),
         true,
         None::<&str>,
     )?)?;
     menu.append(&MenuItem::with_id(
         app,
         "quit",
-        "Beenden",
+        crate::i18n::tr("Beenden", "Quit"),
         true,
         None::<&str>,
     )?)?;

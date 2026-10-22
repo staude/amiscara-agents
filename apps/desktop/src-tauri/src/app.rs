@@ -18,7 +18,7 @@ use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::error::AppError;
+use crate::error::{AppError, ConfigError};
 use crate::hosts::{self, Auth, HostConfig, HostKind, HostStore, QuickReplies};
 use crate::notify::{self, Notice};
 use crate::tray::{self, WaitingAgents};
@@ -114,7 +114,7 @@ pub struct AppInfo {
 }
 
 /// What the screenshot demo (#199) opens: `AMISCARA_DEMO` as JSON
-/// (`space`, `pane`, `view`, `search`, `appearance`), set by
+/// (`space`, `pane`, `view`, `search`, `appearance`, `lang`), set by
 /// `scripts/screenshots.sh`.
 /// Debug builds only.
 #[tauri::command]
@@ -157,28 +157,23 @@ pub async fn save_host(
     host.socket_path = host.socket_path.trim().to_owned();
     if host.name.is_empty() {
         host.name = if host.kind == HostKind::Local {
-            "Dieser Rechner".into()
+            crate::i18n::tr("Dieser Rechner", "This computer").into()
         } else {
             host.host.clone()
         };
     }
     if host.kind == HostKind::Ssh {
         if host.host.is_empty() || host.user.is_empty() {
-            return Err(AppError::Config("Host und Benutzer fehlen.".into()));
+            return Err(ConfigError::MissingHostUser.into());
         }
         if !host.socket_path.starts_with('/') {
-            return Err(AppError::Config(
-                "Der Socket-Pfad muss absolut sein, z. B. /home/frank/.config/herdr/herdr.sock."
-                    .into(),
-            ));
+            return Err(ConfigError::RelativeSocket.into());
         }
         if host.auth == Auth::Key && hosts::private_key(&host.id)?.is_none() {
             host.public_key = Some(new_key(&host)?);
         }
     } else if !cfg!(unix) {
-        return Err(AppError::Config(
-            "Ein lokaler herdr-Socket geht nur unter Linux.".into(),
-        ));
+        return Err(ConfigError::LocalSocketUnix.into());
     }
     state.store().put(host.clone())?;
     Ok(host)
@@ -227,10 +222,7 @@ pub fn key_line(
     allow_sftp: bool,
 ) -> Result<String, AppError> {
     let host = state.store().get(&host_id)?;
-    let public = host
-        .public_key
-        .as_deref()
-        .ok_or_else(|| AppError::Config("Dieser Host hat keinen eigenen Schlüssel.".into()))?;
+    let public = host.public_key.as_deref().ok_or(ConfigError::NoOwnKey)?;
     Ok(herdr_session::authorized_keys_line(
         public,
         allow_sftp,
@@ -340,9 +332,9 @@ fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), App
             user: host.user.clone(),
             identity: match host.auth {
                 Auth::Agent => SshIdentity::Agent,
-                Auth::Key => SshIdentity::Key(hosts::private_key(&host.id)?.ok_or_else(|| {
-                    AppError::Config("Der Schlüssel dieses Hosts fehlt im Schlüsselbund.".into())
-                })?),
+                Auth::Key => {
+                    SshIdentity::Key(hosts::private_key(&host.id)?.ok_or(ConfigError::KeyMissing)?)
+                }
             },
             pinned_host_key: host.pinned_host_key.clone(),
             socket_path: host.socket_path.clone(),
@@ -457,9 +449,7 @@ fn input_allowed(state: &AppState, host_id: &str) -> Result<(), AppError> {
     if state.store().get(host_id)?.allow_input.unwrap_or(true) {
         Ok(())
     } else {
-        Err(AppError::Config(
-            "Eingaben sind für diesen Host ausgeschaltet.".into(),
-        ))
+        Err(ConfigError::InputOff.into())
     }
 }
 
@@ -576,16 +566,16 @@ pub async fn upload(
             .map(str::to_owned)
     };
     let host_id =
-        header("x-host-id").ok_or_else(|| AppError::Config("x-host-id missing".into()))?;
+        header("x-host-id").ok_or_else(|| ConfigError::Other("x-host-id missing".into()))?;
     let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
-        return Err(AppError::Config("upload without raw body".into()));
+        return Err(ConfigError::Other("upload without raw body".into()).into());
     };
     let host = state.store().get(&host_id)?;
     if host.kind == HostKind::Ssh && !host.allow_upload.unwrap_or(false) {
-        return Err(AppError::Config(format!(
-            "Dateien hochladen ist für {} aus. Einschalten unter „Bearbeiten“.",
-            host.name
-        )));
+        return Err(ConfigError::UploadOff {
+            host: host.name.clone(),
+        }
+        .into());
     }
     input_allowed(&state, &host_id)?;
     let session = state.session(&host_id)?;
@@ -618,12 +608,20 @@ fn percent_decode(text: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// The webview's language, for the tray, notifications and defaults (#207).
+#[tauri::command]
+pub fn set_language(app: AppHandle, state: State<'_, AppState>, lang: String) {
+    crate::i18n::set(&lang);
+    let waiting = state.waiting.lock().unwrap_or_else(|p| p.into_inner());
+    tray::refresh(&app, &waiting);
+}
+
 #[tauri::command]
 pub fn quick_replies(state: State<'_, AppState>) -> Vec<String> {
     state
         .quick_replies
         .lock()
-        .map(|replies| replies.list().to_vec())
+        .map(|replies| replies.list())
         .unwrap_or_default()
 }
 
@@ -852,7 +850,7 @@ pub async fn rename(
                 .rename_agent(&id, (!name.is_empty()).then_some(name))
                 .await?
         }
-        other => return Err(AppError::Config(format!("unknown kind {other}"))),
+        other => return Err(ConfigError::Other(format!("unknown kind {other}")).into()),
     }
     Ok(())
 }
@@ -870,7 +868,7 @@ pub async fn close(
     match kind.as_str() {
         "space" => session.close_workspace(&id, with_worktrees).await?,
         "tab" => session.close_tab(&id).await?,
-        other => return Err(AppError::Config(format!("unknown kind {other}"))),
+        other => return Err(ConfigError::Other(format!("unknown kind {other}")).into()),
     }
     Ok(())
 }
@@ -890,7 +888,7 @@ pub fn set_autostart(app: AppHandle, on: bool) -> Result<(), AppError> {
     } else {
         manager.disable()
     };
-    result.map_err(|err| AppError::Config(format!("Autostart: {err}")))
+    result.map_err(|err| ConfigError::Other(format!("Autostart: {err}")).into())
 }
 
 #[cfg(test)]

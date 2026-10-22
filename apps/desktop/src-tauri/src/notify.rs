@@ -48,11 +48,7 @@ impl Notice {
             workspace_id: item.workspace_id.clone(),
             pane_id: item.pane_id.clone(),
             blocked,
-            title: if blocked {
-                format!("{agent} wartet")
-            } else {
-                format!("{agent} ist fertig")
-            },
+            title: crate::i18n::agent_title(agent, blocked),
             subtitle: format!("{host_name} · {place} · Tab {}", item.tab_label),
             body: item.title.clone(),
         }
@@ -123,7 +119,7 @@ pub fn show(app: &AppHandle, notice: Notice) {
                 "{}\n{}",
                 notice.subtitle, notice.body
             )))
-            .action("default", "Öffnen");
+            .action("default", crate::i18n::tr("Öffnen", "Open"));
         if notice.blocked {
             for (key, title) in ANSWERS {
                 notification.action(&format!("key.{key}"), title);

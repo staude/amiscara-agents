@@ -1,7 +1,9 @@
 use herdr_session::SessionError;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
-/// What a command reports to the frontend, as `{ kind, message }`.
+/// What a command reports to the frontend, as `{ kind, message }`, plus
+/// `code` and `host` for a configuration error and `link` for a refused
+/// link, so the webview can put them in words.
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error(transparent)]
@@ -14,9 +16,47 @@ pub enum AppError {
     KeyStore(String),
     #[error("unknown host {0}")]
     NoHost(String),
-    /// A host's configuration cannot be used as is; German, for the user.
+    /// A host's configuration or a request cannot be used as is.
+    #[error(transparent)]
+    Config(#[from] ConfigError),
+}
+
+/// Why a host or a request does not work, as a code the webview words in
+/// the user's language; the text here is for logs.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ConfigError {
+    #[error("host and user are missing")]
+    MissingHostUser,
+    #[error("the socket path must be absolute")]
+    RelativeSocket,
+    #[error("a local herdr socket works only on Linux")]
+    LocalSocketUnix,
+    #[error("this host has no key of its own")]
+    NoOwnKey,
+    #[error("the key of this host is missing from the key store")]
+    KeyMissing,
+    #[error("input is turned off for this host")]
+    InputOff,
+    #[error("file uploads are off for {host}")]
+    UploadOff { host: String },
+    /// Requests the webview never makes, and system errors; not worded.
     #[error("{0}")]
-    Config(String),
+    Other(String),
+}
+
+impl ConfigError {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::MissingHostUser => "missingHostUser",
+            Self::RelativeSocket => "relativeSocket",
+            Self::LocalSocketUnix => "localSocketUnix",
+            Self::NoOwnKey => "noOwnKey",
+            Self::KeyMissing => "keyMissing",
+            Self::InputOff => "inputOff",
+            Self::UploadOff { .. } => "uploadOff",
+            Self::Other(_) => "other",
+        }
+    }
 }
 
 impl AppError {
@@ -43,9 +83,19 @@ impl AppError {
 
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut out = serializer.serialize_struct("AppError", 2)?;
+        let mut out = serializer.serialize_struct("AppError", 4)?;
         out.serialize_field("kind", self.kind())?;
         out.serialize_field("message", &self.to_string())?;
+        match self {
+            Self::Config(err) => {
+                out.serialize_field("code", err.code())?;
+                if let ConfigError::UploadOff { host } = err {
+                    out.serialize_field("host", host)?;
+                }
+            }
+            Self::Session(SessionError::InvalidLink(link)) => out.serialize_field("link", link)?,
+            _ => {}
+        }
         out.end()
     }
 }
