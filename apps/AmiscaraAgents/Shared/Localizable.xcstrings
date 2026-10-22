@@ -380,6 +380,16 @@
         }
       }
     },
+    "/Users/<benutzer>/.config/herdr/herdr.sock" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/Users/<user>/.config/herdr/herdr.sock"
+          }
+        }
+      }
+    },
     "/etc/ssh/ssh_host_ed25519_key.pub ließ sich nicht lesen. Fügen Sie die Zeile aus dieser Datei hier ein." : {
       "localizations" : {
         "en" : {

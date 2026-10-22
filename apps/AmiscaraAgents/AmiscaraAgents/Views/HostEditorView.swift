@@ -245,7 +245,7 @@ struct HostEditorView: View {
     }
 
     private var socketPlaceholder: String {
-        config.user.isEmpty ? "/Users/<benutzer>/.config/herdr/herdr.sock" : defaultRemoteSocket(user: config.user)
+        config.user.isEmpty ? String(localized: "/Users/<benutzer>/.config/herdr/herdr.sock") : defaultRemoteSocket(user: config.user)
     }
 
     private var isComplete: Bool {
