@@ -53,6 +53,18 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history, for the check that the tag is on main.
+          fetch-depth: 0
+      - name: Tag is on main
+        if: github.event_name == 'push'
+        run: |
+          # A tag on a commit outside main must not reach the signing data.
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points to $GITHUB_SHA, which is not on main"
+            exit 1
+          fi
       - name: Tag matches the app version
         if: github.event_name == 'push'
         run: |
@@ -115,6 +127,18 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history, for the check that the tag is on main.
+          fetch-depth: 0
+      - name: Tag is on main
+        if: github.event_name == 'push'
+        run: |
+          # A tag on a commit outside main must not reach the signing data.
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points to $GITHUB_SHA, which is not on main"
+            exit 1
+          fi
       - name: Tag matches the app version
         if: github.event_name == 'push'
         run: |

@@ -96,8 +96,8 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
    Danach `.p8` und `.p12` sicher ablegen (Passwortmanager) und aus Downloads und Schreibtisch löschen.
 
 5. **Umgebung prüfen.** Das Skript legt die Umgebung gleich mit ihren Regeln an, bevor es Secrets speichert: Nur `main` und Tags `apple-v*` dürfen sie benutzen. Unter Settings › Environments › `apple-release` › „Deployment branches and tags“ nachsehen. Der Workflow selbst läuft auf anderen Branches ebenfalls nicht.
-
-6. **Erster Lauf:** `gh workflow run apple-release.yml -f target=mac`, danach `-f target=testflight`.
+6. **Tags schützen.** Unter Settings › Rules › Rulesets ein Tag-Ruleset für `apple-v*` und `desktop-v*` anlegen (Ziel: Tags, Regeln „Restrict creations“, „Restrict updates“, „Restrict deletions“, Ausnahme nur für Admins). Der Workflow prüft zusätzlich, dass der Commit eines Tags auf `main` liegt, und bricht sonst ab, bevor er die Signierdaten liest.
+7. **Erster Lauf:** `gh workflow run apple-release.yml -f target=mac`, danach `-f target=testflight`.
 
 Secrets: `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `KEYCHAIN_PASSWORD` (zufällig, schützt nur den temporären Schlüsselbund im Runner), optional `APPLE_DEVID_P12` und `APPLE_DEVID_P12_PASSWORD`, `APPLE_DIST_P12` und `APPLE_DIST_P12_PASSWORD`.
 
