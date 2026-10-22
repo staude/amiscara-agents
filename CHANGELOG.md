@@ -407,8 +407,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The Mac app looks for updates with Sparkle, like Kastellan and TorroMail:
   at start and every 24 hours, through "Nach Updates suchen …" in the app
   menu and in the settings, which can also turn the automatic search off.
-  `scripts/release.sh` signs the zip with the Sparkle key and writes
-  `appcast.xml` (`scripts/appcast.py`); a tag run of `apple-release.yml`
+  `scripts/sparkle-feed.sh` signs the zip with the Sparkle key and writes
+  `appcast.xml` (after `scripts/release.sh`, in CI as a step of its own); a tag run of `apple-release.yml`
   publishes the release and replaces the feed in the release `updates`.
 
 ### Changed

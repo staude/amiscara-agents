@@ -47,7 +47,7 @@ scripts/release.sh             # oder --install für /Applications
 3. Export mit Developer ID (`scripts/ExportOptions.plist`), Hardened Runtime
 4. Notarisierung (`notarytool submit --wait`) und `stapler staple`
 5. Prüfung: `codesign -dv`, `spctl -a -t exec`, `stapler validate`
-6. Sparkle-Feed: das Zip mit dem Sparkle-Schlüssel signieren (`sign_update`) und `appcast.xml` schreiben (`scripts/appcast.py`)
+6. Sparkle-Feed (`scripts/sparkle-feed.sh`): das Zip mit dem Sparkle-Schlüssel signieren (`sign_update`) und `appcast.xml` schreiben (`scripts/appcast.py`). In der CI ist das ein eigener Schritt nach dem Build, damit der Schlüssel weder Xcode noch Cargo oder Swift-Pakete erreicht.
 
 Ergebnis: `target/release-app/AmiscaraAgents-<version>-<build>.zip` und `target/release-app/appcast.xml`. `release.sh` bricht vorher ab, solange `SUPublicEDKey` noch der Platzhalter ist.
 

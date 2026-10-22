@@ -99,18 +99,27 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
-          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          # The Sparkle key signs in the next step, not here.
+          RELEASE_FEED: "0"
         run: |
           export APPLE_API_KEY_PATH="$RUNNER_TEMP/apple/AuthKey.p8"
           base="$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "\(.*\)"$/\1/p' apps/AmiscaraAgents/project.yml)"
           export BUILD_NUMBER="$base.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
           scripts/release.sh
+      - id: feed
+        name: Sign the update
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          ZIP: ${{ steps.build.outputs.zip }}
+          VERSION: ${{ steps.build.outputs.version }}
+          BUILD: ${{ steps.build.outputs.build }}
+        run: scripts/sparkle-feed.sh "$ZIP" "$VERSION" "$BUILD"
       - uses: actions/upload-artifact@v4
         with:
           name: amiscara-agents-mac
           path: |
             ${{ steps.build.outputs.zip }}
-            ${{ steps.build.outputs.appcast }}
+            ${{ steps.feed.outputs.appcast }}
           if-no-files-found: error
       - name: Publish the release
         if: github.event_name == 'push'
@@ -127,7 +136,7 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          APPCAST: ${{ steps.build.outputs.appcast }}
+          APPCAST: ${{ steps.feed.outputs.appcast }}
         run: |
           # The release `updates` holds the feeds of all apps (appcast.xml
           # for the Mac, latest.json for Windows and Linux); a pre-release,
