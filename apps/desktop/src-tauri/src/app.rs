@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use herdr_session::view::{PaneContent, SessionUpdate};
 use herdr_session::{
-    AddHostLink, Endpoint, PaneFollow, PaneSink, Session, SshIdentity, TranscriptCursor,
-    TranscriptPage,
+    AddHostLink, Endpoint, PaneFollow, PaneSink, ScrollStep, Session, SshIdentity,
+    TranscriptCursor, TranscriptPage,
 };
 use herdr_transport::keys;
 use serde::Serialize;
@@ -511,6 +511,33 @@ pub async fn claude_history(
 ) -> Result<TranscriptPage, AppError> {
     let session = state.session(&host_id)?;
     Ok(session.claude_history(&pane_id, before).await?)
+}
+
+/// The transcript of a full-screen agent such as Claude Code (#187).
+/// herdr collects it by scrolling the idle agent on the host and back, so
+/// it needs input allowed.
+#[tauri::command]
+pub async fn agent_history(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+) -> Result<PaneContent, AppError> {
+    input_allowed(&state, &host_id)?;
+    let session = state.session(&host_id)?;
+    Ok(session.agent_history(&pane_id).await?)
+}
+
+/// Scrolls the view of a full-screen agent, on the host too (#187).
+#[tauri::command]
+pub async fn scroll_agent(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+    step: ScrollStep,
+) -> Result<(), AppError> {
+    input_allowed(&state, &host_id)?;
+    let session = state.session(&host_id)?;
+    Ok(session.scroll_agent(&pane_id, step).await?)
 }
 
 /// Uploads one file, sent as the raw request body to spare a JSON array of

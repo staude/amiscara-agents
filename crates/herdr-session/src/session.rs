@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use herdr_core::pane::{self, Pacing};
 use herdr_core::sync::{self, SyncState};
-use herdr_core::{actions, claude};
+use herdr_core::{actions, claude, fullscreen};
 use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError, keys};
 use tokio::runtime::Handle;
 use tokio::sync::watch;
@@ -46,6 +46,9 @@ pub enum SessionError {
     /// Claude Code session for the pane.
     #[error("{0}")]
     Files(String),
+    /// herdr collects a full-screen agent's history only while it is idle.
+    #[error("{0}")]
+    AgentWorking(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -63,6 +66,15 @@ impl From<pane::PaneError> for SessionError {
         match err {
             pane::PaneError::Transport(_) => Self::NotConnected(err.to_string()),
             pane::PaneError::Json(_) => Self::Rejected(err.to_string()),
+        }
+    }
+}
+
+impl From<fullscreen::HistoryError> for SessionError {
+    fn from(err: fullscreen::HistoryError) -> Self {
+        match err {
+            fullscreen::HistoryError::AgentWorking => Self::AgentWorking(err.to_string()),
+            fullscreen::HistoryError::Pane(err) => err.into(),
         }
     }
 }
@@ -118,6 +130,28 @@ impl std::fmt::Debug for SshIdentity {
         match self {
             Self::Key(_) => f.write_str("Key(..)"),
             Self::Agent => f.write_str("Agent"),
+        }
+    }
+}
+
+/// A step through a full-screen agent's own view, see
+/// [`Session::scroll_agent`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ScrollStep {
+    /// Half a screen up.
+    PageUp,
+    PageDown,
+    /// Back to the newest output, which the agent then follows again.
+    Bottom,
+}
+
+impl From<ScrollStep> for fullscreen::Scroll {
+    fn from(step: ScrollStep) -> Self {
+        match step {
+            ScrollStep::PageUp => Self::PageUp,
+            ScrollStep::PageDown => Self::PageDown,
+            ScrollStep::Bottom => Self::Bottom,
         }
     }
 }
@@ -387,6 +421,26 @@ impl Session {
             entries: page.entries.into_iter().map(Into::into).collect(),
             start: page.start,
         })
+    }
+
+    /// The transcript of a full-screen agent such as Claude Code, which
+    /// herdr keeps no scrollback for: up to `pane::MAX_HISTORY_LINES` rows
+    /// as plain text, the screen included. herdr scrolls the agent's view
+    /// on the host through it and back down, so this is more than a read;
+    /// it fails with [`SessionError::AgentWorking`] unless the agent is
+    /// idle. Takes a moment.
+    pub async fn agent_history(&self, pane_id: &str) -> Result<PaneContent, SessionError> {
+        let conn = self.connection()?;
+        let screen = fullscreen::read_history(&conn, pane_id).await?;
+        Ok(view::pane_content(&screen))
+    }
+
+    /// Scrolls the view of a full-screen agent, also while it works. Moves
+    /// the view in herdr's own client on the host too; end with
+    /// [`ScrollStep::Bottom`].
+    pub async fn scroll_agent(&self, pane_id: &str, step: ScrollStep) -> Result<(), SessionError> {
+        let conn = self.connection()?;
+        Ok(fullscreen::scroll(&conn, pane_id, step.into()).await?)
     }
 
     /// Renames a space.

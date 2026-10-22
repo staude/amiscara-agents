@@ -389,6 +389,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   targets; an address the terminal or an agent wrapped links all its parts
   to the whole address. The desktop app opens them through
   `tauri-plugin-opener` (#186).
+- Scrolling in full-screen agents such as Claude Code, which herdr keeps no
+  scrollback for: page up and down through the agent's own view, back to the
+  end, and its whole transcript as plain text through `agent.read` (needs an
+  idle agent; narrows the request down, since herdr 0.9.5 falls back to the
+  screen when the history is shorter than asked). Off by default, since both
+  move the agent's view on the host too: setting "Vollbild-Agenten scrollen"
+  in all apps (#187).
 - `apple-release.yml` builds the Apple apps in GitHub Actions on the
   `xcode-27` runner: the notarized Mac app as an artifact (attached to a
   release for `apple-v*` tags) and the iOS and tvOS apps for TestFlight,
