@@ -58,7 +58,7 @@ print("ok   keys: \(key.fingerprint)")
 // "Add host" links (QR codes); the full checks are Rust unit tests.
 let hostKey = try generateSshKey(comment: "root@work").publicOpenssh
 let sent = AddHostLink(
-    name: "work", host: "work.staude.internal", port: 22, user: "frank",
+    name: "work", host: "mac.example.internal", port: 22, user: "frank",
     socketPath: "/Users/frank/.config/herdr/herdr.sock", hostKey: hostKey
 )
 let linkText = try encodeAddHostLink(link: sent)

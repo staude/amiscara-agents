@@ -101,6 +101,9 @@
     "Keychain: %@" : {
 
     },
+    "mac.example.internal" : {
+
+    },
     "Name" : {
 
     },
@@ -193,9 +196,6 @@
 
     },
     "Wartet auf Antwort" : {
-
-    },
-    "work.staude.internal" : {
 
     },
     "z. B. work" : {
