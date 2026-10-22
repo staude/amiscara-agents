@@ -432,6 +432,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   See `docs/screenshots.md`.
 - Screenshots of all apps in the README, from the seeded demo, kept in
   `docs/screenshots` by `scripts/screenshots/publish.sh` (#199).
+- English for the Apple apps (Mac, iPhone, iPad, Apple TV, Apple Watch,
+  widgets, Top Shelf, Siri phrases and permission texts), with the String
+  Catalog shared by all targets; the default quick replies follow the app
+  language (#207).
 
 ### Changed
 
