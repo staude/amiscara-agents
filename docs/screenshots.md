@@ -77,3 +77,9 @@ Debug builds only; release builds ignore all of it.
 - Pixel-exact repeats: content, layout and text repeat; the Mac's
   translucent sidebar picks up what is behind the window, so two runs
   differ in a few tenths of a percent of the pixels.
+
+## In CI
+
+The release workflows are to regenerate the screenshots on a self-hosted
+Mac runner (#205); its setup is in
+[docs/self-hosted-runner.md](self-hosted-runner.md).
