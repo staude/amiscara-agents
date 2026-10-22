@@ -24,6 +24,8 @@ name: Apple release
 # APPLE_DEVID_P12 / APPLE_DEVID_P12_PASSWORD and APPLE_DIST_P12 /
 # APPLE_DIST_P12_PASSWORD (certificates as base64 .p12); without them
 # Xcode signs with cloud-managed certificates (API key with the Admin role).
+# The exports sign by hand with APPLE_DEVID_PROFILE and
+# APPLE_APPSTORE_PROFILES (provisioning profiles, base64).
 
 on:
   push:
@@ -196,6 +198,7 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           P12: ${{ secrets.APPLE_DIST_P12 }}
           P12_PASSWORD: ${{ secrets.APPLE_DIST_P12_PASSWORD }}
+          PROFILE: ${{ secrets.APPLE_APPSTORE_PROFILES }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: .github/scripts/apple-signing.sh
       - name: Archive and upload

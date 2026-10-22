@@ -6,7 +6,7 @@
 #
 #   scripts/apple-ci-secrets.sh --key-id <id> --issuer-id <uuid> --key <AuthKey_<id>.p8> \
 #       [--devid <developer-id.p12>] [--devid-profile <profile>] [--dist <apple-distribution.p12>] \
-#       [--sparkle <sparkle-key>]
+#       [--appstore-profiles <dir>] [--sparkle <sparkle-key>]
 #
 # Without --devid or --dist the workflow signs with cloud-managed
 # certificates, which needs an API key of the Admin role. Passwords of
@@ -15,11 +15,12 @@
 # <file>`; delete that file afterwards. --devid-profile takes the
 # Developer ID provisioning profile "Amiscara Agents Developer ID"
 # (developer.apple.com > Profiles), which scripts/ExportOptions.plist
-# names. See docs/release.md.
+# names. --appstore-profiles takes a folder with the six App Store profiles
+# that scripts/ExportOptions-TestFlight-*.plist name. See docs/release.md.
 set -euo pipefail
 
 env="apple-release"
-key_id="" issuer_id="" key="" devid="" devid_profile="" dist="" sparkle=""
+key_id="" issuer_id="" key="" devid="" devid_profile="" dist="" appstore_profiles="" sparkle=""
 
 die() { echo "apple-ci-secrets: $*" >&2; exit 1; }
 usage() { sed -n '7,9p' "$0" | sed 's/^# //'; exit 1; }
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
         --devid) devid="${2:-}"; shift 2 ;;
         --devid-profile) devid_profile="${2:-}"; shift 2 ;;
         --dist) dist="${2:-}"; shift 2 ;;
+        --appstore-profiles) appstore_profiles="${2:-}"; shift 2 ;;
         --sparkle) sparkle="${2:-}"; shift 2 ;;
         *) usage ;;
     esac
@@ -42,6 +44,7 @@ done
 [[ -z "$devid" || -f "$devid" ]] || die "no file at $devid"
 [[ -z "$devid_profile" || -f "$devid_profile" ]] || die "no file at $devid_profile"
 [[ -z "$dist" || -f "$dist" ]] || die "no file at $dist"
+[[ -z "$appstore_profiles" || -d "$appstore_profiles" ]] || die "no folder at $appstore_profiles"
 [[ -z "$sparkle" || -s "$sparkle" ]] || die "no key in $sparkle"
 command -v gh >/dev/null || die "gh not found (brew install gh)"
 # Paths stay relative to where the script was started; gh looks at this repo.
@@ -96,6 +99,14 @@ if [[ -n "$dist" ]]; then
     printf '%s' "$password" | secret APPLE_DIST_P12_PASSWORD
 fi
 unset password
+if [[ -n "$appstore_profiles" ]]; then
+    # One base64 string per profile, separated by spaces.
+    for profile in "$appstore_profiles"/*.mobileprovision; do
+        [[ -f "$profile" ]] || die "no .mobileprovision in $appstore_profiles"
+        base64 <"$profile" | tr -d '\n'
+        printf ' '
+    done | secret APPLE_APPSTORE_PROFILES
+fi
 if [[ -n "$sparkle" ]]; then
     tr -d '\n' <"$sparkle" | secret SPARKLE_ED_PRIVATE_KEY
 fi

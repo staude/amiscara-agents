@@ -80,7 +80,9 @@ git commit -am "chore(release): build N"
 scripts/testflight.sh          # oder: ios, tvos
 ```
 
-Das Skript baut die Rust-Slices (`iphoneos`, `appletvos`), archiviert `AmiscaraAgents-iOS` (mit der Watch-App) und `AmiscaraAgents-tvOS` und lädt beide mit `scripts/ExportOptions-TestFlight.plist` hoch. Lokal meldet sich Xcode mit dem Account aus Xcode › Einstellungen › Accounts an. Vorher muss der App-Eintrag in App Store Connect existieren, und das CloudKit-Schema muss in Production deployt sein, sonst sehen TestFlight-Builds keine Daten.
+Das Skript baut die Rust-Slices (`iphoneos`, `appletvos`), archiviert `AmiscaraAgents-iOS` (mit der Watch-App) und `AmiscaraAgents-tvOS` und lädt beide mit `scripts/ExportOptions-TestFlight-ios.plist` bzw. `-tvos.plist` hoch. Lokal meldet sich Xcode mit dem Account aus Xcode › Einstellungen › Accounts an.
+
+Die Ausfuhr signiert von Hand mit sechs App-Store-Profilen, weil ein API-Schlüssel Xcodes eigene Profile nicht sieht: „Amiscara Agents App Store iOS“, „… iOS Widget“, „… Watch“, „… Watch Widget“ (Typ App Store, iOS) sowie „… tvOS“ und „… Top Shelf“ (Typ App Store, tvOS), alle mit dem Apple-Distribution-Zertifikat. Lokal holt Xcode › Einstellungen › Accounts › „Download Manual Profiles“ sie. Sie laufen mit dem Zertifikat ab und müssen danach neu erzeugt werden (developer.apple.com › Profiles, gleiche Namen). Vorher muss der App-Eintrag in App Store Connect existieren, und das CloudKit-Schema muss in Production deployt sein, sonst sehen TestFlight-Builds keine Daten.
 
 ## CI
 
@@ -109,7 +111,7 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
 
 2. **Developer-ID-Zertifikat und -Profil** (für die Mac-App): wie oben unter „Einmalige Einrichtung“ Schritt 1 anlegen. Nur der Account Holder darf das Zertifikat erzeugen. Danach in der Schlüsselbundverwaltung unter „Meine Zertifikate“ das Zertifikat „Developer ID Application: … (7N2W4T6UPV)“ samt privatem Schlüssel als `.p12` mit Passwort exportieren. Das Profil „Amiscara Agents Developer ID“ geht mit `--devid-profile` in die Secrets.
 
-3. **Apple-Distribution-Zertifikat** (für TestFlight, optional): ist eins im Schlüsselbund (`security find-identity -v -p codesigning | grep "Apple Distribution"`), genauso als `.p12` exportieren. Fehlt es, legt Xcode bei einem lokalen `scripts/testflight.sh` eines an.
+3. **Apple-Distribution-Zertifikat und App-Store-Profile** (für TestFlight): Xcode › Einstellungen › Accounts › Manage Certificates › „+“ › Apple Distribution, danach wie das Developer-ID-Zertifikat als `.p12` exportieren. Die sechs App-Store-Profile (siehe [TestFlight](#testflight-iphone-ipad-watch-apple-tv)) als `.mobileprovision` in einen Ordner laden, der mit `--appstore-profiles` in die Secrets geht.
 
 4. **Secrets setzen** (fragt die `.p12`-Passwörter verdeckt ab und schreibt nichts auf die Platte):
 
@@ -118,7 +120,7 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
    scripts/apple-ci-secrets.sh --key-id <Key-ID> --issuer-id <Issuer-ID> \
        --key ~/Downloads/AuthKey_<Key-ID>.p8 \
        --devid ~/Desktop/developer-id.p12 --devid-profile ~/Downloads/Amiscara_Agents_Developer_ID.provisionprofile \
-       --dist ~/Desktop/apple-distribution.p12 \
+       --dist ~/Desktop/apple-distribution.p12 --appstore-profiles ~/Downloads/appstore-profiles \
        --sparkle ~/Desktop/sparkle-key
    ```
 
@@ -128,6 +130,6 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
 6. **Tags schützen.** Unter Settings › Rules › Rulesets ein Tag-Ruleset für `apple-v*` und `desktop-v*` anlegen (Ziel: Tags, Regeln „Restrict creations“, „Restrict updates“, „Restrict deletions“, Ausnahme nur für Admins). Der Workflow prüft zusätzlich, dass der Commit eines Tags auf `main` liegt, und bricht sonst ab, bevor er die Signierdaten liest.
 7. **Erster Lauf:** `gh workflow run apple-release.yml -f target=mac`, danach `-f target=testflight`.
 
-Secrets: `SPARKLE_ED_PRIVATE_KEY` (signiert die Updates), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `KEYCHAIN_PASSWORD` (zufällig, schützt nur den temporären Schlüsselbund im Runner), optional `APPLE_DEVID_P12` und `APPLE_DEVID_P12_PASSWORD`, `APPLE_DIST_P12` und `APPLE_DIST_P12_PASSWORD`.
+Secrets: `SPARKLE_ED_PRIVATE_KEY` (signiert die Updates), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `KEYCHAIN_PASSWORD` (zufällig, schützt nur den temporären Schlüsselbund im Runner), optional `APPLE_DEVID_P12` und `APPLE_DEVID_P12_PASSWORD`, `APPLE_DIST_P12` und `APPLE_DIST_P12_PASSWORD`, dazu die Profile `APPLE_DEVID_PROFILE` und `APPLE_APPSTORE_PROFILES`.
 
 `xcode-27` ist bei GitHub noch ein Vorschau-Image. Sobald es ein reguläres Image mit Xcode 27 gibt, `runs-on` und `XCODE_APP` im Workflow anpassen.

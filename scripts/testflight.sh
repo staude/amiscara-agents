@@ -6,7 +6,9 @@
 #   scripts/testflight.sh ios         only iOS (with the Watch app)
 #   scripts/testflight.sh tvos        only tvOS
 #
-# Needs the app record in App Store Connect and either an Xcode account of
+# Needs the app record in App Store Connect, the App Store profiles that
+# scripts/ExportOptions-TestFlight-<platform>.plist names (Xcode > Settings
+# > Accounts > Download Manual Profiles) and either an Xcode account of
 # team 7N2W4T6UPV on this Mac or an App Store Connect API key in the
 # environment (see scripts/apple-common.sh). A build number goes up only
 # once: run scripts/bump-build.sh and commit first, or set BUILD_NUMBER.
@@ -59,7 +61,7 @@ for platform in "${platforms[@]}"; do
 
     step "Upload $scheme"
     xcodebuild -exportArchive -archivePath "$archive" \
-        -exportOptionsPlist scripts/ExportOptions-TestFlight.plist -exportPath "$out/export-$platform" \
+        -exportOptionsPlist "scripts/ExportOptions-TestFlight-$platform.plist" -exportPath "$out/export-$platform" \
         "${xcode_auth[@]}"
 done
 

@@ -497,6 +497,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   examples use neutral host names (`mac.example.internal`).
 - The desktop crate and `package.json` declare the license
   (MIT OR Apache-2.0).
+- TestFlight exports sign by hand with explicit App Store profiles
+  (`ExportOptions-TestFlight-ios.plist`, `-tvos.plist`), which the App Store
+  Connect API key in CI can see; `apple-ci-secrets.sh --appstore-profiles`.
 
 ### Fixed
 
