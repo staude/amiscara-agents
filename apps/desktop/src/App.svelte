@@ -25,7 +25,7 @@
 
   onMount(() => {
     model.load().catch((err) => (model.error = core.errorText(err)));
-    if (import.meta.env.MODE !== "mock") void updater.check(true);
+    if (import.meta.env.MODE !== "mock") updater.start();
     void core.onAddHostLink((url) => (linkDialog = { url }));
     void core.onOpenPane(({ hostId, workspaceId, paneId }) => {
       const workspace =

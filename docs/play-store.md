@@ -88,8 +88,8 @@ location. Expected rating: everyone / PEGI 3.
 
 ## Privacy policy (draft, German)
 
-Needs a public URL, e.g. a page in the public repository
-`staude/amiscara-agents-releases` or on staude.net.
+Needs a public URL, e.g. a page in this repository (once it is public)
+or on staude.net.
 
 > **Datenschutzerklärung Amiscara Agents (Android)**
 >

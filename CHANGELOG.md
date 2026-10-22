@@ -424,6 +424,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Desktop releases go to this repository instead of
+  `staude/amiscara-agents-releases`, written with the workflow's own token
+  (no `RELEASES_TOKEN`); the updater reads `latest.json` from the release
+  `updates`, which the release workflow replaces after publishing. Tags must
+  point to a commit on `main`. The app now also looks every 24 hours and can
+  stop looking automatically ("Automatisch nach Updates suchen").
 - The terminal is no longer always dark: it follows the app's appearance
   or is set to light or dark on its own, with the color scheme Standard,
   Solarized or Terminal (macOS), on all apps (Mac settings, the appearance

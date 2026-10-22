@@ -2,13 +2,15 @@ name: Desktop release
 
 # A tag `desktop-v<version>` (scripts/desktop-release.sh) builds the
 # installers for Windows and Linux, signs the update files with the updater
-# key and publishes them, with `latest.json` for the app's updater, in the
-# public repository staude/amiscara-agents-releases.
+# key and publishes them as a release of this repository. `latest.json`,
+# the manifest the app's updater reads, then replaces the one in the
+# release `updates`, which holds the feeds of all apps (appcast.xml of the
+# Mac app too) so that the Mac and desktop tags do not compete for "latest".
 #
 # Secrets of the environment `desktop-release`, which only `desktop-v*`
-# tags may use: RELEASES_TOKEN (fine-grained token, Contents read and write
-# on amiscara-agents-releases), TAURI_SIGNING_PRIVATE_KEY and
+# tags may use: TAURI_SIGNING_PRIVATE_KEY and
 # TAURI_SIGNING_PRIVATE_KEY_PASSWORD (updater key, see apps/desktop/README.md).
+# The releases themselves are written with the workflow's own token.
 
 on:
   push:
@@ -18,13 +20,13 @@ concurrency:
   group: desktop-release
   cancel-in-progress: false
 
-env:
-  RELEASES_OWNER: staude
-  RELEASES_REPO: amiscara-agents-releases
+permissions:
+  contents: write
 
 jobs:
   release:
     name: Create release
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
     environment: desktop-release
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -33,6 +35,18 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history, for the check that the tag is on main.
+          fetch-depth: 0
+      - name: Tag is on main
+        run: |
+          # A tag on a commit outside main must not reach the updater key;
+          # the build jobs need this job, so they stop here too.
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points to $GITHUB_SHA, which is not on main"
+            exit 1
+          fi
       - id: version
         name: Tag matches the app version
         run: |
@@ -44,14 +58,14 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - id: create
-        name: Draft release in the public repository
+        name: Draft release
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          id="$(gh api "repos/$RELEASES_OWNER/$RELEASES_REPO/releases" \
-            -f tag_name="v$VERSION" -f target_commitish=main \
-            -f name="Amiscara Agents $VERSION" -F draft=true \
+          id="$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+            -f tag_name="$GITHUB_REF_NAME" \
+            -f name="Amiscara Agents $VERSION (Windows, Linux)" -F draft=true \
             -f body="Windows: x64-setup.exe oder msi, für ARM-Geräte arm64-setup.exe (nicht signiert, SmartScreen fragt einmal). Linux: AppImage oder deb." \
             --jq .id)"
           echo "id=$id" >> "$GITHUB_OUTPUT"
@@ -105,14 +119,12 @@ jobs:
       # certificate: `bundle.windows.signCommand` in tauri.conf.json, see #146.
       - uses: tauri-apps/tauri-action@v1.0.0
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           args: ${{ matrix.args }}
-          owner: ${{ env.RELEASES_OWNER }}
-          repo: ${{ env.RELEASES_REPO }}
           releaseId: ${{ needs.release.outputs.id }}
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
@@ -120,10 +132,19 @@ jobs:
   publish:
     name: Publish release
     needs: [release, build]
-    environment: desktop-release
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
-      - env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-        run: gh api -X PATCH "repos/$RELEASES_OWNER/$RELEASES_REPO/releases/${{ needs.release.outputs.id }}" -F draft=false --silent
+      - name: Publish
+        run: gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/${{ needs.release.outputs.id }}" -F draft=false --silent
+      # Published before the manifest moves, so it never points to a draft.
+      - name: Update the feed
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern latest.json --dir "$RUNNER_TEMP"
+          gh release view updates >/dev/null 2>&1 \
+            || gh release create updates --prerelease --target main --title "Update-Feeds" \
+              --notes "Feeds für die eingebauten Updates der Apps. Downloads unter den Versionen."
+          gh release upload updates "$RUNNER_TEMP/latest.json" --clobber
