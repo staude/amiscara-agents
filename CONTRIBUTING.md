@@ -82,6 +82,25 @@ Individual steps:
   never go into the repository. Release keys live outside it (see
   [docs/release.md](docs/release.md)).
 
+## Translations
+
+The apps are written with German source texts and translated to English
+(#207). New UI texts need both languages.
+
+- **Apple apps:** one String Catalog for all targets,
+  `apps/AmiscaraAgents/Shared/Localizable.xcstrings`, plus
+  `AmiscaraAgents/InfoPlist.xcstrings` (permission texts) and
+  `AmiscaraAgents/AppShortcuts.xcstrings` (Siri phrases). SwiftUI literals
+  are picked up on build; text kept in a `String` goes through
+  `String(localized:)`, and user data such as names through
+  `Text(verbatim:)`. To add a language, export with
+  `xcodebuild -exportLocalizations -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -localizationPath <dir> -exportLanguage <code>`,
+  translate the `.xcloc` (Xcode or any XLIFF editor) and import it with
+  `xcodebuild -importLocalizations -localizationPath <dir>/<code>.xcloc`.
+  Check the result by launching the app with
+  `-AppleLanguages "(<code>)"`, for example on the screenshot demo
+  ([docs/screenshots.md](docs/screenshots.md)).
+
 ## Pull requests
 
 1. Fork, branch from `main`, keep the branch focused on one change.

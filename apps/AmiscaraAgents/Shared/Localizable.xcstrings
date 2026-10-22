@@ -1,0 +1,4254 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "" : {
+      "shouldTranslate" : false
+    },
+    "%@" : {
+      "shouldTranslate" : false
+    },
+    "%@ (%@) meldet sich mit diesem Schlüssel. Vergleichen Sie den Fingerprint mit dem Server, z. B. per `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@) meldet sich mit diesem Schlüssel. Vergleichen Sie den Fingerprint mit dem Server, z. B. per `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) presents this key. Compare the fingerprint with the server, for example with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`."
+          }
+        }
+      }
+    },
+    "%@ aufklappen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand %@"
+          }
+        }
+      }
+    },
+    "%@ gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ sent"
+          }
+        }
+      }
+    },
+    "%@ in %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ in %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ in %2$@"
+          }
+        }
+      }
+    },
+    "%@ ist fertig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is done"
+          }
+        }
+      }
+    },
+    "%@ ist größer als 20 MB." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is larger than 20 MB."
+          }
+        }
+      }
+    },
+    "%@ lässt sich nicht lesen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ cannot be read."
+          }
+        }
+      }
+    },
+    "%@ meldet sich mit einem anderen Schlüssel als bisher. Das kann eine Neuinstallation des Servers sein, aber auch ein Angriff. Vertrauen Sie dem neuen Schlüssel nur, wenn Sie den Grund kennen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ presents a different key than before. This can be a reinstalled server, but also an attack. Trust the new key only if you know why it changed."
+          }
+        }
+      }
+    },
+    "%@ wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is waiting"
+          }
+        }
+      }
+    },
+    "%@ wartet auf Antwort" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is waiting for an answer"
+          }
+        }
+      }
+    },
+    "%@ zuklappen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse %@"
+          }
+        }
+      }
+    },
+    "%@ · %@ · %@ · Tab %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$@ · Tab %4$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ · %3$@ · Tab %4$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ · Tab %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · Tab %3$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ · Tab %3$@"
+          }
+        }
+      }
+    },
+    "%@ · Tab %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · Tab %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Tab %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@, %@, Tab %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@, %3$@, Tab %4$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@, tab %4$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "shouldTranslate" : false
+    },
+    "%lld Agents warten" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld agent waiting"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld agents waiting"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld Agents warten: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld Agents warten: %2$@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld agents are waiting: %2$@."
+          }
+        }
+      }
+    },
+    "%lld Host(s) hinzugefügt" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Host hinzugefügt"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Hosts hinzugefügt"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld host"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Added %lld hosts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld Spaces" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld space"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld spaces"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld Spaces, %lld wartet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld Spaces, %2$lld wartet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld spaces, %2$lld waiting"
+          }
+        }
+      }
+    },
+    "%lld arbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld working"
+          }
+        }
+      }
+    },
+    "%lld von %lld" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld von %2$lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "%lld wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld waiting"
+          }
+        }
+      }
+    },
+    "%lld wartet · %lld arbeiten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld wartet · %2$lld arbeiten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld waiting · %2$lld working"
+          }
+        }
+      }
+    },
+    "%lld, %lld wartet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld, %2$lld wartet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld, %2$lld waiting"
+          }
+        }
+      }
+    },
+    "/Users/<benutzer>/.config/herdr/herdr.sock" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/Users/<user>/.config/herdr/herdr.sock"
+          }
+        }
+      }
+    },
+    "/etc/ssh/ssh_host_ed25519_key.pub ließ sich nicht lesen. Fügen Sie die Zeile aus dieser Datei hier ein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "/etc/ssh/ssh_host_ed25519_key.pub could not be read. Paste the line from that file here."
+          }
+        }
+      }
+    },
+    "1. Den Code mit der Kamera des iPhones scannen. Amiscara Agents öffnet sich dort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Scan the code with the iPhone's camera. Amiscara Agents opens there."
+          }
+        }
+      }
+    },
+    "2. Auf dem iPhone die Hosts wählen und „Koppeln“ tippen. Das iPhone trägt den Schlüssel dieses Apple TV auf den Hosts ein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. On the iPhone, choose the hosts and tap “Pair”. The iPhone adds this Apple TV's key on the hosts."
+          }
+        }
+      }
+    },
+    "3. Die Hosts erscheinen hier nach wenigen Sekunden. iPhone und Apple TV brauchen dieselbe Apple-ID." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. The hosts appear here after a few seconds. iPhone and Apple TV need the same Apple Account."
+          }
+        }
+      }
+    },
+    "Abbrechen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent"
+          }
+        }
+      }
+    },
+    "Agent benennen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name Agent"
+          }
+        }
+      }
+    },
+    "Agent benennen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name Agent …"
+          }
+        }
+      }
+    },
+    "Agent starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Agent"
+          }
+        }
+      }
+    },
+    "Agent öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Agent"
+          }
+        }
+      }
+    },
+    "Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agents"
+          }
+        }
+      }
+    },
+    "Aktiv: „wartet“ und „fertig“ kommen über iCloud, wenn die Mac-App auf dem Host läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On: “waiting” and “done” arrive through iCloud while the Mac app runs on the host."
+          }
+        }
+      }
+    },
+    "Aktualisieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "Alles kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy All"
+          }
+        }
+      }
+    },
+    "Amiscara Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amiscara Agents"
+          }
+        }
+      }
+    },
+    "Amiscara Agents sucht beim Start und danach alle 24 Stunden nach einer neuen Version. Updates laden im Hintergrund und werden beim nächsten Beenden installiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amiscara Agents looks for a new version at start and then every 24 hours. Updates download in the background and install the next time you quit."
+          }
+        }
+      }
+    },
+    "Amiscara Agents öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Amiscara Agents"
+          }
+        }
+      }
+    },
+    "Anfang der Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start of the session"
+          }
+        }
+      }
+    },
+    "Anfang des Verlaufs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start of the history"
+          }
+        }
+      }
+    },
+    "Anlegen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create"
+          }
+        }
+      }
+    },
+    "Anmeldung abgelehnt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login rejected"
+          }
+        }
+      }
+    },
+    "Ans Ende" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To the End"
+          }
+        }
+      }
+    },
+    "Apple TV" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV"
+          }
+        }
+      }
+    },
+    "Apple TV koppeln" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair Apple TV"
+          }
+        }
+      }
+    },
+    "Auch für SSH-Hosts senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also send for SSH hosts"
+          }
+        }
+      }
+    },
+    "Auf dem Mac in Amiscara Agents im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the Mac, choose “Show QR Code” in the host's menu in Amiscara Agents. Instead of scanning, you can also paste the link copied there."
+          }
+        }
+      }
+    },
+    "Auf den Hosts läuft gerade kein Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent is running on the hosts right now."
+          }
+        }
+      }
+    },
+    "Aus Zwischenablage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From Clipboard"
+          }
+        }
+      }
+    },
+    "Ausführen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run"
+          }
+        }
+      }
+    },
+    "Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When off, the app only shows this host and sends no prompts or keys."
+          }
+        }
+      }
+    },
+    "Automatisch nach Updates suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for updates automatically"
+          }
+        }
+      }
+    },
+    "Basis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Base"
+          }
+        }
+      }
+    },
+    "Bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit …"
+          }
+        }
+      }
+    },
+    "Befehl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Command"
+          }
+        }
+      }
+    },
+    "Befehl abgelaufen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Command expired."
+          }
+        }
+      }
+    },
+    "Befehle von der Apple Watch annehmen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accept commands from the Apple Watch"
+          }
+        }
+      }
+    },
+    "Benachrichtigungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "Benutzer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User"
+          }
+        }
+      }
+    },
+    "Bestätigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm"
+          }
+        }
+      }
+    },
+    "Bild entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Image"
+          }
+        }
+      }
+    },
+    "Bild oder Datei anhängen (auch per Drag & Drop)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attach an image or file (drag and drop works too)"
+          }
+        }
+      }
+    },
+    "Bilder hochladen (SFTP)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload images (SFTP)"
+          }
+        }
+      }
+    },
+    "Bilder hochladen ist für %@ aus. Einschalten unter „…“ › „Bearbeiten …“ › „Bilder hochladen (SFTP)“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading images is off for %@. Turn it on under “…” › “Edit …” › “Upload images (SFTP)”."
+          }
+        }
+      }
+    },
+    "Bilder hochladen ist für diesen Host aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading images is off for this host"
+          }
+        }
+      }
+    },
+    "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading images is off for this host (edit the host)."
+          }
+        }
+      }
+    },
+    "Bitte committen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please commit"
+          }
+        }
+      }
+    },
+    "Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages through Claude Code and fetches its history; this also moves the view on the host"
+          }
+        }
+      }
+    },
+    "Branch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Branch"
+          }
+        }
+      }
+    },
+    "Braucht „Bilder hochladen“ (Dateizugriff)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs “Upload images” (file access)"
+          }
+        }
+      }
+    },
+    "Commit und PR erstellen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit and open a PR"
+          }
+        }
+      }
+    },
+    "Control-C senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Control-C"
+          }
+        }
+      }
+    },
+    "Darin arbeitet noch ein Agent. Schließen beendet ihn und alles, was in den Panes läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An agent is still working in it. Closing ends it and everything running in the panes."
+          }
+        }
+      }
+    },
+    "Darin wartet ein Agent auf eine Antwort. Schließen beendet ihn und alles, was in den Panes läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An agent in it is waiting for an answer. Closing ends it and everything running in the panes."
+          }
+        }
+      }
+    },
+    "Das iPhone hat die Antwort nicht gesendet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The iPhone did not send the answer."
+          }
+        }
+      }
+    },
+    "Datei entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove File"
+          }
+        }
+      }
+    },
+    "Dateien auf dem Host nicht lesbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot read files on the host: %@"
+          }
+        }
+      }
+    },
+    "Dateien …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files …"
+          }
+        }
+      }
+    },
+    "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is working. The history is available once it is done; paging works already."
+          }
+        }
+      }
+    },
+    "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is waiting for an answer. Please answer first."
+          }
+        }
+      }
+    },
+    "Der Agent wartet nicht mehr." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is no longer waiting."
+          }
+        }
+      }
+    },
+    "Der Agent wurde nicht gestartet: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent was not started: %@"
+          }
+        }
+      }
+    },
+    "Der Code enthält einen anderen Host-Key als den, dem dieser Host vertraut. Er wurde nicht übernommen. Wenn der Server neu aufgesetzt wurde, entfernen Sie den Host und fügen ihn neu hinzu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code contains a different host key than the one this host trusts, so it was not applied. If the server was set up again, remove the host and add it anew."
+          }
+        }
+      }
+    },
+    "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The conversation reads the session file on the host and needs file access for that, like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
+    "Der Mac hat den Befehl nicht ausgeführt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Mac did not run the command."
+          }
+        }
+      }
+    },
+    "Der Port dieses Hosts ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This host's port is invalid."
+          }
+        }
+      }
+    },
+    "Der Rechner ist nicht erreichbar. Läuft das VPN (NetBird) auf diesem Gerät, und stimmt der Hostname?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The computer cannot be reached. Is the VPN (NetBird) running on this device, and is the host name right?"
+          }
+        }
+      }
+    },
+    "Der Rechner lehnt die Verbindung ab. Ist SSH (Entfernte Anmeldung) dort eingeschaltet?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The computer refuses the connection. Is SSH (Remote Login) turned on there?"
+          }
+        }
+      }
+    },
+    "Die %lld Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Der Worktree-Space darunter wird mit geschlossen, das Verzeichnis bleibt."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Die %lld Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The worktree space below closes with it; its directory stays."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The %lld worktree spaces below close with it; their directories stay."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Die App ist nicht bereit." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app is not ready."
+          }
+        }
+      }
+    },
+    "Die Datei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file"
+          }
+        }
+      }
+    },
+    "Die Kamera ließ sich nicht starten: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The camera could not start: %@"
+          }
+        }
+      }
+    },
+    "Die Zwischenablage enthält kein Bild." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The clipboard contains no image."
+          }
+        }
+      }
+    },
+    "Diesem Host ist noch kein Host-Key vertraut. Verbinden Sie sich einmal und bestätigen Sie den Fingerprint, dann gibt es hier den QR-Code." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No host key is trusted for this host yet. Connect once and confirm the fingerprint, then the QR code appears here."
+          }
+        }
+      }
+    },
+    "Diesem Schlüssel vertraut die App. Meldet sich der Server mit einem anderen, warnt sie." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app trusts this key. If the server presents a different one, it warns you."
+          }
+        }
+      }
+    },
+    "Diesen Agent gibt es nicht mehr." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This agent no longer exists."
+          }
+        }
+      }
+    },
+    "Diesen Host gibt es auf dem Mac nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Mac does not have this host."
+          }
+        }
+      }
+    },
+    "Diesen Host gibt es auf dem iPhone nicht mehr." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The iPhone no longer has this host."
+          }
+        }
+      }
+    },
+    "Diesen Namen trägt schon ein anderer Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another agent already has this name."
+          }
+        }
+      }
+    },
+    "Dieser Befehl ist nicht erlaubt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This command is not allowed."
+          }
+        }
+      }
+    },
+    "Dieser Build aktualisiert sich nicht selbst (Entwickler-Build). Neue Versionen gibt es unter github.com/staude/amiscara-agents/releases." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This build does not update itself (developer build). New versions are at github.com/staude/amiscara-agents/releases."
+          }
+        }
+      }
+    },
+    "Dieser Code stammt nicht von einem Apple TV mit Ihrer Apple-ID. Koppeln Sie nur Codes, die Ihr eigenes Apple TV gerade unter „Mit iPhone koppeln“ zeigt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This code does not come from an Apple TV with your Apple Account. Only pair codes that your own Apple TV is showing under “Pair with iPhone” right now."
+          }
+        }
+      }
+    },
+    "Dieser Mac" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac"
+          }
+        }
+      }
+    },
+    "Dieser Mac legt „wartet“ und „fertig“ in Ihrer privaten iCloud ab; iPhone und iPad mit derselben Apple-ID bekommen sie als Push, auch die Apple Watch, mit Antwort-Knöpfen. Die Geräte müssen diesen Mac als Host eingerichtet haben. Mit „Auch für SSH-Hosts senden“ gilt das auch für die Hosts, mit denen dieser Mac verbunden ist, etwa einen Linux-Server ohne eigene Mac-App; dieselbe Meldung von einem zweiten Mac kommt nicht doppelt. „Befehle von der Apple Watch annehmen“ (aus, wenn nicht eingeschaltet): Ist das iPhone nicht in Reichweite, legt die Watch Antworten (1, 2, 3, Enter, Esc) und Prompts in iCloud ab, und dieser Mac schickt sie an die Hosts, für die er sendet. Jedes Gerät mit derselben Apple-ID kann dann Eingaben schicken; „Eingaben erlauben“ des Hosts gilt weiter, Befehle verfallen nach 60 Sekunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac stores “waiting” and “done” in your private iCloud; iPhone and iPad with the same Apple Account get them as push notifications with answer buttons, and so does the Apple Watch. The devices must have this Mac set up as a host. With “Also send for SSH hosts” this also covers the hosts this Mac is connected to, such as a Linux server without its own Mac app; the same notification from a second Mac does not arrive twice. “Accept commands from the Apple Watch” (off unless turned on): when the iPhone is out of reach, the Watch stores answers (1, 2, 3, Enter, Esc) and prompts in iCloud, and this Mac sends them to the hosts it sends for. Any device with the same Apple Account can then send input; the host's “Allow input” still applies, and commands expire after 60 seconds."
+          }
+        }
+      }
+    },
+    "Diktat beenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Dictation"
+          }
+        }
+      }
+    },
+    "Diktat konnte nicht starten: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dictation could not start: %@"
+          }
+        }
+      }
+    },
+    "Diktieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dictate"
+          }
+        }
+      }
+    },
+    "Dunkel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark"
+          }
+        }
+      }
+    },
+    "Ein Agent wartet: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One agent is waiting: %@."
+          }
+        }
+      }
+    },
+    "Ein Bild aus der Zwischenablage konnte nicht gelesen werden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An image from the clipboard could not be read."
+          }
+        }
+      }
+    },
+    "Ein Bild konnte nicht gelesen werden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An image could not be read."
+          }
+        }
+      }
+    },
+    "Ein Space namens „Bereich/Name“ erscheint als „Name“ in der Gruppe „Bereich“. Ausgeschaltet zeigt die App alle Spaces mit vollem Namen in der Reihenfolge von herdr." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A space named “Area/Name” appears as “Name” in the group “Area”. When off, the app shows all spaces with their full names in herdr's order."
+          }
+        }
+      }
+    },
+    "Ein Tipp auf eine Schnellantwort sendet sie sofort. Reihenfolge per Ziehen ändern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapping a quick reply sends it right away. Drag to change the order."
+          }
+        }
+      }
+    },
+    "Eingaben erlauben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow input"
+          }
+        }
+      }
+    },
+    "Eingaben sind für diesen Host ausgeschaltet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input is turned off for this host."
+          }
+        }
+      }
+    },
+    "Enter senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Enter"
+          }
+        }
+      }
+    },
+    "Entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        }
+      }
+    },
+    "Erlauben Sie Amiscara Agents in den Einstellungen den Zugriff auf die Kamera. Alternativ können Sie den Link vom Mac kopieren und im Host-Editor einfügen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Amiscara Agents to use the camera in Settings. Alternatively, copy the link on the Mac and paste it in the host editor."
+          }
+        }
+      }
+    },
+    "Erscheinungsbild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance"
+          }
+        }
+      }
+    },
+    "Es fehlt der Host-Key dieses Macs." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Mac's host key is missing."
+          }
+        }
+      }
+    },
+    "Es gibt schon zu viele Agents mit diesem Namen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There are already too many agents with this name."
+          }
+        }
+      }
+    },
+    "Esc senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Esc"
+          }
+        }
+      }
+    },
+    "Farbschema" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color Scheme"
+          }
+        }
+      }
+    },
+    "Fertig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Fingerabdruck" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fingerprint"
+          }
+        }
+      }
+    },
+    "Fingerabdruck stimmt mit dem auf dem Mac angezeigten überein" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fingerprint matches the one shown on the Mac"
+          }
+        }
+      }
+    },
+    "Fotos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos"
+          }
+        }
+      }
+    },
+    "Fügen Sie einen Rechner hinzu, auf dem herdr läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a computer that runs herdr."
+          }
+        }
+      }
+    },
+    "Für diesen Host liegt kein Schlüssel in der Keychain." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is no key for this host in the keychain."
+          }
+        }
+      }
+    },
+    "Gehe zu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go"
+          }
+        }
+      }
+    },
+    "Geht nur, wenn der Agent nicht arbeitet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only works while the agent is not working"
+          }
+        }
+      }
+    },
+    "Gesprächsverlauf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversation"
+          }
+        }
+      }
+    },
+    "Gesprächsverlauf aus der Claude-Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversation from the Claude session"
+          }
+        }
+      }
+    },
+    "Gruppe %@ aufklappen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expand group %@"
+          }
+        }
+      }
+    },
+    "Gruppe %@ zuklappen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collapse group %@"
+          }
+        }
+      }
+    },
+    "HEAD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEAD"
+          }
+        }
+      }
+    },
+    "Hell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light"
+          }
+        }
+      }
+    },
+    "Hellt zu schwache Schriftfarben auf oder dunkelt sie ab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Brightens or darkens text colors with too little contrast"
+          }
+        }
+      }
+    },
+    "Hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "Hochladen fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload failed: %@"
+          }
+        }
+      }
+    },
+    "Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host"
+          }
+        }
+      }
+    },
+    "Host hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Host"
+          }
+        }
+      }
+    },
+    "Host oder Port wurden geändert. Der Host-Key aus dem Code wurde verworfen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host or port changed. The host key from the code was discarded."
+          }
+        }
+      }
+    },
+    "Host von Hand hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Host Manually"
+          }
+        }
+      }
+    },
+    "Host-Aktionen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host Actions"
+          }
+        }
+      }
+    },
+    "Host-Key" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host Key"
+          }
+        }
+      }
+    },
+    "Host-Key aus dem Code (ungeprüft)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host key from the code (not verified)"
+          }
+        }
+      }
+    },
+    "Host-Key hat sich geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host key changed"
+          }
+        }
+      }
+    },
+    "Host-Key muss bestätigt werden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host key needs confirmation"
+          }
+        }
+      }
+    },
+    "Host-Key unbekannt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Host key unknown"
+          }
+        }
+      }
+    },
+    "Hosts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hosts"
+          }
+        }
+      }
+    },
+    "Hosts für das Apple TV" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hosts for the Apple TV"
+          }
+        }
+      }
+    },
+    "Im Pane läuft schon ein Programm. Ein Agent startet nur an der Shell-Eingabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A program is already running in the pane. An agent only starts at the shell prompt."
+          }
+        }
+      }
+    },
+    "In Amiscara Agents auf iPhone oder iPad unter „Host hinzufügen“ scannen. Dort den Fingerabdruck mit dem hier angezeigten vergleichen und bestätigen. Danach die Schlüsselzeile des Geräts auf diesem Host in ~/.ssh/authorized_keys eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan under “Add Host” in Amiscara Agents on iPhone or iPad. Compare the fingerprint there with the one shown here and confirm it. Then add the device's key line to ~/.ssh/authorized_keys on this host."
+          }
+        }
+      }
+    },
+    "In Eingabe übernehmen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert into Input"
+          }
+        }
+      }
+    },
+    "In der Pane suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search in Pane"
+          }
+        }
+      }
+    },
+    "In der Pane suchen (⌘F)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search in Pane (⌘F)"
+          }
+        }
+      }
+    },
+    "In der Zwischenablage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In the clipboard"
+          }
+        }
+      }
+    },
+    "Jetzt suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check Now"
+          }
+        }
+      }
+    },
+    "Jetzt verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Now"
+          }
+        }
+      }
+    },
+    "Kamera nicht verfügbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera unavailable"
+          }
+        }
+      }
+    },
+    "Kein Agent wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent waiting"
+          }
+        }
+      }
+    },
+    "Kein Agent wartet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent is waiting."
+          }
+        }
+      }
+    },
+    "Kein Bildschirmauszug. Er kommt von der Mac-App auf dem Host." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No screen excerpt. It comes from the Mac app on the host."
+          }
+        }
+      }
+    },
+    "Kein Mikrofon: Solange das iPad per Bildschirmfreigabe vom Mac aus gesteuert wird, schaltet iPadOS das Mikrofon für Apps stumm. Freigabe beenden oder das Diktat der Tastatur nutzen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No microphone: while the Mac controls the iPad through screen sharing, iPadOS mutes the microphone for apps. End the sharing or use the keyboard's dictation."
+          }
+        }
+      }
+    },
+    "Kein Space gewählt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Space Selected"
+          }
+        }
+      }
+    },
+    "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No history: herdr keeps none for full-screen programs such as Claude Code."
+          }
+        }
+      }
+    },
+    "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No history: herdr keeps none for full-screen programs such as Claude Code. Paging can be turned on in the settings."
+          }
+        }
+      }
+    },
+    "Keine Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Agents"
+          }
+        }
+      }
+    },
+    "Keine Agents aktiv" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agents active"
+          }
+        }
+      }
+    },
+    "Keine Agents warten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agents waiting"
+          }
+        }
+      }
+    },
+    "Keine Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agents."
+          }
+        }
+      }
+    },
+    "Keine Daten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data"
+          }
+        }
+      }
+    },
+    "Keine Entscheidung nötig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No decision needed."
+          }
+        }
+      }
+    },
+    "Keine Hosts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Hosts"
+          }
+        }
+      }
+    },
+    "Keine Pane gewählt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Pane Selected"
+          }
+        }
+      }
+    },
+    "Keine Sprache erkannt. Bitte näher ans Mikrofon und noch einmal." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No speech recognized. Move closer to the microphone and try again."
+          }
+        }
+      }
+    },
+    "Keine Treffer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No matches"
+          }
+        }
+      }
+    },
+    "Keine Verbindung zum Host." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection to the host."
+          }
+        }
+      }
+    },
+    "Keinen, nur Shell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None, shell only"
+          }
+        }
+      }
+    },
+    "Keiner wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None waiting"
+          }
+        }
+      }
+    },
+    "Keychain: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain: %@"
+          }
+        }
+      }
+    },
+    "Kleinbuchstaben, Ziffern, - und _, höchstens 32 Zeichen. Leer lassen entfernt den Namen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lowercase letters, digits, - and _, at most 32 characters. Leave it empty to remove the name."
+          }
+        }
+      }
+    },
+    "Kopiert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        }
+      }
+    },
+    "Koppeln" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair"
+          }
+        }
+      }
+    },
+    "Koppeln Sie dieses Apple TV mit Amiscara Agents auf Ihrem iPhone. Das iPhone gibt ihm Zugang zu Ihren Hosts." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair this Apple TV with Amiscara Agents on your iPhone. The iPhone gives it access to your hosts."
+          }
+        }
+      }
+    },
+    "Koppeln gibt diesem Apple TV dauerhaft Zugriff auf herdr auf den gewählten Hosts. Auf jedem kommt diese Zeile in ~/.ssh/authorized_keys (die alte Datei bleibt als authorized_keys.bak-amiscara): nur Zugriff auf herdr, keine Shell, keine Dateien." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing gives this Apple TV lasting access to herdr on the chosen hosts. On each, this line goes into ~/.ssh/authorized_keys (the old file stays as authorized_keys.bak-amiscara): access to herdr only, no shell, no files."
+          }
+        }
+      }
+    },
+    "Kopplung nicht möglich: %@. Ist das Apple TV bei iCloud angemeldet?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing is not possible: %@. Is the Apple TV signed in to iCloud?"
+          }
+        }
+      }
+    },
+    "Kurze Namen wie „%@“ finden iPhone und iPad oft nicht, auch wenn der Mac sie auflöst. Tragen Sie besser den vollen Namen ein, z. B. mac.example.internal." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone and iPad often cannot find short names like “%@”, even when the Mac resolves them. Better enter the full name, for example mac.example.internal."
+          }
+        }
+      }
+    },
+    "Lange Zeilen an der Fensterbreite umbrechen statt seitlich zu scrollen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wrap long lines at the window width instead of scrolling sideways"
+          }
+        }
+      }
+    },
+    "Link kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Link"
+          }
+        }
+      }
+    },
+    "Live an %@: ↑↓ wählen, Tab übernimmt, Enter führt aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live to %@: ↑↓ choose, Tab accepts, Enter runs"
+          }
+        }
+      }
+    },
+    "Löschen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        }
+      }
+    },
+    "Mehr als %u Zeilen liefert herdr nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr delivers no more than %u lines."
+          }
+        }
+      }
+    },
+    "Mikrofon ist nicht erlaubt (Einstellungen › Datenschutz › Mikrofon)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone access is not allowed (Settings › Privacy › Microphone)."
+          }
+        }
+      }
+    },
+    "Mindestkontrast" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum Contrast"
+          }
+        }
+      }
+    },
+    "Mit dem iPhone koppeln" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair with the iPhone"
+          }
+        }
+      }
+    },
+    "Mit iPhone koppeln" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair with iPhone"
+          }
+        }
+      }
+    },
+    "Mit „Bereich/Name“ landet der Space in der Gruppe „Bereich“. herdr selbst zeigt den vollen Namen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With “Area/Name” the space goes into the group “Area”. herdr itself shows the full name."
+          }
+        }
+      }
+    },
+    "Mit „Bilder hochladen“ läuft für diesen Schlüssel sftp-server. Er kann dann alle Dateien Ihres Benutzers lesen und schreiben, auch ~/.ssh/authorized_keys, und sich so selbst mehr Rechte geben. Nach dem Umschalten die Zeile auf dem Server ersetzen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With “Upload images”, sftp-server runs for this key. It can then read and write all files of your user, including ~/.ssh/authorized_keys, and so give itself more rights. After switching, replace the line on the server."
+          }
+        }
+      }
+    },
+    "Mitteilung, wenn ein Agent auf eine Antwort wartet oder fertig ist. Auf iPad und iPhone kommen sie im Hintergrund über iCloud, wenn die Mac-App auf dem Host läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A notification when an agent waits for an answer or is done. On iPad and iPhone they arrive in the background through iCloud while the Mac app runs on the host."
+          }
+        }
+      }
+    },
+    "Nach Updates suchen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for Updates …"
+          }
+        }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "Name oder IP-Adresse, unter der iPhone und iPad diesen Mac per SSH erreichen. Dafür muss in den Systemeinstellungen unter Allgemein > Teilen die entfernte Anmeldung eingeschaltet sein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name or IP address at which iPhone and iPad reach this Mac over SSH. Remote Login must be on in System Settings under General > Sharing."
+          }
+        }
+      }
+    },
+    "Nennt die Agents, die auf eine Antwort warten, über alle Hosts." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lists the agents waiting for an answer on all hosts."
+          }
+        }
+      }
+    },
+    "Neu laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload"
+          }
+        }
+      }
+    },
+    "Neu verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnect"
+          }
+        }
+      }
+    },
+    "Neuen Schlüssel vertrauen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trust New Key"
+          }
+        }
+      }
+    },
+    "Neuer Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Space"
+          }
+        }
+      }
+    },
+    "Neuer Space auf %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Space on %@"
+          }
+        }
+      }
+    },
+    "Neuer Space …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Space …"
+          }
+        }
+      }
+    },
+    "Neuer Tab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab"
+          }
+        }
+      }
+    },
+    "Neuer Tab mit Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with Agent"
+          }
+        }
+      }
+    },
+    "Neuer Worktree von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Worktree from %@"
+          }
+        }
+      }
+    },
+    "Neuer Worktree …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Worktree …"
+          }
+        }
+      }
+    },
+    "Nicht bei iCloud angemeldet. Mac und iPhone brauchen dieselbe Apple-ID." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not signed in to iCloud. Mac and iPhone need the same Apple Account."
+          }
+        }
+      }
+    },
+    "Nicht erreichbar: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not reachable: %@."
+          }
+        }
+      }
+    },
+    "Nicht verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not Connected"
+          }
+        }
+      }
+    },
+    "Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal umgebrochen hat, setzt die App wieder zusammen und bricht es an der Fensterbreite um. Vollbild-Agenten wie Claude Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not intended by herdr: herdr delivers lines at the width of the pane on the host. The app joins what the terminal wrapped and wraps it at the window width. Full-screen agents such as Claude Code wrap their own lines; their lines and frames are only cut off or wrapped a second time."
+          }
+        }
+      }
+    },
+    "Noch keine Daten. Öffnen Sie die App einmal." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data yet. Open the app once."
+          }
+        }
+      }
+    },
+    "Noch keine Einträge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries yet"
+          }
+        }
+      }
+    },
+    "Noch keine Hosts. Öffne Amiscara Agents auf dem iPhone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hosts yet. Open Amiscara Agents on the iPhone."
+          }
+        }
+      }
+    },
+    "Nur Bildschirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screen Only"
+          }
+        }
+      }
+    },
+    "Nur Kleinbuchstaben, Ziffern, - und _ sind erlaubt, am Anfang ein Buchstabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only lowercase letters, digits, - and _ are allowed, starting with a letter."
+          }
+        }
+      }
+    },
+    "Nächster Tab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Tab"
+          }
+        }
+      }
+    },
+    "Nächster Treffer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next Match"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without a branch, herdr picks a name. herdr checks out an existing branch. The worktree lives in herdr's worktree directory."
+          }
+        }
+      }
+    },
+    "Ohne SSH-Host-Key dieses Macs (entfernte Anmeldung an) erkennen die Geräte den Host nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without this Mac's SSH host key (Remote Login on), the devices cannot recognize the host."
+          }
+        }
+      }
+    },
+    "Ohne SSH-Host-Key dieses Macs erkennen die Geräte den Host nicht. In den Systemeinstellungen unter Allgemein > Teilen die entfernte Anmeldung einschalten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without this Mac's SSH host key, the devices cannot recognize the host. Turn on Remote Login in System Settings under General > Sharing."
+          }
+        }
+      }
+    },
+    "Option %@ wählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Option %@"
+          }
+        }
+      }
+    },
+    "Option %@ wählen (⌥⌘%@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Option %1$@ wählen (⌥⌘%2$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose option %1$@ (⌥⌘%2$@)"
+          }
+        }
+      }
+    },
+    "Originalgröße" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual Size"
+          }
+        }
+      }
+    },
+    "Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pane"
+          }
+        }
+      }
+    },
+    "Pane nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pane cannot be read"
+          }
+        }
+      }
+    },
+    "Per QR-Code" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With a QR Code"
+          }
+        }
+      }
+    },
+    "Pfad" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Path"
+          }
+        }
+      }
+    },
+    "Pfeil nach links" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left Arrow"
+          }
+        }
+      }
+    },
+    "Pfeil nach oben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Up Arrow"
+          }
+        }
+      }
+    },
+    "Pfeil nach rechts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right Arrow"
+          }
+        }
+      }
+    },
+    "Pfeil nach unten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Down Arrow"
+          }
+        }
+      }
+    },
+    "Port" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port"
+          }
+        }
+      }
+    },
+    "Prompt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt"
+          }
+        }
+      }
+    },
+    "Prompt an %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt to %@"
+          }
+        }
+      }
+    },
+    "Prompt „%@“" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt “%@”"
+          }
+        }
+      }
+    },
+    "Push über iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push through iCloud"
+          }
+        }
+      }
+    },
+    "QR-Code für %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR Code for %@"
+          }
+        }
+      }
+    },
+    "QR-Code scannen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan QR Code"
+          }
+        }
+      }
+    },
+    "QR-Code zeigen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show QR Code …"
+          }
+        }
+      }
+    },
+    "QR-Code zum Hinzufügen von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR code to add %@"
+          }
+        }
+      }
+    },
+    "Richten Sie die Kamera auf den QR-Code, den Amiscara Agents auf dem Mac zeigt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Point the camera at the QR code that Amiscara Agents shows on the Mac."
+          }
+        }
+      }
+    },
+    "Rückwärts suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Backward"
+          }
+        }
+      }
+    },
+    "SSH" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH"
+          }
+        }
+      }
+    },
+    "SSH klappt, aber der herdr-Socket nicht. Läuft herdr dort, und stimmt der Socket-Pfad?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH works, but the herdr socket does not. Is herdr running there, and is the socket path right?"
+          }
+        }
+      }
+    },
+    "Schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        }
+      }
+    },
+    "Schließen beendet alles, was in den Panes läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closing ends everything running in the panes."
+          }
+        }
+      }
+    },
+    "Schließen fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closing failed"
+          }
+        }
+      }
+    },
+    "Schlüssel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key"
+          }
+        }
+      }
+    },
+    "Schlüssel eingetragen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key added"
+          }
+        }
+      }
+    },
+    "Schlüssel für diesen Mac erzeugen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Key for This Mac"
+          }
+        }
+      }
+    },
+    "Schlüssel war schon eingetragen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key was already there"
+          }
+        }
+      }
+    },
+    "Schnell wechseln" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Switch"
+          }
+        }
+      }
+    },
+    "Schnell wechseln …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Switch …"
+          }
+        }
+      }
+    },
+    "Schnellantwort hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Quick Reply"
+          }
+        }
+      }
+    },
+    "Schnellantworten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Replies"
+          }
+        }
+      }
+    },
+    "Schnellantworten bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Quick Replies"
+          }
+        }
+      }
+    },
+    "Schrift größer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bigger Text"
+          }
+        }
+      }
+    },
+    "Schrift kleiner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smaller Text"
+          }
+        }
+      }
+    },
+    "Schriftgröße" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Font Size"
+          }
+        }
+      }
+    },
+    "Schriftgröße %@ pt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Font size %@ pt"
+          }
+        }
+      }
+    },
+    "Seite hoch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Up"
+          }
+        }
+      }
+    },
+    "Seite runter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Down"
+          }
+        }
+      }
+    },
+    "Senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        }
+      }
+    },
+    "Senden: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send: %@"
+          }
+        }
+      }
+    },
+    "Server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server"
+          }
+        }
+      }
+    },
+    "Shell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shell"
+          }
+        }
+      }
+    },
+    "Sichern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "Sitzung wird gesucht …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for the session …"
+          }
+        }
+      }
+    },
+    "Socket" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Socket"
+          }
+        }
+      }
+    },
+    "Solarized" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solarized"
+          }
+        }
+      }
+    },
+    "Sortierung umschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Sorting"
+          }
+        }
+      }
+    },
+    "Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space"
+          }
+        }
+      }
+    },
+    "Space %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space %lld"
+          }
+        }
+      }
+    },
+    "Space nicht verfügbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space unavailable"
+          }
+        }
+      }
+    },
+    "Space oder Agent suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search for a space or agent"
+          }
+        }
+      }
+    },
+    "Space oder Agent suchen (⌘K)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search for a space or agent (⌘K)"
+          }
+        }
+      }
+    },
+    "Space schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Space"
+          }
+        }
+      }
+    },
+    "Space schließen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Space …"
+          }
+        }
+      }
+    },
+    "Space umbenennen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Space"
+          }
+        }
+      }
+    },
+    "Space umbenennen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Space …"
+          }
+        }
+      }
+    },
+    "Space „%@“ schließen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close space “%@”?"
+          }
+        }
+      }
+    },
+    "Spaces" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spaces"
+          }
+        }
+      }
+    },
+    "Spaces nach Namen gruppieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group spaces by name"
+          }
+        }
+      }
+    },
+    "Spracherkennung fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech recognition failed: %@"
+          }
+        }
+      }
+    },
+    "Spracherkennung ist gerade nicht verfügbar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech recognition is not available right now."
+          }
+        }
+      }
+    },
+    "Spracherkennung ist nicht erlaubt (Einstellungen › Datenschutz › Spracherkennung)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech recognition is not allowed (Settings › Privacy › Speech Recognition)."
+          }
+        }
+      }
+    },
+    "Später" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        }
+      }
+    },
+    "Stand %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@"
+          }
+        }
+      }
+    },
+    "Standard" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard"
+          }
+        }
+      }
+    },
+    "Standard wiederherstellen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Defaults"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        }
+      }
+    },
+    "Steht die Schlüsselzeile dieses Geräts in ~/.ssh/authorized_keys auf dem Rechner?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Is this device's key line in ~/.ssh/authorized_keys on the computer?"
+          }
+        }
+      }
+    },
+    "Suche schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Search"
+          }
+        }
+      }
+    },
+    "Suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        }
+      }
+    },
+    "Suchen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search …"
+          }
+        }
+      }
+    },
+    "Tab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab"
+          }
+        }
+      }
+    },
+    "Tab schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Tab"
+          }
+        }
+      }
+    },
+    "Tab schließen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Tab …"
+          }
+        }
+      }
+    },
+    "Tab umbenennen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Tab"
+          }
+        }
+      }
+    },
+    "Tab umbenennen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename Tab …"
+          }
+        }
+      }
+    },
+    "Tab und Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab and Space"
+          }
+        }
+      }
+    },
+    "Tab „%@“ schließen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close tab “%@”?"
+          }
+        }
+      }
+    },
+    "Tastatur ausblenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Keyboard"
+          }
+        }
+      }
+    },
+    "Taste %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key %@"
+          }
+        }
+      }
+    },
+    "Tasten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keys"
+          }
+        }
+      }
+    },
+    "Terminal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal"
+          }
+        }
+      }
+    },
+    "Terminal (macOS)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminal (macOS)"
+          }
+        }
+      }
+    },
+    "Test vom Mac: Push über iCloud kommt an." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test from the Mac: push through iCloud arrives."
+          }
+        }
+      }
+    },
+    "Test-Push senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Test Push"
+          }
+        }
+      }
+    },
+    "Text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
+          }
+        }
+      }
+    },
+    "Text auswählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Text"
+          }
+        }
+      }
+    },
+    "Text auswählen und kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select and Copy Text"
+          }
+        }
+      }
+    },
+    "Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add the line to ~/.ssh/authorized_keys on the server. With it, the key starts no shell and no commands. Forwarding stays possible, TCP through the server too; only AllowTcpForwarding no in the server's sshd_config closes that. If a device gets lost, remove the line right away."
+          }
+        }
+      }
+    },
+    "Tragen Sie oben ein, unter welchem Namen dieser Mac erreichbar ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter above the name at which this Mac can be reached."
+          }
+        }
+      }
+    },
+    "Umbenennen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename …"
+          }
+        }
+      }
+    },
+    "Unbekannte Anfrage von der Watch." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown request from the Watch."
+          }
+        }
+      }
+    },
+    "Unbekannter Host-Key" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown Host Key"
+          }
+        }
+      }
+    },
+    "Ungültiger Schlüssel: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid key: %@"
+          }
+        }
+      }
+    },
+    "Unter „Hosts“ das Apple TV mit dem iPhone koppeln." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair the Apple TV with the iPhone under “Hosts”."
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates"
+          }
+        }
+      }
+    },
+    "Verbinde …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting …"
+          }
+        }
+      }
+    },
+    "Verbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection"
+          }
+        }
+      }
+    },
+    "Verbindung fehlgeschlagen, Versuch %u. Die App versucht es weiter." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection failed, attempt %u. The app keeps trying."
+          }
+        }
+      }
+    },
+    "Verbindung kann nicht starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection cannot start"
+          }
+        }
+      }
+    },
+    "Verbindung unterbrochen, Inhalt veraltet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection lost, content out of date"
+          }
+        }
+      }
+    },
+    "Verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        }
+      }
+    },
+    "Vergleichen Sie den Fingerabdruck mit dem auf dem Fernseher." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare the fingerprint with the one on the TV."
+          }
+        }
+      }
+    },
+    "Vergleichen Sie den Fingerabdruck mit dem, den das andere Gerät unter dem QR-Code zeigt. Ohne Bestätigung wird kein Host-Key gespeichert und die App fragt beim ersten Verbinden nach." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compare the fingerprint with the one the other device shows below the QR code. Without confirmation no host key is saved, and the app asks on the first connection."
+          }
+        }
+      }
+    },
+    "Verlauf des Agenten, ohne Farben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent's history, without colors"
+          }
+        }
+      }
+    },
+    "Verlauf nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History cannot be read"
+          }
+        }
+      }
+    },
+    "Verlauf vom Agenten holen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetch History from the Agent"
+          }
+        }
+      }
+    },
+    "Verlauf wird geladen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading history …"
+          }
+        }
+      }
+    },
+    "Verlauf wird vom Agenten geholt …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fetching the history from the agent …"
+          }
+        }
+      }
+    },
+    "Version %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@"
+          }
+        }
+      }
+    },
+    "Vertrauen und verbinden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trust and Connect"
+          }
+        }
+      }
+    },
+    "Verzeichnis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Directory"
+          }
+        }
+      }
+    },
+    "Vollbild-Agenten scrollen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scroll full-screen agents"
+          }
+        }
+      }
+    },
+    "Vorheriger Tab" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous Tab"
+          }
+        }
+      }
+    },
+    "Vorheriger Treffer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous Match"
+          }
+        }
+      }
+    },
+    "Wartende Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting Agents"
+          }
+        }
+      }
+    },
+    "Wartende Agents auf allen Hosts." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting agents on all hosts."
+          }
+        }
+      }
+    },
+    "Wartende und arbeitende Agents auf allen Hosts." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting and working agents on all hosts."
+          }
+        }
+      }
+    },
+    "Wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting"
+          }
+        }
+      }
+    },
+    "Wartet auf Antwort" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for an answer"
+          }
+        }
+      }
+    },
+    "Wechseln zu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch To"
+          }
+        }
+      }
+    },
+    "Weitere" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        }
+      }
+    },
+    "Weitersuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find Next"
+          }
+        }
+      }
+    },
+    "Welche Agents warten?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which agents are waiting?"
+          }
+        }
+      }
+    },
+    "Wie das System" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as the system"
+          }
+        }
+      }
+    },
+    "Wie die App" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same as the app"
+          }
+        }
+      }
+    },
+    "Wählen Sie links einen Agent oder eine Pane." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an agent or a pane on the left."
+          }
+        }
+      }
+    },
+    "Wählen Sie links einen Space oder einen Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a space or an agent on the left."
+          }
+        }
+      }
+    },
+    "Zeile" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Line"
+          }
+        }
+      }
+    },
+    "Zeile kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Line"
+          }
+        }
+      }
+    },
+    "Zeilen umbrechen (experimentell)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wrap lines (experimental)"
+          }
+        }
+      }
+    },
+    "Zuletzt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last"
+          }
+        }
+      }
+    },
+    "Zuletzt gesucht %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last checked %@"
+          }
+        }
+      }
+    },
+    "angemeldet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "signed in"
+          }
+        }
+      }
+    },
+    "arbeitet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "working"
+          }
+        }
+      }
+    },
+    "bereit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ready"
+          }
+        }
+      }
+    },
+    "eingeschränkt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "restricted"
+          }
+        }
+      }
+    },
+    "fertig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "done"
+          }
+        }
+      }
+    },
+    "grouped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "grouped"
+          }
+        }
+      }
+    },
+    "herdr kennt diesen Agent nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this agent."
+          }
+        }
+      }
+    },
+    "iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud"
+          }
+        }
+      }
+    },
+    "iCloud-Abo fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud subscription failed: %@"
+          }
+        }
+      }
+    },
+    "iCloud: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud: %@"
+          }
+        }
+      }
+    },
+    "iPhone nicht erreichbar, iCloud: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone not reachable, iCloud: %@"
+          }
+        }
+      }
+    },
+    "iPhone nicht erreichbar, und kein Mac hat den Befehl angenommen. Auf dem Mac „Befehle von der Apple Watch annehmen“ einschalten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone not reachable, and no Mac accepted the command. Turn on “Accept commands from the Apple Watch” on the Mac."
+          }
+        }
+      }
+    },
+    "iPhone nicht erreichbar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone not reachable."
+          }
+        }
+      }
+    },
+    "mac.example.internal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mac.example.internal"
+          }
+        }
+      }
+    },
+    "nach Status" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "by status"
+          }
+        }
+      }
+    },
+    "nicht angemeldet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not signed in"
+          }
+        }
+      }
+    },
+    "nicht verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not connected"
+          }
+        }
+      }
+    },
+    "seit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "since %@"
+          }
+        }
+      }
+    },
+    "ssh-ed25519 AAAA…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ssh-ed25519 AAAA…"
+          }
+        }
+      }
+    },
+    "unbekannt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unknown"
+          }
+        }
+      }
+    },
+    "verbunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "connected"
+          }
+        }
+      }
+    },
+    "vorübergehend nicht verfügbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "temporarily unavailable"
+          }
+        }
+      }
+    },
+    "warten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "waiting"
+          }
+        }
+      }
+    },
+    "wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "waiting"
+          }
+        }
+      }
+    },
+    "weiter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "continue"
+          }
+        }
+      }
+    },
+    "wie der Branch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "same as the branch"
+          }
+        }
+      }
+    },
+    "z. B. Dorfkino" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Blog"
+          }
+        }
+      }
+    },
+    "z. B. Privat/Dorfkino" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. Private/Blog"
+          }
+        }
+      }
+    },
+    "z. B. feature/login" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. feature/login"
+          }
+        }
+      }
+    },
+    "z. B. reviewer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. reviewer"
+          }
+        }
+      }
+    },
+    "z. B. work" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. work"
+          }
+        }
+      }
+    },
+    "~/dev/projekt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/dev/project"
+          }
+        }
+      }
+    },
+    "Ältere Einträge laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load Older Entries"
+          }
+        }
+      }
+    },
+    "Älteren Verlauf laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load Older History"
+          }
+        }
+      }
+    },
+    "Öffnet Amiscara Agents beim gewählten Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens Amiscara Agents at the chosen agent."
+          }
+        }
+      }
+    },
+    "„%@“ unter derselben Adresse vertraut einem anderen Host-Key. Der Code wurde nicht übernommen. Prüfen Sie den Host-Key auf dem Server." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” at the same address trusts a different host key. The code was not applied. Check the host key on the server."
+          }
+        }
+      }
+    },
+    "└" : {
+      "shouldTranslate" : false
+    }
+  },
+  "version" : "1.0"
+}
