@@ -389,6 +389,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   targets; an address the terminal or an agent wrapped links all its parts
   to the whole address. The desktop app opens them through
   `tauri-plugin-opener` (#186).
+- Arrow keys in an empty composer go to the pane, to move through an
+  agent's question or a shell's history without the key bar; with text
+  they move the cursor as before.
 
 ### Changed
 
