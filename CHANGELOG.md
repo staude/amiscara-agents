@@ -390,6 +390,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   to the whole address. The desktop app opens them through
   `tauri-plugin-opener` (#186).
 
+- Files for a public repository: `SECURITY.md` (private reports through
+  GitHub security advisories), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+  issue and pull request templates, and `docs/third-party-notices.md` on
+  the licenses of the bundled dependencies.
+
 ### Changed
 
 - The terminal is no longer always dark: it follows the app's appearance
@@ -418,6 +423,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   shared by `herdr-ffi` and the desktop app (#142). The Swift API is unchanged.
 - The "add host" link moved to `herdr-session::link`; `herdr-session` sessions
   can log in through the SSH agent (`SshIdentity::Agent`) (#143).
+- The README covers features per platform, the security model, host setup,
+  limits, architecture and building from source in much more detail.
+- CI runs the full chain for every pull request and push to `main`, now
+  that the repository is public (Actions minutes are free); installers
+  stay manual.
+- Personal notes are no longer in the repository: `HANDOFF.md` and the
+  personal parts of `CLAUDE.md` moved to untracked local files
+  (`CLAUDE.local.md`), `setup.sh` no longer sets a git identity, and
+  examples use neutral host names (`mac.example.internal`).
+- The desktop crate and `package.json` declare the license
+  (MIT OR Apache-2.0).
 
 ### Fixed
 

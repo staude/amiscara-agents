@@ -88,8 +88,8 @@ Test installers without a release: start CI by hand (Actions > CI > Run
 workflow, or `gh workflow run ci.yml`); the "Desktop app" jobs then leave
 them as artifacts. With `gh workflow run ci.yml -f scope=installers` only
 the installers are built (Windows x64 and ARM64, Linux), without the tests
-on macOS and Windows. Pull requests run no CI; check them with
-`scripts/check.sh`.
+on macOS and Windows. Pull requests run the full chain without the
+installers; check them first with `scripts/check.sh`.
 Releases go to the public repository
 [staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
 because this one is private and the updater must read `latest.json` without
@@ -110,7 +110,7 @@ Secrets of the GitHub environment `desktop-release`, which only tags
 
 - `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the
   updater key, created with `npx tauri signer generate`; the private key is
-  kept in `~/.tauri/amiscara-agents-updater.key` on work. Back it up: without
+  kept by the maintainer outside the repository. Back it up: without
   it, installed apps accept no further update. Its public half is
   `plugins.updater.pubkey` in `tauri.conf.json`.
 - `RELEASES_TOKEN`: a fine-grained personal access token with
