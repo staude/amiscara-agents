@@ -432,9 +432,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
   See `docs/screenshots.md`.
 - Screenshots of all apps in the README, from the seeded demo, kept in
   `docs/screenshots` by `scripts/screenshots/publish.sh` (#199).
+- The desktop app (Windows, Linux) speaks German and English: the system
+  language decides, English when it is neither, or the new setting
+  "Sprache" / "Language". Tray menu, notifications and the default quick
+  replies follow it; `SCREENSHOT_LANG=en` takes the desktop screenshots in
+  English (#207).
 
 ### Changed
 
+- The core no longer words a refused "add host" link in German:
+  `herdr-session` returns `LinkError` and `herdr-ffi` `AddHostLinkError`
+  with the reason, and the apps put it in the user's language. The desktop
+  app's own errors are codes the webview words as well (#207).
 - Desktop releases go to this repository instead of
   `staude/amiscara-agents-releases`, written with the workflow's own token
   (no `RELEASES_TOKEN`); the updater reads `latest.json` from the release
