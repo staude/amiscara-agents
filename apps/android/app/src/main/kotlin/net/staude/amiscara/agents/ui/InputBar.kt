@@ -376,7 +376,7 @@ fun InputBar(app: AmiscaraApp, host: HostConfig, pane: PaneItem, connected: Bool
 /** Reads a picked file; images get a small preview and keep only their extension. */
 private fun readAttachment(context: Context, uri: Uri, image: Boolean): Attachment {
     val resolver = context.contentResolver
-    val data = resolver.openInputStream(uri)?.use { it.readBytes() } ?: error("Datei nicht lesbar")
+    val data = resolver.openInputStream(uri)?.use { it.readBytes() } ?: error(context.getString(R.string.error_file_unreadable))
     val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
         if (cursor.moveToFirst()) cursor.getString(0) else null
     }

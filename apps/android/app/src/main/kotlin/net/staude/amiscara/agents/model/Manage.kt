@@ -2,6 +2,7 @@ package net.staude.amiscara.agents.model
 
 import net.staude.amiscara.agents.core.AgentState
 import net.staude.amiscara.agents.core.WorkspaceItem
+import net.staude.amiscara.agents.R
 
 // Creating, renaming and closing in herdr; the rules of `manage.svelte.ts`.
 
@@ -35,9 +36,9 @@ fun closingState(spaces: List<WorkspaceItem>): AgentState {
     }
 }
 
-/** herdr's refusals of an agent name, in German. */
+/** herdr's refusals of an agent name, for the screens. */
 fun renameMessage(text: String): String = when {
-    "invalid_agent_name" in text -> "Nur Kleinbuchstaben, Ziffern, - und _ sind erlaubt, am Anfang ein Buchstabe."
-    "agent_name_taken" in text -> "Diesen Namen trägt schon ein anderer Agent."
+    "invalid_agent_name" in text -> Texts.get(R.string.error_agent_name_invalid)
+    "agent_name_taken" in text -> Texts.get(R.string.error_agent_name_taken)
     else -> text
 }

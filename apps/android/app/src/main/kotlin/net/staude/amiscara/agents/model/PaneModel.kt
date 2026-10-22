@@ -15,6 +15,7 @@ import net.staude.amiscara.agents.core.PaneFollow
 import net.staude.amiscara.agents.core.PaneObserver
 import net.staude.amiscara.agents.core.ScrollStep
 import net.staude.amiscara.agents.core.maxHistoryLines
+import net.staude.amiscara.agents.R
 
 /**
  * The live screen of one pane, optionally with scrollback above it; like
@@ -84,7 +85,7 @@ class PaneModel(private val session: HostSession, val paneId: String, live: Bool
         override fun onError(message: String) {
             // A closed pane leaves with the next session update; one herdr
             // restored without a terminal stays and is never readable.
-            val text = if ("pane_not_found" in message) "Pane nicht lesbar." else message
+            val text = if ("pane_not_found" in message) Texts.get(R.string.error_pane_unreadable) else message
             state.value = state.value.copy(error = text)
         }
     })
