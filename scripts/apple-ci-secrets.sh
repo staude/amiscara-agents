@@ -5,15 +5,17 @@
 # or to disk.
 #
 #   scripts/apple-ci-secrets.sh --key-id <id> --issuer-id <uuid> --key <AuthKey_<id>.p8> \
-#       [--devid <developer-id.p12>] [--dist <apple-distribution.p12>]
+#       [--devid <developer-id.p12>] [--dist <apple-distribution.p12>] [--sparkle <sparkle-key>]
 #
 # Without --devid or --dist the workflow signs with cloud-managed
 # certificates, which needs an API key of the Admin role. Passwords of
-# the .p12 files are asked for and not echoed. See docs/release.md.
+# the .p12 files are asked for and not echoed. --sparkle takes the private
+# Sparkle key exported with `generate_keys --account amiscara-agents -x
+# <file>`; delete that file afterwards. See docs/release.md.
 set -euo pipefail
 
 env="apple-release"
-key_id="" issuer_id="" key="" devid="" dist=""
+key_id="" issuer_id="" key="" devid="" dist="" sparkle=""
 
 die() { echo "apple-ci-secrets: $*" >&2; exit 1; }
 usage() { sed -n '7,8p' "$0" | sed 's/^# //'; exit 1; }
@@ -25,6 +27,7 @@ while [[ $# -gt 0 ]]; do
         --key) key="${2:-}"; shift 2 ;;
         --devid) devid="${2:-}"; shift 2 ;;
         --dist) dist="${2:-}"; shift 2 ;;
+        --sparkle) sparkle="${2:-}"; shift 2 ;;
         *) usage ;;
     esac
 done
@@ -33,6 +36,7 @@ done
 [[ -f "$key" ]] || die "no file at $key"
 [[ -z "$devid" || -f "$devid" ]] || die "no file at $devid"
 [[ -z "$dist" || -f "$dist" ]] || die "no file at $dist"
+[[ -z "$sparkle" || -s "$sparkle" ]] || die "no key in $sparkle"
 command -v gh >/dev/null || die "gh not found (brew install gh)"
 # Paths stay relative to where the script was started; gh looks at this repo.
 repo=$(cd "$(dirname "$0")" && gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -83,6 +87,9 @@ if [[ -n "$dist" ]]; then
     printf '%s' "$password" | secret APPLE_DIST_P12_PASSWORD
 fi
 unset password
+if [[ -n "$sparkle" ]]; then
+    tr -d '\n' <"$sparkle" | secret SPARKLE_ED_PRIVATE_KEY
+fi
 
 # Only protects the temporary keychain on the runner.
 openssl rand -base64 24 | tr -d '\n' | secret KEYCHAIN_PASSWORD

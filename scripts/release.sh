@@ -10,6 +10,12 @@
 #                            --apple-id <apple-id> --team-id 7N2W4T6UPV
 #     (app-specific password from appleid.apple.com, not the account password)
 #
+#   - Sparkle signing key in the login keychain:  generate_keys --account amiscara-agents
+#     (its public key in project.yml as SUPublicEDKey, see docs/release.md)
+#
+# Besides the zip it writes appcast.xml, the Sparkle feed for the release
+# `updates` (in CI the private key comes from SPARKLE_ED_PRIVATE_KEY).
+#
 # In CI an App Store Connect API key replaces both (APPLE_API_KEY_PATH,
 # APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, see scripts/apple-common.sh); the
 # certificate then comes from a temporary keychain or from cloud signing.
@@ -40,6 +46,9 @@ fi
 xcrun notarytool history "${notary_auth[@]}" >/dev/null 2>&1 \
     || die "notarytool cannot sign in (profile '$profile' or API key missing or invalid)"
 command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
+sparkle_key=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' apps/AmiscaraAgents/AmiscaraAgents/Info.plist)
+[[ -n "$sparkle_key" && "$sparkle_key" != __* ]] \
+    || die "SUPublicEDKey in project.yml is still the placeholder; the release could not update itself (docs/release.md)"
 require_clean_tree
 
 version=$(marketing_version)
@@ -78,9 +87,36 @@ spctl -a -vvv -t exec "$app"
 xcrun stapler validate "$app"
 
 ditto -c -k --keepParent "$app" "$out/$name.zip"
-step "Done: $out/$name.zip"
+
+step "Sparkle feed"
+sign_update=$(find "$out/derived/SourcePackages/artifacts" -path '*/old_dsa_scripts' -prune \
+    -o -type f -name sign_update -print 2>/dev/null | head -1)
+[[ -x "$sign_update" ]] || die "Sparkle's sign_update not found in $out/derived"
+if [[ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]]; then
+    key_file=$(mktemp)
+    trap 'rm -f "$key_file"' EXIT
+    printf '%s' "$SPARKLE_ED_PRIVATE_KEY" >"$key_file"
+    signature=$("$sign_update" -f "$key_file" "$out/$name.zip")
+    rm -f "$key_file"
+else
+    signature=$("$sign_update" --account amiscara-agents "$out/$name.zip")
+fi
+ed_signature=$(sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p' <<<"$signature")
+length=$(sed -nE 's/.*length="([0-9]+)".*/\1/p' <<<"$signature")
+[[ -n "$ed_signature" && -n "$length" ]] || die "cannot read the output of sign_update: $signature"
+tag="apple-v$version"
+OUTPUT_PATH="$out/appcast.xml" VERSION="$version" BUILD="$build" \
+    ZIP_URL="https://github.com/staude/amiscara-agents/releases/download/$tag/$name.zip" \
+    ZIP_LENGTH="$length" ZIP_ED_SIGNATURE="$ed_signature" \
+    MIN_SYSTEM="$(sed -n 's/^ *macOS: "\(.*\)"$/\1/p' "$spec" | head -1)" \
+    NOTES_URL="https://github.com/staude/amiscara-agents/releases/tag/$tag" \
+    PUB_DATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')" \
+    python3 scripts/appcast.py
+
+step "Done: $out/$name.zip and $out/appcast.xml (for release $tag)"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "zip=$out/$name.zip" >> "$GITHUB_OUTPUT"
+    echo "appcast=$out/appcast.xml" >> "$GITHUB_OUTPUT"
 fi
 
 if $install; then

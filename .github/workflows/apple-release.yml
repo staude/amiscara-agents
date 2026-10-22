@@ -16,7 +16,10 @@ name: Apple release
 # of them. The build number is `<CURRENT_PROJECT_VERSION>.<run>.<attempt>`,
 # so every run gets a new one without a commit.
 #
-# Secrets: APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, APPLE_API_KEY_P8 (App
+# The tag run publishes the release and replaces appcast.xml, the Sparkle
+# feed of the Mac app, in the release `updates`.
+#
+# Secrets: SPARKLE_ED_PRIVATE_KEY (signs the update), APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, APPLE_API_KEY_P8 (App
 # Store Connect API key, base64), KEYCHAIN_PASSWORD, optionally
 # APPLE_DEVID_P12 / APPLE_DEVID_P12_PASSWORD and APPLE_DIST_P12 /
 # APPLE_DIST_P12_PASSWORD (certificates as base64 .p12); without them
@@ -96,6 +99,7 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           export APPLE_API_KEY_PATH="$RUNNER_TEMP/apple/AuthKey.p8"
           base="$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "\(.*\)"$/\1/p' apps/AmiscaraAgents/project.yml)"
@@ -104,17 +108,34 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: amiscara-agents-mac
-          path: ${{ steps.build.outputs.zip }}
+          path: |
+            ${{ steps.build.outputs.zip }}
+            ${{ steps.build.outputs.appcast }}
           if-no-files-found: error
-      - name: Attach to the release
+      - name: Publish the release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           ZIP: ${{ steps.build.outputs.zip }}
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --draft --title "Amiscara Agents ${GITHUB_REF_NAME#apple-v} (Mac)" --notes "Mac-App, mit Developer ID signiert und notarisiert."
+            || gh release create "$GITHUB_REF_NAME" --draft --title "Amiscara Agents ${GITHUB_REF_NAME#apple-v} (Mac)" --notes "Mac-App, mit Developer ID signiert und notarisiert. Installierte Versionen aktualisieren sich selbst."
           gh release upload "$GITHUB_REF_NAME" "$ZIP" --clobber
+          # Published before the feed, so the feed never points to a draft.
+          gh release edit "$GITHUB_REF_NAME" --draft=false
+      - name: Update the feed
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPCAST: ${{ steps.build.outputs.appcast }}
+        run: |
+          # The release `updates` holds the feeds of all apps (appcast.xml
+          # for the Mac, latest.json for Windows and Linux); a pre-release,
+          # so it never becomes the latest release.
+          gh release view updates >/dev/null 2>&1 \
+            || gh release create updates --prerelease --target main --title "Update-Feeds" \
+              --notes "Feeds für die eingebauten Updates der Apps. Downloads unter den Versionen."
+          gh release upload updates "$APPCAST" --clobber
       - name: Remove signing data
         if: always()
         run: .github/scripts/apple-signing.sh --cleanup
