@@ -18,8 +18,8 @@ their `herdr-*` names: they describe the herdr protocol, not the app.
 | iPad, iPhone | SwiftUI, same sources | iOS 27 | SSH | push through iCloud from the Mac app | `scripts/install-ios.sh` |
 | Apple TV | SwiftUI, same sources | tvOS 26 | SSH, home network only | none | `scripts/install-ios.sh` |
 | Apple Watch | SwiftUI, `apps/AmiscaraAgents/Watch` | watchOS 26 | none: through the iPhone and iCloud | mirrored from the iPhone | with the iOS app |
-| Windows | Tauri 2, `apps/desktop` | Windows 10, x64 or ARM64 | SSH | toasts, while in the tray | installer from the releases repo |
-| Linux | Tauri 2, `apps/desktop` | WebKitGTK 4.1 | this machine (socket) and SSH | libnotify, while in the tray | AppImage or deb from the releases repo |
+| Windows | Tauri 2, `apps/desktop` | Windows 10, x64 or ARM64 | SSH | toasts, while in the tray | installer from the [releases](https://github.com/staude/amiscara-agents/releases), updates itself |
+| Linux | Tauri 2, `apps/desktop` | WebKitGTK 4.1 | this machine (socket) and SSH | libnotify, while in the tray | AppImage or deb from the [releases](https://github.com/staude/amiscara-agents/releases); the AppImage updates itself |
 | Android | Kotlin, Compose, `apps/android` | Android 10 | SSH | with answer buttons, while the app or its standby service runs | `scripts/install-android.sh`, Google Play (testing) |
 
 All apps share the same host model, the same restricted `authorized_keys` line
@@ -290,10 +290,10 @@ release or after platform-specific changes.
   setup (certificate, notarytool profile) in [docs/release.md](docs/release.md).
 - **iPad, iPhone, Apple TV:** installed from Xcode with
   `scripts/install-ios.sh` for now; TestFlight is planned.
-- **Windows and Linux:** released by tag (`scripts/desktop-release.sh`) to the
-  public repository
-  [staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
-  from which the app updates itself; see
+- **Windows and Linux:** released by tag (`scripts/desktop-release.sh`) to
+  this repository's
+  [releases](https://github.com/staude/amiscara-agents/releases), from which
+  the app updates itself; see
   [apps/desktop/README.md](apps/desktop/README.md#deploy). Windows builds are
   not code signed yet.
 
