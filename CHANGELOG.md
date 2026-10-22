@@ -389,6 +389,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   targets; an address the terminal or an agent wrapped links all its parts
   to the whole address. The desktop app opens them through
   `tauri-plugin-opener` (#186).
+- `apple-release.yml` builds the Apple apps in GitHub Actions on the
+  `xcode-27` runner: the notarized Mac app as an artifact (attached to a
+  release for `apple-v*` tags) and the iOS and tvOS apps for TestFlight,
+  signed with an App Store Connect API key and optional `.p12`
+  certificates from the environment `apple-release`.
+  `scripts/apple-ci-secrets.sh` stores them, `scripts/testflight.sh`
+  uploads to TestFlight locally too, and `scripts/release.sh` accepts the
+  API key and a `BUILD_NUMBER` instead of the keychain profile.
 
 ### Changed
 

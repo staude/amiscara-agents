@@ -1,6 +1,6 @@
-# Release der Mac-App
+# Release der Apple-Apps
 
-Die App wird außerhalb des App Stores verteilt: mit Developer ID signiert, von Apple notarisiert, das Ticket angeheftet. Alles läuft über `scripts/release.sh`, Xcode muss installiert sein, aber nicht geöffnet werden.
+Die Mac-App wird außerhalb des App Stores verteilt: mit Developer ID signiert, von Apple notarisiert, das Ticket angeheftet (`scripts/release.sh`). Die Apps für iPhone, iPad, Apple Watch und Apple TV gehen über TestFlight (`scripts/testflight.sh`). Beides läuft lokal auf einem Mac mit Xcode oder in GitHub Actions (`.github/workflows/apple-release.yml`, siehe [CI](#ci)).
 
 ## Einmalige Einrichtung
 
@@ -46,6 +46,59 @@ Ergebnis: `target/release-app/AmiscaraAgents-<version>-<build>.zip`.
 
 Die App liest `~/.config/herdr/herdr.sock` und öffnet SSH-Verbindungen zu beliebigen Hosts. Die App Sandbox würde beides blockieren. Für den App Store bräuchte es eine andere Lösung (z. B. Security-Scoped Bookmarks für den Socket), das ist erst Thema, wenn eine Store-Version ansteht.
 
+## TestFlight (iPhone, iPad, Watch, Apple TV)
+
+```sh
+scripts/bump-build.sh          # jede hochgeladene Build-Nummer gibt es nur einmal
+git commit -am "chore(release): build N"
+scripts/testflight.sh          # oder: ios, tvos
+```
+
+Das Skript baut die Rust-Slices (`iphoneos`, `appletvos`), archiviert `AmiscaraAgents-iOS` (mit der Watch-App) und `AmiscaraAgents-tvOS` und lädt beide mit `scripts/ExportOptions-TestFlight.plist` hoch. Lokal meldet sich Xcode mit dem Account aus Xcode › Einstellungen › Accounts an. Vorher muss der App-Eintrag in App Store Connect existieren, und das CloudKit-Schema muss in Production deployt sein, sonst sehen TestFlight-Builds keine Daten.
+
 ## CI
 
-GitHub-Runner haben noch kein Xcode mit macOS-27-SDK. Die CI prüft den Rust-Teil auf Linux, macOS und Windows, die App wird lokal gebaut.
+`.github/workflows/apple-release.yml` baut beides auf GitHubs Runner `xcode-27` (Vorschau-Image mit Xcode 27.1 und den SDKs für macOS 27, iOS 27 und tvOS; das Image `macos-26` hat nur Xcode 26):
+
+- **mac:** `scripts/release.sh` mit API-Key, Ergebnis als Workflow-Artefakt `amiscara-agents-mac`.
+- **testflight:** `scripts/testflight.sh` für iOS und tvOS.
+
+Starten von Hand unter Actions › Apple release › Run workflow oder
+
+```sh
+gh workflow run apple-release.yml -f target=both   # mac, testflight oder both
+```
+
+Ein Tag `apple-v<MARKETING_VERSION>` (z. B. `apple-v0.1.0`) startet beides und hängt das Mac-Zip an einen Release-Entwurf in diesem Repo. Die Build-Nummer ist in der CI `<CURRENT_PROJECT_VERSION>.<Lauf>.<Versuch>`, z. B. `1.14.1`, ohne Commit. Sie liegt damit immer über der lokalen Nummer `1`; wer danach lokal hochlädt, setzt `CURRENT_PROJECT_VERSION` vorher mit `scripts/bump-build.sh` höher.
+
+### Einmalige Einrichtung für die CI
+
+Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Repo. Pull Requests und Forks kommen nicht an sie heran.
+
+1. **App-Store-Connect-API-Key anlegen.** In App Store Connect unter Benutzer und Zugriff › Integrationen › App Store Connect API › Team-Schlüssel einen Schlüssel erzeugen:
+   - Rolle **Admin**, wenn die CI ohne hinterlegte Zertifikate signieren soll (Xcode-Cloud-Signierung legt dann verwaltete Zertifikate an; das darf nur Admin).
+   - Rolle **App-Manager** reicht, wenn die Zertifikate als `.p12` hinterlegt werden (Schritt 2 und 3). Profile legt Xcode damit selbst an.
+   - Die `.p8`-Datei lässt sich nur einmal herunterladen. Key-ID und Issuer-ID stehen auf derselben Seite.
+   - Derselbe Schlüssel meldet `notarytool` an, ein App-spezifisches Passwort braucht die CI nicht.
+
+2. **Developer-ID-Zertifikat** (für die Mac-App): wie oben unter „Einmalige Einrichtung“ Schritt 1 anlegen und importieren. Nur der Account Holder darf es erzeugen. Danach in der Schlüsselbundverwaltung unter „Meine Zertifikate“ das Zertifikat „Developer ID Application: … (7N2W4T6UPV)“ samt privatem Schlüssel als `.p12` mit Passwort exportieren.
+
+3. **Apple-Distribution-Zertifikat** (für TestFlight, optional): ist eins im Schlüsselbund (`security find-identity -v -p codesigning | grep "Apple Distribution"`), genauso als `.p12` exportieren. Fehlt es, legt Xcode bei einem lokalen `scripts/testflight.sh` eines an.
+
+4. **Secrets setzen** (fragt die `.p12`-Passwörter verdeckt ab und schreibt nichts auf die Platte):
+
+   ```sh
+   scripts/apple-ci-secrets.sh --key-id <Key-ID> --issuer-id <Issuer-ID> \
+       --key ~/Downloads/AuthKey_<Key-ID>.p8 \
+       --devid ~/Desktop/developer-id.p12 --dist ~/Desktop/apple-distribution.p12
+   ```
+
+   Danach `.p8` und `.p12` sicher ablegen (Passwortmanager) und aus Downloads und Schreibtisch löschen.
+
+5. **Umgebung absichern.** Unter Settings › Environments › `apple-release` bei „Deployment branches and tags“ nur `main` und Tags `apple-v*` zulassen, damit kein anderer Branch die Signierdaten benutzt.
+
+6. **Erster Lauf:** `gh workflow run apple-release.yml -f target=mac`, danach `-f target=testflight`.
+
+Secrets: `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `KEYCHAIN_PASSWORD` (zufällig, schützt nur den temporären Schlüsselbund im Runner), optional `APPLE_DEVID_P12` und `APPLE_DEVID_P12_PASSWORD`, `APPLE_DIST_P12` und `APPLE_DIST_P12_PASSWORD`.
+
+`xcode-27` ist bei GitHub noch ein Vorschau-Image. Sobald es ein reguläres Image mit Xcode 27 gibt, `runs-on` und `XCODE_APP` im Workflow anpassen.
