@@ -19,6 +19,16 @@ cargo install cargo-ndk --locked
 `./setup.sh` in the repository root does the last two when it finds an
 Android SDK.
 
+## Languages
+
+English is the default (`res/values/strings.xml`), so it is also the
+fallback for languages without a translation; German is in
+`res/values-de/strings.xml` (#207). Every string a user sees comes from the
+resources, also the ones built in model code (`model/Texts.kt`). A new
+language is a new `values-<code>/strings.xml` plus an entry in
+`res/xml/locales_config.xml`. Messages from the Rust core (e.g. the checks
+of an add-host link) are still German for now.
+
 ## Build and run
 
 ```sh
