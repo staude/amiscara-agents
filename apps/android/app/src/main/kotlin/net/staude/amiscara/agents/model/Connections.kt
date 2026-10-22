@@ -18,6 +18,7 @@ import net.staude.amiscara.agents.core.HostSession
 import net.staude.amiscara.agents.core.HostStatus
 import net.staude.amiscara.agents.core.SessionObserver
 import net.staude.amiscara.agents.core.SessionUpdate
+import net.staude.amiscara.agents.R
 
 /**
  * One live [HostSession] per host, kept in step with the [HostRepository]:
@@ -66,10 +67,10 @@ class Connections(
      */
     suspend fun <T> input(hostId: String, action: (HostSession) -> T): Result<T> {
         if (hosts.get(hostId)?.allowInput == false) {
-            return Result.failure(HostException("Eingaben sind für diesen Host ausgeschaltet."))
+            return Result.failure(HostException(Texts.get(R.string.input_off)))
         }
         val session = running[hostId]?.session
-            ?: return Result.failure(HostException("Keine Verbindung zum Host."))
+            ?: return Result.failure(HostException(Texts.get(R.string.no_connection)))
         return withContext(Dispatchers.IO) {
             try {
                 Result.success(action(session))
@@ -77,7 +78,7 @@ class Connections(
                 Result.failure(HostException(inputErrorMessage(e)))
             } catch (e: IllegalStateException) {
                 // The session was stopped meanwhile (host changed or removed).
-                Result.failure(HostException("Keine Verbindung zum Host."))
+                Result.failure(HostException(Texts.get(R.string.no_connection)))
             }
         }
     }
@@ -93,7 +94,7 @@ class Connections(
         val status = updates.value[hostId]?.status
         if (fresh || status is HostStatus.Retrying || status is HostStatus.Failed) reconnect(hostId)
         withTimeoutOrNull(LIVE_TIMEOUT_MS) { updates.first { it[hostId]?.status is HostStatus.Live } }
-            ?: return Result.failure(HostException("Keine Verbindung zum Host."))
+            ?: return Result.failure(HostException(Texts.get(R.string.no_connection)))
         return input(hostId) { it.sendKeys(paneId, keys) }
     }
 
@@ -140,7 +141,7 @@ class Connections(
             }
         }
         try {
-            val key = hosts.privateKey(host.id) ?: throw HostException("Für diesen Host fehlt der Schlüssel. Erzeugen Sie einen neuen.")
+            val key = hosts.privateKey(host.id) ?: throw HostException(Texts.get(R.string.error_key_missing))
             running[host.id] = Running(host, HostSession.start(host.endpoint(key), observer, host.groupSpacesByName))
             startErrorState.update { it - host.id }
         } catch (e: FfiException) {
@@ -165,12 +166,12 @@ class Connections(
     }
 }
 
-/** German text for a failed input, as `inputErrorMessage` in the Apple apps. */
+/** Text for a failed input, as `inputErrorMessage` in the Apple apps. */
 fun inputErrorMessage(error: FfiException): String = when (error) {
-    is FfiException.AgentBlocked -> "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten."
-    is FfiException.NotConnected -> "Keine Verbindung zum Host."
-    is FfiException.Upload -> "Hochladen fehlgeschlagen: ${error.message}"
-    is FfiException.Files -> "Dateien auf dem Host nicht lesbar: ${error.message}"
-    is FfiException.AgentWorking -> "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt."
+    is FfiException.AgentBlocked -> Texts.get(R.string.error_agent_blocked)
+    is FfiException.NotConnected -> Texts.get(R.string.no_connection)
+    is FfiException.Upload -> Texts.get(R.string.error_upload, error.message.orEmpty())
+    is FfiException.Files -> Texts.get(R.string.error_files, error.message.orEmpty())
+    is FfiException.AgentWorking -> Texts.get(R.string.error_agent_working)
     else -> error.message ?: error.toString()
 }

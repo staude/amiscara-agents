@@ -1,6 +1,7 @@
 package net.staude.amiscara.agents.model
 
 import android.net.Uri
+import net.staude.amiscara.agents.R
 
 // Helpers for "add host" links and host keys. The link format and its
 // strict checks live in Rust (`herdr_session::link`); this only connects
@@ -26,8 +27,7 @@ fun hostKeyConflict(hosts: List<HostConfig>, host: String, port: Int, key: Strin
         normalizedHost(it.host) == address && it.port == port &&
             it.pinnedHostKey != null && !sameKey(it.pinnedHostKey, key)
     } ?: return null
-    return "„${other.name}“ unter derselben Adresse vertraut einem anderen Host-Key. " +
-        "Der Link wurde nicht übernommen. Prüfen Sie den Host-Key auf dem Server."
+    return Texts.get(R.string.error_host_key_conflict, other.name)
 }
 
 /** What an opened `amiscara-agents://` link asks for. */

@@ -53,6 +53,7 @@ import net.staude.amiscara.agents.core.TranscriptCursor
 import net.staude.amiscara.agents.core.TranscriptEntry
 import net.staude.amiscara.agents.core.TranscriptKind
 import net.staude.amiscara.agents.model.inputErrorMessage
+import net.staude.amiscara.agents.model.Texts
 
 /**
  * The conversation of a Claude Code pane from its session file on the host
@@ -74,7 +75,7 @@ fun ConversationScreen(app: AmiscaraApp, hostId: String, paneId: String, back: (
     fun load(reset: Boolean) {
         if (loading) return
         val session = app.connections.session(hostId) ?: run {
-            error = "Keine Verbindung zum Host."
+            error = Texts.get(R.string.no_connection)
             loaded = true
             return
         }
@@ -117,7 +118,7 @@ fun ConversationScreen(app: AmiscaraApp, hostId: String, paneId: String, back: (
                                 TranscriptKind.ASSISTANT -> it.text
                             }
                         }
-                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Gesprächsverlauf", text))) }
+                        scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(Texts.get(R.string.conversation_title), text))) }
                     }) { Text(stringResource(R.string.conversation_copy)) }
                     IconButton(enabled = !loading, onClick = { load(reset = true) }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.conversation_reload))
