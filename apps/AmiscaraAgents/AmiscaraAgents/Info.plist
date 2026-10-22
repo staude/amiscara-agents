@@ -43,5 +43,15 @@
 	<string>Zum Diktieren von Prompts direkt in das Eingabefeld.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Wandelt Ihr Diktat in Text für das Eingabefeld um.</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/staude/amiscara-agents/releases/download/updates/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>kKLJaOdPFbh5wzDWhNuiJZJHWZ6mR4l/hWsMumZiRdQ=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

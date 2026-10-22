@@ -1,0 +1,3 @@
+self-hosted-runner:
+  # GitHub's preview image with Xcode 27 (apple-release.yml), not yet known to actionlint.
+  labels: [xcode-27]

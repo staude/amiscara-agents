@@ -59,6 +59,9 @@ struct AmiscaraAgentsApp: App {
         .commands { TerminalZoomCommands() }
         #endif
         #if os(macOS)
+        .commands { UpdateCommands() }
+        #endif
+        #if os(macOS)
         Settings {
             SettingsView()
         }

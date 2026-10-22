@@ -4,37 +4,56 @@
 #   scripts/release.sh            build, notarize, verify; result in target/release-app
 #   scripts/release.sh --install  also copy the app to /Applications
 #
-# One-time setup (see docs/release.md):
+# One-time setup on a Mac (see docs/release.md):
 #   - "Developer ID Application" certificate of team 7N2W4T6UPV in the login keychain
 #   - notarytool profile:  xcrun notarytool store-credentials AmiscaraAgents \
 #                            --apple-id <apple-id> --team-id 7N2W4T6UPV
 #     (app-specific password from appleid.apple.com, not the account password)
+#
+#   - Sparkle signing key in the login keychain:  generate_keys --account amiscara-agents
+#     (its public key in project.yml as SUPublicEDKey, see docs/release.md)
+#
+# Besides the zip it writes appcast.xml, the Sparkle feed for the release
+# `updates` (scripts/sparkle-feed.sh; RELEASE_FEED=0 leaves it out, as the
+# CI does, which signs the feed in a step of its own).
+#
+# In CI an App Store Connect API key replaces both (APPLE_API_KEY_PATH,
+# APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, see scripts/apple-common.sh); the
+# certificate then comes from a temporary keychain or from cloud signing.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/apple-common.sh
+source scripts/apple-common.sh
 
-team="7N2W4T6UPV"
 profile="${NOTARY_PROFILE:-AmiscaraAgents}"
-spec="apps/AmiscaraAgents/project.yml"
 out="target/release-app"
 install=false
 [[ "${1:-}" == "--install" ]] && install=true
 
-die() { echo "release: $*" >&2; exit 1; }
-step() { echo "==> $*"; }
-
-# Preconditions first, so nothing is built that cannot be shipped.
-security find-identity -v -p codesigning | grep -q "Developer ID Application: .*($team)" \
-    || die "no 'Developer ID Application' certificate for team $team in the keychain"
-xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1 \
-    || die "notarytool profile '$profile' missing or invalid (xcrun notarytool store-credentials $profile ...)"
-command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
-if [[ -n "$(git status --porcelain)" ]]; then
-    die "working tree not clean; commit first so the build matches a revision"
+if has_api_key; then
+    notary_auth=(--key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID")
+else
+    notary_auth=(--keychain-profile "$profile")
 fi
 
-version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"$/\1/p' "$spec")
-build=$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "\(.*\)"$/\1/p' "$spec")
+# Preconditions first, so nothing is built that cannot be shipped.
+if ! security find-identity -v -p codesigning | grep -q "Developer ID Application: .*($team)"; then
+    # With an API key of the Admin role Xcode signs with a cloud-managed
+    # Developer ID certificate instead.
+    has_api_key || die "no 'Developer ID Application' certificate for team $team in the keychain"
+    echo "release: no Developer ID certificate in the keychain, using cloud signing"
+fi
+xcrun notarytool history "${notary_auth[@]}" >/dev/null 2>&1 \
+    || die "notarytool cannot sign in (profile '$profile' or API key missing or invalid)"
+command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
+sparkle_key=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' apps/AmiscaraAgents/AmiscaraAgents/Info.plist)
+[[ -n "$sparkle_key" && "$sparkle_key" != __* ]] \
+    || die "SUPublicEDKey in project.yml is still the placeholder; the release could not update itself (docs/release.md)"
+require_clean_tree
+
+version=$(marketing_version)
+build=$(build_number)
 name="AmiscaraAgents-$version-$build"
 step "Amiscara Agents $version ($build), $(git rev-parse --short HEAD)"
 
@@ -42,25 +61,25 @@ rm -rf "$out"
 mkdir -p "$out"
 
 step "Rust core and Xcode project"
-scripts/build-ffi.sh release
+scripts/build-ffi.sh release macosx
 (cd apps/AmiscaraAgents && xcodegen generate --quiet)
 
 step "Archive"
 xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents \
     -configuration Release -destination 'generic/platform=macOS' \
     -derivedDataPath "$out/derived" -archivePath "$out/AmiscaraAgents.xcarchive" \
-    -allowProvisioningUpdates archive -quiet
+    "${xcode_auth[@]}" archive -quiet ${build_settings[@]+"${build_settings[@]}"}
 
 step "Export with Developer ID"
 xcodebuild -exportArchive -archivePath "$out/AmiscaraAgents.xcarchive" \
     -exportOptionsPlist scripts/ExportOptions.plist -exportPath "$out/export" \
-    -allowProvisioningUpdates -quiet
+    "${xcode_auth[@]}" -quiet
 app="$out/export/AmiscaraAgents.app"
 codesign --verify --deep --strict --verbose=2 "$app"
 
 step "Notarize"
 ditto -c -k --keepParent "$app" "$out/notarize.zip"
-xcrun notarytool submit "$out/notarize.zip" --keychain-profile "$profile" --wait
+xcrun notarytool submit "$out/notarize.zip" "${notary_auth[@]}" --wait
 xcrun stapler staple "$app"
 
 step "Verify"
@@ -69,7 +88,21 @@ spctl -a -vvv -t exec "$app"
 xcrun stapler validate "$app"
 
 ditto -c -k --keepParent "$app" "$out/$name.zip"
+
 step "Done: $out/$name.zip"
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    {
+        echo "zip=$out/$name.zip"
+        echo "version=$version"
+        echo "build=$build"
+    } >> "$GITHUB_OUTPUT"
+fi
+
+# The CI signs the feed in a step of its own, away from the build.
+if [[ "${RELEASE_FEED:-1}" != 0 ]]; then
+    step "Sparkle feed"
+    scripts/sparkle-feed.sh "$out/$name.zip" "$version" "$build"
+fi
 
 if $install; then
     step "Install to /Applications"

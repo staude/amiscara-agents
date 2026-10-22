@@ -405,6 +405,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Arrow keys in an empty composer go to the pane, to move through an
   agent's question or a shell's history without the key bar; with text
   they move the cursor as before.
+- `apple-release.yml` builds the Apple apps in GitHub Actions on the
+  `xcode-27` runner: the notarized Mac app as an artifact (attached to a
+  release for `apple-v*` tags) and the iOS and tvOS apps for TestFlight,
+  signed with an App Store Connect API key and optional `.p12`
+  certificates from the environment `apple-release`.
+  `scripts/apple-ci-secrets.sh` stores them, `scripts/testflight.sh`
+  uploads to TestFlight locally too, and `scripts/release.sh` accepts the
+  API key and a `BUILD_NUMBER` instead of the keychain profile.
+- The Mac app looks for updates with Sparkle, like Kastellan and TorroMail:
+  at start and every 24 hours, through "Nach Updates suchen …" in the app
+  menu and in the settings, which can also turn the automatic search off.
+  `scripts/sparkle-feed.sh` signs the zip with the Sparkle key and writes
+  `appcast.xml` (after `scripts/release.sh`, in CI as a step of its own); a tag run of `apple-release.yml`
+  publishes the release and replaces the feed in the release `updates`.
 
 - Files for a public repository: `SECURITY.md` (private reports through
   GitHub security advisories), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
