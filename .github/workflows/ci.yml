@@ -1,15 +1,24 @@
 name: CI
 
-# Runs only for release tags and when started by hand (Actions > CI > Run
-# workflow), to save Actions minutes: pull requests are checked on the
-# machine with scripts/check.sh. The full chain covers macOS and Windows,
-# iOS and tvOS, Android and the desktop app on all systems; installers only by hand,
-# a tag builds them in desktop-release.yml. With scope "installers"
+# The full chain covers macOS and Windows, iOS and tvOS, Android and the
+# desktop app on all systems. It runs for every pull request and push to
+# main (Actions minutes are free for public repositories), for release tags
+# and when started by hand (Actions > CI > Run workflow).
+#
+# Pull requests use `pull_request`, never `pull_request_target`: code from a
+# fork then runs without secrets and with a read-only token. No job here
+# uses an environment or a secret; signing happens only in the release
+# workflows, behind environments limited to their tags.
+#
+# Installers are built only by hand, a tag builds them in
+# desktop-release.yml. With scope "installers"
 # (`gh workflow run ci.yml -f scope=installers`) only the Windows (x64,
 # ARM64) and Linux installers are built, without the tests on macOS and
 # Windows.
 on:
+  pull_request:
   push:
+    branches: [main]
     tags: ["desktop-v*"]
   workflow_dispatch:
     inputs:
@@ -18,6 +27,9 @@ on:
         type: choice
         options: [all, installers]
         default: all
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}

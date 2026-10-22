@@ -1,0 +1,31 @@
+name: Feature request
+description: An idea for the apps or the core.
+labels: [feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The situation and what is hard or impossible today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: How it could work. Note that the apps talk to an unmodified herdr server, so they can only use what herdr's socket API offers.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platforms
+      multiple: true
+      options:
+        - All
+        - Mac
+        - iPhone
+        - iPad
+        - Apple TV
+        - Apple Watch
+        - Android
+        - Windows
+        - Linux
