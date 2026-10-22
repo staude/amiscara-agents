@@ -6,12 +6,40 @@ import Foundation
 // in Rust (crates/herdr-ffi/src/add_host.rs, with unit tests); this file only
 // connects them to the app.
 
-/// The German message for a refused link, or a generic one for other errors.
+/// Why a link was refused, for the user, or a generic message for other
+/// errors.
 func hostLinkErrorMessage(_ error: Error) -> String {
     switch error {
-    case FfiError.InvalidLink(let message): message
+    case let error as AddHostLinkError: error.message
     case FfiError.Key(let message): String(localized: "Ungültiger Schlüssel: \(message)")
     default: error.localizedDescription
+    }
+}
+
+extension AddHostLinkError {
+    /// The reason in the user's language; the core only names it.
+    var message: String {
+        switch self {
+        case .TooLong: String(localized: "Der Code ist zu lang.")
+        case .NotALink: String(localized: "Das ist kein Amiscara-Agents-Code zum Hinzufügen eines Hosts.")
+        case .Damaged: String(localized: "Der Code ist beschädigt.")
+        case .UnknownField(let field): String(localized: "Der Code enthält ein unbekanntes Feld „\(field)“.")
+        case .DuplicateField(let field): String(localized: "Das Feld „\(field)“ steht mehrfach im Code.")
+        case .MissingVersion: String(localized: "Dem Code fehlt die Versionsangabe.")
+        case .BadVersion: String(localized: "Die Versionsangabe im Code ist ungültig.")
+        case .NewerVersion: String(localized: "Der Code stammt von einer neueren App-Version. Bitte aktualisieren Sie Amiscara Agents.")
+        case .MissingHost: String(localized: "Im Code fehlt der Host.")
+        case .BadHost(let host): String(localized: "Der Host „\(host)“ im Code ist ungültig.")
+        case .BadPort: String(localized: "Der Port im Code ist ungültig.")
+        case .MissingUser: String(localized: "Im Code fehlt der Benutzer.")
+        case .BadUser(let user): String(localized: "Der Benutzer „\(user)“ im Code ist ungültig.")
+        case .BadSocket: String(localized: "Der Socket-Pfad im Code ist ungültig. Erwartet wird ein absoluter Pfad.")
+        case .MissingKey: String(localized: "Im Code fehlt der Host-Key.")
+        case .KeyNotOneLine: String(localized: "Der Host-Key im Code muss genau eine Zeile sein.")
+        case .KeyTooLong: String(localized: "Der Host-Key im Code ist zu lang.")
+        case .BadKey: String(localized: "Der Host-Key im Code ist kein gültiger OpenSSH-Schlüssel.")
+        case .BadName: String(localized: "Der Name im Code ist ungültig.")
+        }
     }
 }
 

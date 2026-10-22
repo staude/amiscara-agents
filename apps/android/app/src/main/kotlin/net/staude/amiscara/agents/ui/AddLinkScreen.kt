@@ -74,7 +74,7 @@ fun AddLinkScreen(app: AmiscaraApp, text: String, trusted: Boolean, back: () -> 
                             .onFailure { error = it.message }
                     }) { Text(stringResource(R.string.link_add)) }
                 },
-                onFailure = { Text(it.message ?: it.toString(), color = MaterialTheme.colorScheme.error) },
+                onFailure = { Text(linkErrorMessage(it), color = MaterialTheme.colorScheme.error) },
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }

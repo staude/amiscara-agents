@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import * as core from "../lib/core";
   import { ui } from "../lib/manage.svelte";
+  import type { LangSetting } from "../lib/i18n.svelte";
   import { prefs, type Theme } from "../lib/prefs.svelte";
   import type { TerminalAppearance, TerminalScheme } from "../lib/term";
   import { model } from "../lib/state.svelte";
@@ -40,7 +42,7 @@
   let hostName = $derived(dialog && "hostId" in dialog ? (model.host(dialog.hostId)?.name ?? "") : "");
   let groupHint = $derived(
     dialog && "hostId" in dialog && (model.host(dialog.hostId)?.groupSpaces ?? true)
-      ? "Mit „Bereich/Name“ landet der Space in der Gruppe „Bereich“. herdr selbst zeigt den vollen Namen."
+      ? t("groupHint")
       : null,
   );
 
@@ -56,12 +58,10 @@
     }
   }
 
-  /** herdr's refusals of an agent name, in German. */
+  /** herdr's refusals of an agent name, for the user. */
   function renameMessage(text: string): string {
-    if (text.includes("invalid_agent_name")) {
-      return "Nur Kleinbuchstaben, Ziffern, - und _ sind erlaubt, am Anfang ein Buchstabe.";
-    }
-    if (text.includes("agent_name_taken")) return "Diesen Namen trägt schon ein anderer Agent.";
+    if (text.includes("invalid_agent_name")) return t("agentNameInvalid");
+    if (text.includes("agent_name_taken")) return t("agentNameTaken");
     return text;
   }
 
@@ -76,7 +76,7 @@
         } catch (err) {
           // It exists; "Anlegen" again would make a second one.
           createdWithoutAgent = true;
-          throw new Error(`Angelegt, aber der Agent startete nicht: ${core.errorText(err)}`);
+          throw new Error(t("createdAgentFailed", { error: core.errorText(err) }));
         }
       }
       close();
@@ -103,71 +103,68 @@
   function closeMessage(d: Extract<NonNullable<typeof dialog>, { kind: "close" }>): string {
     const state =
       d.agentState === "working"
-        ? "Darin arbeitet noch ein Agent. Schließen beendet ihn und alles, was in den Panes läuft."
+        ? t("closeAgentWorking")
         : d.agentState === "blocked"
-          ? "Darin wartet ein Agent auf eine Antwort. Schließen beendet ihn und alles, was in den Panes läuft."
-          : "Schließen beendet alles, was in den Panes läuft.";
+          ? t("closeAgentWaiting")
+          : t("closeEndsAll");
     if (d.worktrees === 1) {
-      return `Der Worktree-Space darunter wird mit geschlossen, sein Verzeichnis bleibt. ${state}`;
+      return `${t("closeOneWorktree")} ${state}`;
     }
     return d.worktrees > 1
-      ? `Die ${d.worktrees} Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben. ${state}`
+      ? `${t("closeWorktrees", { n: d.worktrees })} ${state}`
       : state;
   }
 
 </script>
 
 {#if dialog?.kind === "newSpace"}
-  <Sheet title="Neuer Space auf {hostName}" {close}>
+  <Sheet title={t("newSpaceOn", { host: hostName })} {close}>
     <form onsubmit={submit} id="manage">
       <label class="field">
-        <span>Name</span>
-        <input bind:value={name} placeholder={groupHint ? "z. B. Privat/Dorfkino" : "z. B. Dorfkino"} />
+        <span>{t("name")}</span>
+        <input bind:value={name} placeholder={groupHint ? t("spaceNameGroupExample") : t("spaceNameExample")} />
       </label>
       <label class="field">
-        <span>Verzeichnis</span>
-        <input bind:value={directory} placeholder="~/dev/projekt" spellcheck="false" autocomplete="off" />
+        <span>{t("directory")}</span>
+        <input bind:value={directory} placeholder={t("directoryExample")} spellcheck="false" autocomplete="off" />
       </label>
       {#if groupHint}<p class="hint">{groupHint}</p>{/if}
       <AgentPicker hostId={dialog.hostId} storageKey="newSpaceAgentKind" bind:kind={agent} />
     </form>
     {#if error}<p class="error">{error}</p>{/if}
     {#snippet buttons()}
-      <button onclick={close}>{createdWithoutAgent ? "Schließen" : "Abbrechen"}</button>
-      <button class="primary" form="manage" type="submit" disabled={busy || createdWithoutAgent}>Anlegen</button>
+      <button onclick={close}>{createdWithoutAgent ? t("close") : t("cancel")}</button>
+      <button class="primary" form="manage" type="submit" disabled={busy || createdWithoutAgent}>{t("create")}</button>
     {/snippet}
   </Sheet>
 {:else if dialog?.kind === "newWorktree"}
-  <Sheet title="Neuer Worktree von {dialog.repository.label}" {close}>
+  <Sheet title={t("newWorktreeOf", { repository: dialog.repository.label })} {close}>
     <form onsubmit={submit} id="manage">
       <label class="field">
         <span>Branch</span>
-        <input bind:value={branch} placeholder="z. B. feature/login" spellcheck="false" autocomplete="off" />
+        <input bind:value={branch} placeholder={t("branchExample")} spellcheck="false" autocomplete="off" />
       </label>
       <label class="field">
-        <span>Basis</span>
+        <span>{t("base")}</span>
         <input bind:value={base} placeholder="HEAD" spellcheck="false" autocomplete="off" />
       </label>
       <label class="field">
-        <span>Name</span>
-        <input bind:value={name} placeholder={branch || "wie der Branch"} />
+        <span>{t("name")}</span>
+        <input bind:value={name} placeholder={branch || t("likeTheBranch")} />
       </label>
-      <p class="hint">
-        Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs
-        Worktree-Verzeichnis.
-      </p>
+      <p class="hint">{t("worktreeHint")}</p>
       <AgentPicker hostId={dialog.hostId} storageKey="newWorktreeAgentKind" bind:kind={agent} />
     </form>
-    {#if busy}<p class="hint">git worktree add läuft …</p>{/if}
+    {#if busy}<p class="hint">{t("worktreeRunning")}</p>{/if}
     {#if error}<p class="error">{error}</p>{/if}
     {#snippet buttons()}
-      <button onclick={close}>{createdWithoutAgent ? "Schließen" : "Abbrechen"}</button>
-      <button class="primary" form="manage" type="submit" disabled={busy || createdWithoutAgent}>Anlegen</button>
+      <button onclick={close}>{createdWithoutAgent ? t("close") : t("cancel")}</button>
+      <button class="primary" form="manage" type="submit" disabled={busy || createdWithoutAgent}>{t("create")}</button>
     {/snippet}
   </Sheet>
 {:else if dialog?.kind === "rename"}
   <Sheet
-    title={dialog.target === "space" ? "Space umbenennen" : dialog.target === "tab" ? "Tab umbenennen" : "Agent benennen"}
+    title={dialog.target === "space" ? t("renameSpace") : dialog.target === "tab" ? t("renameTab") : t("nameAgent")}
     {close}
     width={400}
   >
@@ -176,33 +173,33 @@
       <input
         bind:value={name}
         autofocus
-        placeholder={dialog.target === "agent" ? "z. B. reviewer" : ""}
+        placeholder={dialog.target === "agent" ? t("agentNameExample") : ""}
         spellcheck={dialog.target !== "agent"}
         style="width: 100%; box-sizing: border-box"
       />
     </form>
     {#if dialog.target === "agent"}
-      <p class="hint">Kleinbuchstaben, Ziffern, - und _, höchstens 32 Zeichen. Leer lassen entfernt den Namen.</p>
+      <p class="hint">{t("agentNameHint")}</p>
     {:else if dialog.target === "space" && groupHint}
       <p class="hint">{groupHint}</p>
     {/if}
     {#if error}<p class="error">{error}</p>{/if}
     {#snippet buttons()}
-      <button onclick={close}>Abbrechen</button>
+      <button onclick={close}>{t("cancel")}</button>
       <button
         class="primary"
         form="manage"
         type="submit"
-        disabled={busy || (dialog.kind === "rename" && dialog.target !== "agent" && !name.trim())}>Sichern</button
+        disabled={busy || (dialog.kind === "rename" && dialog.target !== "agent" && !name.trim())}>{t("save")}</button
       >
     {/snippet}
   </Sheet>
 {:else if dialog?.kind === "close"}
-  <Sheet title={dialog.target === "space" ? `Space „${dialog.name}“ schließen?` : `Tab „${dialog.name}“ schließen?`} {close} width={420}>
+  <Sheet title={dialog.target === "space" ? t("closeSpaceQuestion", { name: dialog.name }) : t("closeTabQuestion", { name: dialog.name })} {close} width={420}>
     <p>{closeMessage(dialog)}</p>
-    {#if error}<p class="error">Schließen fehlgeschlagen: {error}</p>{/if}
+    {#if error}<p class="error">{t("closeFailed", { error })}</p>{/if}
     {#snippet buttons()}
-      <button onclick={close}>Abbrechen</button>
+      <button onclick={close}>{t("cancel")}</button>
       <button
         class="danger"
         disabled={busy}
@@ -213,12 +210,12 @@
             await core.close(d.hostId, d.target, d.id, d.worktrees > 0);
             close();
           });
-        }}>{dialog.target === "space" ? "Space schließen" : "Tab schließen"}</button
+        }}>{dialog.target === "space" ? t("closeSpace") : t("closeTab")}</button
       >
     {/snippet}
   </Sheet>
 {:else if dialog?.kind === "settings"}
-  <Sheet title="Einstellungen" {close} width={420}>
+  <Sheet title={t("settings")} {close} width={420}>
     <label class="check">
       <input
         type="checkbox"
@@ -231,14 +228,22 @@
           });
         }}
       />
-      Mit dem System starten (im Infobereich, ohne Fenster)
+      {t("autostart")}
     </label>
     <label class="field">
-      <span>Erscheinungsbild</span>
+      <span>{t("language")}</span>
+      <select value={prefs.language} onchange={(e) => prefs.setLanguage(e.currentTarget.value as LangSetting)}>
+        <option value="system">{t("languageSystem")}</option>
+        <option value="de">Deutsch</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>{t("appearance")}</span>
       <select value={prefs.theme} onchange={(e) => prefs.setTheme(e.currentTarget.value as Theme)}>
-        <option value="system">Wie das System</option>
-        <option value="light">Hell</option>
-        <option value="dark">Dunkel</option>
+        <option value="system">{t("asSystem")}</option>
+        <option value="light">{t("light")}</option>
+        <option value="dark">{t("dark")}</option>
       </select>
     </label>
     <label class="field">
@@ -247,13 +252,13 @@
         value={prefs.terminalAppearance}
         onchange={(e) => prefs.setTerminalAppearance(e.currentTarget.value as TerminalAppearance)}
       >
-        <option value="app">Wie die App</option>
-        <option value="light">Hell</option>
-        <option value="dark">Dunkel</option>
+        <option value="app">{t("asApp")}</option>
+        <option value="light">{t("light")}</option>
+        <option value="dark">{t("dark")}</option>
       </select>
     </label>
     <label class="field">
-      <span>Farbschema</span>
+      <span>{t("colorScheme")}</span>
       <select
         value={prefs.terminalScheme}
         onchange={(e) => prefs.setTerminalScheme(e.currentTarget.value as TerminalScheme)}
@@ -265,40 +270,33 @@
     </label>
     <label class="check">
       <input type="checkbox" checked={prefs.minContrast} onchange={(e) => prefs.setMinContrast(e.currentTarget.checked)} />
-      Mindestkontrast: zu schwache Schriftfarben aufhellen oder abdunkeln
+      {t("minContrast")}
     </label>
     <label class="check">
       <input type="checkbox" checked={prefs.wrapLines} onchange={(e) => prefs.setWrapLines(e.currentTarget.checked)} />
-      Zeilen umbrechen (experimentell)
+      {t("wrapLines")}
     </label>
-    <p class="hint">
-      Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal
-      umgebrochen hat, setzt die App wieder zusammen und bricht es an der Fensterbreite um. Vollbild-Agenten wie Claude
-      Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.
-    </p>
+    <p class="hint">{t("wrapLinesHint")}</p>
     <label class="check">
       <input type="checkbox" checked={prefs.fullscreenScroll} onchange={(e) => prefs.setFullscreenScroll(e.currentTarget.checked)} />
-      Vollbild-Agenten scrollen: blättert in Claude Code und holt seinen Verlauf, bewegt dabei auch die Ansicht auf dem Host
+      {t("fullscreenScroll")}
     </label>
     <label class="check">
       <input type="checkbox" checked={updater.automatic} onchange={(e) => updater.setAutomatic(e.currentTarget.checked)} />
-      Automatisch nach Updates suchen: beim Start und danach alle 24 Stunden
+      {t("autoUpdates")}
     </label>
     <div class="update-row">
-      <span>Version {model.info?.version}</span>
-      <button disabled={updater.state === "checking"} onclick={() => updater.check()}>Nach Updates suchen</button>
-      {#if updater.state === "checking"}<span class="hint">Suche …</span>{/if}
-      {#if updater.state === "current"}<span class="hint">Aktuell</span>{/if}
-      {#if updater.available}<span class="hint">Version {updater.available.version} verfügbar</span>{/if}
+      <span>{t("version", { version: model.info?.version ?? "" })}</span>
+      <button disabled={updater.state === "checking"} onclick={() => updater.check()}>{t("checkForUpdates")}</button>
+      {#if updater.state === "checking"}<span class="hint">{t("checking")}</span>{/if}
+      {#if updater.state === "current"}<span class="hint">{t("upToDate")}</span>{/if}
+      {#if updater.available}<span class="hint">{t("versionAvailable", { version: updater.available.version })}</span>{/if}
     </div>
     {#if updater.state === "failed" && updater.error}<p class="error">{updater.error}</p>{/if}
-    <p class="hint">
-      Das Fenster zu schließen lässt Amiscara Agents im Infobereich weiterlaufen, damit Benachrichtigungen ankommen.
-      Beenden über das Symbol im Infobereich. Benachrichtigungen pro Host unter „Bearbeiten“.
-    </p>
+    <p class="hint">{t("trayHint")}</p>
     {#if error}<p class="error">{error}</p>{/if}
     {#snippet buttons()}
-      <button class="primary" onclick={close}>Fertig</button>
+      <button class="primary" onclick={close}>{t("done")}</button>
     {/snippet}
   </Sheet>
 {/if}

@@ -6,7 +6,7 @@
   let { state }: { state: AgentState | null } = $props();
 </script>
 
-<span class="dot {state ?? 'shell'}" role="img" aria-label={state ? stateLabel[state] : "Shell"}></span>
+<span class="dot {state ?? 'shell'}" role="img" aria-label={state ? stateLabel(state) : "Shell"}></span>
 
 <style>
   .dot {

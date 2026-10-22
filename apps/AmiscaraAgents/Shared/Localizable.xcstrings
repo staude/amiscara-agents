@@ -920,12 +920,32 @@
         }
       }
     },
+    "Das Feld „%@“ steht mehrfach im Code." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The field “%@” appears more than once in the code."
+          }
+        }
+      }
+    },
     "Das iPhone hat die Antwort nicht gesendet." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The iPhone did not send the answer."
+          }
+        }
+      }
+    },
+    "Das ist kein Amiscara-Agents-Code zum Hinzufügen eines Hosts." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is not an Amiscara Agents code for adding a host."
           }
         }
       }
@@ -956,6 +976,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Files …"
+          }
+        }
+      }
+    },
+    "Dem Code fehlt die Versionsangabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code has no version."
           }
         }
       }
@@ -1000,12 +1030,62 @@
         }
       }
     },
+    "Der Benutzer „%@“ im Code ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The user “%@” in the code is invalid."
+          }
+        }
+      }
+    },
+    "Der Code enthält ein unbekanntes Feld „%@“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code contains an unknown field “%@”."
+          }
+        }
+      }
+    },
     "Der Code enthält einen anderen Host-Key als den, dem dieser Host vertraut. Er wurde nicht übernommen. Wenn der Server neu aufgesetzt wurde, entfernen Sie den Host und fügen ihn neu hinzu." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The code contains a different host key than the one this host trusts, so it was not applied. If the server was set up again, remove the host and add it anew."
+          }
+        }
+      }
+    },
+    "Der Code ist beschädigt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code is damaged."
+          }
+        }
+      }
+    },
+    "Der Code ist zu lang." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code is too long."
+          }
+        }
+      }
+    },
+    "Der Code stammt von einer neueren App-Version. Bitte aktualisieren Sie Amiscara Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code comes from a newer version of the app. Please update Amiscara Agents."
           }
         }
       }
@@ -1020,6 +1100,46 @@
         }
       }
     },
+    "Der Host „%@“ im Code ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host “%@” in the code is invalid."
+          }
+        }
+      }
+    },
+    "Der Host-Key im Code ist kein gültiger OpenSSH-Schlüssel." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host key in the code is not a valid OpenSSH key."
+          }
+        }
+      }
+    },
+    "Der Host-Key im Code ist zu lang." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host key in the code is too long."
+          }
+        }
+      }
+    },
+    "Der Host-Key im Code muss genau eine Zeile sein." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host key in the code must be exactly one line."
+          }
+        }
+      }
+    },
     "Der Mac hat den Befehl nicht ausgeführt." : {
       "localizations" : {
         "en" : {
@@ -1030,12 +1150,32 @@
         }
       }
     },
+    "Der Name im Code ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The name in the code is invalid."
+          }
+        }
+      }
+    },
     "Der Port dieses Hosts ist ungültig." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This host's port is invalid."
+          }
+        }
+      }
+    },
+    "Der Port im Code ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The port in the code is invalid."
           }
         }
       }
@@ -1056,6 +1196,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The computer refuses the connection. Is SSH (Remote Login) turned on there?"
+          }
+        }
+      }
+    },
+    "Der Socket-Pfad im Code ist ungültig. Erwartet wird ein absoluter Pfad." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The socket path in the code is invalid. An absolute path is expected."
           }
         }
       }
@@ -1126,6 +1276,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The camera could not start: %@"
+          }
+        }
+      }
+    },
+    "Die Versionsangabe im Code ist ungültig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The version in the code is invalid."
           }
         }
       }
@@ -1726,6 +1886,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hosts for the Apple TV"
+          }
+        }
+      }
+    },
+    "Im Code fehlt der Benutzer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code has no user."
+          }
+        }
+      }
+    },
+    "Im Code fehlt der Host-Key." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code has no host key."
+          }
+        }
+      }
+    },
+    "Im Code fehlt der Host." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code has no host."
           }
         }
       }

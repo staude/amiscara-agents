@@ -4,6 +4,7 @@
 import { LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
 import * as core from "./core";
 import { activeFind } from "./find.svelte";
+import { i18n } from "./i18n.svelte";
 import { ui } from "./manage.svelte";
 import { nav } from "./nav.svelte";
 import { model } from "./state.svelte";
@@ -16,6 +17,7 @@ export async function openDemo(addHost: () => void) {
   const target = await core.demoTarget().catch(() => null);
   if (!target) return;
   demo.target = target;
+  if (target.lang === "de" || target.lang === "en") i18n.lang = target.lang;
   await getCurrentWindow().setSize(new LogicalSize(1440, 900));
   if (target.appearance === "dark" || target.appearance === "light") await getCurrentWindow().setTheme(target.appearance);
   const host = model.hosts[0];

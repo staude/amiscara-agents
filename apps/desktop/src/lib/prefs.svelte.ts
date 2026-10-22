@@ -1,3 +1,4 @@
+import { i18n, systemLang, type Lang, type LangSetting } from "./i18n.svelte";
 import { terminalTheme, type TerminalAppearance, type TerminalScheme, type TerminalTheme } from "./term";
 
 // Per-device view settings, kept in the webview's storage. Losing them
@@ -42,10 +43,13 @@ class Prefs {
   wrapLines = $state<boolean>(read("terminalWrapLines", false));
   /** Offer the steps through full-screen agents, which move the host's view too (#187). */
   fullscreenScroll = $state<boolean>(read("scrollFullscreenAgents", false));
+  /** The language of the texts: as the system, or fixed (#207). */
+  language = $state<LangSetting>(read("language", "system"));
   /** The system's look, for "system" in `theme`. */
   systemDark = $state(false);
 
   constructor() {
+    i18n.lang = this.lang;
     try {
       const query = matchMedia("(prefers-color-scheme: dark)");
       this.systemDark = query.matches;
@@ -60,6 +64,17 @@ class Prefs {
     const appDark = this.theme === "dark" || (this.theme === "system" && this.systemDark);
     const dark = this.terminalAppearance === "app" ? appDark : this.terminalAppearance === "dark";
     return terminalTheme(this.terminalScheme, dark, this.minContrast);
+  }
+
+  /** The language in use: the setting, or the system's with English as fallback. */
+  get lang(): Lang {
+    return this.language === "system" ? systemLang() : this.language;
+  }
+
+  setLanguage(language: LangSetting) {
+    this.language = language;
+    write("language", language);
+    i18n.lang = this.lang;
   }
 
   isCollapsed(hostId: string, section: string): boolean {

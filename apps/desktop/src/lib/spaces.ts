@@ -2,6 +2,7 @@
 // (worktrees after their repository, name groups together), agents grouped
 // by space or by state.
 
+import { t } from "./i18n.svelte";
 import type { AgentOrder } from "./prefs.svelte";
 import type { AgentState, BoardItem, SessionUpdate, WorkspaceItem } from "./types";
 
@@ -79,10 +80,18 @@ export function sortedAgents(update: SessionUpdate, order: AgentOrder): AgentEnt
   }));
 }
 
-export const stateLabel: Record<AgentState, string> = {
-  blocked: "wartet",
-  working: "arbeitet",
-  done: "fertig",
-  idle: "bereit",
-  unknown: "unbekannt",
-};
+/** An agent's state in words, as in the sidebar. */
+export function stateLabel(state: AgentState): string {
+  switch (state) {
+    case "blocked":
+      return t("stateBlocked");
+    case "working":
+      return t("stateWorking");
+    case "done":
+      return t("stateDone");
+    case "idle":
+      return t("stateIdle");
+    default:
+      return t("stateUnknown");
+  }
+}

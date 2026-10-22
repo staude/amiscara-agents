@@ -1,6 +1,7 @@
 // The live screen of one pane, optionally with scrollback above it; like
 // PaneModel.swift. Only a live pane (the selected one) loads history.
 
+import { t } from "./i18n.svelte";
 import * as core from "./core";
 import type { PaneContent, ScrollStep } from "./types";
 
@@ -161,6 +162,6 @@ export class PaneModel {
 function scrollError(err: unknown): string {
   const working = typeof err === "object" && err !== null && (err as { kind?: string }).kind === "agentWorking";
   return working
-    ? "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt."
+    ? t("agentWorkingHistory")
     : core.errorText(err);
 }

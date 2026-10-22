@@ -1,3 +1,4 @@
+import { t } from "./i18n.svelte";
 // Files for a prompt, by the rules of the Apple apps (#116, #121): images
 // agents read directly go up as they are up to 4 MB, other or larger images
 // become JPEG (at most 2560 px), any other file goes up under its own name
@@ -40,9 +41,9 @@ async function toJpeg(file: Blob): Promise<Uint8Array | null> {
   }
 }
 
-/** Prepares a picked, pasted or dropped file; throws a German message. */
+/** Prepares a picked, pasted or dropped file; throws a message for the user. */
 export async function prepare(file: File): Promise<Attachment> {
-  const name = file.name || "Die Datei";
+  const name = file.name || t("theFile");
   if (file.type.startsWith("image/")) {
     const kept = PASS_THROUGH[file.type];
     const preview = URL.createObjectURL(file);
@@ -54,12 +55,12 @@ export async function prepare(file: File): Promise<Attachment> {
     URL.revokeObjectURL(preview);
     // An image the webview cannot decode (e.g. HEIC) goes up as a file.
   }
-  if (file.size > MAX_FILE_BYTES) throw new Error(`${name} ist größer als 20 MB.`);
+  if (file.size > MAX_FILE_BYTES) throw new Error(t("fileTooBig", { name }));
   let data: Uint8Array;
   try {
     data = new Uint8Array(await file.arrayBuffer());
   } catch {
-    throw new Error(`${name} lässt sich nicht lesen.`);
+    throw new Error(t("fileUnreadable", { name }));
   }
   const extension = name.includes(".") ? name.split(".").pop()! : "";
   return { id: nextId++, data, fileName: name, extension, preview: null };

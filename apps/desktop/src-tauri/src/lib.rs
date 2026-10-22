@@ -4,6 +4,7 @@
 mod app;
 mod error;
 mod hosts;
+mod i18n;
 mod notify;
 mod tray;
 
@@ -31,6 +32,7 @@ pub fn run() {
             Some(vec![HIDDEN_ARG]),
         ))
         .setup(|app| {
+            i18n::init_from_env();
             let dir = app.path().app_data_dir()?;
             let replies = hosts::QuickReplies::load(dir.clone());
             app.manage(app::AppState::new(hosts::HostStore::load(dir)?, replies));
@@ -52,7 +54,7 @@ pub fn run() {
             Ok(())
         })
         // Closing the window keeps the app in the tray with its sessions;
-        // "Beenden" in the tray menu quits.
+        // "Quit" in the tray menu quits.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
@@ -87,6 +89,7 @@ pub fn run() {
             app::scroll_agent,
             app::upload,
             app::quick_replies,
+            app::set_language,
             app::save_quick_replies,
             app::set_visible_pane,
             app::agent_kinds,

@@ -17,8 +17,8 @@ use herdr_transport::{TransportError, keys};
 use tokio::runtime::Runtime;
 
 pub use add_host::{
-    ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, decode_add_host_link, encode_add_host_link,
-    public_key_fingerprint,
+    ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, AddHostLinkError, decode_add_host_link,
+    encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
     AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate,
@@ -49,10 +49,6 @@ pub enum FfiError {
     /// refused the write).
     #[error("{0}")]
     Upload(String),
-    /// A scanned or opened "add host" link was refused; the message is
-    /// German and meant for the user as is.
-    #[error("{0}")]
-    InvalidLink(String),
     /// Files on the host could not be read: no SFTP for this key, or no
     /// Claude Code session for the pane.
     #[error("{0}")]
@@ -71,7 +67,8 @@ impl From<SessionError> for FfiError {
             SessionError::AgentBlocked(message) => Self::AgentBlocked(message),
             SessionError::Rejected(message) => Self::Rejected(message),
             SessionError::Upload(message) => Self::Upload(message),
-            SessionError::InvalidLink(message) => Self::InvalidLink(message),
+            // Links come through `AddHostLinkError`; nothing else refuses one.
+            SessionError::InvalidLink(err) => Self::Rejected(err.to_string()),
             SessionError::Files(message) => Self::Files(message),
             SessionError::AgentWorking(message) => Self::AgentWorking(message),
         }

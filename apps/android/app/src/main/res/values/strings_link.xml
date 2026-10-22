@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Why an "add host" link was refused (AddHostLinkException), see ui/LinkErrors.kt. -->
+<resources>
+    <string name="link_error_too_long">The code is too long.</string>
+    <string name="link_error_not_a_link">This is not an Amiscara Agents code for adding a host.</string>
+    <string name="link_error_damaged">The code is damaged.</string>
+    <string name="link_error_unknown_field">The code contains an unknown field “%1$s”.</string>
+    <string name="link_error_duplicate_field">The field “%1$s” appears more than once in the code.</string>
+    <string name="link_error_missing_version">The code has no version.</string>
+    <string name="link_error_bad_version">The version in the code is invalid.</string>
+    <string name="link_error_newer_version">The code comes from a newer version of the app. Please update Amiscara Agents.</string>
+    <string name="link_error_missing_host">The code has no host.</string>
+    <string name="link_error_bad_host">The host “%1$s” in the code is invalid.</string>
+    <string name="link_error_bad_port">The port in the code is invalid.</string>
+    <string name="link_error_missing_user">The code has no user.</string>
+    <string name="link_error_bad_user">The user “%1$s” in the code is invalid.</string>
+    <string name="link_error_bad_socket">The socket path in the code is invalid. An absolute path is expected.</string>
+    <string name="link_error_missing_key">The code has no host key.</string>
+    <string name="link_error_key_not_one_line">The host key in the code must be exactly one line.</string>
+    <string name="link_error_key_too_long">The host key in the code is too long.</string>
+    <string name="link_error_bad_key">The host key in the code is not a valid OpenSSH key.</string>
+    <string name="link_error_bad_name">The name in the code is invalid.</string>
+</resources>

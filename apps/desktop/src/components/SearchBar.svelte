@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import type { FindState } from "../lib/find.svelte";
   import type { SearchMatch } from "../lib/search";
 
@@ -31,15 +32,15 @@
     value={find.query}
     oninput={(e) => find.setQuery(e.currentTarget.value)}
     onkeydown={onKey}
-    placeholder="In der Pane suchen"
+    placeholder={t("findInPanePlaceholder")}
     spellcheck="false"
   />
   {#if find.query}
-    <span class="count">{at === null ? "Keine Treffer" : `${at + 1} von ${matches.length}`}</span>
+    <span class="count">{at === null ? t("noMatches") : t("matchOf", { at: at + 1, n: matches.length })}</span>
   {/if}
-  <button title="Vorheriger Treffer (Umschalt+F3)" disabled={!matches.length} onclick={() => find.step(-1, matches)}>↑</button>
-  <button title="Nächster Treffer (F3)" disabled={!matches.length} onclick={() => find.step(1, matches)}>↓</button>
-  <button title="Suche schließen (Esc)" onclick={() => find.close()}>✕</button>
+  <button title={t("previousMatch")} disabled={!matches.length} onclick={() => find.step(-1, matches)}>↑</button>
+  <button title={t("nextMatch")} disabled={!matches.length} onclick={() => find.step(1, matches)}>↓</button>
+  <button title={t("closeFind")} onclick={() => find.close()}>✕</button>
 </div>
 
 <style>

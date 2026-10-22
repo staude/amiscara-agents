@@ -151,34 +151,29 @@ impl HostStore {
 /// Saved prompts for the input bar, per device, as `quick-replies.json`.
 pub struct QuickReplies {
     path: PathBuf,
-    replies: Vec<String>,
+    /// `None` until the user saves a list: the defaults in the current language.
+    replies: Option<Vec<String>>,
 }
 
 impl QuickReplies {
-    /// Shown until the user changes the list, as in the Apple apps.
-    const DEFAULTS: [&str; 4] = [
-        "weiter",
-        "/compact",
-        "Bitte committen",
-        "Commit und PR erstellen",
-    ];
-
     pub fn load(dir: PathBuf) -> Self {
         let path = dir.join("quick-replies.json");
         let replies = std::fs::read(&path)
             .ok()
-            .and_then(|data| serde_json::from_slice(&data).ok())
-            .unwrap_or_else(|| Self::DEFAULTS.map(str::to_owned).to_vec());
+            .and_then(|data| serde_json::from_slice(&data).ok());
         Self { path, replies }
     }
 
-    pub fn list(&self) -> &[String] {
-        &self.replies
+    /// The saved list, or the defaults as in the Apple apps.
+    pub fn list(&self) -> Vec<String> {
+        self.replies
+            .clone()
+            .unwrap_or_else(crate::i18n::default_quick_replies)
     }
 
     /// Keeps the entries that are not blank, trimmed, and writes the file.
     pub fn set(&mut self, replies: Vec<String>) -> Result<(), AppError> {
-        self.replies = replies
+        let replies: Vec<String> = replies
             .into_iter()
             .map(|reply| reply.trim().to_owned())
             .filter(|reply| !reply.is_empty())
@@ -189,8 +184,10 @@ impl QuickReplies {
         if let Some(dir) = self.path.parent() {
             std::fs::create_dir_all(dir).map_err(|err| error(&err))?;
         }
-        let data = serde_json::to_vec_pretty(&self.replies).map_err(|err| error(&err))?;
-        std::fs::write(&self.path, data).map_err(|err| error(&err))
+        let data = serde_json::to_vec_pretty(&replies).map_err(|err| error(&err))?;
+        std::fs::write(&self.path, data).map_err(|err| error(&err))?;
+        self.replies = Some(replies);
+        Ok(())
     }
 }
 

@@ -67,7 +67,8 @@ Individual steps:
 ## Conventions
 
 - **Language:** code, comments, commit messages, pull requests and issues in
-  English. The user interface is German for now; UI texts use no em dash.
+  English. The user interface is German and English (see
+  [Adding a language](#adding-a-language)); UI texts use no em dash.
 - **Commits:** small and focused, [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `refactor:`, `test:`), with a
   scope where it helps (`feat(android): ...`). Reference the issue in the
@@ -84,8 +85,9 @@ Individual steps:
 
 ## Translations
 
-The apps are written with German source texts and translated to English
-(#207). New UI texts need both languages.
+All apps ship German and English (#207); the Apple apps use German source
+texts, Android and the desktop app English defaults. New UI texts need both
+languages.
 
 - **Apple apps:** one String Catalog for all targets,
   `apps/AmiscaraAgents/Shared/Localizable.xcstrings`, plus
@@ -100,6 +102,28 @@ The apps are written with German source texts and translated to English
   Check the result by launching the app with
   `-AppleLanguages "(<code>)"`, for example on the screenshot demo
   ([docs/screenshots.md](docs/screenshots.md)).
+
+### Adding a language
+
+German is the source language of the Apple apps, English the fallback
+everywhere: a system language without a translation gets English. To add
+one, translate on all three platforms and keep product terms (herdr, Space,
+Pane, Tab, Agent) as the UI uses them:
+
+- **Apple apps:** export, translate and import as above, and add the
+  language to `knownRegions` in `apps/AmiscaraAgents/project.yml`. Strings
+  with `%@` keep their placeholders.
+- **Android:** a `values-<code>/` folder next to `values-de/` with
+  `strings.xml` and `strings_link.xml` (the English defaults are in
+  `values/`). Keep the `%1$s` placeholders.
+- **Desktop (Windows, Linux):** a catalog `apps/desktop/src/lib/i18n/<code>.ts`
+  typed as `Messages`, like `de.ts`, registered in `i18n.svelte.ts`
+  (`Lang`, `catalogs`, `systemLang`) and offered in the language setting of
+  `ManageDialogs.svelte`; `{name}` placeholders stay. The few texts of the
+  Rust side (tray, notifications, default quick replies) are in
+  `apps/desktop/src-tauri/src/i18n.rs`.
+- **Core:** the Rust crates return typed errors (e.g. `LinkError`), never
+  user-facing text, so nothing to translate there.
 
 ## Pull requests
 

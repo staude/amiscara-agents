@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { untrack } from "svelte";
   import { defaultSocket, errorText } from "../lib/core";
   import { model } from "../lib/state.svelte";
@@ -25,7 +26,7 @@
     };
   }
 
-  // A copy of the host as opened: nothing changes until "Sichern".
+  // A copy of the host as opened: nothing changes until it is saved.
   const initial = untrack(() => (host ? structuredClone($state.snapshot(host)) : null));
   let draft = $state<HostConfig>(initial ?? blank());
   let macHost = $state(!initial || initial.socketPath.startsWith("/Users/"));
@@ -56,34 +57,34 @@
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
   <form class="sheet" onsubmit={save}>
-    <h2>{host ? "Host bearbeiten" : "Host hinzufügen"}</h2>
+    <h2>{host ? t("editHost") : t("addHost")}</h2>
 
     {#if model.info?.localSocket}
       <label class="row">
-        <span>Art</span>
+        <span>{t("hostKind")}</span>
         <select bind:value={draft.kind}>
           <option value="ssh">SSH</option>
-          <option value="local">Dieser Rechner (lokaler Socket)</option>
+          <option value="local">{t("thisComputerLocal")}</option>
         </select>
       </label>
     {/if}
 
     <label class="row">
-      <span>Name</span>
-      <input bind:value={draft.name} placeholder={draft.kind === "local" ? "Dieser Rechner" : "z. B. work"} />
+      <span>{t("name")}</span>
+      <input bind:value={draft.name} placeholder={draft.kind === "local" ? t("thisComputer") : t("hostNameExample")} />
     </label>
 
     {#if draft.kind === "ssh"}
       <label class="row">
         <span>Host</span>
-        <input bind:value={draft.host} placeholder="mac.example.internal oder IP" required />
+        <input bind:value={draft.host} placeholder={t("hostAddressExample")} required />
       </label>
       <label class="row">
         <span>Port</span>
         <input type="number" min="1" max="65535" bind:value={draft.port} />
       </label>
       <label class="row">
-        <span>Benutzer</span>
+        <span>{t("user")}</span>
         <input bind:value={draft.user} required autocomplete="off" />
       </label>
       <label class="row">
@@ -98,18 +99,15 @@
         <input bind:value={draft.socketPath} oninput={() => (socketTouched = true)} required />
       </label>
       <label class="row">
-        <span>Anmeldung</span>
+        <span>{t("login")}</span>
         <select bind:value={draft.auth}>
-          <option value="key">Eigener Schlüssel (empfohlen)</option>
+          <option value="key">{t("ownKeyRecommended")}</option>
           <option value="agent">SSH-Agent</option>
         </select>
       </label>
       {#if draft.auth === "agent"}
         <p class="hint">
-          Nutzt die Schlüssel des SSH-Agents ({model.info?.os === "windows"
-            ? "OpenSSH-Agent von Windows"
-            : "SSH_AUTH_SOCK"}). Ohne Einschränkung in authorized_keys hat dieser Schlüssel vollen
-          Zugriff auf den Rechner.
+          {t("sshAgentHint", { agent: model.info?.os === "windows" ? t("windowsOpenSshAgent") : "SSH_AUTH_SOCK" })}
         </p>
       {/if}
       <label class="check">
@@ -118,7 +116,7 @@
           checked={draft.allowUpload ?? false}
           onchange={(e) => (draft.allowUpload = e.currentTarget.checked)}
         />
-        Dateien hochladen (SFTP, Zugriff auf alle Dateien des Benutzers)
+        {t("allowUpload")}
       </label>
     {:else}
       <label class="row">
@@ -133,7 +131,7 @@
         checked={draft.allowInput ?? true}
         onchange={(e) => (draft.allowInput = e.currentTarget.checked)}
       />
-      Eingaben an Agents senden (Prompts, Tasten, Anlegen und Schließen)
+      {t("allowInput")}
     </label>
     <label class="check">
       <input
@@ -141,14 +139,14 @@
         checked={draft.notify ?? true}
         onchange={(e) => (draft.notify = e.currentTarget.checked)}
       />
-      Benachrichtigen, wenn ein Agent wartet oder fertig ist
+      {t("notifyHost")}
     </label>
 
     {#if error}<p class="error">{error}</p>{/if}
 
     <div class="buttons">
-      <button type="button" onclick={close}>Abbrechen</button>
-      <button type="submit" class="primary" disabled={saving}>Sichern</button>
+      <button type="button" onclick={close}>{t("cancel")}</button>
+      <button type="submit" class="primary" disabled={saving}>{t("save")}</button>
     </div>
   </form>
 </div>

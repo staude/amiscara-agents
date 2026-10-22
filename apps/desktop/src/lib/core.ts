@@ -1,5 +1,6 @@
 // Typed calls into the Rust side (src-tauri/src/app.rs).
 
+import { t, type MessageKey } from "./i18n.svelte";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
@@ -50,6 +51,7 @@ export const agentHistory = (hostId: string, paneId: string) =>
 export const scrollAgent = (hostId: string, paneId: string, step: ScrollStep) =>
   invoke<void>("scroll_agent", { hostId, paneId, step });
 export const quickReplies = () => invoke<string[]>("quick_replies");
+export const setLanguage = (lang: string) => invoke<void>("set_language", { lang });
 export const saveQuickReplies = (replies: string[]) =>
   invoke<void>("save_quick_replies", { replies });
 
@@ -151,12 +153,46 @@ export function onAddHostLink(handler: (url: string) => void): Promise<UnlistenF
   return listen<string>("add-host-link", (event) => handler(event.payload));
 }
 
-/** The message of a failed command, for the user. */
+/** The message of a failed command, in the user's language where the error is known. */
 export function errorText(err: unknown): string {
-  if (typeof err === "object" && err !== null && "message" in err) {
-    return String((err as AppError).message);
+  if (typeof err !== "object" || err === null || !("message" in err)) return String(err);
+  const error = err as AppError;
+  switch (error.kind) {
+    case "invalidLink":
+      return error.link ? linkErrorText(error.link) : error.message;
+    case "config": {
+      const key = CONFIG_ERRORS[error.code ?? ""];
+      return key ? t(key, { host: error.host ?? "" }) : error.message;
+    }
+    case "notConnected":
+      return t("errorNotConnected");
+    case "agentBlocked":
+      return t("errorAgentBlocked");
+    case "upload":
+      return t("errorUpload", { error: error.message });
+    case "files":
+      return t("errorFiles", { error: error.message });
+    case "key":
+      return t("errorKey", { error: error.message });
+    default:
+      return error.message;
   }
-  return String(err);
+}
+
+const CONFIG_ERRORS: Record<string, MessageKey> = {
+  missingHostUser: "errorMissingHostUser",
+  relativeSocket: "errorRelativeSocket",
+  localSocketUnix: "errorLocalSocketUnix",
+  noOwnKey: "errorNoOwnKey",
+  keyMissing: "errorKeyMissing",
+  inputOff: "errorInputOff",
+  uploadOff: "errorUploadOff",
+};
+
+/** Why an "add host" link was refused (`LinkError` in herdr-session). */
+function linkErrorText(link: NonNullable<AppError["link"]>): string {
+  const key = `link_${link.problem}` as MessageKey;
+  return t(key, { field: link.field ?? "", host: link.host ?? "", user: link.user ?? "" });
 }
 
 /** Default `herdr.sock` for a login: macOS hosts use /Users, Linux /home. */

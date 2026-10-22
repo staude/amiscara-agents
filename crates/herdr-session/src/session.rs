@@ -38,10 +38,9 @@ pub enum SessionError {
     /// refused the write).
     #[error("{0}")]
     Upload(String),
-    /// A scanned or opened "add host" link was refused; the message is
-    /// German and meant for the user as is.
+    /// A scanned or opened "add host" link was refused.
     #[error("{0}")]
-    InvalidLink(String),
+    InvalidLink(#[from] crate::link::LinkError),
     /// Files on the host could not be read: no SFTP for this key, or no
     /// Claude Code session for the pane.
     #[error("{0}")]

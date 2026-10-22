@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { untrack } from "svelte";
   import { errorText } from "../lib/core";
 
-  // Add, edit, reorder and delete quick replies; "Fertig" saves, blank
+  // Add, edit, reorder and delete quick replies; "Done" saves, blank
   // entries are dropped.
   let {
     replies,
@@ -10,7 +11,8 @@
     close,
   }: { replies: string[]; save: (list: string[]) => Promise<void>; close: () => void } = $props();
 
-  const DEFAULTS = ["weiter", "/compact", "Bitte committen", "Commit und PR erstellen"];
+  // As the Rust side starts the list (hosts.rs), in the current language.
+  const defaults = () => [t("replyContinue"), "/compact", t("replyCommit"), t("replyCommitPr")];
   let list = $state(untrack(() => [...replies]));
   let error = $state<string | null>(null);
 
@@ -32,24 +34,24 @@
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
   <div class="sheet">
-    <h2>Schnellantworten</h2>
+    <h2>{t("quickReplies")}</h2>
     <ul>
       {#each list as _, index (index)}
         <li>
-          <textarea bind:value={list[index]} rows="1" placeholder="Text"></textarea>
-          <button title="Nach oben" disabled={index === 0} onclick={() => move(index, -1)}>↑</button>
-          <button title="Nach unten" disabled={index === list.length - 1} onclick={() => move(index, 1)}>↓</button>
-          <button class="delete" title="Löschen" onclick={() => list.splice(index, 1)}>✕</button>
+          <textarea bind:value={list[index]} rows="1" placeholder={t("text")}></textarea>
+          <button title={t("moveUp")} disabled={index === 0} onclick={() => move(index, -1)}>↑</button>
+          <button title={t("moveDown")} disabled={index === list.length - 1} onclick={() => move(index, 1)}>↓</button>
+          <button class="delete" title={t("delete")} onclick={() => list.splice(index, 1)}>✕</button>
         </li>
       {/each}
     </ul>
-    <p class="small">Ein Klick auf eine Schnellantwort sendet sie sofort.</p>
+    <p class="small">{t("quickRepliesHint")}</p>
     <div class="buttons">
-      <button onclick={() => list.push("")}>+ Schnellantwort hinzufügen</button>
-      <button onclick={() => (list = [...DEFAULTS])}>Standard wiederherstellen</button>
+      <button onclick={() => list.push("")}>+ {t("addQuickReply")}</button>
+      <button onclick={() => (list = defaults())}>{t("restoreDefaults")}</button>
       <span class="spacer"></span>
-      <button onclick={close}>Abbrechen</button>
-      <button class="primary" onclick={done}>Fertig</button>
+      <button onclick={close}>{t("cancel")}</button>
+      <button class="primary" onclick={done}>{t("done")}</button>
     </div>
     {#if error}<p class="error">{error}</p>{/if}
   </div>

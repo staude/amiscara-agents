@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import * as core from "../lib/core";
   import { model } from "../lib/state.svelte";
   import type { HostConfig } from "../lib/types";
@@ -56,34 +57,34 @@
     switch (status?.kind) {
       case undefined:
       case "connecting":
-        return "Verbinde …";
+        return t("statusConnecting");
       case "live":
-        return update?.serverVersion ? `Verbunden, herdr ${update.serverVersion}` : "Verbunden";
+        return update?.serverVersion ? t("statusConnectedVersion", { version: update.serverVersion }) : t("statusConnected");
       case "retrying":
-        return `Verbindung fehlgeschlagen, Versuch ${status.attempt}. Die App versucht es weiter.`;
+        return t("statusRetrying", { attempt: status.attempt });
       case "hostKeyUnknown":
-        return "Host-Key muss bestätigt werden";
+        return t("statusHostKeyUnknown");
       case "hostKeyChanged":
-        return "Host-Key hat sich geändert";
+        return t("statusHostKeyChanged");
       case "failed":
-        return "Anmeldung abgelehnt";
+        return t("statusFailed");
     }
   }
 
   function hint(): string | null {
     if (status?.kind === "failed") {
-      return "Steht die Schlüsselzeile dieses Geräts in ~/.ssh/authorized_keys auf dem Rechner?";
+      return t("hintFailed");
     }
     if (status?.kind !== "retrying") return null;
     const text = status.error.toLowerCase();
     if (["timed out", "timeout", "unreachable", "no route", "lookup", "resolve"].some((s) => text.includes(s))) {
-      return "Der Rechner ist nicht erreichbar. Läuft das VPN (NetBird) auf diesem Gerät, und stimmt der Hostname?";
+      return t("hintUnreachable");
     }
     if (text.includes("refused")) {
-      return "Der Rechner lehnt die Verbindung ab. Ist SSH dort eingeschaltet?";
+      return t("hintRefused");
     }
     if (text.includes("channel") || text.includes("no such file")) {
-      return "SSH klappt, aber der herdr-Socket nicht. Läuft herdr dort, und stimmt der Socket-Pfad?";
+      return t("hintSocket");
     }
     return null;
   }
@@ -93,10 +94,10 @@
   <header>
     <h1>{host.name}</h1>
     <div class="actions">
-      <button onclick={() => run(() => core.connect(host.id))}>Jetzt verbinden</button>
-      <button onclick={edit}>Bearbeiten</button>
+      <button onclick={() => run(() => core.connect(host.id))}>{t("connectNow")}</button>
+      <button onclick={edit}>{t("edit")}</button>
       <button class:armed={armed === "remove"} onclick={() => confirmThen("remove", () => model.remove(host.id))}>
-        {armed === "remove" ? "Wirklich entfernen?" : "Entfernen"}
+        {armed === "remove" ? t("reallyRemove") : t("remove")}
       </button>
     </div>
   </header>
@@ -107,46 +108,46 @@
   {/if}
   {#if hint()}<p>{hint()}</p>{/if}
   {#if update && !update.protocolSupported}
-    <p class="warn">Der Server spricht eine herdr-Protokollversion, die diese App nicht kennt.</p>
+    <p class="warn">{t("protocolUnknown")}</p>
   {/if}
 
   {#if status?.kind === "hostKeyUnknown" || status?.kind === "hostKeyChanged"}
     <div class="box" class:danger={status.kind === "hostKeyChanged"}>
       {#if status.kind === "hostKeyChanged"}
         <p>
-          <strong>Der Host-Key von {host.host} ist ein anderer als beim letzten Mal.</strong> Das passiert
-          nach einer Neuinstallation, kann aber auch ein Angriff sein. Nur bestätigen, wenn Sie den Grund
-          kennen.
+          <strong>{t("hostKeyChangedTitle", { host: host.host })}</strong>
+          {t("hostKeyChangedText")}
         </p>
       {:else}
-        <p>Erste Verbindung zu {host.host}. Stimmt der Fingerabdruck mit dem des Rechners überein?</p>
+        <p>{t("firstConnection", { host: host.host })}</p>
       {/if}
       <pre class="detail">{status.fingerprint}</pre>
-      <p class="small">Auf dem Rechner: <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code></p>
+      <p class="small">{t("onTheComputer")} <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code></p>
       <button class="primary" onclick={() => run(() => core.trustHostKey(host.id, status.key))}>
-        Host-Key vertrauen
+        {t("trustHostKey")}
       </button>
     </div>
   {/if}
 
   {#if host.kind === "ssh" && host.auth === "key"}
     <div class="box">
-      <h2>Schlüssel dieses Geräts</h2>
+      <h2>{t("deviceKey")}</h2>
       <p class="small">
-        Diese Zeile auf {host.host} in <code>~/.ssh/authorized_keys</code> eintragen. Sie lässt nur den
-        herdr-Socket zu{host.allowUpload ? " und Dateien per SFTP" : ""}.
+        {t("keyLineBefore", { host: host.host })} <code>~/.ssh/authorized_keys</code>{host.allowUpload
+          ? t("keyLineAfterSftp")
+          : t("keyLineAfter")}
       </p>
       {#if line}
         <pre class="detail key">{line}</pre>
         <div class="actions">
-          <button onclick={copy}>{copied ? "Kopiert" : "Zeile kopieren"}</button>
+          <button onclick={copy}>{copied ? t("copied") : t("copyLine")}</button>
           <button
             class:armed={armed === "regenerate"}
-            title="Die alte Zeile funktioniert danach nicht mehr."
+            title={t("newKeyHint")}
             onclick={() =>
               confirmThen("regenerate", async () => model.replace(await core.regenerateKey(host.id)))}
           >
-            {armed === "regenerate" ? "Alte Zeile ungültig machen?" : "Neuer Schlüssel"}
+            {armed === "regenerate" ? t("invalidateOldLine") : t("newKey")}
           </button>
         </div>
       {/if}

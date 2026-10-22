@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import * as core from "../lib/core";
   import { canWrite, openMenu, spaceMenu, ui } from "../lib/manage.svelte";
   import { nav } from "../lib/nav.svelte";
@@ -15,14 +16,14 @@
       case "live":
         return { css: "live", label: "" };
       case "retrying":
-        return { css: "warn", label: "versucht erneut" };
+        return { css: "warn", label: t("hostRetrying") };
       case "hostKeyUnknown":
       case "hostKeyChanged":
-        return { css: "warn", label: "Host-Key" };
+        return { css: "warn", label: t("hostKeyShort") };
       case "failed":
-        return { css: "bad", label: "abgelehnt" };
+        return { css: "bad", label: t("hostRefused") };
       default:
-        return { css: "wait", label: "verbinde …" };
+        return { css: "wait", label: t("hostConnecting") };
     }
   }
 
@@ -53,18 +54,18 @@
   <div class="top">
     <span class="app">Amiscara Agents</span>
     <span class="tools">
-      <button class="icon" title="Space oder Agent suchen (Strg+K)" onclick={() => (nav.switcherOpen = true)}>⌕</button>
-      <button class="icon" title="Host aus Link hinzufügen" onclick={addLink}>⧉</button>
-      <button class="icon" title="Host hinzufügen" onclick={addHost}>+</button>
-      <button class="icon" title="Einstellungen" onclick={() => (ui.dialog = { kind: "settings" })}>⚙</button>
+      <button class="icon" title={t("searchSpaceOrAgent")} onclick={() => (nav.switcherOpen = true)}>⌕</button>
+      <button class="icon" title={t("addHostFromLink")} onclick={addLink}>⧉</button>
+      <button class="icon" title={t("addHost")} onclick={addHost}>+</button>
+      <button class="icon" title={t("settings")} onclick={() => (ui.dialog = { kind: "settings" })}>⚙</button>
     </span>
   </div>
 
   {#if model.hosts.length === 0}
     <div class="empty">
-      <p>Keine Hosts</p>
-      <p class="small">Fügen Sie einen Rechner hinzu, auf dem herdr läuft.</p>
-      <button class="primary" onclick={addHost}>Host hinzufügen</button>
+      <p>{t("noHosts")}</p>
+      <p class="small">{t("noHostsHint")}</p>
+      <button class="primary" onclick={addHost}>{t("addHost")}</button>
     </div>
   {/if}
 
@@ -81,12 +82,12 @@
         onkeydown={(e) => onHostKey(e, host)}
         oncontextmenu={(e) =>
           openMenu(e, [
-            { label: "Einstellungen und Schlüssel", action: () => model.select(host.id) },
-            { label: "Neu verbinden", action: () => void core.connect(host.id) },
+            { label: t("hostSettingsAndKey"), action: () => model.select(host.id) },
+            { label: t("reconnect"), action: () => void core.connect(host.id) },
             null,
-            { label: "Neuer Space …", disabled: !canWrite(host.id), action: () => (ui.dialog = { kind: "newSpace", hostId: host.id }) },
+            { label: t("newSpaceMenu"), disabled: !canWrite(host.id), action: () => (ui.dialog = { kind: "newSpace", hostId: host.id }) },
           ])}
-        title="Einstellungen und Verbindung"
+        title={t("hostSettingsAndConnection")}
       >
         <span class="glyph">{host.kind === "local" ? "▣" : "⇄"}</span>
         <span class="name">{host.name}</span>
@@ -102,7 +103,7 @@
             {#if spacesFolded}<span class="small">{update.workspaces.length}</span>{/if}
           </button>
           {#if canWrite(host.id)}
-            <button class="order" title="Neuer Space" onclick={() => (ui.dialog = { kind: "newSpace", hostId: host.id })}>+</button>
+            <button class="order" title={t("newSpace")} onclick={() => (ui.dialog = { kind: "newSpace", hostId: host.id })}>+</button>
           {/if}
         </div>
         {#if !spacesFolded}
@@ -114,7 +115,7 @@
               <button class="row group" onclick={() => prefs.toggle(host.id, key)}>
                 <span class="chevron" class:open={!folded}>›</span>
                 <span class="label">{block.name}</span>
-                {#if waiting > 0}<span class="small blocked-text">{waiting} wartet</span>{/if}
+                {#if waiting > 0}<span class="small blocked-text">{t("waitingCount", { n: waiting })}</span>{/if}
                 <span class="small">{block.entries.length}</span>
               </button>
             {/if}
@@ -134,7 +135,7 @@
                     <span class="sub mono">{entry.workspace.branch}</span>
                   {/if}
                   {#if entry.workspace.tokens.length > 0}
-                    <span class="sub">{entry.workspace.tokens.map((t) => t.value).join(" · ")}</span>
+                    <span class="sub">{entry.workspace.tokens.map((token) => token.value).join(" · ")}</span>
                   {/if}
                 </span>
               </button>
@@ -150,12 +151,12 @@
               <span class="chevron" class:open={!agentsFolded}>›</span> agents
               {#if agentsFolded}
                 <span class="small" class:blocked-text={waiting > 0}>
-                  {update.board.length}{waiting > 0 ? `, ${waiting} wartet` : ""}
+                  {update.board.length}{waiting > 0 ? `, ${t("waitingCount", { n: waiting })}` : ""}
                 </span>
               {/if}
             </button>
-            <button class="order" onclick={() => prefs.toggleAgentOrder()} title="Sortierung umschalten">
-              {prefs.agentOrder === "grouped" ? "grouped" : "nach Status"}
+            <button class="order" onclick={() => prefs.toggleAgentOrder()} title={t("toggleOrder")}>
+              {prefs.agentOrder === "grouped" ? "grouped" : t("byStatus")}
             </button>
           </div>
           {#if !agentsFolded}
@@ -167,7 +168,7 @@
                 oncontextmenu={(e) =>
                   openMenu(e, [
                     {
-                      label: "Agent benennen …",
+                      label: t("nameAgentMenu"),
                       disabled: !canWrite(host.id),
                       action: () =>
                         (ui.dialog = {
@@ -186,7 +187,7 @@
                     {entry.tabNumber ? `${entry.agent.workspaceName} · ${entry.tabNumber}` : entry.agent.workspaceName}
                     {#if entry.agent.workspaceGroup}<span class="small">{entry.agent.workspaceGroup}</span>{/if}
                     {#if entry.agent.agentState !== "idle"}
-                      <span class="small {entry.agent.agentState}-text">{stateLabel[entry.agent.agentState]}</span>
+                      <span class="small {entry.agent.agentState}-text">{stateLabel(entry.agent.agentState)}</span>
                     {/if}
                   </span>
                   <span class="sub">
@@ -198,7 +199,7 @@
           {/if}
         {/if}
       {:else}
-        <button class="row retry" onclick={() => core.connect(host.id)}>Jetzt verbinden</button>
+        <button class="row retry" onclick={() => core.connect(host.id)}>{t("connectNow")}</button>
       {/if}
     </section>
   {/each}

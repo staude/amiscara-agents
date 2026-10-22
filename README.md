@@ -15,7 +15,7 @@ socket or remotely over SSH. Nothing is installed on the server, and the SSH
 key the apps use reaches the herdr socket and nothing else.
 
 > Amiscara Agents is an unofficial project, not affiliated with herdr.
-> The user interface is German for now.
+> The user interface is German and English, following the system language.
 
 **Contents:**
 [Screenshots](#screenshots) ·
@@ -37,8 +37,7 @@ key the apps use reaches the herdr socket and nothing else.
 ## Screenshots
 
 All screenshots come from a seeded demo session with fictional projects
-(see [docs/screenshots.md](docs/screenshots.md)); the app's interface is
-German. More views per platform are in [docs/screenshots](docs/screenshots).
+(see [docs/screenshots.md](docs/screenshots.md)), shown here in German. More views per platform are in [docs/screenshots](docs/screenshots).
 
 **Mac:** an agent waiting for approval, with the answer bar under the pane.
 

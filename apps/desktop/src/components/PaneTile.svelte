@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { untrack } from "svelte";
   import { activeFind, FindState } from "../lib/find.svelte";
   import { PaneModel } from "../lib/pane.svelte";
@@ -84,15 +85,15 @@
     <span class="title">{title}</span>
     {#if pane?.agent}<span class="secondary">{pane.name ? `${pane.name} · ${pane.agent}` : pane.agent}</span>{/if}
     <span class="spacer"></span>
-    {#if pane?.agent}<span class="state {pane.agentState}">{stateLabel[pane.agentState]}</span>{/if}
+    {#if pane?.agent}<span class="state {pane.agentState}">{stateLabel(pane.agentState)}</span>{/if}
     {#if selected}
       {#if pane?.agent === "claude"}
-        <button class="flat" title="Gesprächsverlauf aus der Claude-Sitzung" onclick={openConversation}>💬</button>
+        <button class="flat" title={t("conversationFromClaude")} onclick={openConversation}>💬</button>
       {/if}
-      <button class="flat" title="Text der Pane kopieren" disabled={!pane_model?.content} onclick={copyText}>
+      <button class="flat" title={t("copyPaneText")} disabled={!pane_model?.content} onclick={copyText}>
         {copied ? "✓" : "⧉"}
       </button>
-      <button class="flat" title="In der Pane suchen (Strg+F)" onclick={() => find.show()}>⌕</button>
+      <button class="flat" title={t("findInPane")} onclick={() => find.show()}>⌕</button>
     {/if}
   </header>
   {#if selected && find.open}
@@ -112,7 +113,7 @@
     {#if pane_model?.error && pane_model.content}
       <div class="banner">⚠ {pane_model.error}</div>
     {:else if !live && pane_model?.content}
-      <div class="banner">Verbindung unterbrochen, Inhalt veraltet</div>
+      <div class="banner">{t("connectionLostStale")}</div>
     {/if}
   </div>
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { locale, t } from "../lib/i18n.svelte";
   import { onMount, tick } from "svelte";
   import * as core from "../lib/core";
   import type { TranscriptCursor, TranscriptEntry } from "../lib/types";
@@ -42,8 +43,8 @@
     if (Number.isNaN(date.getTime())) return null;
     const today = date.toDateString() === new Date().toDateString();
     return today
-      ? date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
-      : date.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+      ? date.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" })
+      : date.toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" });
   }
 
   async function copyAll() {
@@ -63,27 +64,27 @@
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
   <div class="sheet">
     <header>
-      <h2>Gesprächsverlauf</h2>
+      <h2>{t("conversation")}</h2>
       <span class="spacer"></span>
-      <button disabled={!entries.length} onclick={copyAll}>Alles kopieren</button>
-      <button disabled={loading} onclick={() => load(true)}>Neu laden</button>
-      <button class="primary" onclick={close}>Fertig</button>
+      <button disabled={!entries.length} onclick={copyAll}>{t("copyAll")}</button>
+      <button disabled={loading} onclick={() => load(true)}>{t("reload")}</button>
+      <button class="primary" onclick={close}>{t("done")}</button>
     </header>
     <div class="list" bind:this={list}>
       {#if error && !entries.length}
-        <p class="note">Verlauf nicht lesbar: {error}</p>
+        <p class="note">{t("conversationUnreadable", { error })}</p>
       {:else if !loaded}
-        <p class="note">Sitzung wird gesucht …</p>
+        <p class="note">{t("findingSession")}</p>
       {:else if !entries.length}
-        <p class="note">Noch keine Einträge</p>
+        <p class="note">{t("noEntries")}</p>
       {:else}
         <div class="older">
           {#if loading}
-            Lade …
+            {t("loading")}
           {:else if older}
-            <button onclick={() => load(false)}>↑ Ältere Einträge laden</button>
+            <button onclick={() => load(false)}>↑ {t("loadOlderEntries")}</button>
           {:else}
-            Anfang der Sitzung
+            {t("sessionStart")}
           {/if}
         </div>
         {#each entries as entry, index (index)}
