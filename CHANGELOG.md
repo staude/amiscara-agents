@@ -481,6 +481,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The Mac release signs with an explicit Developer ID provisioning profile
+  ("Amiscara Agents Developer ID", secret `APPLE_DEVID_PROFILE` in CI):
+  an App Store Connect API key neither sees Xcode's own team profiles nor
+  may use cloud-managed certificates, so the export failed in CI.
 - The Linux desktop build in CI ran out of disk space while bundling the
   AppImage; the job (and the release workflow) now frees space first.
 - Device keys reach only the herdr socket (#132): new `authorized_keys`

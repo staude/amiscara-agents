@@ -12,6 +12,8 @@ Die Mac-App wird außerhalb des App Stores verteilt: mit Developer ID signiert, 
 
    Das vorhandene „Apple Development“-Zertifikat reicht nur für lokale Testbuilds.
 
+   Dazu ein **Developer-ID-Provisioning-Profil** namens „Amiscara Agents Developer ID“ (developer.apple.com › Profiles › „+“ › Developer ID › App-ID `net.staude.amiscara.agents` › das Developer-ID-Zertifikat). Die App braucht es für iCloud, Push und die App-Gruppe; `scripts/ExportOptions.plist` signiert damit von Hand. Xcodes eigene „Mac Team Direct“-Profile sieht ein API-Schlüssel nicht, darum ein eigenes. Das Profil läuft mit dem Zertifikat ab und muss danach neu erzeugt werden. Herunterladen und per Doppelklick installieren (landet in `~/Library/Developer/Xcode/UserData/Provisioning Profiles`).
+
 2. **App-spezifisches Passwort** auf appleid.apple.com erzeugen (Anmelden und Sicherheit, App-spezifische Passwörter), Name z. B. `notarytool AmiscaraAgents`.
 
 3. **Notarisierungsprofil speichern.** Das Passwort landet im Schlüsselbund, nicht im Repo:
@@ -100,12 +102,12 @@ Ein Tag `apple-v<MARKETING_VERSION>` (z. B. `apple-v0.1.0`) startet beides, ver�
 Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Repo. Pull Requests und Forks kommen nicht an sie heran.
 
 1. **App-Store-Connect-API-Key anlegen.** In App Store Connect unter Benutzer und Zugriff › Integrationen › App Store Connect API › Team-Schlüssel einen Schlüssel erzeugen:
-   - Rolle **Admin**, wenn die CI ohne hinterlegte Zertifikate signieren soll (Xcode-Cloud-Signierung legt dann verwaltete Zertifikate an; das darf nur Admin).
-   - Rolle **App-Manager** reicht, wenn die Zertifikate als `.p12` hinterlegt werden (Schritt 2 und 3). Profile legt Xcode damit selbst an.
+   - Rolle **Admin**, damit Xcode die App-Store-Profile anlegen und herunterladen kann.
+   - Cloud-verwaltete Zertifikate kann ein API-Schlüssel auch als Admin nicht nutzen („Cloud signing permission error“), darum werden die Zertifikate als `.p12` hinterlegt (Schritt 2 und 3).
    - Die `.p8`-Datei lässt sich nur einmal herunterladen. Key-ID und Issuer-ID stehen auf derselben Seite.
    - Derselbe Schlüssel meldet `notarytool` an, ein App-spezifisches Passwort braucht die CI nicht.
 
-2. **Developer-ID-Zertifikat** (für die Mac-App): wie oben unter „Einmalige Einrichtung“ Schritt 1 anlegen und importieren. Nur der Account Holder darf es erzeugen. Danach in der Schlüsselbundverwaltung unter „Meine Zertifikate“ das Zertifikat „Developer ID Application: … (7N2W4T6UPV)“ samt privatem Schlüssel als `.p12` mit Passwort exportieren.
+2. **Developer-ID-Zertifikat und -Profil** (für die Mac-App): wie oben unter „Einmalige Einrichtung“ Schritt 1 anlegen. Nur der Account Holder darf das Zertifikat erzeugen. Danach in der Schlüsselbundverwaltung unter „Meine Zertifikate“ das Zertifikat „Developer ID Application: … (7N2W4T6UPV)“ samt privatem Schlüssel als `.p12` mit Passwort exportieren. Das Profil „Amiscara Agents Developer ID“ geht mit `--devid-profile` in die Secrets.
 
 3. **Apple-Distribution-Zertifikat** (für TestFlight, optional): ist eins im Schlüsselbund (`security find-identity -v -p codesigning | grep "Apple Distribution"`), genauso als `.p12` exportieren. Fehlt es, legt Xcode bei einem lokalen `scripts/testflight.sh` eines an.
 
@@ -115,7 +117,8 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
    target/xcode/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys --account amiscara-agents -x ~/Desktop/sparkle-key
    scripts/apple-ci-secrets.sh --key-id <Key-ID> --issuer-id <Issuer-ID> \
        --key ~/Downloads/AuthKey_<Key-ID>.p8 \
-       --devid ~/Desktop/developer-id.p12 --dist ~/Desktop/apple-distribution.p12 \
+       --devid ~/Desktop/developer-id.p12 --devid-profile ~/Downloads/Amiscara_Agents_Developer_ID.provisionprofile \
+       --dist ~/Desktop/apple-distribution.p12 \
        --sparkle ~/Desktop/sparkle-key
    ```
 
