@@ -61,6 +61,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app::app_info,
+            app::demo_target,
             app::list_hosts,
             app::save_host,
             app::regenerate_key,

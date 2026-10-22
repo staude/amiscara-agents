@@ -6,6 +6,7 @@ import type {
   AddHostLink,
   AppError,
   AppInfo,
+  DemoTarget,
   HostConfig,
   PaneContent,
   PaneEvent,
@@ -16,6 +17,7 @@ import type {
 } from "./types";
 
 export const appInfo = () => invoke<AppInfo>("app_info");
+export const demoTarget = () => invoke<DemoTarget | null>("demo_target");
 export const listHosts = () => invoke<HostConfig[]>("list_hosts");
 export const saveHost = (host: HostConfig) => invoke<HostConfig>("save_host", { host });
 export const deleteHost = (hostId: string) => invoke<void>("delete_host", { hostId });

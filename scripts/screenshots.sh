@@ -49,6 +49,7 @@ keys_backup=""
 emulator_started=false
 cleanup() {
     for pid in ${pids[@]+"${pids[@]}"}; do kill "$pid" 2>/dev/null || true; done
+    pkill -f "vite --port 1420 --strictPort" 2>/dev/null || true
     if [[ -n "$keys_backup" ]]; then
         # Only the demo line goes; the file must then match the backup.
         grep -v " $key_comment\$" "$keys" >"$keys_backup.new" || true
@@ -69,6 +70,7 @@ trap cleanup EXIT
 step "Demo session $session"
 python3 "$here/seed.py"
 mkdir -p "$out"
+if want mac || want desktop; then swiftc -O -o "$out/window-id" "$here/window-id.swift"; fi
 
 # Views shared by the Apple apps: name, space, pane (tab, index), view, search.
 views=(
@@ -91,7 +93,6 @@ mac() {
         -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents \
         -derivedDataPath target/xcode build -quiet
     local app=target/xcode/Build/Products/Debug/AmiscaraAgents.app/Contents/MacOS/AmiscaraAgents
-    swiftc -O -o "$out/window-id" "$here/window-id.swift"
     mkdir -p "$out/mac" "$root/home"
     local entry name space where view search pid window
     for entry in "${views[@]}" "settings|Shop/API|0 0|settings|"; do
@@ -246,7 +247,42 @@ if want ios || want ipad; then
     want ipad && sim ipad "${IPAD_SIM:-$(sim_id "iPad Pro 13-inch (M5)")}" "$ios_app" true \
         "${views[@]}"
 fi
+# --- Windows and Linux desktop app -------------------------------------
+# The same Svelte UI and Rust side, run here as a debug build against the
+# vite dev server, with a home of its own whose hosts.json holds only the
+# demo session (a local host, as on Linux).
+desktop() {
+    step "Desktop app (debug build)"
+    (cd apps/desktop && { [[ -d node_modules ]] || npm ci --silent; })
+    cargo build -q -p amiscara-desktop
+    local data="$root/home/Library/Application Support/net.staude.amiscara.agents"
+    mkdir -p "$data" "$out/desktop"
+    printf '[{"id":"demo","name":"Mac Studio","kind":"local","socketPath":"%s","notify":false}]\n' \
+        "$socket" >"$data/hosts.json"
+    (cd apps/desktop && exec npx vite --port 1420 --strictPort >"$root/vite.log" 2>&1) &
+    pids+=("$!")
+    sleep 4
+    local entry shot space where view search target pid window
+    for entry in "${views[@]}" "settings|Shop/API|0 0|settings|"; do
+        IFS='|' read -r shot space where view search <<<"$entry"
+        # shellcheck disable=SC2086 # where is "tab index"
+        target=$(pane "$space" $where)
+        HOME="$root/home" AMISCARA_DEMO=$(printf '{"space":"%s","pane":"%s","view":"%s","search":"%s","appearance":"%s"}' \
+            "$space" "$target" "$view" "$search" "$appearance") \
+            target/debug/amiscara-desktop >"$root/desktop.log" 2>&1 &
+        pid=$!
+        pids+=("$pid")
+        sleep 8
+        window=$("$out/window-id" "$pid")
+        screencapture -x -o -l "$window" "$out/desktop/$shot.png"
+        kill "$pid"
+        wait "$pid" 2>/dev/null || true
+        echo "    $out/desktop/$shot.png"
+    done
+}
+
 want android && android
+want desktop && desktop
 if want tvos; then
     step "tvOS app for the simulator"
     sim_build AmiscaraAgents-tvOS "tvOS Simulator"
