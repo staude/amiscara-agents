@@ -108,4 +108,4 @@ Needs a public URL, e.g. a page in the public repository
 > Netzwerk für Hosts im Heim- oder VPN-Netz, Benachrichtigungen für
 > wartende Agents. Mit dem Löschen der App sind alle Daten entfernt.
 >
-> Kontakt: Frank Neumann-Staude, [Adresse und E-Mail ergänzen]
+> Kontakt: über die Support-Seite der App (Link in der Play Console unter „Store-Eintrag“ › „Kontaktdaten“).

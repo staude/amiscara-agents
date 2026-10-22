@@ -94,7 +94,7 @@ enum TVPairing {
 
     // MARK: Addresses in the home network
 
-    /// A host's Bonjour name (`work.local`), keyed by its SSH host key
+    /// A host's Bonjour name (`mac.local`), keyed by its SSH host key
     /// fingerprint. The Mac app on the host writes it; the Apple TV, which
     /// has no VPN (no NetBird on tvOS), connects through it instead of the
     /// address the iPhone uses.
