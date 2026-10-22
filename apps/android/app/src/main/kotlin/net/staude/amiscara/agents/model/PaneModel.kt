@@ -45,6 +45,7 @@ class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
     val flow: StateFlow<State> = state.asStateFlow()
 
     private var live = live
+    private var unwrap = false
     private val follow: PaneFollow = session.followPanePaced(paneId, live, object : PaneObserver {
         override fun onContent(content: PaneContent) {
             state.value = state.value.let {
@@ -75,6 +76,18 @@ class PaneModel(session: HostSession, val paneId: String, live: Boolean) {
     fun hideHistory() {
         state.value = state.value.copy(historyLines = 0)
         follow.setHistoryLines(0u)
+    }
+
+    /**
+     * Joins the rows the terminal wrapped at the pane width, for a view that
+     * wraps lines at its own width (#191). Drops loaded history, whose row
+     * count would no longer match the screen's.
+     */
+    fun setUnwrap(value: Boolean) {
+        if (value == unwrap) return
+        unwrap = value
+        if (state.value.historyLines > 0) hideHistory()
+        follow.setUnwrap(value)
     }
 
     /** The fast pace for the selected pane, the slow one beside it. */

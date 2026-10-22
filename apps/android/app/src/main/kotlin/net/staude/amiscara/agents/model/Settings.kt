@@ -19,6 +19,8 @@ data class TerminalPrefs(
     val scheme: TerminalScheme = TerminalScheme.STANDARD,
     val minContrast: Boolean = true,
     val fontSize: Float = DEFAULT_FONT_SIZE,
+    /** Long lines wrap at the view width instead of scrolling sideways (#191). */
+    val wrapLines: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_FONT_SIZE = 12f
@@ -66,6 +68,7 @@ class Settings(context: Context) {
             putString("terminalScheme", clamped.scheme.name)
             putBoolean("terminalMinContrast", clamped.minContrast)
             putFloat("terminalFontSize", clamped.fontSize)
+            putBoolean("terminalWrapLines", clamped.wrapLines)
         }
         terminalState.value = clamped
     }
@@ -89,6 +92,7 @@ class Settings(context: Context) {
         scheme = enumOr(prefs.getString("terminalScheme", null), TerminalScheme.STANDARD),
         minContrast = prefs.getBoolean("terminalMinContrast", true),
         fontSize = prefs.getFloat("terminalFontSize", TerminalPrefs.DEFAULT_FONT_SIZE),
+        wrapLines = prefs.getBoolean("terminalWrapLines", false),
     )
 
     private fun loadReplies(): List<String> =

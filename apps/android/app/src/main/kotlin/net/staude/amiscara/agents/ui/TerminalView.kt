@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -36,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.staude.amiscara.agents.R
@@ -75,6 +77,8 @@ fun TerminalView(
     fontSize: Float,
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
+    /** Long lines wrap at the view width instead of scrolling sideways (#191). */
+    wrap: Boolean = false,
     onFontSize: (Float) -> Unit = {},
     onLoadMore: () -> Unit = {},
     onHideHistory: () -> Unit = {},
@@ -141,14 +145,27 @@ fun TerminalView(
             )
             return@BoxWithConstraints
         }
-        Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+        val scroll = if (wrap) Modifier else Modifier.horizontalScroll(rememberScrollState())
+        Box(Modifier.fillMaxSize().then(scroll)) {
             SelectionContainer {
-                LazyColumn(state = list, modifier = Modifier.width(width).fillMaxHeight().padding(horizontal = 8.dp)) {
+                LazyColumn(
+                    state = list,
+                    modifier = (if (wrap) Modifier.fillMaxWidth() else Modifier.width(width)).fillMaxHeight().padding(horizontal = 8.dp),
+                ) {
                     item(key = "history") {
                         if (interactive) HistoryRow(state, theme, onLoadMore, onHideHistory)
                     }
-                    itemsIndexed(annotated, key = { index, _ -> lines.size - index }) { _, line ->
-                        Text(line, style = textStyle, color = theme.foreground.color, softWrap = false, maxLines = 1)
+                    itemsIndexed(annotated, key = { index, _ -> lines.size - index }) { index, line ->
+                        // A frame would break apart when wrapped: clip it instead.
+                        val soft = wrap && !isRule(lines[index].spans.joinToString("") { it.text })
+                        Text(
+                            line,
+                            style = textStyle,
+                            color = theme.foreground.color,
+                            softWrap = soft,
+                            maxLines = if (soft) Int.MAX_VALUE else 1,
+                            overflow = TextOverflow.Clip,
+                        )
                     }
                 }
             }
@@ -178,3 +195,11 @@ private fun HistoryRow(state: PaneModel.State, theme: TerminalTheme, onLoadMore:
         }
     }
 }
+
+/**
+ * A row drawn only with box-drawing and block characters, such as a frame
+ * or a rule of a full-screen program: wrapping would break it apart, so a
+ * wrapping view clips it instead (#191).
+ */
+internal fun isRule(text: String): Boolean =
+    text.any { it in '\u2500'..'\u259F' } && text.all { it.isWhitespace() || it in '\u2500'..'\u259F' }

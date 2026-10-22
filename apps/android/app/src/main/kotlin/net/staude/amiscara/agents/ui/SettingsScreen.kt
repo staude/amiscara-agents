@@ -186,6 +186,13 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
                 }
                 Switch(checked = terminal.minContrast, onCheckedChange = { app.settings.setTerminal(terminal.copy(minContrast = it)) })
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_wrap_lines))
+                    Text(stringResource(R.string.settings_wrap_lines_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = terminal.wrapLines, onCheckedChange = { app.settings.setTerminal(terminal.copy(wrapLines = it)) })
+            }
             Text(stringResource(R.string.settings_font_size, terminal.fontSize.toInt()), style = MaterialTheme.typography.labelLarge)
             Slider(
                 value = terminal.fontSize,
