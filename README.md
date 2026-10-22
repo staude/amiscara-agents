@@ -278,7 +278,7 @@ Report vulnerabilities privately, see [SECURITY.md](SECURITY.md).
 | Mac | signed and notarized build (`scripts/release.sh`), or build it yourself, below |
 | iPad, iPhone, Apple TV, Apple Watch | TestFlight is being set up; until then build from source with `scripts/install-ios.sh` |
 | Android | Google Play (testing track), or `scripts/install-android.sh` |
-| Windows, Linux | installers (NSIS, MSI, AppImage, deb) from the [releases](https://github.com/staude/amiscara-agents-releases/releases); the app updates itself |
+| Windows, Linux | installers (NSIS, MSI, AppImage, deb) from the [releases](https://github.com/staude/amiscara-agents/releases); the app updates itself (a `.deb` does not) |
 
 Windows builds are not code signed yet: SmartScreen asks once per version.
 A `.deb` does not update itself; install the new one by hand.
@@ -521,9 +521,9 @@ herdr session stop herdr-remote-test
 - **Windows and Linux:** by tag. `scripts/desktop-release.sh <version>` sets
   the version and tags `desktop-v<version>`; the workflow
   `desktop-release.yml` builds the installers, signs the update files and
-  publishes them to
-  [staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
-  from which the app updates itself. See
+  publishes them to this repository's
+  [releases](https://github.com/staude/amiscara-agents/releases), from which
+  the app updates itself. See
   [apps/desktop/README.md](apps/desktop/README.md#deploy).
 
 Changes are listed in [CHANGELOG.md](CHANGELOG.md). Third-party licenses

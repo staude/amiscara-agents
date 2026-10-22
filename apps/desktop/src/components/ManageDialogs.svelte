@@ -280,6 +280,10 @@
       <input type="checkbox" checked={prefs.fullscreenScroll} onchange={(e) => prefs.setFullscreenScroll(e.currentTarget.checked)} />
       Vollbild-Agenten scrollen: blättert in Claude Code und holt seinen Verlauf, bewegt dabei auch die Ansicht auf dem Host
     </label>
+    <label class="check">
+      <input type="checkbox" checked={updater.automatic} onchange={(e) => updater.setAutomatic(e.currentTarget.checked)} />
+      Automatisch nach Updates suchen: beim Start und danach alle 24 Stunden
+    </label>
     <div class="update-row">
       <span>Version {model.info?.version}</span>
       <button disabled={updater.state === "checking"} onclick={() => updater.check()}>Nach Updates suchen</button>

@@ -90,10 +90,11 @@ them as artifacts. With `gh workflow run ci.yml -f scope=installers` only
 the installers are built (Windows x64 and ARM64, Linux), without the tests
 on macOS and Windows. Pull requests run the full chain without the
 installers; check them first with `scripts/check.sh`.
-Releases go to the public repository
-[staude/amiscara-agents-releases](https://github.com/staude/amiscara-agents-releases),
-because this one is private and the updater must read `latest.json` without
-a token:
+Releases go to this repository's
+[releases](https://github.com/staude/amiscara-agents/releases); the updater
+reads `latest.json` from the release `updates`, which holds the feeds of all
+apps (the Mac app's `appcast.xml` too), so the Mac and desktop tags do not
+compete for the latest release:
 
 ```sh
 scripts/desktop-release.sh 0.2.0      # version in package.json and Cargo.toml, commit, tag
@@ -103,7 +104,10 @@ git push && git push origin desktop-v0.2.0
 The workflow `.github/workflows/desktop-release.yml` checks that tag and
 version match, drafts the release, builds Windows x64 (NSIS, MSI), Windows ARM64 (NSIS only,
 cross-compiled) and Linux
-(AppImage, deb) with `tauri-action`, signs the update files and publishes.
+(AppImage, deb) with `tauri-action`, signs the update files, publishes the
+release and then replaces `latest.json` in the release `updates` (created on
+the first run). A tag must point to a commit on `main`, or the workflow stops
+before it reads the updater key.
 
 Secrets of the GitHub environment `desktop-release`, which only tags
 `desktop-v*` may use (normal CI builds get no key and make no update files):
@@ -113,10 +117,13 @@ Secrets of the GitHub environment `desktop-release`, which only tags
   kept by the maintainer outside the repository. Back it up: without
   it, installed apps accept no further update. Its public half is
   `plugins.updater.pubkey` in `tauri.conf.json`.
-- `RELEASES_TOKEN`: a fine-grained personal access token with
-  "Contents: Read and write" on `amiscara-agents-releases` only.
 
-The app checks `latest.json` on start and offers the update; on Windows
+The releases themselves are written with the workflow's own token
+(`contents: write`), so no personal access token is needed.
+
+The app checks `latest.json` on start and then every 24 hours (setting
+"Automatisch nach Updates suchen" under "Einstellungen", which also has
+"Nach Updates suchen") and offers the update; on Windows
 the installer runs passively and restarts the app. The AppImage updates
 itself, a `.deb` does not (install the new one by hand).
 
