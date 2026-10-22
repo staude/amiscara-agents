@@ -50,6 +50,12 @@ impl Serialize for AppError {
     }
 }
 
+impl From<herdr_session::LinkError> for AppError {
+    fn from(err: herdr_session::LinkError) -> Self {
+        Self::Session(err.into())
+    }
+}
+
 impl From<keyring::Error> for AppError {
     fn from(err: keyring::Error) -> Self {
         Self::KeyStore(err.to_string())

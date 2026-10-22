@@ -59,9 +59,57 @@ pub struct AddHostLink {
     pub host_key: String,
 }
 
+/// Why a code or link was refused. The apps word it for the user; the
+/// text here is for logs. Values from the code are shortened and free of
+/// control characters.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, serde::Serialize)]
+#[serde(tag = "problem", rename_all = "camelCase")]
+pub enum LinkError {
+    #[error("the code is too long")]
+    TooLong,
+    #[error("not an Amiscara Agents code for adding a host")]
+    NotALink,
+    #[error("the code is damaged")]
+    Damaged,
+    #[error("unknown field {field:?} in the code")]
+    UnknownField { field: String },
+    #[error("field {field:?} appears more than once in the code")]
+    DuplicateField { field: String },
+    #[error("the code has no version")]
+    MissingVersion,
+    #[error("the version in the code is invalid")]
+    BadVersion,
+    /// From a newer app version; updating the app helps.
+    #[error("the code comes from a newer app version")]
+    NewerVersion,
+    #[error("the code has no host")]
+    MissingHost,
+    #[error("invalid host {host:?} in the code")]
+    BadHost { host: String },
+    #[error("invalid port in the code")]
+    BadPort,
+    #[error("the code has no user")]
+    MissingUser,
+    #[error("invalid user {user:?} in the code")]
+    BadUser { user: String },
+    /// Not an absolute path, too long, or with `..` or control characters.
+    #[error("invalid socket path in the code")]
+    BadSocket,
+    #[error("the code has no host key")]
+    MissingKey,
+    #[error("the host key in the code is not one line")]
+    KeyNotOneLine,
+    #[error("the host key in the code is too long")]
+    KeyTooLong,
+    #[error("the host key in the code is not a valid OpenSSH key")]
+    BadKey,
+    #[error("invalid name in the code")]
+    BadName,
+}
+
 /// Builds the link for a QR code. Validates like [`decode_add_host_link`],
 /// so a code this app shows is always one it would accept.
-pub fn encode_add_host_link(link: AddHostLink) -> Result<String, SessionError> {
+pub fn encode_add_host_link(link: AddHostLink) -> Result<String, LinkError> {
     let link = validate(link)?;
     let mut out = format!("{ADD_HOST_PREFIX}v={ADD_HOST_VERSION}");
     let mut push = |key: &str, value: &str| {
@@ -82,17 +130,18 @@ pub fn encode_add_host_link(link: AddHostLink) -> Result<String, SessionError> {
 }
 
 /// Reads a scanned code or opened link. Anything that is not exactly a
-/// valid version 1 link is refused with a German message for the user.
-pub fn decode_add_host_link(text: String) -> Result<AddHostLink, SessionError> {
+/// valid version 1 link is refused with the reason, which the apps put in
+/// words in the user's language.
+pub fn decode_add_host_link(text: String) -> Result<AddHostLink, LinkError> {
     let text = text.trim();
     if text.len() > MAX_LINK_LEN {
-        return Err(invalid("Der Code ist zu lang."));
+        return Err(LinkError::TooLong);
     }
     let query = text
         .get(..ADD_HOST_PREFIX.len())
         .filter(|prefix| prefix.eq_ignore_ascii_case(ADD_HOST_PREFIX))
         .and_then(|_| text.get(ADD_HOST_PREFIX.len()..))
-        .ok_or_else(|| invalid("Das ist kein Amiscara-Agents-Code zum Hinzufügen eines Hosts."))?;
+        .ok_or(LinkError::NotALink)?;
 
     let mut version = None;
     let mut name = None;
@@ -102,9 +151,7 @@ pub fn decode_add_host_link(text: String) -> Result<AddHostLink, SessionError> {
     let mut socket = None;
     let mut key = None;
     for pair in query.split('&') {
-        let (field, raw) = pair
-            .split_once('=')
-            .ok_or_else(|| invalid("Der Code ist beschädigt."))?;
+        let (field, raw) = pair.split_once('=').ok_or(LinkError::Damaged)?;
         let value = percent_decode(raw)?;
         let slot = match field {
             "v" => &mut version,
@@ -115,30 +162,27 @@ pub fn decode_add_host_link(text: String) -> Result<AddHostLink, SessionError> {
             "socket" => &mut socket,
             "key" => &mut key,
             _ => {
-                return Err(invalid(&format!(
-                    "Der Code enthält ein unbekanntes Feld „{}“.",
-                    printable(field)
-                )));
+                return Err(LinkError::UnknownField {
+                    field: printable(field),
+                });
             }
         };
         if slot.replace(value).is_some() {
-            return Err(invalid(&format!(
-                "Das Feld „{field}“ steht mehrfach im Code."
-            )));
+            return Err(LinkError::DuplicateField {
+                field: field.to_owned(),
+            });
         }
     }
 
     let version: u32 = version
-        .ok_or_else(|| invalid("Dem Code fehlt die Versionsangabe."))?
+        .ok_or(LinkError::MissingVersion)?
         .parse()
-        .map_err(|_| invalid("Die Versionsangabe im Code ist ungültig."))?;
+        .map_err(|_| LinkError::BadVersion)?;
     if version > ADD_HOST_VERSION {
-        return Err(invalid(
-            "Der Code stammt von einer neueren App-Version. Bitte aktualisieren Sie Amiscara Agents.",
-        ));
+        return Err(LinkError::NewerVersion);
     }
     if version != ADD_HOST_VERSION {
-        return Err(invalid("Die Versionsangabe im Code ist ungültig."));
+        return Err(LinkError::BadVersion);
     }
     let port = match port {
         None => 22,
@@ -146,11 +190,11 @@ pub fn decode_add_host_link(text: String) -> Result<AddHostLink, SessionError> {
     };
     validate(AddHostLink {
         name: name.unwrap_or_default(),
-        host: host.ok_or_else(|| invalid("Im Code fehlt der Host."))?,
+        host: host.ok_or(LinkError::MissingHost)?,
         port,
-        user: user.ok_or_else(|| invalid("Im Code fehlt der Benutzer."))?,
+        user: user.ok_or(LinkError::MissingUser)?,
         socket_path: socket.unwrap_or_default(),
-        host_key: key.ok_or_else(|| invalid("Im Code fehlt der Host-Key."))?,
+        host_key: key.ok_or(LinkError::MissingKey)?,
     })
 }
 
@@ -164,10 +208,10 @@ pub fn public_key_fingerprint(public_openssh: String) -> Result<String, SessionE
 /// Checks every field and returns them normalized (name trimmed, key
 /// re-encoded). Other fields are taken as they are: stray whitespace or a
 /// line break in a code is an error, not something to repair silently.
-fn validate(link: AddHostLink) -> Result<AddHostLink, SessionError> {
+fn validate(link: AddHostLink) -> Result<AddHostLink, LinkError> {
     let host = link.host;
     if host.is_empty() {
-        return Err(invalid("Im Code fehlt der Host."));
+        return Err(LinkError::MissingHost);
     }
     // A leading "-" could be read as an ssh option elsewhere; brackets,
     // spaces and the like have no place in a host name or IP address.
@@ -177,19 +221,18 @@ fn validate(link: AddHostLink) -> Result<AddHostLink, SessionError> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':'))
     {
-        return Err(invalid(&format!(
-            "Der Host „{}“ im Code ist ungültig.",
-            printable(&host)
-        )));
+        return Err(LinkError::BadHost {
+            host: printable(&host),
+        });
     }
 
     if link.port == 0 {
-        return Err(invalid("Der Port im Code ist ungültig."));
+        return Err(LinkError::BadPort);
     }
 
     let user = link.user;
     if user.is_empty() {
-        return Err(invalid("Im Code fehlt der Benutzer."));
+        return Err(LinkError::MissingUser);
     }
     if user.len() > MAX_USER_LEN
         || user.starts_with('-')
@@ -197,10 +240,9 @@ fn validate(link: AddHostLink) -> Result<AddHostLink, SessionError> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
     {
-        return Err(invalid(&format!(
-            "Der Benutzer „{}“ im Code ist ungültig.",
-            printable(&user)
-        )));
+        return Err(LinkError::BadUser {
+            user: printable(&user),
+        });
     }
 
     let socket_path = link.socket_path;
@@ -210,19 +252,17 @@ fn validate(link: AddHostLink) -> Result<AddHostLink, SessionError> {
             || socket_path.chars().any(char::is_control)
             || socket_path.split('/').any(|part| part == ".."))
     {
-        return Err(invalid(
-            "Der Socket-Pfad im Code ist ungültig. Erwartet wird ein absoluter Pfad.",
-        ));
+        return Err(LinkError::BadSocket);
     }
 
     let host_key = link.host_key.as_str();
     if host_key.contains(['\n', '\r']) {
-        return Err(invalid("Der Host-Key im Code muss genau eine Zeile sein."));
+        return Err(LinkError::KeyNotOneLine);
     }
     if host_key.len() > MAX_KEY_LEN {
-        return Err(invalid("Der Host-Key im Code ist zu lang."));
+        return Err(LinkError::KeyTooLong);
     }
-    let bad_key = || invalid("Der Host-Key im Code ist kein gültiger OpenSSH-Schlüssel.");
+    let bad_key = || LinkError::BadKey;
     let host_key = keys::parse_public(host_key)
         .map_err(|_| bad_key())?
         .to_openssh()
@@ -235,7 +275,7 @@ fn validate(link: AddHostLink) -> Result<AddHostLink, SessionError> {
         name.to_owned()
     };
     if name.chars().count() > MAX_NAME_CHARS || name.chars().any(char::is_control) {
-        return Err(invalid("Der Name im Code ist ungültig."));
+        return Err(LinkError::BadName);
     }
 
     Ok(AddHostLink {
@@ -248,14 +288,14 @@ fn validate(link: AddHostLink) -> Result<AddHostLink, SessionError> {
     })
 }
 
-fn parse_port(text: &str) -> Result<u16, SessionError> {
+fn parse_port(text: &str) -> Result<u16, LinkError> {
     // Digits only: `u16::from_str` would also take a leading "+".
     if text.is_empty() || !text.bytes().all(|b| b.is_ascii_digit()) {
-        return Err(invalid("Der Port im Code ist ungültig."));
+        return Err(LinkError::BadPort);
     }
     match text.parse::<u16>() {
         Ok(port) if port != 0 => Ok(port),
-        _ => Err(invalid("Der Port im Code ist ungültig.")),
+        _ => Err(LinkError::BadPort),
     }
 }
 
@@ -273,8 +313,8 @@ fn percent_encode(value: &str) -> String {
     out
 }
 
-fn percent_decode(value: &str) -> Result<String, SessionError> {
-    let damaged = || invalid("Der Code ist beschädigt.");
+fn percent_decode(value: &str) -> Result<String, LinkError> {
+    let damaged = || LinkError::Damaged;
     let bytes = value.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut index = 0;
@@ -307,10 +347,6 @@ fn printable(text: &str) -> String {
     out
 }
 
-fn invalid(message: &str) -> SessionError {
-    SessionError::InvalidLink(message.to_owned())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,10 +368,10 @@ mod tests {
         }
     }
 
-    fn message(result: Result<AddHostLink, SessionError>) -> String {
+    fn refused(result: Result<AddHostLink, LinkError>) -> LinkError {
         match result {
-            Err(SessionError::InvalidLink(message)) => message,
-            other => panic!("expected InvalidLink, got {other:?}"),
+            Err(err) => err,
+            Ok(link) => panic!("expected a refusal, got {link:?}"),
         }
     }
 
@@ -355,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn round_trip_keeps_every_field() -> Result<(), SessionError> {
+    fn round_trip_keeps_every_field() -> Result<(), LinkError> {
         let link = sample();
         let text = encode_add_host_link(link.clone())?;
         assert!(text.starts_with("amiscara-agents://add-host?v=1&"));
@@ -365,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn plus_in_base64_survives() -> Result<(), SessionError> {
+    fn plus_in_base64_survives() -> Result<(), LinkError> {
         // Generate until the key's base64 contains a "+", which must not be
         // read as a space.
         let link = (0..200)
@@ -382,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn defaults_for_optional_fields() -> Result<(), SessionError> {
+    fn defaults_for_optional_fields() -> Result<(), LinkError> {
         let text = format!(
             "{ADD_HOST_PREFIX}v=1&host=10.0.0.5&user=frank&key={}",
             percent_encode(&host_key())
@@ -396,9 +432,13 @@ mod tests {
 
     #[test]
     fn refuses_other_codes() {
-        assert!(message(decode_add_host_link("https://example.com".into())).contains("kein"));
-        assert!(
-            message(decode_add_host_link("amiscara-agents://add-host".into())).contains("kein")
+        assert_eq!(
+            refused(decode_add_host_link("https://example.com".into())),
+            LinkError::NotALink
+        );
+        assert_eq!(
+            refused(decode_add_host_link("amiscara-agents://add-host".into())),
+            LinkError::NotALink
         );
         // The pre-rename scheme with an otherwise valid link.
         let old_scheme = encode_add_host_link(sample()).expect("encode").replacen(
@@ -406,27 +446,43 @@ mod tests {
             "herdr-remote://",
             1,
         );
-        assert!(message(decode_add_host_link(old_scheme)).contains("kein"));
-        assert!(message(decode_add_host_link(String::new())).contains("kein"));
+        assert_eq!(
+            refused(decode_add_host_link(old_scheme)),
+            LinkError::NotALink
+        );
+        assert_eq!(
+            refused(decode_add_host_link(String::new())),
+            LinkError::NotALink
+        );
     }
 
     #[test]
     fn refuses_newer_and_missing_versions() {
-        assert!(message(decode_add_host_link(with_field("v", Some("2")))).contains("neueren"));
-        assert!(message(decode_add_host_link(with_field("v", None))).contains("Version"));
-        assert!(message(decode_add_host_link(with_field("v", Some("0")))).contains("Version"));
+        let version = |raw| refused(decode_add_host_link(with_field("v", raw)));
+        assert_eq!(version(Some("2")), LinkError::NewerVersion);
+        assert_eq!(version(None), LinkError::MissingVersion);
+        assert_eq!(version(Some("0")), LinkError::BadVersion);
+        assert_eq!(version(Some("x")), LinkError::BadVersion);
     }
 
     #[test]
     fn refuses_unknown_and_duplicate_fields() {
-        assert!(
-            message(decode_add_host_link(with_field("proxy", Some("x")))).contains("unbekannt")
+        assert_eq!(
+            refused(decode_add_host_link(with_field("proxy", Some("x")))),
+            LinkError::UnknownField {
+                field: "proxy".into()
+            }
         );
         let text = format!(
             "{}&user=root",
             encode_add_host_link(sample()).expect("encode")
         );
-        assert!(message(decode_add_host_link(text)).contains("mehrfach"));
+        assert_eq!(
+            refused(decode_add_host_link(text)),
+            LinkError::DuplicateField {
+                field: "user".into()
+            }
+        );
     }
 
     #[test]
@@ -439,8 +495,20 @@ mod tests {
             let result = decode_add_host_link(with_field("user", Some(user)));
             assert!(result.is_err(), "user {user:?} was accepted");
         }
+        assert_eq!(
+            refused(decode_add_host_link(with_field("host", Some("a%20b")))),
+            LinkError::BadHost { host: "a b".into() }
+        );
+        assert_eq!(
+            refused(decode_add_host_link(with_field("user", Some("-l")))),
+            LinkError::BadUser { user: "-l".into() }
+        );
         for port in ["0", "65536", "+22", "22a", ""] {
-            assert!(message(decode_add_host_link(with_field("port", Some(port)))).contains("Port"));
+            assert_eq!(
+                refused(decode_add_host_link(with_field("port", Some(port)))),
+                LinkError::BadPort,
+                "port {port:?}"
+            );
         }
     }
 
@@ -448,11 +516,12 @@ mod tests {
     fn refuses_bad_socket_paths() {
         for path in ["relative/herdr.sock", "/a/../b", "/a%0Ab"] {
             let result = decode_add_host_link(with_field("socket", Some(path)));
-            assert!(message(result).contains("Socket"), "path {path:?}");
+            assert_eq!(refused(result), LinkError::BadSocket, "path {path:?}");
         }
         let long = format!("/{}", "a".repeat(MAX_SOCKET_LEN));
-        assert!(
-            message(decode_add_host_link(with_field("socket", Some(&long)))).contains("Socket")
+        assert_eq!(
+            refused(decode_add_host_link(with_field("socket", Some(&long)))),
+            LinkError::BadSocket
         );
     }
 
@@ -460,8 +529,9 @@ mod tests {
     fn refuses_bad_keys() {
         let key = percent_encode(&host_key());
         let two_lines = format!("{key}%0A{key}");
-        assert!(
-            message(decode_add_host_link(with_field("key", Some(&two_lines)))).contains("Zeile")
+        assert_eq!(
+            refused(decode_add_host_link(with_field("key", Some(&two_lines)))),
+            LinkError::KeyNotOneLine
         );
         for raw in [
             "ssh-ed25519%20AAAA",
@@ -469,19 +539,22 @@ mod tests {
             "-----BEGIN%20OPENSSH%20PRIVATE%20KEY-----",
         ] {
             let result = decode_add_host_link(with_field("key", Some(raw)));
-            assert!(message(result).contains("OpenSSH"), "key {raw:?}");
+            assert_eq!(refused(result), LinkError::BadKey, "key {raw:?}");
         }
-        assert!(message(decode_add_host_link(with_field("key", None))).contains("Host-Key"));
+        assert_eq!(
+            refused(decode_add_host_link(with_field("key", None))),
+            LinkError::MissingKey
+        );
     }
 
     #[test]
     fn refuses_damaged_encoding() {
         for raw in ["%G1", "%4", "%FF"] {
             let result = decode_add_host_link(with_field("name", Some(raw)));
-            assert!(message(result).contains("beschädigt"), "name {raw:?}");
+            assert_eq!(refused(result), LinkError::Damaged, "name {raw:?}");
         }
         let text = format!("{ADD_HOST_PREFIX}v=1&host");
-        assert!(message(decode_add_host_link(text)).contains("beschädigt"));
+        assert_eq!(refused(decode_add_host_link(text)), LinkError::Damaged);
     }
 
     #[test]
@@ -490,7 +563,12 @@ mod tests {
             host: "bad host".into(),
             ..sample()
         };
-        assert!(encode_add_host_link(link).is_err());
+        assert_eq!(
+            encode_add_host_link(link),
+            Err(LinkError::BadHost {
+                host: "bad host".into()
+            })
+        );
     }
 
     #[test]
