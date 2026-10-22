@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use herdr_core::pane::{self, Pacing};
 use herdr_core::sync::{self, SyncState};
-use herdr_core::{actions, claude};
+use herdr_core::{actions, claude, fullscreen};
 use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError, keys};
 use tokio::runtime::Handle;
 use tokio::sync::watch;
@@ -46,6 +46,9 @@ pub enum SessionError {
     /// Claude Code session for the pane.
     #[error("{0}")]
     Files(String),
+    /// herdr collects a full-screen agent's history only while it is idle.
+    #[error("{0}")]
+    AgentWorking(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -63,6 +66,15 @@ impl From<pane::PaneError> for SessionError {
         match err {
             pane::PaneError::Transport(_) => Self::NotConnected(err.to_string()),
             pane::PaneError::Json(_) => Self::Rejected(err.to_string()),
+        }
+    }
+}
+
+impl From<fullscreen::HistoryError> for SessionError {
+    fn from(err: fullscreen::HistoryError) -> Self {
+        match err {
+            fullscreen::HistoryError::AgentWorking => Self::AgentWorking(err.to_string()),
+            fullscreen::HistoryError::Pane(err) => err.into(),
         }
     }
 }
@@ -118,6 +130,28 @@ impl std::fmt::Debug for SshIdentity {
         match self {
             Self::Key(_) => f.write_str("Key(..)"),
             Self::Agent => f.write_str("Agent"),
+        }
+    }
+}
+
+/// A step through a full-screen agent's own view, see
+/// [`Session::scroll_agent`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ScrollStep {
+    /// Half a screen up.
+    PageUp,
+    PageDown,
+    /// Back to the newest output, which the agent then follows again.
+    Bottom,
+}
+
+impl From<ScrollStep> for fullscreen::Scroll {
+    fn from(step: ScrollStep) -> Self {
+        match step {
+            ScrollStep::PageUp => Self::PageUp,
+            ScrollStep::PageDown => Self::PageDown,
+            ScrollStep::Bottom => Self::Bottom,
         }
     }
 }
@@ -389,6 +423,26 @@ impl Session {
         })
     }
 
+    /// The transcript of a full-screen agent such as Claude Code, which
+    /// herdr keeps no scrollback for: up to `pane::MAX_HISTORY_LINES` rows
+    /// as plain text, the screen included. herdr scrolls the agent's view
+    /// on the host through it and back down, so this is more than a read;
+    /// it fails with [`SessionError::AgentWorking`] unless the agent is
+    /// idle. Takes a moment.
+    pub async fn agent_history(&self, pane_id: &str) -> Result<PaneContent, SessionError> {
+        let conn = self.connection()?;
+        let screen = fullscreen::read_history(&conn, pane_id).await?;
+        Ok(view::pane_content(&screen))
+    }
+
+    /// Scrolls the view of a full-screen agent, also while it works. Moves
+    /// the view in herdr's own client on the host too; end with
+    /// [`ScrollStep::Bottom`].
+    pub async fn scroll_agent(&self, pane_id: &str, step: ScrollStep) -> Result<(), SessionError> {
+        let conn = self.connection()?;
+        Ok(fullscreen::scroll(&conn, pane_id, step.into()).await?)
+    }
+
     /// Renames a space.
     pub async fn rename_workspace(
         &self,
@@ -520,7 +574,7 @@ impl Session {
     pub fn follow_pane(&self, pane_id: String, live: bool, sink: impl PaneSink) -> PaneFollow {
         let state = self.state.lock().ok().and_then(|state| state.clone());
         let (pacing_tx, pacing) = watch::channel(pacing_for(live));
-        let (history_tx, history) = watch::channel(0);
+        let (reading_tx, reading) = watch::channel(pane::Reading::default());
         let (stop_tx, mut stop) = watch::channel(false);
         self.runtime.spawn(async move {
             let Some(mut state) = state else {
@@ -533,7 +587,7 @@ impl Session {
                         &conn,
                         &pane_id,
                         pacing.clone(),
-                        history.clone(),
+                        reading.clone(),
                         stop.clone(),
                         &sink,
                     )
@@ -555,7 +609,7 @@ impl Session {
         PaneFollow {
             stop: stop_tx,
             pacing: pacing_tx,
-            history: history_tx,
+            reading: reading_tx,
         }
     }
 }
@@ -578,12 +632,12 @@ async fn follow_once(
     conn: &Connection,
     pane_id: &str,
     pacing: watch::Receiver<Pacing>,
-    history: watch::Receiver<u32>,
+    reading: watch::Receiver<pane::Reading>,
     mut stop: watch::Receiver<bool>,
     sink: &impl PaneSink,
 ) -> Result<(), String> {
     let (tx, mut rx) = watch::channel(None);
-    let follow = pane::follow_with_history(conn, pane_id, pacing, history, &tx);
+    let follow = pane::follow_with_history(conn, pane_id, pacing, reading, &tx);
     tokio::pin!(follow);
     // Owns `rx`: when it ends, the follower sees nobody watching and returns
     // at its next pause.
@@ -621,7 +675,7 @@ const STOP_GRACE: Duration = Duration::from_secs(10);
 pub struct PaneFollow {
     stop: watch::Sender<bool>,
     pacing: watch::Sender<Pacing>,
-    history: watch::Sender<u32>,
+    reading: watch::Sender<pane::Reading>,
 }
 
 impl PaneFollow {
@@ -647,8 +701,20 @@ impl PaneFollow {
     /// `herdr_core::pane::MAX_HISTORY_LINES`. Content with the new value
     /// follows at once.
     pub fn set_history_lines(&self, lines: u32) {
-        self.history
-            .send_replace(lines.min(pane::MAX_HISTORY_LINES));
+        let lines = lines.min(pane::MAX_HISTORY_LINES);
+        self.reading
+            .send_modify(|reading| reading.history_lines = lines);
+    }
+
+    /// Joins the rows the terminal wrapped at the pane width into whole
+    /// lines, for a client that wraps them at its own width (#191). Content
+    /// with the new value follows at once.
+    pub fn set_unwrap(&self, unwrap: bool) {
+        self.reading.send_if_modified(|reading| {
+            let changed = reading.unwrap != unwrap;
+            reading.unwrap = unwrap;
+            changed
+        });
     }
 }
 

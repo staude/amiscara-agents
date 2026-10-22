@@ -224,6 +224,24 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The transcript of a full-screen agent such as Claude Code (#187).
+    /// herdr collects it by scrolling the idle agent on the host and back,
+    /// so it needs input allowed like sending keys.
+    func agentHistory(paneID: String) async throws -> PaneContent {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.agentHistory(paneId: paneID)
+        }.value
+    }
+
+    /// Scrolls the view of a full-screen agent, on the host too (#187).
+    func scrollAgent(_ step: ScrollStep, in paneID: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.scrollAgent(paneId: paneID, step: step)
+        }.value
+    }
+
     /// The last `lines` lines with text of a pane's screen (#156); `nil`
     /// when not connected or the pane cannot be read. Read only.
     func screenExcerpt(paneID: String, lines: UInt32) async -> String? {
@@ -322,6 +340,8 @@ func inputErrorMessage(_ error: Error) -> String {
         String(localized: "Hochladen fehlgeschlagen: \(message)")
     case FfiError.Files(let message):
         String(localized: "Dateien auf dem Host nicht lesbar: \(message)")
+    case FfiError.AgentWorking:
+        String(localized: "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt.")
     default:
         error.localizedDescription
     }

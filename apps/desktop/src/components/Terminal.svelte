@@ -1,9 +1,10 @@
 <script lang="ts">
   import { openUrl } from "@tauri-apps/plugin-opener";
   import type { PaneModel } from "../lib/pane.svelte";
+  import { canWrite } from "../lib/manage.svelte";
   import { prefs } from "../lib/prefs.svelte";
   import type { SearchMatch } from "../lib/search";
-  import { css, spanStyle } from "../lib/term";
+  import { css, isRule, spanStyle } from "../lib/term";
   import type { StyledSpan } from "../lib/types";
 
   // `history`: scrollback controls above the first line (selected pane only).
@@ -38,6 +39,12 @@
   });
 
   let theme = $derived(prefs.terminal);
+  let wrap = $derived(prefs.wrapLines);
+
+  $effect(() => model.setUnwrap(wrap));
+
+  /** Steps through a full-screen agent (#187); they move its view on the host too. */
+  let fullscreen = $derived(prefs.fullscreenScroll && canWrite(model.hostId));
 
   let byLine = $derived.by(() => {
     const map = new Map<number, { match: SearchMatch; index: number }[]>();
@@ -123,29 +130,43 @@
   bind:clientWidth={width}
   onscroll={onScroll}
   class:dark={theme.dark}
+  class:wrap
   style="font-size: {fontSize}px; --term-bg: {css(theme.background)}; --term-fg: {css(theme.foreground)}"
 >
   {#if history && model.content}
     <div class="history">
       {#if model.isLoadingHistory}
         <span>Verlauf wird geladen …</span>
+      {:else if model.loadingAgentHistory}
+        <span>Verlauf wird vom Agenten geholt …</span>
+      {:else if model.agentHistory}
+        <span>Verlauf des Agenten, ohne Farben</span>
+        <button onclick={() => model.loadAgentHistory()}>Aktualisieren</button>
       {:else if model.canLoadMoreHistory}
         <button onclick={() => model.loadMoreHistory()}>↑ Älteren Verlauf laden</button>
+      {:else if model.hasNoHistory && fullscreen}
+        <button onclick={() => model.loadAgentHistory()} title="Geht nur, wenn der Agent nicht arbeitet">Verlauf vom Agenten holen</button>
+        <button onclick={() => model.scrollAgent("pageUp")} title="Seite hoch" aria-label="Seite hoch">↑</button>
+        <button onclick={() => model.scrollAgent("pageDown")} title="Seite runter" aria-label="Seite runter">↓</button>
+        <button onclick={() => model.scrollAgent("bottom")}>Ans Ende</button>
       {:else if model.hasNoHistory}
-        <span>Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen.</span>
+        <span>Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten.</span>
       {:else if model.content.historyLines > 0 && model.content.truncated}
         <span>Mehr als {model.content.historyLines} Zeilen liefert herdr nicht.</span>
       {:else if model.content.historyLines > 0}
         <span>Anfang des Verlaufs</span>
       {/if}
-      {#if model.content.historyLines > 0}
+      {#if model.content.historyLines > 0 && !model.loadingAgentHistory}
         <button onclick={() => model.hideHistory()}>Nur Bildschirm</button>
+      {/if}
+      {#if model.agentError}
+        <span>{model.agentError}</span>
       {/if}
     </div>
   {/if}
   {#if model.content}
     {#each model.content.lines as line, index (index)}
-      <div class="line" data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}{#if part.span.link}<a
+      <div class="line" class:rule={wrap && isRule(line.spans)} data-line={index}>{#each segments(line.spans, index) as part, partIndex (partIndex)}{#if part.span.link}<a
               href={part.span.link}
               class={part.mark}
               style={part.mark ? "" : spanStyle(part.span, theme)}
@@ -184,6 +205,19 @@
     white-space: pre;
     min-height: 1.25em;
     width: max-content;
+  }
+  /* Long lines wrap at the view width; frames are clipped instead (#191). */
+  .wrap {
+    overflow-x: hidden;
+  }
+  .wrap .line {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    width: auto;
+  }
+  .wrap .line.rule {
+    white-space: pre;
+    overflow: hidden;
   }
   .history {
     display: flex;

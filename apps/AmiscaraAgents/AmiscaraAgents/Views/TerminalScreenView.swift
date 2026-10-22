@@ -13,6 +13,8 @@ struct TerminalScreenView: View {
     /// history too, since it is part of `content`.
     var search = SearchHighlight()
     @AppStorage("terminalFontSize") private var preferredFontSize = Platform.defaultTerminalFontSize
+    /// Long lines wrap at the view width instead of scrolling sideways (#191).
+    @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
     @State private var width: CGFloat = 0
     /// Set once the user scrolled, so the first layout (which may briefly sit
     /// at the top before the bottom anchor applies) cannot load history.
@@ -41,7 +43,7 @@ struct TerminalScreenView: View {
 
     private func lines(_ theme: TerminalTheme) -> some View {
         ScrollViewReader { proxy in
-            ScrollView([.vertical, .horizontal]) {
+            ScrollView(wrapLines ? .vertical : [.vertical, .horizontal]) {
                 // A plain VStack: the visible screen is about 60 lines, and a
                 // LazyVStack in a two-axis scroll view could stay undrawn until
                 // the content changed (a black pane on the iPad). With history
@@ -52,15 +54,28 @@ struct TerminalScreenView: View {
                             .padding(.bottom, 8)
                     }
                     ForEach(Array(content.lines.enumerated()), id: \.offset) { index, line in
-                        Text(TerminalStyle.attributed(
+                        let text = Text(TerminalStyle.attributed(
                             line,
                             theme: theme,
                             fontSize: fontSize,
                             matches: search.byLine[index] ?? [],
                             current: search.current
                         ))
-                        .fixedSize()
-                        .frame(minHeight: fontSize * 1.25, alignment: .leading)
+                        if !wrapLines {
+                            text
+                                .fixedSize()
+                                .frame(minHeight: fontSize * 1.25, alignment: .leading)
+                        } else if line.isRule {
+                            // A frame would break apart: clip it instead.
+                            text
+                                .fixedSize()
+                                .frame(maxWidth: .infinity, minHeight: fontSize * 1.25, alignment: .leading)
+                                .clipped()
+                        } else {
+                            text
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, minHeight: fontSize * 1.25, alignment: .leading)
+                        }
                     }
                 }
                 .padding(10)
@@ -123,37 +138,78 @@ struct TerminalScreenView: View {
 }
 
 /// First row of the pane: load older lines, or say why there are none.
+/// For a full-screen agent, which herdr keeps no scrollback for, it can
+/// fetch the agent's transcript or page through its own view (#187).
 private struct HistoryHeader: View {
     let model: PaneModel
     let content: PaneContent
     let theme: TerminalTheme
+    @AppStorage(PaneModel.fullscreenScrollKey) private var fullscreenScroll = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            if model.isLoadingHistory {
-                ProgressView().controlSize(.small)
-                Text("Verlauf wird geladen …")
-            } else if model.canLoadMoreHistory {
-                Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
-                    model.loadMoreHistory()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                if model.isLoadingHistory {
+                    ProgressView().controlSize(.small)
+                    Text("Verlauf wird geladen …")
+                } else if model.isLoadingAgentHistory {
+                    ProgressView().controlSize(.small)
+                    Text("Verlauf wird vom Agenten geholt …")
+                } else if model.agentHistory != nil {
+                    Text("Verlauf des Agenten, ohne Farben")
+                    Button("Aktualisieren", systemImage: "arrow.clockwise") {
+                        model.loadAgentHistory()
+                    }
+                } else if model.canLoadMoreHistory {
+                    Button("Älteren Verlauf laden", systemImage: "arrow.up.to.line") {
+                        model.loadMoreHistory()
+                    }
+                } else if model.hasNoHistory, fullscreenScroll {
+                    fullscreenControls
+                } else if model.hasNoHistory {
+                    Text(noHistory)
+                } else if content.historyLines > 0, content.truncated {
+                    Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
+                } else if content.historyLines > 0 {
+                    Text("Anfang des Verlaufs")
                 }
-            } else if model.hasNoHistory {
-                Text("Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen.")
-            } else if content.historyLines > 0, content.truncated {
-                Text("Mehr als \(content.historyLines) Zeilen liefert herdr nicht.")
-            } else if content.historyLines > 0 {
-                Text("Anfang des Verlaufs")
+                if content.historyLines > 0 {
+                    Button("Nur Bildschirm", systemImage: "rectangle.compress.vertical") {
+                        model.hideHistory()
+                    }
+                }
             }
-            if content.historyLines > 0 {
-                Button("Nur Bildschirm", systemImage: "rectangle.compress.vertical") {
-                    model.hideHistory()
-                }
+            if let error = model.agentError {
+                Label(error, systemImage: "exclamationmark.triangle")
             }
         }
         .font(.callout)
         .buttonStyle(.bordered)
         .foregroundStyle(theme.foreground.color.opacity(0.7))
         .fixedSize()
+    }
+
+    private var noHistory: LocalizedStringKey {
+        #if os(tvOS)
+        "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen."
+        #else
+        "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten."
+        #endif
+    }
+
+    /// Both move the agent's view on the host too, which the setting
+    /// accepts.
+    @ViewBuilder private var fullscreenControls: some View {
+        Button("Verlauf vom Agenten holen", systemImage: "text.alignleft") {
+            model.loadAgentHistory()
+        }
+        .help(String(localized: "Geht nur, wenn der Agent nicht arbeitet"))
+        Group {
+            Button("Seite hoch", systemImage: "chevron.up") { model.scrollAgent(.pageUp) }
+            Button("Seite runter", systemImage: "chevron.down") { model.scrollAgent(.pageDown) }
+            Button("Ans Ende", systemImage: "arrow.down.to.line") { model.scrollAgent(.bottom) }
+        }
+        .labelStyle(.iconOnly)
     }
 }
 
@@ -231,5 +287,24 @@ enum TerminalStyle {
             let v = (Double(index - 232) * 10 + 8) / 255
             return RGB(v, v, v)
         }
+    }
+}
+
+extension StyledLine {
+    /// A row drawn only with box-drawing and block characters, such as a
+    /// frame or a rule of a full-screen program: wrapping would break it
+    /// apart, so a wrapping view clips it instead (#191).
+    var isRule: Bool {
+        var hasBox = false
+        for span in spans {
+            for scalar in span.text.unicodeScalars {
+                if (0x2500...0x259F).contains(scalar.value) {
+                    hasBox = true
+                } else if !CharacterSet.whitespaces.contains(scalar) {
+                    return false
+                }
+            }
+        }
+        return hasBox
     }
 }

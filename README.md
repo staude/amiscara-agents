@@ -67,7 +67,10 @@ code), so a host is set up the same way everywhere.
   changes. Split tabs side by side as herdr lays them out, search with
   highlighted hits, font zoom, color schemes with a minimum contrast, web
   addresses in the output open in the browser, and older lines loaded in
-  steps up to 1000 lines of scrollback.
+  steps up to 1000 lines of scrollback. Optionally ("Vollbild-Agenten
+  scrollen") page through a full-screen agent's own view and fetch its
+  whole transcript; experimentally ("Zeilen umbrechen") wrap long lines at
+  the window width instead of scrolling sideways.
 - **Claude Code conversation:** for Claude panes the conversation itself
   (prompts, answers, tool calls), read from `~/.claude/projects` on the host
   over SFTP.
@@ -331,11 +334,16 @@ What the apps cannot do, because herdr's API does not offer it:
 - **Pane size:** herdr sizes panes for the terminal attached on the host;
   without one, panes keep their last size (new ones 120×40). The apps show
   lines in that width and scroll sideways on narrow screens; the API has no
-  way to set an absolute pane size.
+  way to set an absolute pane size. The experimental setting "Zeilen
+  umbrechen" reads lines with herdr's soft wraps joined and wraps them at the
+  window width; full-screen agents that wrap their own lines (Claude Code)
+  are only clipped or wrapped a second time.
 - **Scrollback of full-screen agents:** programs on the terminal's
-  alternate screen, such as Claude Code, get no scrollback in herdr. The
-  apps then show the screen only; for Claude the conversation view is the
-  way to read back.
+  alternate screen, such as Claude Code, get no scrollback in herdr. For
+  Claude the conversation view is the way to read back. The setting
+  "Vollbild-Agenten scrollen" sends page keys to the agent and fetches its
+  transcript through `agent.read` (idle agents only); both move the agent's
+  view on the host too, so it is off by default.
 - **Push without a Mac:** iPhone and iPad get pushes only through the Mac
   app's iCloud records. Android and the desktop app notify only while they
   run (Android's standby service keeps it running).
