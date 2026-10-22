@@ -225,7 +225,7 @@ extension HostStore {
     /// Leaves this Mac's Bonjour name (`<LocalHostName>.local`) under its SSH
     /// host key in iCloud, for Apple TVs that cannot use the VPN address.
     func publishHomeNetworkName() async {
-        guard let fingerprint = cloudPush.hostKey,
+        guard !DemoMode.isOn, let fingerprint = cloudPush.hostKey,
               let local = SCDynamicStoreCopyLocalHostName(nil) as String?, !local.isEmpty
         else { return }
         try? await TVPairing.publishLANName("\(local).local", hostKey: fingerprint)

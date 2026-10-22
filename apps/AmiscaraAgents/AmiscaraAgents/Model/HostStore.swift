@@ -20,6 +20,12 @@ final class HostStore {
     }()
 
     init() {
+        if let socket = DemoMode.socket {
+            // Screenshots (#199): only the demo session, nothing goes out.
+            connections = [connect(DemoMode.host(socket: socket))]
+            connections.forEach { $0.start() }
+            return
+        }
         load()
         if connections.isEmpty, Platform.hasLocalSocket,
            FileManager.default.fileExists(atPath: Platform.localSocketPath) {
@@ -57,6 +63,7 @@ final class HostStore {
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
                 .count)
+            guard !DemoMode.isOn else { return }
             self.widgets.publish(self)
             #if os(macOS)
             if let (key, name) = self.cloudHost(of: connection) {
@@ -191,6 +198,7 @@ final class HostStore {
     }
 
     private func save() {
+        guard !DemoMode.isOn else { return }
         do {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),

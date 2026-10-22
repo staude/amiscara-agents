@@ -40,6 +40,8 @@ struct AmiscaraAgentsApp: App {
             // iOS suspends the app and the SSH session with it. Coming back,
             // reconnect at once instead of waiting out the retry pause.
             store.notifier.appActive = phase == .active
+            // The screenshot demo (#199) leaves widgets and iCloud alone.
+            guard !DemoMode.isOn else { return }
             if phase == .active {
                 store.reconnectStale()
                 #if os(iOS)

@@ -55,6 +55,15 @@ struct PaneDetailView: View {
             }
         }
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
+        .task(id: selection) {
+            // The screenshot demo (#199) opens these for its pane.
+            guard DemoMode.isOn, selection?.paneID == DemoMode.pane else { return }
+            if let query = DemoMode.search, !query.isEmpty {
+                search.isOpen = true
+                search.query = query
+            }
+            showingConversation = DemoMode.view == "conversation"
+        }
     }
 
     private struct FollowKey: Hashable {

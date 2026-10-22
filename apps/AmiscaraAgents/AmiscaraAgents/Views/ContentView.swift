@@ -8,6 +8,9 @@ struct ContentView: View {
     /// An opened "add host" link and the new host it is meant for.
     @State private var pendingImport: (hostID: UUID, link: String)?
     @State private var switching = false
+    #if os(macOS)
+    @Environment(\.openSettings) private var openSettings
+    #endif
     #if os(iOS)
     /// An Apple TV's pairing code, scanned with the camera (#127).
     @State private var pairingTV: TVPairing.Link?
@@ -86,6 +89,7 @@ struct ContentView: View {
         // Hosts the iPhone paired while the app was closed; then the home
         // network names their Mac apps published (no VPN on tvOS).
         .task {
+            guard !DemoMode.isOn else { return }
             await store.adoptPairedHosts()
             await store.useHomeNetworkAddresses()
         }
@@ -103,6 +107,36 @@ struct ContentView: View {
             HostKeyView(connection: connection) {
                 dismissedKeyPrompts.insert(connection.id)
             }
+        }
+        .task { await openDemo() }
+    }
+
+    /// Opens what the screenshot demo asks for (#199) once the demo
+    /// session's spaces arrived.
+    private func openDemo() async {
+        guard DemoMode.isOn, let connection = store.connections.first else { return }
+        for _ in 0..<100 {
+            if let spaces = connection.update?.workspaces, !spaces.isEmpty {
+                if let label = DemoMode.space, let space = spaces.first(where: { $0.label == label }) {
+                    selection = SpaceRef(hostID: connection.id, workspaceID: space.workspaceId, paneID: DemoMode.pane)
+                }
+                switch DemoMode.view {
+                case "switcher": switching = true
+                case "addHost": editing = HostConfig(name: "", kind: .ssh)
+                #if os(macOS)
+                case "settings": openSettings()
+                #endif
+                default: break
+                }
+                #if os(macOS)
+                if let size = DemoMode.windowSize, let window = NSApp.windows.first(where: { $0.isVisible && $0.title != "" }) {
+                    window.setContentSize(size)
+                    window.center()
+                }
+                #endif
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(100))
         }
     }
 
