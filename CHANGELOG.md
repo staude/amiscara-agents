@@ -405,6 +405,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The workflows pin third-party actions to commit SHAs, which Dependabot
+  keeps up to date, so a moved tag cannot reach the signing secrets.
 - The terminal is no longer always dark: it follows the app's appearance
   or is set to light or dark on its own, with the color scheme Standard,
   Solarized or Terminal (macOS), on all apps (Mac settings, the appearance
