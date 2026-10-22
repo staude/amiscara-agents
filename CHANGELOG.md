@@ -402,6 +402,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   screen when the history is shorter than asked). Off by default, since both
   move the agent's view on the host too: setting "Vollbild-Agenten scrollen"
   in all apps (#187).
+- Arrow keys in an empty composer go to the pane, to move through an
+  agent's question or a shell's history without the key bar; with text
+  they move the cursor as before.
 
 - Files for a public repository: `SECURITY.md` (private reports through
   GitHub security advisories), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
