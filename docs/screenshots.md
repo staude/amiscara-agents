@@ -70,3 +70,6 @@ Debug builds only; release builds ignore all of it.
 - Notifications, widgets, the Mac menu bar extra, the Android widget and
   the desktop tray.
 - The iPad status bar still shows the current date next to 9:41.
+- Pixel-exact repeats: content, layout and text repeat; the Mac's
+  translucent sidebar picks up what is behind the window, so two runs
+  differ in a few tenths of a percent of the pixels.
