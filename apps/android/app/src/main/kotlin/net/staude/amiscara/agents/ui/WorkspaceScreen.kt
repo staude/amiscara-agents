@@ -326,6 +326,7 @@ fun WorkspaceScreen(
 
             val session = app.connections.session(hostId)
             val (theme, fontSize) = rememberTerminalTheme(app)
+            val terminalPrefs by app.settings.terminal.collectAsStateWithLifecycle()
             val setFont = { size: Float -> app.settings.setTerminal(app.settings.terminal.value.copy(fontSize = size)) }
             val wrap = app.settings.terminal.collectAsStateWithLifecycle().value.wrapLines
             if (session == null) {
@@ -348,6 +349,8 @@ fun WorkspaceScreen(
                             onFontSize = setFont,
                             onLoadMore = selected::loadMoreHistory,
                             onHideHistory = selected::hideHistory,
+                            fullscreen = FullscreenActions(selected::loadAgentHistory, selected::scrollAgent)
+                                .takeIf { terminalPrefs.fullscreenScroll && host.allowInput != false },
                             hits = hits,
                             currentHit = currentHit,
                         )

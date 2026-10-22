@@ -193,6 +193,13 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
                 }
                 Switch(checked = terminal.wrapLines, onCheckedChange = { app.settings.setTerminal(terminal.copy(wrapLines = it)) })
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_fullscreen_scroll))
+                    Text(stringResource(R.string.settings_fullscreen_scroll_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = terminal.fullscreenScroll, onCheckedChange = { app.settings.setTerminal(terminal.copy(fullscreenScroll = it)) })
+            }
             Text(stringResource(R.string.settings_font_size, terminal.fontSize.toInt()), style = MaterialTheme.typography.labelLarge)
             Slider(
                 value = terminal.fontSize,

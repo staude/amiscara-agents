@@ -40,6 +40,8 @@ class Prefs {
   minContrast = $state<boolean>(read("terminalMinContrast", true));
   /** Wrap long lines at the view width instead of scrolling sideways (#191). */
   wrapLines = $state<boolean>(read("terminalWrapLines", false));
+  /** Offer the steps through full-screen agents, which move the host's view too (#187). */
+  fullscreenScroll = $state<boolean>(read("scrollFullscreenAgents", false));
   /** The system's look, for "system" in `theme`. */
   systemDark = $state(false);
 
@@ -106,6 +108,11 @@ class Prefs {
   setWrapLines(on: boolean) {
     this.wrapLines = on;
     write("terminalWrapLines", on);
+  }
+
+  setFullscreenScroll(on: boolean) {
+    this.fullscreenScroll = on;
+    write("scrollFullscreenAgents", on);
   }
 }
 

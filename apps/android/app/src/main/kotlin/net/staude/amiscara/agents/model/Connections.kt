@@ -171,5 +171,6 @@ fun inputErrorMessage(error: FfiException): String = when (error) {
     is FfiException.NotConnected -> "Keine Verbindung zum Host."
     is FfiException.Upload -> "Hochladen fehlgeschlagen: ${error.message}"
     is FfiException.Files -> "Dateien auf dem Host nicht lesbar: ${error.message}"
+    is FfiException.AgentWorking -> "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt."
     else -> error.message ?: error.toString()
 }

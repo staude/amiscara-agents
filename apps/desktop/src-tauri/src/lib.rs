@@ -82,6 +82,8 @@ pub fn run() {
             app::send_text,
             app::submit,
             app::claude_history,
+            app::agent_history,
+            app::scroll_agent,
             app::upload,
             app::quick_replies,
             app::save_quick_replies,

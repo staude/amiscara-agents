@@ -98,13 +98,20 @@
     <string name="loading">Lade …</string>
     <string name="history_more">↑ Älteren Verlauf laden</string>
     <string name="history_loading">Verlauf wird geladen …</string>
-    <string name="history_none">Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen.</string>
+    <string name="history_none">Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen. Blättern lässt sich in den Einstellungen einschalten.</string>
     <plurals name="history_limit">
         <item quantity="one">Mehr als %1$d Zeile liefert herdr nicht.</item>
         <item quantity="other">Mehr als %1$d Zeilen liefert herdr nicht.</item>
     </plurals>
     <string name="history_start">Anfang des Verlaufs</string>
     <string name="history_hide">Nur Bildschirm</string>
+    <string name="history_agent_load">Verlauf vom Agenten holen</string>
+    <string name="history_agent_loading">Verlauf wird vom Agenten geholt …</string>
+    <string name="history_agent">Verlauf des Agenten, ohne Farben</string>
+    <string name="history_agent_reload">Aktualisieren</string>
+    <string name="scroll_page_up">Seite hoch</string>
+    <string name="scroll_page_down">Seite runter</string>
+    <string name="scroll_bottom">Ans Ende</string>
     <string name="search">Suchen</string>
     <string name="search_placeholder">Im Pane suchen</string>
     <string name="search_count">%1$d/%2$d</string>
@@ -209,6 +216,8 @@
     <string name="settings_min_contrast_hint">Hellt zu schwache Schriftfarben auf oder dunkelt sie ab</string>
     <string name="settings_wrap_lines">Zeilen umbrechen (experimentell)</string>
     <string name="settings_wrap_lines_hint">Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal umgebrochen hat, setzt die App wieder zusammen und bricht es an der Bildschirmbreite um. Vollbild-Agenten wie Claude Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.</string>
+    <string name="settings_fullscreen_scroll">Vollbild-Agenten scrollen</string>
+    <string name="settings_fullscreen_scroll_hint">Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host</string>
     <string name="settings_font_size">Schriftgröße %1$d</string>
     <string name="settings_quick_replies">Schnellantworten</string>
     <string name="settings_quick_replies_hint">Erscheinen in der Eingabeleiste und gehen mit einem Tipp an den Agent.</string>

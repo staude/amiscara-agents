@@ -13,6 +13,6 @@ pub use link::{
     public_key_fingerprint,
 };
 pub use session::{
-    Endpoint, PaneFollow, PaneSink, Session, SessionError, SshIdentity, TranscriptCursor,
-    TranscriptEntry, TranscriptKind, TranscriptPage, UPLOAD_DIR,
+    Endpoint, PaneFollow, PaneSink, ScrollStep, Session, SessionError, SshIdentity,
+    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, UPLOAD_DIR,
 };

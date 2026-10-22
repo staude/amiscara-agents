@@ -21,6 +21,8 @@ data class TerminalPrefs(
     val fontSize: Float = DEFAULT_FONT_SIZE,
     /** Long lines wrap at the view width instead of scrolling sideways (#191). */
     val wrapLines: Boolean = false,
+    /** Offer the steps through full-screen agents, which move the host's view too (#187). */
+    val fullscreenScroll: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_FONT_SIZE = 12f
@@ -69,6 +71,7 @@ class Settings(context: Context) {
             putBoolean("terminalMinContrast", clamped.minContrast)
             putFloat("terminalFontSize", clamped.fontSize)
             putBoolean("terminalWrapLines", clamped.wrapLines)
+            putBoolean("scrollFullscreenAgents", clamped.fullscreenScroll)
         }
         terminalState.value = clamped
     }
@@ -93,6 +96,7 @@ class Settings(context: Context) {
         minContrast = prefs.getBoolean("terminalMinContrast", true),
         fontSize = prefs.getFloat("terminalFontSize", TerminalPrefs.DEFAULT_FONT_SIZE),
         wrapLines = prefs.getBoolean("terminalWrapLines", false),
+        fullscreenScroll = prefs.getBoolean("scrollFullscreenAgents", false),
     )
 
     private fun loadReplies(): List<String> =

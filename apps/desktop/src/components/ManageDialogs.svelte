@@ -276,6 +276,10 @@
       umgebrochen hat, setzt die App wieder zusammen und bricht es an der Fensterbreite um. Vollbild-Agenten wie Claude
       Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.
     </p>
+    <label class="check">
+      <input type="checkbox" checked={prefs.fullscreenScroll} onchange={(e) => prefs.setFullscreenScroll(e.currentTarget.checked)} />
+      Vollbild-Agenten scrollen: blättert in Claude Code und holt seinen Verlauf, bewegt dabei auch die Ansicht auf dem Host
+    </label>
     <div class="update-row">
       <span>Version {model.info?.version}</span>
       <button disabled={updater.state === "checking"} onclick={() => updater.check()}>Nach Updates suchen</button>

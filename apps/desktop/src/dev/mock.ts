@@ -260,6 +260,8 @@ mockIPC(
         setTimeout(() => send?.(Math.min(a.lines as number, 40)), 200);
         return null;
       }
+      case "agent_history":
+        return screen(a.paneId as string, 40);
       case "claude_history":
         return { sessionPath: "s", entries: transcript, start: 0 };
       case "agent_kinds":

@@ -197,7 +197,19 @@ pub enum TermColor {
     },
 }
 
-pub use herdr_session::{TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage};
+pub use herdr_session::{
+    ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage,
+};
+
+/// A step through a full-screen agent's own view.
+#[uniffi::remote(Enum)]
+pub enum ScrollStep {
+    /// Half a screen up.
+    PageUp,
+    PageDown,
+    /// Back to the newest output, which the agent then follows again.
+    Bottom,
+}
 
 /// Who wrote an entry of a Claude Code conversation.
 #[uniffi::remote(Enum)]
