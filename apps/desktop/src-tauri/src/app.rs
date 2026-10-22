@@ -434,6 +434,13 @@ pub fn set_follow_history(state: State<'_, AppState>, follow_id: u64, lines: u32
     }
 }
 
+#[tauri::command]
+pub fn set_follow_unwrap(state: State<'_, AppState>, follow_id: u64, unwrap: bool) {
+    if let Some(follow) = state.follows().get(&follow_id) {
+        follow.set_unwrap(unwrap);
+    }
+}
+
 fn input_allowed(state: &AppState, host_id: &str) -> Result<(), AppError> {
     if state.store().get(host_id)?.allow_input.unwrap_or(true) {
         Ok(())

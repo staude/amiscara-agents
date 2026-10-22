@@ -66,6 +66,7 @@ class PaneModel(private val session: HostSession, val paneId: String, live: Bool
     val flow: StateFlow<State> = state.asStateFlow()
 
     private var live = live
+    private var unwrap = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     /** The app scrolled the agent's own view up, also on the host; undone in [stop]. */
     @Volatile private var agentScrolled = false
@@ -99,6 +100,18 @@ class PaneModel(private val session: HostSession, val paneId: String, live: Bool
     fun hideHistory() {
         state.value = state.value.copy(historyLines = 0, agentHistory = null, agentError = null)
         follow.setHistoryLines(0u)
+    }
+
+    /**
+     * Joins the rows the terminal wrapped at the pane width, for a view that
+     * wraps lines at its own width (#191). Drops loaded history, whose row
+     * count would no longer match the screen's.
+     */
+    fun setUnwrap(value: Boolean) {
+        if (value == unwrap) return
+        unwrap = value
+        if (state.value.historyLines > 0) hideHistory()
+        follow.setUnwrap(value)
     }
 
     /**

@@ -188,6 +188,13 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_wrap_lines))
+                    Text(stringResource(R.string.settings_wrap_lines_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = terminal.wrapLines, onCheckedChange = { app.settings.setTerminal(terminal.copy(wrapLines = it)) })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_fullscreen_scroll))
                     Text(stringResource(R.string.settings_fullscreen_scroll_hint), style = MaterialTheme.typography.bodySmall)
                 }
