@@ -94,6 +94,8 @@ final class Notifier: NSObject {
     }
 
     private func allowed() async -> Bool {
+        // The screenshot demo (#199) neither asks nor notifies.
+        if DemoMode.isOn { return false }
         if let authorized { return authorized }
         let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         authorized = granted

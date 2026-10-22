@@ -45,6 +45,7 @@ pane() {
 pids=()
 cleanup() {
     for pid in ${pids[@]+"${pids[@]}"}; do kill "$pid" 2>/dev/null || true; done
+    for udid in ${booted[@]+"${booted[@]}"}; do xcrun simctl shutdown "$udid" 2>/dev/null || true; done
     if ! $keep; then python3 "$here/seed.py" --stop; fi
 }
 trap cleanup EXIT
@@ -96,5 +97,83 @@ mac() {
     done
 }
 
+# --- iPhone, iPad, Apple TV (simulators) -------------------------------
+# The simulators reach the Mac's sockets, so the demo host is the session's
+# socket here too: no SSH key, no authorized_keys. Devices by name, or by
+# id from IPHONE_SIM, IPAD_SIM, TV_SIM.
+booted=()
+sim_id() {
+    xcrun simctl list devices available -j | python3 -c '
+import json, sys
+name = sys.argv[1]
+for runtime, devices in json.load(sys.stdin)["devices"].items():
+    for device in devices:
+        if device["name"] == name:
+            print(device["udid"]); sys.exit()
+sys.exit("no simulator named " + name)' "$1"
+}
+
+sim_build() {
+    local scheme=$1 platform=$2
+    env -i HOME="$HOME" PATH=/usr/bin:/bin:/usr/sbin:/sbin xcodebuild \
+        -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme "$scheme" \
+        -destination "generic/platform=$platform" -derivedDataPath target/xcode-sim \
+        ARCHS=arm64 build -quiet
+}
+
+sim() {
+    local name=$1 udid=$2 app=$3 bars=$4
+    shift 4
+    step "$name simulator ($udid)"
+    if xcrun simctl list devices | grep -q "$udid) (Shutdown)"; then
+        xcrun simctl boot "$udid"
+        booted+=("$udid")
+    fi
+    xcrun simctl bootstatus "$udid" >/dev/null
+    xcrun simctl install "$udid" "$app"
+    xcrun simctl ui "$udid" appearance "$appearance" 2>/dev/null || true
+    if $bars; then
+        xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged \
+            --batteryLevel 100 --cellularBars 4 --wifiBars 3 --dataNetwork wifi
+    fi
+    mkdir -p "$out/$name"
+    local entry shot space where view search target
+    for entry in "$@"; do
+        IFS='|' read -r shot space where view search <<<"$entry"
+        target=""
+        # shellcheck disable=SC2086 # where is "tab index"
+        [[ -n "$space" ]] && target=$(pane "$space" $where)
+        # A relaunch right after terminating can leave tvOS on its home screen.
+        xcrun simctl terminate "$udid" net.staude.amiscara.agents 2>/dev/null || true
+        sleep 2
+        SIMCTL_CHILD_HOME="$root/home" xcrun simctl launch "$udid" \
+            net.staude.amiscara.agents -demoSocket "$socket" -demoSpace "$space" \
+            -demoPane "$target" -demoView "$view" -demoSearch "$search" \
+            -appearance "$appearance" >/dev/null
+        sleep 7
+        xcrun simctl io "$udid" screenshot "$out/$name/$shot.png" >/dev/null 2>&1
+        echo "    $out/$name/$shot.png"
+    done
+    xcrun simctl terminate "$udid" net.staude.amiscara.agents 2>/dev/null || true
+    if $bars; then xcrun simctl status_bar "$udid" clear; fi
+}
+
 want mac && mac
+if want ios || want ipad; then
+    step "iOS app for the simulator"
+    sim_build AmiscaraAgents-iOS "iOS Simulator"
+    ios_app=target/xcode-sim/Build/Products/Debug-iphonesimulator/AmiscaraAgents.app
+    want ios && sim ios "${IPHONE_SIM:-$(sim_id "iPhone 18 Pro")}" "$ios_app" true \
+        "spaces||||" "${views[@]}"
+    want ipad && sim ipad "${IPAD_SIM:-$(sim_id "iPad Pro 13-inch (M5)")}" "$ios_app" true \
+        "${views[@]}"
+fi
+if want tvos; then
+    step "tvOS app for the simulator"
+    sim_build AmiscaraAgents-tvOS "tvOS Simulator"
+    sim tvos "${TV_SIM:-$(sim_id "Apple TV 4K (3rd generation)")}" \
+        target/xcode-sim/Build/Products/Debug-appletvsimulator/AmiscaraAgents.app false \
+        "spaces||||" "space-waiting|Shop/API|0 0||" "split-tab|Shop/Web|1 0||" \
+        "agent-done|Lab/WeatherStation|0 0||"
+fi
 step "Done: $out"
