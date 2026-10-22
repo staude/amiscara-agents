@@ -17,6 +17,10 @@
 //! be a hundred times the size of the visible screen, so the cheap visible
 //! read still detects changes and the large one follows at most once per
 //! [`Pacing::history`].
+//!
+//! With [`Reading::unwrap`], both come from `source: "recent_unwrapped"`,
+//! which joins the rows the terminal wrapped at the pane width back into
+//! whole lines, so a narrow client can wrap them at its own width (#191).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -83,14 +87,25 @@ impl Pacing {
     }
 }
 
-/// Reads the visible screen (`history_lines == 0`) or the last
-/// `history_lines` rows including scrollback. Always ANSI: a recent read in
-/// `text` format makes herdr scroll a full-screen app (an agent TUI) to
-/// harvest its history, which would disturb whoever works in that pane.
+/// What [`follow_with_history`] publishes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Reading {
+    /// Rows including scrollback, 0 for the visible screen.
+    pub history_lines: u32,
+    /// Joins the rows the terminal wrapped into whole lines.
+    pub unwrap: bool,
+}
+
+/// Reads the visible screen (`rows == 0`) or the last `rows` rows including
+/// scrollback, these joined where the terminal wrapped them with `unwrap`.
+/// Always ANSI: a recent read in `text` format makes herdr scroll a
+/// full-screen app (an agent TUI) to harvest its history, which would
+/// disturb whoever works in that pane.
 async fn read_raw(
     conn: &Connection,
     pane_id: &str,
-    history_lines: u32,
+    rows: u32,
+    unwrap: bool,
 ) -> Result<PaneReadResult, PaneError> {
     let mut params = json!({
         "pane_id": pane_id,
@@ -98,9 +113,9 @@ async fn read_raw(
         "format": "ansi",
         "strip_ansi": false,
     });
-    if history_lines > 0 {
-        params["source"] = json!("recent");
-        params["lines"] = json!(history_lines.min(MAX_HISTORY_LINES));
+    if rows > 0 {
+        params["source"] = json!(if unwrap { "recent_unwrapped" } else { "recent" });
+        params["lines"] = json!(rows.min(MAX_HISTORY_LINES));
     }
     Ok(serde_json::from_value(
         conn.request("pane.read", params).await?,
@@ -118,7 +133,7 @@ fn pane_screen(result: PaneReadResult, history_lines: u32) -> PaneScreen {
 
 /// Reads the visible screen of a pane once.
 pub async fn read_screen(conn: &Connection, pane_id: &str) -> Result<PaneScreen, PaneError> {
-    Ok(pane_screen(read_raw(conn, pane_id, 0).await?, 0))
+    Ok(pane_screen(read_raw(conn, pane_id, 0, false).await?, 0))
 }
 
 /// Publishes the pane's visible screen into `tx` and keeps it current.
@@ -145,24 +160,25 @@ pub async fn follow_paced(
     pacing: watch::Receiver<Pacing>,
     tx: &watch::Sender<Option<Arc<PaneScreen>>>,
 ) -> Result<(), PaneError> {
-    let (_none, history) = watch::channel(0);
-    follow_with_history(conn, pane_id, pacing, history, tx).await
+    let (_none, reading) = watch::channel(Reading::default());
+    follow_with_history(conn, pane_id, pacing, reading, tx).await
 }
 
-/// Like [`follow_paced`], but publishes the last `*history` rows including
-/// scrollback whenever that value is above 0. A new value takes effect at
-/// once; a dropped history sender keeps the last value.
+/// Like [`follow_paced`], but publishes what `*reading` asks for: the last
+/// rows including scrollback whenever `history_lines` is above 0, the lines
+/// joined with `unwrap`. A new value takes effect at once; a dropped
+/// reading sender keeps the last value.
 pub async fn follow_with_history(
     conn: &Connection,
     pane_id: &str,
     mut pacing: watch::Receiver<Pacing>,
-    mut history: watch::Receiver<u32>,
+    mut reading: watch::Receiver<Reading>,
     tx: &watch::Sender<Option<Arc<PaneScreen>>>,
 ) -> Result<(), PaneError> {
     let mut pacing_open = true;
-    let mut history_open = true;
+    let mut reading_open = true;
     let mut last_visible: Option<String> = None;
-    let mut last_lines: Option<u32> = None;
+    let mut last_reading: Option<Reading> = None;
     // The screen changed since the last publish, but the history read is
     // still held back by `pace.history`.
     let mut pending = false;
@@ -170,18 +186,32 @@ pub async fn follow_with_history(
     let mut interval = Duration::ZERO;
     loop {
         let pace = *pacing.borrow_and_update();
-        let lines = (*history.borrow_and_update()).min(MAX_HISTORY_LINES);
-        let mode_changed = last_lines != Some(lines);
-        let visible = read_raw(conn, pane_id, 0).await?;
+        let mut now = *reading.borrow_and_update();
+        now.history_lines = now.history_lines.min(MAX_HISTORY_LINES);
+        let lines = now.history_lines;
+        let mode_changed = last_reading != Some(now);
+        let visible = read_raw(conn, pane_id, 0, false).await?;
         if mode_changed || last_visible.as_deref() != Some(visible.read.text.as_str()) {
             interval = pace.busy;
             pending = true;
         } else {
             interval = (interval * 2).clamp(pace.busy, pace.quiet);
         }
-        last_lines = Some(lines);
+        last_reading = Some(now);
         let mut wait = interval;
-        if pending && lines == 0 {
+        if pending && lines == 0 && now.unwrap {
+            // The screen's rows again, joined where the terminal wrapped
+            // them; the visible read stays the cheap change detector.
+            let rows = u32::try_from(Screen::parse(&visible.read.text).lines.len())
+                .unwrap_or(MAX_HISTORY_LINES);
+            last_visible = Some(visible.read.text);
+            let joined = read_raw(conn, pane_id, rows.max(1), true).await?;
+            tx.send_replace(Some(Arc::new(PaneScreen {
+                truncated: false,
+                ..pane_screen(joined, 0)
+            })));
+            pending = false;
+        } else if pending && lines == 0 {
             last_visible = Some(visible.read.text.clone());
             tx.send_replace(Some(Arc::new(pane_screen(visible, 0))));
             pending = false;
@@ -193,7 +223,7 @@ pub async fn follow_with_history(
                     wait = wait.min(due.saturating_duration_since(Instant::now()));
                 }
                 _ => {
-                    let recent = read_raw(conn, pane_id, lines).await?;
+                    let recent = read_raw(conn, pane_id, lines, now.unwrap).await?;
                     last_history_read = Some(Instant::now());
                     tx.send_replace(Some(Arc::new(pane_screen(recent, lines))));
                     pending = false;
@@ -213,9 +243,9 @@ pub async fn follow_with_history(
                 pacing_open = open;
                 interval = Duration::ZERO;
             }
-            changed = history.changed(), if history_open => {
+            changed = reading.changed(), if reading_open => {
                 if changed.is_err() {
-                    history_open = false;
+                    reading_open = false;
                 }
             }
             () = tx.closed() => return Ok(()),
@@ -257,10 +287,10 @@ mod tests {
                 let source = params["source"].as_str().unwrap_or_default().to_owned();
                 let lines = params["lines"].as_u64();
                 log.lock().expect("lock").push((source.clone(), lines));
-                let (text, truncated) = if source == "recent" {
-                    ("old 1\r\nold 2\r\nscreen\r\n", true)
-                } else {
-                    ("screen\r\n", false)
+                let (text, truncated) = match source.as_str() {
+                    "recent" => ("old 1\r\nold 2\r\nscreen\r\n", true),
+                    "recent_unwrapped" => ("old 1 old 2\r\nscreen\r\n", true),
+                    _ => ("screen\r\n", false),
                 };
                 let reply = json!({
                     "id": request["id"],
@@ -320,7 +350,7 @@ mod tests {
             history: Duration::from_millis(5),
         };
         let (_pace_tx, pace_rx) = watch::channel(pacing);
-        let (history_tx, history) = watch::channel(0);
+        let (history_tx, history) = watch::channel(Reading::default());
         let (tx, mut rx) = watch::channel(None);
         let follow = follow_with_history(&conn, "w1:p1", pace_rx, history, &tx);
         let check = async {
@@ -329,14 +359,17 @@ mod tests {
             assert_eq!(first.history_lines, 0);
             assert_eq!(first.screen.text_lines(), ["screen"]);
 
-            history_tx.send_replace(5000);
+            history_tx.send_replace(Reading {
+                history_lines: 5000,
+                unwrap: false,
+            });
             rx.changed().await.expect("history");
             let more = rx.borrow_and_update().clone().expect("screen");
             assert_eq!(more.history_lines, MAX_HISTORY_LINES);
             assert!(more.truncated);
             assert_eq!(more.screen.text_lines(), ["old 1", "old 2", "screen"]);
 
-            history_tx.send_replace(0);
+            history_tx.send_replace(Reading::default());
             rx.changed().await.expect("visible again");
             let back = rx.borrow_and_update().clone().expect("screen");
             assert_eq!(back.history_lines, 0);
@@ -352,5 +385,49 @@ mod tests {
             seen.iter()
                 .all(|(source, _)| source == "visible" || source == "recent")
         );
+    }
+
+    #[tokio::test]
+    async fn unwrap_reads_joined_lines_for_screen_and_history() {
+        let (path, seen) = fake_herdr("unwrap");
+        let conn = Connection::local(&path);
+        let pacing = Pacing {
+            busy: Duration::from_millis(5),
+            quiet: Duration::from_millis(10),
+            history: Duration::from_millis(5),
+        };
+        let (_pace_tx, pace_rx) = watch::channel(pacing);
+        let (reading_tx, reading) = watch::channel(Reading {
+            history_lines: 0,
+            unwrap: true,
+        });
+        let (tx, mut rx) = watch::channel(None);
+        let follow = follow_with_history(&conn, "w1:p1", pace_rx, reading, &tx);
+        let check = async {
+            rx.changed().await.expect("first screen");
+            let first = rx.borrow_and_update().clone().expect("screen");
+            assert_eq!(first.history_lines, 0);
+            assert!(!first.truncated);
+            assert_eq!(first.screen.text_lines(), ["old 1 old 2", "screen"]);
+
+            reading_tx.send_replace(Reading {
+                history_lines: 200,
+                unwrap: true,
+            });
+            rx.changed().await.expect("history");
+            let more = rx.borrow_and_update().clone().expect("screen");
+            assert_eq!(more.history_lines, 200);
+            assert!(more.truncated);
+        };
+        tokio::select! {
+            result = follow => panic!("follow ended: {result:?}"),
+            () = check => {}
+        }
+        let _ = std::fs::remove_file(&path);
+        let seen = seen.lock().expect("lock");
+        // The screen's one row, then the history.
+        assert!(seen.contains(&("recent_unwrapped".to_owned(), Some(1))));
+        assert!(seen.contains(&("recent_unwrapped".to_owned(), Some(200))));
+        assert!(!seen.iter().any(|(source, _)| source == "recent"));
     }
 }

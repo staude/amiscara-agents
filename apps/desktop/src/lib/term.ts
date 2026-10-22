@@ -108,6 +108,16 @@ function readable(fg: RGB, bg: RGB): RGB {
 }
 
 /** Inline style of a span; default colors come from the stylesheet. */
+/**
+ * A row drawn only with box-drawing and block characters, such as a frame
+ * or a rule of a full-screen program: wrapping would break it apart, so a
+ * wrapping view clips it instead (#191).
+ */
+export function isRule(spans: StyledSpan[]): boolean {
+  const text = spans.map((span) => span.text).join("");
+  return /^[\s\u2500-\u259f]*$/.test(text) && /[\u2500-\u259f]/.test(text);
+}
+
 export function spanStyle(span: StyledSpan, theme: TerminalTheme): string {
   let fg = color(span.fg, theme);
   let bg = color(span.bg, theme);

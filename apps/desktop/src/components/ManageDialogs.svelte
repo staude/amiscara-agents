@@ -268,6 +268,15 @@
       Mindestkontrast: zu schwache Schriftfarben aufhellen oder abdunkeln
     </label>
     <label class="check">
+      <input type="checkbox" checked={prefs.wrapLines} onchange={(e) => prefs.setWrapLines(e.currentTarget.checked)} />
+      Zeilen umbrechen (experimentell)
+    </label>
+    <p class="hint">
+      Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal
+      umgebrochen hat, setzt die App wieder zusammen und bricht es an der Fensterbreite um. Vollbild-Agenten wie Claude
+      Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.
+    </p>
+    <label class="check">
       <input type="checkbox" checked={prefs.fullscreenScroll} onchange={(e) => prefs.setFullscreenScroll(e.currentTarget.checked)} />
       Vollbild-Agenten scrollen: blättert in Claude Code und holt seinen Verlauf, bewegt dabei auch die Ansicht auf dem Host
     </label>

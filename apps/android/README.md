@@ -65,7 +65,7 @@ Opening `apps/android` in Android Studio works the same way.
   one live, the others read slowly); on a phone chips pick the pane.
 - Terminal: lines keep the pane's width and scroll both ways, pinch changes
   the font size (8 to 28), older history loads in steps up to 1000 lines,
-  search marks hits, web addresses open in the browser. With "Vollbild-Agenten scrollen" on, a Claude pane pages through its own view and fetches its transcript. Color schemes and minimum contrast as in the other
+  search marks hits, web addresses open in the browser. With "Vollbild-Agenten scrollen" on, a Claude pane pages through its own view and fetches its transcript. With "Zeilen umbrechen (experimentell)" on, long lines wrap at the screen width instead (#191). Color schemes and minimum contrast as in the other
   apps (`ui/TerminalTheme.kt`).
 - Input bar: answers 1, 2, 3, Bestätigen, Abbrechen while an agent waits,
   key bar and quick replies in one row, photos and files as attachments
@@ -83,7 +83,7 @@ Opening `apps/android` in Android Studio works the same way.
   an agent right away; the dialogs remember the last choice.
 - Quick switcher (🔍 or Ctrl+K): spaces and agents on all hosts, matched
   like the other apps.
-- Settings: terminal light/dark, color scheme, minimum contrast, font size,
+- Settings: terminal light/dark, color scheme, minimum contrast, line wrapping, font size,
   quick replies.
 
 ## Notifications and standby

@@ -214,6 +214,8 @@
     <string name="scheme_apple">macOS</string>
     <string name="settings_min_contrast">Mindestkontrast</string>
     <string name="settings_min_contrast_hint">Hellt zu schwache Schriftfarben auf oder dunkelt sie ab</string>
+    <string name="settings_wrap_lines">Zeilen umbrechen (experimentell)</string>
+    <string name="settings_wrap_lines_hint">Nicht von herdr vorgesehen: herdr liefert die Zeilen in der Breite des Panes auf dem Host. Was das Terminal umgebrochen hat, setzt die App wieder zusammen und bricht es an der Bildschirmbreite um. Vollbild-Agenten wie Claude Code brechen selbst um, ihre Zeilen und Rahmen werden nur gekürzt oder ein zweites Mal umgebrochen.</string>
     <string name="settings_fullscreen_scroll">Vollbild-Agenten scrollen</string>
     <string name="settings_fullscreen_scroll_hint">Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host</string>
     <string name="settings_font_size">Schriftgröße %1$d</string>

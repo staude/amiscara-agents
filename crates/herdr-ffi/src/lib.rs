@@ -513,6 +513,13 @@ impl PaneFollow {
     pub fn set_history_lines(&self, lines: u32) {
         self.follow.set_history_lines(lines);
     }
+
+    /// Joins the rows the terminal wrapped at the pane width into whole
+    /// lines, for a view that wraps them at its own width (#191). Content
+    /// with the new value follows at once.
+    pub fn set_unwrap(&self, unwrap: bool) {
+        self.follow.set_unwrap(unwrap);
+    }
 }
 
 fn key_error(err: TransportError) -> FfiError {
