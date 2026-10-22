@@ -4,8 +4,9 @@
 # temporary keychain that codesign finds. `--cleanup` removes both.
 #
 # Input from secrets: APPLE_API_KEY_P8 (base64), KEYCHAIN_PASSWORD, and
-# optionally P12 (base64) with P12_PASSWORD and PROFILE, provisioning
-# profiles for manual signing (base64, several separated by spaces).
+# optionally P12 (base64) with P12_PASSWORD, and provisioning profiles for
+# manual signing: PROFILE (one, base64) or PROFILES (a .tar.gz of several,
+# base64; GitHub caps a secret at 48 KB, six plain profiles exceed it).
 set -euo pipefail
 
 dir="$RUNNER_TEMP/apple"
@@ -30,15 +31,28 @@ mkdir -p "$dir"
 chmod 700 "$dir"
 printf '%s' "$APPLE_API_KEY_P8" | base64 --decode >"$dir/AuthKey.p8"
 
-for profile in ${PROFILE:-}; do
-    printf '%s' "$profile" | base64 --decode >"$dir/profile.provisionprofile"
-    uuid=$(security cms -D -i "$dir/profile.provisionprofile" | plutil -extract UUID raw -)
-    name=$(security cms -D -i "$dir/profile.provisionprofile" | plutil -extract Name raw -)
+install_profile() {
+    local uuid name
+    uuid=$(security cms -D -i "$1" | plutil -extract UUID raw -)
+    name=$(security cms -D -i "$1" | plutil -extract Name raw -)
     mkdir -p "$profiles"
-    mv "$dir/profile.provisionprofile" "$profiles/$uuid.provisionprofile"
+    mv "$1" "$profiles/$uuid.provisionprofile"
     echo "$profiles/$uuid.provisionprofile" >>"$dir/profile-paths"
     echo "Provisioning profile \"$name\" ($uuid) installed."
-done
+}
+
+if [[ -n "${PROFILE:-}" ]]; then
+    printf '%s' "$PROFILE" | base64 --decode >"$dir/profile.provisionprofile"
+    install_profile "$dir/profile.provisionprofile"
+fi
+if [[ -n "${PROFILES:-}" ]]; then
+    mkdir "$dir/profiles"
+    printf '%s' "$PROFILES" | base64 --decode | tar -xzf - -C "$dir/profiles"
+    for profile in "$dir/profiles"/*; do
+        install_profile "$profile"
+    done
+    rmdir "$dir/profiles"
+fi
 
 if [[ -z "${P12:-}" ]]; then
     echo "No certificate in the secrets: Xcode signs with a cloud-managed one (API key with the Admin role)."
