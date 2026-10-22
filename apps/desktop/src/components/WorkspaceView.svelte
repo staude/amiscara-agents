@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import * as core from "../lib/core";
+  import { demo } from "../lib/demo.svelte";
   import { canWrite, closeSpace, openMenu, repositoryOf, ui, type MenuItem } from "../lib/manage.svelte";
   import { nav } from "../lib/nav.svelte";
   import { model } from "../lib/state.svelte";
@@ -15,6 +16,14 @@
   let tabId = $state<string | null>(null);
   let paneId = $state<string | null>(null);
   let conversationFor = $state<string | null>(null);
+  // The screenshot demo opens the conversation of its pane once (#199).
+  $effect(() => {
+    const target = demo.target;
+    if (target?.view === "conversation" && target.pane && model.selection?.paneId === target.pane) {
+      untrack(() => (conversationFor = target.pane ?? null));
+      demo.target = { ...target, view: undefined };
+    }
+  });
   let tabError = $state<string | null>(null);
   let agentKinds = $state<string[]>([]);
 

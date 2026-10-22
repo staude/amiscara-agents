@@ -1,0 +1,334 @@
+{
+  "_comment": "Demo setup for screenshots (#199): fictional projects only. seed.py builds it in a separate herdr session.",
+  "session": "amiscara-screenshots",
+  "root": "/tmp/amiscara-demo",
+  "repos": {
+    "shop-web": {
+      "files": {
+        "README.md": "# Shop web\n\nStorefront for the demo shop.\n",
+        "src/checkout.ts": "export function total(items: number[]): number {\n  return items.reduce((a, b) => a + b, 0);\n}\n",
+        "package.json": "{\n  \"name\": \"shop-web\",\n  \"private\": true\n}\n"
+      },
+      "commits": [
+        "Add storefront skeleton",
+        "Product list with filters",
+        "Checkout form",
+        "Fix rounding in cart total"
+      ]
+    },
+    "shop-api": {
+      "files": {
+        "README.md": "# Shop API\n\nOrders and payments for the demo shop.\n",
+        "src/orders.rs": "pub fn total(items: &[u32]) -> u32 {\n    items.iter().sum()\n}\n"
+      },
+      "commits": [
+        "Order endpoints",
+        "Payment webhooks",
+        "Rate limits for the public API"
+      ],
+      "worktrees": {
+        "shop-api-refunds": "feature/refunds"
+      }
+    },
+    "weather-station": {
+      "files": {
+        "README.md": "# Weather station\n\nFirmware and dashboard for a balcony weather station.\n",
+        "firmware/main.c": "int main(void) { return 0; }\n"
+      },
+      "commits": [
+        "Read the BME280 sensor",
+        "Send readings over MQTT",
+        "Dashboard with daily charts"
+      ]
+    },
+    "sensor-hub": {
+      "files": {
+        "README.md": "# Sensor hub\n\nCollects readings from the lab sensors.\n"
+      },
+      "commits": [
+        "Initial hub service"
+      ]
+    },
+    "blog": {
+      "files": {
+        "README.md": "# Blog\n\nStatic site.\n",
+        "posts/hello.md": "# Hello\n"
+      },
+      "commits": [
+        "First post",
+        "Dark mode"
+      ]
+    },
+    "csvtool": {
+      "files": {
+        "README.md": "# csvtool\n\nA small CLI for CSV files.\n",
+        "src/main.rs": "fn main() {}\n"
+      },
+      "commits": [
+        "Parse CSV",
+        "Column selection",
+        "Pretty table output"
+      ]
+    }
+  },
+  "spaces": [
+    {
+      "label": "Shop/Web",
+      "repo": "shop-web",
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "agent": "claude",
+              "scene": "working-checkout",
+              "state": "working"
+            }
+          ]
+        },
+        {
+          "label": "2",
+          "layout": "right-down",
+          "panes": [
+            {
+              "run": "dev-server"
+            },
+            {
+              "run": "git-log"
+            },
+            {
+              "run": "tests"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Shop/API",
+      "repo": "shop-api",
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "agent": "claude",
+              "scene": "blocked-tests",
+              "state": "blocked"
+            }
+          ]
+        },
+        {
+          "label": "2",
+          "panes": [
+            {
+              "run": "git-status"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Shop/API refunds",
+      "worktree": {
+        "repo": "shop-api",
+        "path": "shop-api-refunds"
+      },
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "agent": "codex",
+              "scene": "done-refunds",
+              "state": "done"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Lab/WeatherStation",
+      "repo": "weather-station",
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "agent": "claude",
+              "scene": "done-dashboard",
+              "state": "done"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Lab/SensorHub",
+      "repo": "sensor-hub",
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "run": "ls"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Blog",
+      "repo": "blog",
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "agent": "claude",
+              "scene": "idle",
+              "state": "idle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "csvtool",
+      "repo": "csvtool",
+      "tabs": [
+        {
+          "label": "1",
+          "panes": [
+            {
+              "run": "cargo-test"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "conversations": {
+    "shop-api": [
+      [
+        "user",
+        "Add rate limits to the public order endpoints and run the tests."
+      ],
+      [
+        "assistant",
+        "I'll look at how the order routes are set up first."
+      ],
+      [
+        "tool",
+        "Read",
+        {
+          "file_path": "src/orders.rs"
+        }
+      ],
+      [
+        "tool",
+        "Grep",
+        {
+          "pattern": "Router::new"
+        }
+      ],
+      [
+        "assistant",
+        "The public routes are built in one place, so a single limiter layer covers them. I'll use a token bucket per client IP: 60 requests per minute, with a burst of 10."
+      ],
+      [
+        "tool",
+        "Update",
+        {
+          "file_path": "src/orders.rs"
+        }
+      ],
+      [
+        "tool",
+        "Write",
+        {
+          "file_path": "src/limits.rs"
+        }
+      ],
+      [
+        "assistant",
+        "The limiter is in place. Now the test suite."
+      ],
+      [
+        "tool",
+        "Bash",
+        {
+          "command": "cargo test --all",
+          "description": "Run the whole test suite"
+        }
+      ]
+    ],
+    "shop-web": [
+      [
+        "user",
+        "Validate the address fields of the checkout form when they lose focus."
+      ],
+      [
+        "assistant",
+        "I'll read the form component first."
+      ],
+      [
+        "tool",
+        "Read",
+        {
+          "file_path": "src/checkout.ts"
+        }
+      ],
+      [
+        "tool",
+        "Update",
+        {
+          "file_path": "src/checkout.ts"
+        }
+      ],
+      [
+        "tool",
+        "Bash",
+        {
+          "command": "npm test -- checkout",
+          "description": "Run the checkout tests"
+        }
+      ],
+      [
+        "assistant",
+        "Street, postal code and city now validate on blur; the tests pass. Next I'm adding the error messages under each field."
+      ]
+    ],
+    "weather-station": [
+      [
+        "user",
+        "Add a daily chart for temperature and humidity to the dashboard."
+      ],
+      [
+        "tool",
+        "Read",
+        {
+          "file_path": "dashboard/app.js"
+        }
+      ],
+      [
+        "tool",
+        "Write",
+        {
+          "file_path": "dashboard/charts.js"
+        }
+      ],
+      [
+        "tool",
+        "Bash",
+        {
+          "command": "npm run build",
+          "description": "Build the dashboard"
+        }
+      ],
+      [
+        "assistant",
+        "The dashboard now shows a daily chart with temperature and humidity, one point per reading and the day's minimum and maximum marked."
+      ]
+    ]
+  }
+}

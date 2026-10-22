@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { openDemo } from "./lib/demo.svelte";
   import ContextMenu from "./components/ContextMenu.svelte";
   import HostEditor from "./components/HostEditor.svelte";
   import HostPanel from "./components/HostPanel.svelte";
@@ -24,7 +25,10 @@
   $effect(() => applyTheme(prefs.theme));
 
   onMount(() => {
-    model.load().catch((err) => (model.error = core.errorText(err)));
+    model
+      .load()
+      .then(() => openDemo(() => (editing = { host: null })))
+      .catch((err) => (model.error = core.errorText(err)));
     if (import.meta.env.MODE !== "mock") updater.start();
     void core.onAddHostLink((url) => (linkDialog = { url }));
     void core.onOpenPane(({ hostId, workspaceId, paneId }) => {

@@ -113,6 +113,18 @@ pub struct AppInfo {
     os: &'static str,
 }
 
+/// What the screenshot demo (#199) opens: `AMISCARA_DEMO` as JSON
+/// (`space`, `pane`, `view`, `search`, `appearance`), set by
+/// `scripts/screenshots.sh`.
+/// Debug builds only.
+#[tauri::command]
+pub fn demo_target() -> Option<serde_json::Value> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    serde_json::from_str(&std::env::var("AMISCARA_DEMO").ok()?).ok()
+}
+
 #[tauri::command]
 pub fn app_info() -> AppInfo {
     AppInfo {

@@ -30,6 +30,9 @@ class HostRepository(context: Context, private val vault: KeyVault) {
     }
     private val state = MutableStateFlow(load())
 
+    /** Whether the screenshot demo replaced the hosts; then nothing is written. */
+    private var demo = false
+
     /** The hosts in the order the user sees them. */
     val hosts: StateFlow<List<HostConfig>> = state.asStateFlow()
 
@@ -77,6 +80,14 @@ class HostRepository(context: Context, private val vault: KeyVault) {
         return host
     }
 
+    /** The screenshot demo's host instead of the saved ones until the app ends (#199). */
+    @Synchronized
+    fun useDemo(host: HostConfig, privateKey: String) {
+        demo = true
+        vault.store(host.id, privateKey)
+        state.value = listOf(host)
+    }
+
     /** Pins `key` after the user confirmed its fingerprint. */
     @Synchronized
     fun trustHostKey(id: String, key: String) {
@@ -121,6 +132,10 @@ class HostRepository(context: Context, private val vault: KeyVault) {
     }
 
     private fun write(hosts: List<HostConfig>) {
+        if (demo) {
+            state.value = hosts
+            return
+        }
         val out = file.startWrite()
         try {
             out.write(json.encodeToString(hosts).toByteArray())

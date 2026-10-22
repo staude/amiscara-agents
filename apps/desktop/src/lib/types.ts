@@ -191,3 +191,12 @@ export interface TranscriptPage {
   entries: TranscriptEntry[];
   start: number;
 }
+
+/** What the screenshot demo opens (#199), see `demo_target`. */
+export interface DemoTarget {
+  space?: string;
+  pane?: string;
+  view?: string;
+  search?: string;
+  appearance?: string;
+}

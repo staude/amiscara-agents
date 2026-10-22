@@ -47,6 +47,9 @@ sealed interface AppLink {
             .build()
     }
 
+    /** The screenshot demo's screen, see [Demo]; never from a link. */
+    data class Demo(val view: String, val paneId: String?) : AppLink
+
     companion object {
         fun parse(uri: Uri): AppLink? {
             if (uri.scheme?.lowercase() != "amiscara-agents") return null
