@@ -64,9 +64,9 @@ struct Provider: TimelineProvider {
 
 extension WidgetSnapshot {
     static let preview = WidgetSnapshot(updated: .now, hosts: [
-        Host(id: UUID(), name: "work", live: true, agents: [
-            Agent(paneID: "w1:p1", workspaceID: "w1", place: "enon · 1", name: "claude", state: .blocked),
-            Agent(paneID: "w2:p1", workspaceID: "w2", place: "amiscara-agents · 1", name: "claude", state: .working),
+        Host(id: UUID(), name: "Mac Studio", live: true, agents: [
+            Agent(paneID: "w1:p1", workspaceID: "w1", place: "API (Shop) · 1", name: "claude", state: .blocked),
+            Agent(paneID: "w2:p1", workspaceID: "w2", place: "Web (Shop) · 1", name: "claude", state: .working),
         ]),
     ])
 }

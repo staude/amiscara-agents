@@ -436,6 +436,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   in `values-de`; texts built in code (errors, default quick replies) come
   from the resources too, and Android 13 and later offer the per-app
   language setting (`locales_config.xml`).
+- English for the Apple apps (Mac, iPhone, iPad, Apple TV, Apple Watch,
+  widgets, Top Shelf, Siri phrases and permission texts), with the String
+  Catalog shared by all targets; the default quick replies follow the app
+  language (#207).
 - The desktop app (Windows, Linux) speaks German and English: the system
   language decides, English when it is neither, or the new setting
   "Sprache" / "Language". Tray menu, notifications and the default quick

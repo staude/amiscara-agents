@@ -336,7 +336,7 @@ struct NewWorktreeView: View {
                         .technicalInput()
                     TextField("Basis", text: $base, prompt: Text("HEAD"))
                         .technicalInput()
-                    TextField("Name", text: $name, prompt: Text(branch.isEmpty ? "wie der Branch" : branch))
+                    TextField("Name", text: $name, prompt: branch.isEmpty ? Text("wie der Branch") : Text(verbatim: branch))
                 } footer: {
                     Text("Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.")
                 }

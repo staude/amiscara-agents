@@ -16,7 +16,11 @@ final class QuickReplyStore {
     static let shared = QuickReplyStore()
 
     /// Shown until the user changes the list; deleting all of them sticks.
-    static let defaults = ["weiter", "/compact", "Bitte committen", "Commit und PR erstellen"]
+    /// In the app's language: they go to the agent as prompts.
+    static let defaults = [
+        String(localized: "weiter"), "/compact",
+        String(localized: "Bitte committen"), String(localized: "Commit und PR erstellen"),
+    ]
 
     var replies: [QuickReply] {
         didSet { save() }

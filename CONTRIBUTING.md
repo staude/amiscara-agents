@@ -83,18 +83,36 @@ Individual steps:
   never go into the repository. Release keys live outside it (see
   [docs/release.md](docs/release.md)).
 
-## Adding a language
+## Translations
+
+All apps ship German and English (#207); the Apple apps use German source
+texts, Android and the desktop app English defaults. New UI texts need both
+languages.
+
+- **Apple apps:** one String Catalog for all targets,
+  `apps/AmiscaraAgents/Shared/Localizable.xcstrings`, plus
+  `AmiscaraAgents/InfoPlist.xcstrings` (permission texts) and
+  `AmiscaraAgents/AppShortcuts.xcstrings` (Siri phrases). SwiftUI literals
+  are picked up on build; text kept in a `String` goes through
+  `String(localized:)`, and user data such as names through
+  `Text(verbatim:)`. To add a language, export with
+  `xcodebuild -exportLocalizations -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -localizationPath <dir> -exportLanguage <code>`,
+  translate the `.xcloc` (Xcode or any XLIFF editor) and import it with
+  `xcodebuild -importLocalizations -localizationPath <dir>/<code>.xcloc`.
+  Check the result by launching the app with
+  `-AppleLanguages "(<code>)"`, for example on the screenshot demo
+  ([docs/screenshots.md](docs/screenshots.md)).
+
+### Adding a language
 
 German is the source language of the Apple apps, English the fallback
 everywhere: a system language without a translation gets English. To add
 one, translate on all three platforms and keep product terms (herdr, Space,
 Pane, Tab, Agent) as the UI uses them:
 
-- **Apple apps:** add the language to the String Catalog
-  `apps/AmiscaraAgents/Shared/Localizable.xcstrings` (Xcode: Editor › Add
-  Localization) and to `InfoPlist` strings where present, add it to
-  `knownRegions` in `apps/AmiscaraAgents/project.yml`, then translate every
-  key. Strings with `%@` keep their placeholders.
+- **Apple apps:** export, translate and import as above, and add the
+  language to `knownRegions` in `apps/AmiscaraAgents/project.yml`. Strings
+  with `%@` keep their placeholders.
 - **Android:** a `values-<code>/` folder next to `values-de/` with
   `strings.xml` and `strings_link.xml` (the English defaults are in
   `values/`). Keep the `%1$s` placeholders.
