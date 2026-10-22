@@ -69,8 +69,8 @@ guard try decodeAddHostLink(text: linkText) == sent else { fail("add-host link r
 do {
     _ = try decodeAddHostLink(text: linkText.replacingOccurrences(of: "user=frank", with: "user=-oX"))
     fail("bad user in add-host link was accepted")
-} catch FfiError.InvalidLink(let message) {
-    guard message.contains("Benutzer") else { fail("unexpected message: \(message)") }
+} catch AddHostLinkError.BadUser(let user) {
+    guard user == "-oX" else { fail("unexpected user: \(user)") }
 }
 guard try publicKeyFingerprint(publicOpenssh: hostKey).hasPrefix("SHA256:") else { fail("host key fingerprint") }
 print("ok   add-host link: \(linkText.count) chars")
