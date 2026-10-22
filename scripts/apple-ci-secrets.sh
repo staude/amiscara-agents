@@ -100,12 +100,11 @@ if [[ -n "$dist" ]]; then
 fi
 unset password
 if [[ -n "$appstore_profiles" ]]; then
-    # One base64 string per profile, separated by spaces.
-    for profile in "$appstore_profiles"/*.mobileprovision; do
-        [[ -f "$profile" ]] || die "no .mobileprovision in $appstore_profiles"
-        base64 <"$profile" | tr -d '\n'
-        printf ' '
-    done | secret APPLE_APPSTORE_PROFILES
+    # As a .tar.gz: six plain profiles exceed GitHub's 48 KB per secret.
+    files=("$appstore_profiles"/*.mobileprovision)
+    [[ -f "${files[0]}" ]] || die "no .mobileprovision in $appstore_profiles"
+    tar -czf - -C "$appstore_profiles" "${files[@]##*/}" | base64 | tr -d '\n' \
+        | secret APPLE_APPSTORE_PROFILES
 fi
 if [[ -n "$sparkle" ]]; then
     tr -d '\n' <"$sparkle" | secret SPARKLE_ED_PRIVATE_KEY
