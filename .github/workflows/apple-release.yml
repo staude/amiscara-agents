@@ -55,7 +55,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # The whole history, for the check that the tag is on main.
           fetch-depth: 0
@@ -76,10 +76,11 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME, but project.yml says MARKETING_VERSION $app"
             exit 1
           fi
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: aarch64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: apple-mac
       - name: Xcode and xcodegen
@@ -114,7 +115,7 @@ jobs:
           VERSION: ${{ steps.build.outputs.version }}
           BUILD: ${{ steps.build.outputs.build }}
         run: scripts/sparkle-feed.sh "$ZIP" "$VERSION" "$BUILD"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: amiscara-agents-mac
           path: |
@@ -156,7 +157,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # The whole history, for the check that the tag is on main.
           fetch-depth: 0
@@ -177,10 +178,11 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME, but project.yml says MARKETING_VERSION $app"
             exit 1
           fi
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: aarch64-apple-ios, aarch64-apple-tvos
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: apple-testflight
       - name: Xcode and xcodegen
