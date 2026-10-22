@@ -402,6 +402,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   screen when the history is shorter than asked). Off by default, since both
   move the agent's view on the host too: setting "Vollbild-Agenten scrollen"
   in all apps (#187).
+- Arrow keys in an empty composer go to the pane, to move through an
+  agent's question or a shell's history without the key bar; with text
+  they move the cursor as before.
 - `apple-release.yml` builds the Apple apps in GitHub Actions on the
   `xcode-27` runner: the notarized Mac app as an artifact (attached to a
   release for `apple-v*` tags) and the iOS and tvOS apps for TestFlight,

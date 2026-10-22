@@ -150,7 +150,16 @@
       event.preventDefault();
       void sendKeys(["tab"]);
     }
+    // Arrow keys in an empty field go to the pane, to move through an
+    // agent's question or a shell's history; with text they move the cursor.
+    const arrow = arrowKeys[event.key];
+    if (arrow && plain && !text && attachments.length === 0) {
+      event.preventDefault();
+      liveKey(arrow);
+    }
   }
+
+  const arrowKeys: Record<string, string> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
 
   /** Keys for the agent in live mode; false for keys the composer keeps. */
   function onLiveKey(event: KeyboardEvent): boolean {

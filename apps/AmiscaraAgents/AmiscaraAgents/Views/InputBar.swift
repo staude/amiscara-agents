@@ -436,8 +436,9 @@ struct InputBar: View {
                 send(keys: ["tab"])
                 return .handled
             }
-            .onKeyPress(.upArrow) { liveArrow("up") }
-            .onKeyPress(.downArrow) { liveArrow("down") }
+            .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { press in
+                arrow(press)
+            }
             .onKeyPress(.escape) { liveArrow("esc") }
             .onChange(of: text) { syncLive() }
             // Another pane has its own input line: start live typing over.
@@ -574,6 +575,21 @@ struct InputBar: View {
         liveKey(key)
         return .handled
     }
+
+    /// Plain arrow keys in an empty composer go to the pane, to move through
+    /// an agent's question or a shell's history; with text they move the
+    /// cursor. In live mode up and down pick from the agent's suggestions.
+    private func arrow(_ press: KeyPress) -> KeyPress.Result {
+        guard press.modifiers.isEmpty, let key = Self.arrowKeys[press.key] else { return .ignored }
+        if isLive { return key == "up" || key == "down" ? liveArrow(key) : .ignored }
+        guard text.isEmpty, attachments.isEmpty else { return .ignored }
+        liveKey(key)
+        return .handled
+    }
+
+    private static let arrowKeys: [KeyEquivalent: String] = [
+        .upArrow: "up", .downArrow: "down", .leftArrow: "left", .rightArrow: "right",
+    ]
 
     private func enqueueLive(_ step: @escaping @MainActor (HostConnection) async throws -> Void) {
         let previous = liveQueue

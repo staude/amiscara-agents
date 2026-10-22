@@ -51,6 +51,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -80,6 +83,9 @@ private val CompactPadding = PaddingValues(horizontal = 14.dp)
 
 /** Keys of the key bar: label and herdr key name. */
 private val KEYS = listOf("Esc" to "esc", "Tab" to "tab", "⌃C" to "ctrl+c", "↑" to "up", "↓" to "down", "←" to "left", "→" to "right", "↩" to "enter")
+
+/** Arrow keys of a hardware keyboard and their herdr key names. */
+private val ARROWS = mapOf(Key.DirectionUp to "up", Key.DirectionDown to "down", Key.DirectionLeft to "left", Key.DirectionRight to "right")
 
 /**
  * Under the pane: one-tap answers while an agent waits, quick replies, a
@@ -340,13 +346,20 @@ fun InputBar(app: AmiscaraApp, host: HostConfig, pane: PaneItem, connected: Bool
                     },
                     maxLines = 6,
                     modifier = Modifier.weight(1f).onPreviewKeyEvent { event ->
-                        // Hardware keyboard: Enter sends, Shift+Enter starts a new line.
-                        if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
-                            submit()
-                            true
-                        } else {
-                            false
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val plain = !event.isShiftPressed && !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed
+                        val arrow = ARROWS[event.key]
+                        when {
+                            // Hardware keyboard: Enter sends, Shift+Enter starts a new line.
+                            event.key == Key.Enter && !event.isShiftPressed -> submit()
+                            // Arrows in an empty field go to the pane, to move through an
+                            // agent's question or a shell's history; with text they move
+                            // the cursor. In live mode up and down pick a suggestion.
+                            arrow != null && plain && text.isEmpty() && attachments.isEmpty() -> liveKey(arrow)
+                            arrow != null && plain && isLive && arrow in setOf("up", "down") -> liveKey(arrow)
+                            else -> return@onPreviewKeyEvent false
                         }
+                        true
                     },
                 )
                 IconButton(onClick = ::submit, enabled = enabled && !sending) {
