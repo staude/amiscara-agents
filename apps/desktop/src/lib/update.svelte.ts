@@ -1,15 +1,57 @@
-// Updates from the public release repository (tauri-plugin-updater): the
-// manifest and the installers are signed with the updater key, which the
-// app checks before installing.
+// Updates from this repository's releases (tauri-plugin-updater): the
+// manifest is `latest.json` in the release `updates`, and it and the
+// installers are signed with the updater key, which the app checks before
+// installing. Like the Mac app (Sparkle), it looks at start and then every
+// 24 hours, unless that is turned off in the settings.
 
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
+const DAY = 24 * 60 * 60 * 1000;
+const AUTO_KEY = "updatesAutomatic";
+
+function readAuto(): boolean {
+  try {
+    return localStorage.getItem(AUTO_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
 class Updater {
+  /** Look on start and every 24 hours. */
+  automatic = $state(readAuto());
   available = $state<Update | null>(null);
   state = $state<"idle" | "checking" | "current" | "downloading" | "failed">("idle");
   progress = $state(0);
   error = $state<string | null>(null);
+  private timer: ReturnType<typeof setInterval> | null = null;
+
+  /** Starts the automatic search; the app calls it once. */
+  start() {
+    this.schedule();
+  }
+
+  setAutomatic(on: boolean) {
+    this.automatic = on;
+    try {
+      localStorage.setItem(AUTO_KEY, String(on));
+    } catch {
+      // Storage blocked: the setting lasts until the app quits.
+    }
+    this.schedule();
+  }
+
+  private schedule() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    if (!this.automatic) return;
+    void this.check(true);
+    this.timer = setInterval(() => {
+      // An offer already shown or an install under way needs no new look.
+      if (!this.available && this.state !== "downloading") void this.check(true);
+    }, DAY);
+  }
 
   /** `quiet`: on start, where no answer or failure needs a word. */
   async check(quiet = false) {
