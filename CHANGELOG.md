@@ -455,7 +455,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the terminal no longer shows through it, and unfolded the sidebar ends
   at the fold. The composer keeps its text and images when the layout
   swaps the input bar. `scripts/screenshots.sh --platform duo` captures
-  the outer display.
+  the outer display. The widget comes in the extra large sizes as well
+  (two columns, or one tall column) for the inner display and the iPad.
 
 ### Changed
 
