@@ -37,14 +37,43 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
+import net.staude.amiscara.agents.core.FfiException
+import net.staude.amiscara.agents.core.isValidSessionName
+import net.staude.amiscara.agents.core.sessionNameOfSocket
+import net.staude.amiscara.agents.core.sessionSocketPath
 import net.staude.amiscara.agents.model.HostConfig
 import net.staude.amiscara.agents.model.HostException
 
-/** Adds a host (`hostId` null) or edits one; nothing changes until "Sichern". */
+/**
+ * Adds a host (`hostId` null) or edits one; nothing changes until "Sichern".
+ * `sessionOf` and `sessionSocket` start a new host as a copy of another
+ * one for a further herdr session on the same machine (#213): same address
+ * and host key, but a key of its own, since a key line serves one socket.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved: (String) -> Unit) {
-    val initial = remember { hostId?.let { app.hosts.get(it) } }
+fun HostEditorScreen(
+    app: AmiscaraApp,
+    hostId: String?,
+    back: () -> Unit,
+    saved: (String) -> Unit,
+    sessionOf: String? = null,
+    sessionSocket: String? = null,
+) {
+    val sessionLabel = stringResource(R.string.add_session_default)
+    val initial = remember {
+        hostId?.let { app.hosts.get(it) } ?: sessionOf?.let { app.hosts.get(it) }?.let { source ->
+            val socket = sessionSocket ?: source.socketPath
+            source.copy(
+                id = "",
+                name = "${source.name} (${sessionNameOfSocket(socket) ?: sessionLabel})",
+                socketPath = socket,
+                publicKey = null,
+                allowUpload = false,
+            )
+        }
+    }
+    val adding = hostId == null
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var host by remember { mutableStateOf(initial?.host ?: "") }
     var port by remember { mutableStateOf((initial?.port ?: 22).toString()) }
@@ -57,9 +86,20 @@ fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved:
     var allowUpload by remember { mutableStateOf(initial?.allowUpload ?: false) }
     var groupSpaces by remember { mutableStateOf(initial?.groupSpacesByName ?: true) }
     var notify by remember { mutableStateOf(initial?.notify ?: true) }
+    var session by remember { mutableStateOf(initial?.socketPath?.let(::sessionNameOfSocket) ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val effectiveSocket = if (socketTouched) socket else if (user.isBlank()) "" else HostConfig.defaultSocket(user.trim(), macHost)
+    fun validSession(name: String) = name.isBlank() || isValidSessionName(name.trim())
+    val sessionValid = validSession(session)
+    // Session `name`'s socket next to `base`; null if it cannot be built.
+    fun socketFor(base: String, name: String): String? =
+        if (base.isEmpty() || !validSession(name)) null else try {
+            sessionSocketPath(base, name.trim())
+        } catch (_: FfiException) {
+            null
+        }
+    val defaultSocket = if (user.isBlank()) "" else HostConfig.defaultSocket(user.trim(), macHost)
+    val effectiveSocket = if (socketTouched) socket else socketFor(defaultSocket, session) ?: defaultSocket
 
     fun save() {
         val draft = (initial ?: HostConfig(id = "", name = "", host = "", user = "", socketPath = "")).copy(
@@ -83,13 +123,13 @@ fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved:
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(if (initial == null) R.string.host_add else R.string.host_edit)) },
+                title = { Text(stringResource(if (adding) R.string.host_add else R.string.host_edit)) },
                 navigationIcon = {
                     IconButton(onClick = back) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                actions = { TextButton(onClick = ::save) { Text(stringResource(R.string.save)) } },
+                actions = { TextButton(onClick = ::save, enabled = sessionValid) { Text(stringResource(R.string.save)) } },
             )
         },
     ) { padding ->
@@ -150,10 +190,28 @@ fun HostEditorScreen(app: AmiscaraApp, hostId: String?, back: () -> Unit, saved:
                 onValueChange = {
                     socket = it
                     socketTouched = true
+                    session = sessionNameOfSocket(it) ?: ""
                 },
                 label = { Text(stringResource(R.string.field_socket)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = session,
+                onValueChange = {
+                    session = it
+                    // A socket typed by hand moves to the session next to it.
+                    if (socketTouched) socketFor(socket, it)?.let { path -> socket = path }
+                },
+                label = { Text(stringResource(R.string.field_session)) },
+                placeholder = { Text(stringResource(R.string.link_socket_default)) },
+                supportingText = {
+                    Text(stringResource(if (sessionValid) R.string.field_session_hint else R.string.error_session_name))
+                },
+                isError = !sessionValid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
                 modifier = Modifier.fillMaxWidth(),
             )
             SwitchRow(stringResource(R.string.allow_input), allowInput) { allowInput = it }

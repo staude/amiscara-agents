@@ -12,7 +12,10 @@ struct HostEditorView: View {
     @State private var error: String?
     /// Set for a moment after "Zeile kopieren", so the tap visibly worked.
     @State private var copied = false
-    private let isNew: Bool
+    /// The herdr session as typed (#213); a valid name sets the socket path.
+    @State private var sessionName = ""
+    /// Sessions found on the host, offered next to the field.
+    @State private var knownSessions: [HerdrSession] = []
     /// An "add host" link opened from outside, applied once on appear.
     private let importLink: String?
     @State private var scanning = false
@@ -37,7 +40,6 @@ struct HostEditorView: View {
     init(config: HostConfig, importLink: String? = nil) {
         _config = State(initialValue: config)
         original = config
-        isNew = config.name.isEmpty
         self.importLink = importLink
     }
 
@@ -63,6 +65,7 @@ struct HostEditorView: View {
                             .technicalInput()
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
                             .technicalInput()
+                        sessionField
                     }
                     importedKeySection
                     hostKeySection
@@ -71,6 +74,7 @@ struct HostEditorView: View {
                     Section("Socket") {
                         TextField("Pfad", text: $config.socketPath, prompt: Text(Platform.localSocketPath))
                             .technicalInput()
+                        sessionField
                     }
                 }
 
@@ -132,9 +136,19 @@ struct HostEditorView: View {
         .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil)
         .onChange(of: config.host) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.port) { dropImportedKeyIfAddressChanged() }
+        .onChange(of: config.socketPath, initial: true) { showSessionOfSocket() }
+        .onChange(of: config.user) { old, new in followUser(from: old, to: new) }
+        .onChange(of: sessionName) { applySessionName() }
         .task {
-            if let importLink { applyLink(importLink) }
+            if let importLink {
+                applyLink(importLink)
+            } else if isNew, config.kind == .ssh, !config.host.isEmpty, config.publicKey == nil {
+                // A further session of a known host (#213): its own key,
+                // because a key line serves exactly one socket.
+                generateKey()
+            }
         }
+        .task(id: config.kind) { await loadSessions() }
         #if os(iOS)
         .sheet(isPresented: $scanning) {
             QRScannerView { link in apply(link) }
@@ -244,12 +258,103 @@ struct HostEditorView: View {
         }
     }
 
+    /// The herdr session by name instead of its socket path (#213), with
+    /// the host's sessions to pick from when they are known.
+    private var sessionField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                TextField("Session", text: $sessionName, prompt: Text("Standard-Session"))
+                    .technicalInput()
+                    .disabled(defaultSocket == nil)
+                if !knownSessions.isEmpty {
+                    Menu {
+                        Button("Standard-Session") { sessionName = "" }
+                        ForEach(knownSessions, id: \.name) { session in
+                            Button(session.running ? session.name : String(localized: "\(session.name) (gestoppt)")) {
+                                sessionName = session.name
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "chevron.up.chevron.down")
+                    }
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .accessibilityLabel("Sessions auf dem Host")
+                }
+            }
+            if sessionNameInvalid {
+                Text("Erlaubt sind Buchstaben, Ziffern, „-“, „_“ und „.“, nicht am Anfang.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    /// The host's default `herdr.sock`; `nil` while the SSH user is missing.
+    private var defaultSocket: String? {
+        switch config.kind {
+        case .local: Platform.localSocketPath.isEmpty ? nil : Platform.localSocketPath
+        case .ssh: config.user.isEmpty ? nil : defaultRemoteSocket(user: config.user)
+        }
+    }
+
+    private var sessionNameInvalid: Bool {
+        let name = sessionName.trimmingCharacters(in: .whitespaces)
+        return !name.isEmpty && !isValidSessionName(name: name)
+    }
+
+    private func showSessionOfSocket() {
+        let socket = config.socketPath.isEmpty ? (defaultSocket ?? "") : config.socketPath
+        let name = sessionNameOfSocket(socketPath: socket) ?? ""
+        // Only when it differs, so typing is not overwritten mid-word.
+        if name != sessionName.trimmingCharacters(in: .whitespaces) && !sessionNameInvalid {
+            sessionName = name
+        }
+    }
+
+    private func applySessionName() {
+        guard !sessionNameInvalid, let defaultSocket else { return }
+        let current = config.socketPath.isEmpty ? defaultSocket : config.socketPath
+        guard let path = try? sessionSocketPath(defaultSocket: current, name: sessionName) else { return }
+        // Keep the field empty for the default, like a host typed in by hand.
+        let next = path == defaultSocket ? "" : path
+        if next != config.socketPath { config.socketPath = next }
+    }
+
+    /// A session socket built for the previous user moves to the new one.
+    private func followUser(from old: String, to new: String) {
+        guard config.kind == .ssh, !old.isEmpty, !new.isEmpty,
+              config.socketPath.hasPrefix("/Users/\(old)/.config/herdr/"),
+              let name = sessionNameOfSocket(socketPath: config.socketPath),
+              let path = try? sessionSocketPath(defaultSocket: defaultRemoteSocket(user: new), name: name)
+        else { return }
+        config.socketPath = path
+    }
+
+    /// This Mac's sessions, or those of a known host whose key may read
+    /// files; others have to be typed.
+    private func loadSessions() async {
+        if config.kind == .local {
+            knownSessions = (try? await Task.detached { try localHerdrSessions() }.value) ?? []
+        } else if let connection = store.connection(for: config.id), connection.config.kind == .ssh,
+                  connection.config.uploadAllowed, connection.isLive {
+            knownSessions = (try? await connection.herdrSessions()) ?? []
+        } else {
+            knownSessions = []
+        }
+    }
+
     private var socketPlaceholder: String {
         config.user.isEmpty ? String(localized: "/Users/<benutzer>/.config/herdr/herdr.sock") : defaultRemoteSocket(user: config.user)
     }
 
+    /// Not yet in the store: a new host, also one handed over prefilled.
+    private var isNew: Bool {
+        store.connection(for: original.id) == nil
+    }
+
     private var isComplete: Bool {
-        guard !config.name.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        guard !config.name.trimmingCharacters(in: .whitespaces).isEmpty, !sessionNameInvalid else { return false }
         switch config.kind {
         case .local: return true
         case .ssh: return !config.host.isEmpty && !config.user.isEmpty && config.publicKey != nil

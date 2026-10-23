@@ -7,7 +7,9 @@ use std::time::Duration;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::sync::{self, SyncState};
 use herdr_core::{actions, claude, fullscreen};
-use herdr_transport::{Connection, HostKeyPolicy, Identity, SshTarget, TransportError, keys};
+use herdr_transport::{
+    Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
+};
 use tokio::runtime::Handle;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -529,6 +531,15 @@ impl Session {
         conn.add_authorized_key(&line, blob)
             .await
             .map_err(upload_error)
+    }
+
+    /// The named herdr sessions on this host, running or stopped (#213).
+    /// Over SSH this needs SFTP, like uploads.
+    pub async fn herdr_sessions(&self) -> Result<Vec<HerdrSessionEntry>, SessionError> {
+        let conn = self.connection()?;
+        conn.herdr_sessions()
+            .await
+            .map_err(|err| SessionError::Files(err.to_string()))
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,

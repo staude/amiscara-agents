@@ -18,6 +18,8 @@ class AppModel {
   /** Session generation per host; pane followers restart when it changes. */
   generations = $state<Record<string, number>>({});
   selection = $state<Selection | null>(null);
+  /** The named herdr session each host points at; missing for the default. */
+  sessionNames = $state<Record<string, string>>({});
   error = $state<string | null>(null);
 
   get selectedHost(): HostConfig | undefined {
@@ -45,6 +47,7 @@ class AppModel {
     });
     this.info = await core.appInfo();
     this.hosts = await core.listHosts();
+    for (const host of this.hosts) void this.readSessionName(host);
     if (!this.selection && this.hosts[0]) this.select(this.hosts[0].id);
     for (const host of this.hosts) {
       core.connect(host.id).catch((err) => (this.error = core.errorText(err)));
@@ -63,7 +66,15 @@ class AppModel {
     return saved;
   }
 
+  /** The session name for the sidebar, from the host's socket. */
+  async readSessionName(host: HostConfig) {
+    const name = host.socketPath ? await core.sessionOfSocket(host.socketPath).catch(() => null) : null;
+    if (name) this.sessionNames[host.id] = name;
+    else delete this.sessionNames[host.id];
+  }
+
   replace(host: HostConfig) {
+    void this.readSessionName(host);
     const index = this.hosts.findIndex((known) => known.id === host.id);
     if (index >= 0) this.hosts[index] = host;
     else {
@@ -76,6 +87,7 @@ class AppModel {
     await core.deleteHost(hostId);
     this.hosts = this.hosts.filter((host) => host.id !== hostId);
     delete this.updates[hostId];
+    delete this.sessionNames[hostId];
     if (this.selection?.hostId === hostId) {
       this.selection = this.hosts[0] ? { hostId: this.hosts[0].id, workspaceId: null, paneId: null } : null;
     }

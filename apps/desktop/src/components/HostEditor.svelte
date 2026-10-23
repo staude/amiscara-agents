@@ -1,9 +1,10 @@
 <script lang="ts">
   import { t } from "../lib/i18n.svelte";
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import * as core from "../lib/core";
   import { defaultSocket, errorText } from "../lib/core";
   import { model } from "../lib/state.svelte";
-  import type { HostConfig } from "../lib/types";
+  import type { HerdrSession, HostConfig } from "../lib/types";
 
   let { host, close }: { host: HostConfig | null; close: () => void } = $props();
 
@@ -33,12 +34,63 @@
   let error = $state<string | null>(null);
   let saving = $state(false);
   let socketTouched = $state(initial !== null);
+  // The named herdr session (#213); it only sets the socket path.
+  let sessionName = $state("");
+  let sessionError = $state<string | null>(null);
+  let sessions = $state<HerdrSession[]>([]);
+  let localDefault: string | null = null;
 
   $effect(() => {
     if (!socketTouched && draft.kind === "ssh") {
       draft.socketPath = draft.user ? defaultSocket(draft.user, macHost) : "";
+      if (draft.user) untrack(() => void applySession());
     }
   });
+
+  onMount(async () => {
+    localDefault = await core.localDefaultSocket().catch(() => null);
+    await readSession();
+    // Sessions to pick from: this machine's, or a connected host's (needs SFTP).
+    const listed =
+      draft.kind === "local"
+        ? core.localSessions()
+        : initial?.id && model.isLive(initial.id)
+          ? core.hostSessions(initial.id)
+          : Promise.resolve([]);
+    sessions = await listed.catch(() => []);
+  });
+
+  /** The socket the session field starts from: the path or its default. */
+  function baseSocket(): string {
+    if (draft.socketPath) return draft.socketPath;
+    return draft.kind === "local" ? (localDefault ?? "") : draft.user ? defaultSocket(draft.user, macHost) : "";
+  }
+
+  /** The field from the socket path, e.g. after typing a path. */
+  async function readSession() {
+    const base = baseSocket();
+    sessionName = (base && (await core.sessionOfSocket(base).catch(() => null))) || "";
+    sessionError = null;
+  }
+
+  /** The socket path from the field. */
+  async function applySession() {
+    const name = sessionName.trim();
+    if (name && !(await core.validSessionName(name))) {
+      sessionError = t("sessionNameInvalid");
+      return;
+    }
+    sessionError = null;
+    const base = baseSocket();
+    if (!base) return;
+    try {
+      const path = await core.sessionSocket(base, name);
+      // Local hosts keep the default as an empty path.
+      draft.socketPath = draft.kind === "local" && path === localDefault ? "" : path;
+    } catch (err) {
+      sessionError = errorText(err);
+    }
+  }
 
   async function save(event: SubmitEvent) {
     event.preventDefault();
@@ -55,9 +107,29 @@
   }
 </script>
 
+{#snippet sessionField()}
+  <label class="row">
+    <span>Session</span>
+    <input
+      bind:value={sessionName}
+      oninput={() => void applySession()}
+      placeholder={t("sessionDefault")}
+      list="herdr-sessions"
+      autocomplete="off"
+      spellcheck="false"
+    />
+  </label>
+  <datalist id="herdr-sessions">
+    {#each sessions as session (session.name)}
+      <option value={session.name}>{session.running ? "" : t("sessionStopped")}</option>
+    {/each}
+  </datalist>
+  {#if sessionError}<p class="error">{sessionError}</p>{/if}
+{/snippet}
+
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
   <form class="sheet" onsubmit={save}>
-    <h2>{host ? t("editHost") : t("addHost")}</h2>
+    <h2>{host?.id ? t("editHost") : t("addHost")}</h2>
 
     {#if model.info?.localSocket}
       <label class="row">
@@ -96,8 +168,16 @@
       </label>
       <label class="row">
         <span>Socket</span>
-        <input bind:value={draft.socketPath} oninput={() => (socketTouched = true)} required />
+        <input
+          bind:value={draft.socketPath}
+          oninput={() => {
+            socketTouched = true;
+            void readSession();
+          }}
+          required
+        />
       </label>
+      {@render sessionField()}
       <label class="row">
         <span>{t("login")}</span>
         <select bind:value={draft.auth}>
@@ -121,8 +201,9 @@
     {:else}
       <label class="row">
         <span>Socket</span>
-        <input bind:value={draft.socketPath} placeholder="~/.config/herdr/herdr.sock" />
+        <input bind:value={draft.socketPath} placeholder="~/.config/herdr/herdr.sock" oninput={() => void readSession()} />
       </label>
+      {@render sessionField()}
     {/if}
 
     <label class="check">
@@ -146,7 +227,7 @@
 
     <div class="buttons">
       <button type="button" onclick={close}>{t("cancel")}</button>
-      <button type="submit" class="primary" disabled={saving}>{t("save")}</button>
+      <button type="submit" class="primary" disabled={saving || sessionError !== null}>{t("save")}</button>
     </div>
   </form>
 </div>

@@ -503,6 +503,19 @@ impl Connection {
         }
     }
 
+    /// The named herdr sessions of the login (#213): the directories in
+    /// `~/.config/herdr/sessions`, each running when its `herdr.sock`
+    /// exists. Locally a socket only counts when it accepts a connection,
+    /// so a stale file from a crashed server reads as stopped. Over SSH this
+    /// needs SFTP like [`Connection::upload`]. No directory means none.
+    pub async fn herdr_sessions(&self) -> Result<Vec<HerdrSessionEntry>, TransportError> {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => local_herdr_sessions().await,
+            Inner::Ssh { handle, .. } => Ok(tidy_sessions(sftp_herdr_sessions(handle).await?)),
+        }
+    }
+
     /// Up to `len` bytes of the file `path` (below the home directory) from
     /// `offset`; fewer at its end.
     pub async fn read_file_range(
@@ -589,6 +602,17 @@ impl Subscription {
     }
 }
 
+/// Where herdr keeps its named sessions, below the home directory.
+pub const HERDR_SESSIONS_DIR: &str = ".config/herdr/sessions";
+
+/// A named herdr session from [`Connection::herdr_sessions`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HerdrSessionEntry {
+    pub name: String,
+    /// Whether its server runs, i.e. its socket is there.
+    pub running: bool,
+}
+
 /// A file from [`Connection::list_files`].
 #[derive(Debug, Clone)]
 pub struct RemoteFile {
@@ -648,6 +672,66 @@ async fn sftp_list(
         .collect();
     sftp.close().await.map_err(failed)?;
     Ok(files)
+}
+
+/// [`Connection::herdr_sessions`] on this machine, without a connection.
+#[cfg(unix)]
+pub async fn local_herdr_sessions() -> Result<Vec<HerdrSessionEntry>, TransportError> {
+    let path = local_home_path(HERDR_SESSIONS_DIR)?;
+    let mut entries = match tokio::fs::read_dir(&path).await {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(err) => return Err(TransportError::Files(format!("{}: {err}", path.display()))),
+    };
+    let mut sessions = Vec::new();
+    while let Some(entry) = entries.next_entry().await? {
+        if !entry.file_type().await?.is_dir() {
+            continue;
+        }
+        let socket = entry.path().join("herdr.sock");
+        sessions.push(HerdrSessionEntry {
+            name: entry.file_name().to_string_lossy().into_owned(),
+            running: tokio::net::UnixStream::connect(&socket).await.is_ok(),
+        });
+    }
+    Ok(tidy_sessions(sessions))
+}
+
+/// Sorted by name, without hidden directories.
+fn tidy_sessions(mut sessions: Vec<HerdrSessionEntry>) -> Vec<HerdrSessionEntry> {
+    sessions.retain(|session| !session.name.starts_with('.'));
+    sessions.sort_by(|a, b| a.name.cmp(&b.name));
+    sessions
+}
+
+async fn sftp_herdr_sessions(
+    handle: &Handle<HostKeyCheck>,
+) -> Result<Vec<HerdrSessionEntry>, TransportError> {
+    let sftp = sftp_session(handle, TransportError::Files).await?;
+    let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+    let home = sftp.canonicalize(".").await.map_err(failed)?;
+    let base = format!("{}/{HERDR_SESSIONS_DIR}", home.trim_end_matches('/'));
+    let names: Vec<String> = match sftp.read_dir(base.as_str()).await {
+        Ok(entries) => entries
+            .filter(|entry| entry.file_type().is_dir())
+            .map(|entry| entry.file_name())
+            .filter(|name| name != "." && name != "..")
+            .collect(),
+        // Most likely missing: no named session was ever started.
+        Err(_) => Vec::new(),
+    };
+    let mut sessions = Vec::with_capacity(names.len());
+    for name in names {
+        // Socket files have no type of their own in SFTP version 3; any
+        // entry under that name means a running server.
+        let running = sftp
+            .symlink_metadata(format!("{base}/{name}/herdr.sock"))
+            .await
+            .is_ok();
+        sessions.push(HerdrSessionEntry { name, running });
+    }
+    sftp.close().await.map_err(failed)?;
+    Ok(sessions)
 }
 
 /// `current` with `line` appended, or `None` when the key is there already.

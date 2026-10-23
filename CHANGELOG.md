@@ -445,6 +445,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   "Sprache" / "Language". Tray menu, notifications and the default quick
   replies follow it; `SCREENSHOT_LANG=en` takes the desktop screenshots in
   English (#207).
+- Named herdr sessions for hosts (#213): the host editor has a "Session"
+  field that sets the socket path from the name, with the sessions of
+  local hosts to pick from. "Add another session…" on a host lists its
+  sessions (over SSH this needs SFTP) and creates an entry for the chosen
+  one with its own key. The host list shows the session of an entry.
 
 ### Changed
 

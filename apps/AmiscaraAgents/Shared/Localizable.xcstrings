@@ -23,6 +23,16 @@
         }
       }
     },
+    "%@ (gestoppt)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (stopped)"
+          }
+        }
+      }
+    },
     "%@ aufklappen" : {
       "localizations" : {
         "en" : {
@@ -157,6 +167,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ · %2$@ · Tab %3$@"
+          }
+        }
+      }
+    },
+    "%@ · Session %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Session %2$@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · Session %2$@"
           }
         }
       }
@@ -630,6 +656,16 @@
         }
       }
     },
+    "Auch eine gestoppte Session lässt sich hinzufügen. Die App verbindet sich, sobald sie läuft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A stopped session can be added too. The app connects once it runs."
+          }
+        }
+      }
+    },
     "Auch für SSH-Hosts senden" : {
       "localizations" : {
         "en" : {
@@ -836,6 +872,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uploading images is off for this host (edit the host)."
+          }
+        }
+      }
+    },
+    "Bilder hochladen ist für diesen Host ausgeschaltet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image uploads are off for this host."
           }
         }
       }
@@ -1550,6 +1596,16 @@
         }
       }
     },
+    "Erlaubt sind Buchstaben, Ziffern, „-“, „_“ und „.“, nicht am Anfang." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letters, digits, “-”, “_” and “.” are allowed, but not “.” at the start."
+          }
+        }
+      }
+    },
     "Erscheinungsbild" : {
       "localizations" : {
         "en" : {
@@ -1646,6 +1702,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add a computer that runs herdr."
+          }
+        }
+      }
+    },
+    "Für alle Sessions auf diesem Host gibt es schon einen Eintrag." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every session on this host already has an entry."
+          }
+        }
+      }
+    },
+    "Für die Liste braucht der Schlüssel SFTP (Bilder hochladen). Sie können den Namen auch eingeben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The list needs SFTP for the key (image uploads). You can also type the name."
           }
         }
       }
@@ -2430,6 +2506,16 @@
         }
       }
     },
+    "Name der Session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session name"
+          }
+        }
+      }
+    },
     "Name oder IP-Adresse, unter der iPhone und iPad diesen Mac per SSH erreichen. Dafür muss in den Systemeinstellungen unter Allgemein > Teilen die entfernte Anmeldung eingeschaltet sein." : {
       "localizations" : {
         "en" : {
@@ -3156,6 +3242,36 @@
         }
       }
     },
+    "Session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "Session %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session %@"
+          }
+        }
+      }
+    },
+    "Sessions auf dem Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sessions on the host"
+          }
+        }
+      }
+    },
     "Shell" : {
       "localizations" : {
         "en" : {
@@ -3402,6 +3518,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore Defaults"
+          }
+        }
+      }
+    },
+    "Standard-Session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default session"
           }
         }
       }
@@ -3956,12 +4082,42 @@
         }
       }
     },
+    "Weiter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
     "Weitere" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "More"
+          }
+        }
+      }
+    },
+    "Weitere Session auf %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another Session on %@"
+          }
+        }
+      }
+    },
+    "Weitere Session hinzufügen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Another Session …"
           }
         }
       }
@@ -4122,6 +4278,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "done"
+          }
+        }
+      }
+    },
+    "gestoppt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "stopped"
           }
         }
       }

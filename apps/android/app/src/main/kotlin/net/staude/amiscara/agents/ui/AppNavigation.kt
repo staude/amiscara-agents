@@ -52,8 +52,9 @@ data class SpaceRoute(val hostId: String, val workspaceId: String, val paneId: S
 @Serializable
 data class HostRoute(val id: String)
 
+/** `sessionOf` with `socket`: a new host for another herdr session on that host's machine. */
 @Serializable
-data class EditHostRoute(val id: String? = null)
+data class EditHostRoute(val id: String? = null, val sessionOf: String? = null, val socket: String? = null)
 
 @Serializable
 data class AddLinkRoute(val text: String)
@@ -162,6 +163,7 @@ fun AppNavigation(app: AmiscaraApp) {
                         app = app,
                         selected = selection.takeIf { wide },
                         openHost = { nav.navigate(HostRoute(it)) },
+                        addSession = { hostId, socket -> nav.navigate(EditHostRoute(sessionOf = hostId, socket = socket)) },
                         openSpace = openSpace,
                         addHost = { nav.navigate(EditHostRoute()) },
                         scan = { nav.navigate(ScanRoute) },
@@ -213,7 +215,11 @@ fun AppNavigation(app: AmiscaraApp) {
                 HostDetailScreen(app, id, back = { nav.popBackStack() }, edit = { nav.navigate(EditHostRoute(id)) })
             }
             composable<EditHostRoute> { entry ->
-                HostEditorScreen(app, entry.toRoute<EditHostRoute>().id, back = { nav.popBackStack() }, saved = { nav.showHost(it) })
+                val route = entry.toRoute<EditHostRoute>()
+                HostEditorScreen(
+                    app, route.id, back = { nav.popBackStack() }, saved = { nav.showHost(it) },
+                    sessionOf = route.sessionOf, sessionSocket = route.socket,
+                )
             }
             composable<AddLinkRoute> { entry ->
                 val text = entry.toRoute<AddLinkRoute>().text

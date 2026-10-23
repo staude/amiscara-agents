@@ -336,9 +336,15 @@ struct TVHostsView: View {
                                 Text(connection.isLive ? "verbunden" : "nicht verbunden")
                                     .foregroundStyle(connection.isLive ? .green : .orange)
                             }
-                            Text(connection.config.host)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Group {
+                                if let session = sessionNameOfSocket(socketPath: connection.config.socketPath) {
+                                    Text("\(connection.config.host) · Session \(session)")
+                                } else {
+                                    Text(connection.config.host)
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                             if let problem = problem(connection) {
                                 Text(problem)
                                     .font(.caption)
