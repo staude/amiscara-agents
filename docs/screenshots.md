@@ -22,6 +22,7 @@ and Watch simulator).
 | `mac` | debug build, window captured with `screencapture -l` | spaces with a waiting, working and finished agent, split tab, worktree, shell, search, Claude conversation, quick switcher, add host, settings |
 | `ios`, `ipad` | iPhone 18 Pro and iPad Pro 13-inch (M5) simulators, `simctl io screenshot`, status bar at 9:41 | the same without settings; the iPhone also its start screen |
 | `duo` | iPhone Duo simulator, folded: the outer display (`--display=primary`) | like the iPhone |
+| `duo-open` | iPhone Duo simulator, unfolded beforehand in Device Hub (buttons under the device; simctl cannot fold it): the inner display (`--display=primary-1`) | like the iPad |
 | `tvos` | Apple TV 4K (3rd generation) simulator | agents board, waiting agent, split tab, finished agent |
 | `android` | emulator (AVD `Pixel_9`, started headless if none runs), `adb exec-out screencap`, demo status bar | start screen, the shared views without search and conversation, settings |
 | `desktop` | the Windows/Linux app as a debug build against the vite dev server | the same as the Mac |

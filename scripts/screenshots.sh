@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Screenshots of all apps from the seeded demo session (#199).
 #
-#   scripts/screenshots.sh [--platform mac|ios|duo|ipad|tvos|android|desktop|all]...
+#   scripts/screenshots.sh [--platform mac|ios|duo|duo-open|ipad|tvos|android|desktop|all]...
 #                          [--appearance dark|light] [--keep]
 #
 # Builds the demo in its own herdr session (scripts/screenshots/seed.py),
@@ -118,7 +118,9 @@ mac() {
 # The simulators reach the Mac's sockets, so the demo host is the session's
 # socket here too: no SSH key, no authorized_keys. Devices by name, or by
 # id from IPHONE_SIM, DUO_SIM, IPAD_SIM, TV_SIM. The iPhone Duo has two
-# displays; the simulator starts folded, so its shots are the outer one.
+# displays: duo takes the outer one (folded), duo-open the inner one, for
+# which the simulator has to be unfolded first (Device Hub, buttons under
+# the device); simctl cannot fold it.
 booted=()
 sim_display=""
 sim_id() {
@@ -240,7 +242,7 @@ android() {
 }
 
 want mac && mac
-if want ios || want duo || want ipad; then
+if want ios || want duo || want duo-open || want ipad; then
     step "iOS app for the simulator"
     sim_build AmiscaraAgents-iOS "iOS Simulator"
     ios_app=target/xcode-sim/Build/Products/Debug-iphonesimulator/AmiscaraAgents.app
@@ -249,6 +251,11 @@ if want ios || want duo || want ipad; then
     if want duo; then
         sim_display=primary
         sim duo "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "spaces||||" "${views[@]}"
+        sim_display=""
+    fi
+    if want duo-open; then
+        sim_display=primary-1
+        sim duo-open "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "${views[@]}"
         sim_display=""
     fi
     want ipad && sim ipad "${IPAD_SIM:-$(sim_id "iPad Pro 13-inch (M5)")}" "$ios_app" true \
