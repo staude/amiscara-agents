@@ -57,6 +57,8 @@ import net.staude.amiscara.agents.model.SpaceEntry
 import net.staude.amiscara.agents.model.SpaceSelection
 import net.staude.amiscara.agents.model.arrange
 import net.staude.amiscara.agents.model.blocks
+import net.staude.amiscara.agents.core.sessionNameOfSocket
+import net.staude.amiscara.agents.model.HostConfig
 import net.staude.amiscara.agents.model.closingState
 import net.staude.amiscara.agents.model.linkedWorktrees
 import net.staude.amiscara.agents.model.place
@@ -74,6 +76,8 @@ fun Sidebar(
     app: AmiscaraApp,
     selected: SpaceSelection?,
     openHost: (String) -> Unit,
+    /** Opens the editor for a new host on `hostId`'s machine with that socket. */
+    addSession: (hostId: String, socketPath: String) -> Unit,
     openSpace: (SpaceSelection) -> Unit,
     addHost: () -> Unit,
     scan: () -> Unit,
@@ -90,6 +94,7 @@ fun Sidebar(
     val localNetwork by app.localNetworkAllowed.collectAsStateWithLifecycle()
     var menu by remember { mutableStateOf(false) }
     var pasting by remember { mutableStateOf(false) }
+    var sessionsOf by remember { mutableStateOf<HostConfig?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -153,7 +158,7 @@ fun Sidebar(
                             modifier = Modifier.clickable { openHost(host.id) },
                             leadingContent = { StatusDot(update, startError) },
                             headlineContent = { Text(host.name, style = MaterialTheme.typography.titleMedium) },
-                            supportingContent = if (live) null else ({ Text(statusSummary(update, startError)) }),
+                            supportingContent = hostSubtitle(host, if (live) null else statusSummary(update, startError)),
                             trailingContent = {
                                 Box {
                                     IconButton(onClick = { hostMenu = true }) {
@@ -167,6 +172,10 @@ fun Sidebar(
                                         DropdownMenuItem(text = { Text(stringResource(R.string.menu_reconnect)) }, onClick = {
                                             hostMenu = false
                                             app.connections.reconnect(host.id)
+                                        })
+                                        DropdownMenuItem(text = { Text(stringResource(R.string.menu_add_session)) }, onClick = {
+                                            hostMenu = false
+                                            sessionsOf = host
                                         })
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.menu_new_space)) },
@@ -231,6 +240,27 @@ fun Sidebar(
                 addLink(it)
             },
         )
+    }
+    sessionsOf?.let { host ->
+        SessionPicker(app, host, dismiss = { sessionsOf = null }) {
+            sessionsOf = null
+            addSession(host.id, it)
+        }
+    }
+}
+
+/**
+ * The line under a host's name: its herdr session unless it is the
+ * default one (#213), and `status` while not connected.
+ */
+private fun hostSubtitle(host: HostConfig, status: String?): (@Composable () -> Unit)? {
+    val session = sessionNameOfSocket(host.socketPath)
+    if (session == null && status == null) return null
+    return {
+        Column {
+            session?.let { Text(stringResource(R.string.host_session, it)) }
+            status?.let { Text(it) }
+        }
     }
 }
 
