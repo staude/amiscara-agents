@@ -23,7 +23,10 @@ struct AgentsWidget: Widget {
 
     private static var families: [WidgetFamily] {
         #if os(iOS)
-        [.systemSmall, .systemMedium, .systemLarge, .accessoryCircular, .accessoryRectangular, .accessoryInline]
+        // The extra large sizes are for the iPad and the inner display of
+        // the iPhone Duo (#215); the outer one takes the iPhone sizes.
+        [.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge, .systemExtraLargePortrait,
+         .accessoryCircular, .accessoryRectangular, .accessoryInline]
         #else
         [.systemSmall, .systemMedium, .systemLarge]
         #endif
@@ -90,6 +93,8 @@ struct AgentsWidgetView: View {
         case .systemMedium: list(rows: 3)
         case .systemLarge: list(rows: 8)
         #if os(iOS)
+        case .systemExtraLarge: list(rows: 16, columns: 2)
+        case .systemExtraLargePortrait: list(rows: 16)
         case .accessoryCircular: circular
         case .accessoryRectangular: rectangular
         case .accessoryInline: inline
@@ -123,7 +128,8 @@ struct AgentsWidgetView: View {
         })
     }
 
-    private func list(rows: Int) -> some View {
+    /// Up to `rows` agents, filled column by column.
+    private func list(rows: Int, columns: Int = 1) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Agents").font(.headline)
@@ -139,9 +145,18 @@ struct AgentsWidgetView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
-                ForEach(snapshot.agents.prefix(rows), id: \.agent.id) { host, agent in
-                    Link(destination: WidgetSnapshot.openURL(host: host.id, workspaceID: agent.workspaceID, paneID: agent.paneID)) {
-                        row(agent, host: snapshot.hosts.count > 1 ? host.name : nil)
+                let perColumn = (rows + columns - 1) / columns
+                let shown = Array(snapshot.agents.prefix(rows))
+                HStack(alignment: .top, spacing: 16) {
+                    ForEach(0..<columns, id: \.self) { column in
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(shown.dropFirst(column * perColumn).prefix(perColumn), id: \.agent.id) { host, agent in
+                                Link(destination: WidgetSnapshot.openURL(host: host.id, workspaceID: agent.workspaceID, paneID: agent.paneID)) {
+                                    row(agent, host: snapshot.hosts.count > 1 ? host.name : nil)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                 }
                 Spacer(minLength: 0)

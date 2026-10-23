@@ -102,6 +102,15 @@ struct InputBar: View {
             error = nil
             attachments = []
         }
+        // Folding an iPhone Duo or resizing a window can swap this bar for
+        // a new one; the composer goes along (#215).
+        .onAppear {
+            guard let draft = ComposerDraft.slot, draft.key == draftKey else { return }
+            text = draft.text
+            attachments = draft.attachments
+        }
+        .onChange(of: text) { keepDraft() }
+        .onChange(of: attachments.map(\.id)) { keepDraft() }
         .onChange(of: pickedPhotos) { _, items in
             guard !items.isEmpty else { return }
             pickedPhotos = []
@@ -129,6 +138,12 @@ struct InputBar: View {
         .sheet(isPresented: $editingQuickReplies) {
             QuickReplyEditor(store: quickReplies)
         }
+    }
+
+    private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
+
+    private func keepDraft() {
+        ComposerDraft.slot = (draftKey, text, attachments)
     }
 
     /// Saved prompts, one tap sends. Scrolls sideways so it fits an iPhone.
@@ -621,4 +636,11 @@ struct InputBar: View {
             }
         }
     }
+}
+
+/// What the composer of the shown pane holds, for the input bar that takes
+/// over when the layout changes.
+@MainActor
+private enum ComposerDraft {
+    static var slot: (key: String, text: String, attachments: [ImageAttachment])?
 }

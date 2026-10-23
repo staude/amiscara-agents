@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Screenshots of all apps from the seeded demo session (#199).
 #
-#   scripts/screenshots.sh [--platform mac|ios|ipad|tvos|android|desktop|all]...
+#   scripts/screenshots.sh [--platform mac|ios|duo|ipad|tvos|android|desktop|all]...
 #                          [--appearance dark|light] [--keep]
 #
 # Builds the demo in its own herdr session (scripts/screenshots/seed.py),
@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
         *) sed -n '4,5p' "$0" | sed 's/^# //'; exit 1 ;;
     esac
 done
-[[ ${#platforms[@]} -eq 0 || " ${platforms[*]} " == *" all "* ]] && platforms=(mac ios ipad tvos android desktop)
+[[ ${#platforms[@]} -eq 0 || " ${platforms[*]} " == *" all "* ]] && platforms=(mac ios duo ipad tvos android desktop)
 
 step() { echo "==> $*"; }
 want() { [[ " ${platforms[*]} " == *" $1 "* ]]; }
@@ -117,8 +117,10 @@ mac() {
 # --- iPhone, iPad, Apple TV (simulators) -------------------------------
 # The simulators reach the Mac's sockets, so the demo host is the session's
 # socket here too: no SSH key, no authorized_keys. Devices by name, or by
-# id from IPHONE_SIM, IPAD_SIM, TV_SIM.
+# id from IPHONE_SIM, DUO_SIM, IPAD_SIM, TV_SIM. The iPhone Duo has two
+# displays; the simulator starts folded, so its shots are the outer one.
 booted=()
+sim_display=""
 sim_id() {
     xcrun simctl list devices available -j | python3 -c '
 import json, sys
@@ -168,7 +170,7 @@ sim() {
             -demoPane "$target" -demoView "$view" -demoSearch "$search" \
             -appearance "$appearance" >/dev/null
         sleep 7
-        xcrun simctl io "$udid" screenshot "$out/$name/$shot.png" >/dev/null 2>&1
+        xcrun simctl io "$udid" screenshot ${sim_display:+--display="$sim_display"} "$out/$name/$shot.png" >/dev/null 2>&1
         echo "    $out/$name/$shot.png"
     done
     xcrun simctl terminate "$udid" net.staude.amiscara.agents 2>/dev/null || true
@@ -238,12 +240,17 @@ android() {
 }
 
 want mac && mac
-if want ios || want ipad; then
+if want ios || want duo || want ipad; then
     step "iOS app for the simulator"
     sim_build AmiscaraAgents-iOS "iOS Simulator"
     ios_app=target/xcode-sim/Build/Products/Debug-iphonesimulator/AmiscaraAgents.app
     want ios && sim ios "${IPHONE_SIM:-$(sim_id "iPhone 18 Pro")}" "$ios_app" true \
         "spaces||||" "${views[@]}"
+    if want duo; then
+        sim_display=primary
+        sim duo "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "spaces||||" "${views[@]}"
+        sim_display=""
+    fi
     want ipad && sim ipad "${IPAD_SIM:-$(sim_id "iPad Pro 13-inch (M5)")}" "$ios_app" true \
         "${views[@]}"
 fi

@@ -450,6 +450,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   local hosts to pick from. "Add another session…" on a host lists its
   sessions (over SSH this needs SFTP) and creates an entry for the chosen
   one with its own key. The host list shows the session of an entry.
+- iPhone Duo support (#215): the pane's buttons (conversation, select text,
+  search, font size) move into the vertical bar at the side of the screen,
+  the terminal no longer shows through it, and unfolded the sidebar ends
+  at the fold. The composer keeps its text and images when the layout
+  swaps the input bar. `scripts/screenshots.sh --platform duo` captures
+  the outer display. The widget comes in the extra large sizes as well
+  (two columns, or one tall column) for the inner display and the iPad.
 
 ### Changed
 

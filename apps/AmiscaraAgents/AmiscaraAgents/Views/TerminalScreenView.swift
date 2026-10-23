@@ -88,6 +88,9 @@ struct TerminalScreenView: View {
             // Older lines loaded above keep the lines in view where they are.
             .defaultScrollAnchor(.bottomLeading)
             .defaultScrollAnchor(.bottomLeading, for: .sizeChanges)
+            // Long lines would show through the translucent vertical bar of
+            // an iPhone Duo (#215).
+            .clipped()
             .onScrollPhaseChange { _, phase in
                 if phase.isScrolling { userScrolled = true }
             }

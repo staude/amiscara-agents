@@ -60,7 +60,6 @@ struct SelectTextButton: View {
     var body: some View {
         Button("Text auswählen", systemImage: "text.cursor") { shown = makeText() }
             .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
             .help(String(localized: "Text auswählen und kopieren"))
             .sheet(item: Binding(get: { shown.map(Shown.init) }, set: { shown = $0?.text })) { item in
                 SelectTextView(title: title, text: item.text)

@@ -8,6 +8,8 @@ struct PaneDetailView: View {
     @State private var search = PaneSearchState()
     @State private var showingConversation = false
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
+    /// The pane's buttons sit in the vertical bar of an iPhone Duo (#215).
+    @State private var verticalBar = false
 
     var body: some View {
         let matches = search.matches(in: model.content)
@@ -33,6 +35,13 @@ struct PaneDetailView: View {
                             #endif
                     }
                 }
+                .toolbar {
+                    if verticalBar {
+                        ToolbarItemGroup(placement: .primaryAction) {
+                            actions(connection: connection, paneID: selection.paneID)
+                        }
+                    }
+                }
             } else {
                 ContentUnavailableView(
                     "Keine Pane gewählt",
@@ -54,6 +63,7 @@ struct PaneDetailView: View {
                 ConversationView(connection: connection, paneID: selection.paneID)
             }
         }
+        .tracksVerticalBar($verticalBar)
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
         .task(id: selection) {
             // The screenshot demo (#199) opens these for its pane.
@@ -94,23 +104,35 @@ struct PaneDetailView: View {
                     .foregroundStyle(state.color)
             }
             Text(connection.config.name).foregroundStyle(.secondary)
-            if pane?.agent == "claude" {
-                Button("Gesprächsverlauf", systemImage: "text.bubble") {
-                    showingConversation = true
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .help(String(localized: "Gesprächsverlauf aus der Claude-Sitzung"))
+            if !verticalBar {
+                actions(connection: connection, paneID: paneID)
             }
-            SelectTextButton(title: pane?.title.isEmpty == false ? pane!.title : paneID) {
-                model.content?.plainText ?? ""
-            }
-            .disabled(model.content == nil)
-            PaneSearchButton(state: search)
-            TerminalZoomMenu()
         }
+        // Here, not on the buttons: a styled button stays out of the
+        // vertical bar.
+        .buttonStyle(.borderless)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// Conversation, text selection, search and font size: in the header,
+    /// or in the vertical bar where there is one.
+    @ViewBuilder
+    private func actions(connection: HostConnection, paneID: String) -> some View {
+        let pane = pane(connection, paneID)
+        if pane?.agent == "claude" {
+            Button("Gesprächsverlauf", systemImage: "text.bubble") {
+                showingConversation = true
+            }
+            .labelStyle(.iconOnly)
+            .help(String(localized: "Gesprächsverlauf aus der Claude-Sitzung"))
+        }
+        SelectTextButton(title: pane?.title.isEmpty == false ? pane!.title : paneID) {
+            model.content?.plainText ?? ""
+        }
+        .disabled(model.content == nil)
+        PaneSearchButton(state: search)
+        TerminalZoomMenu()
     }
 
     @ViewBuilder

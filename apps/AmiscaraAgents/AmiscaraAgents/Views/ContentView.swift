@@ -8,6 +8,8 @@ struct ContentView: View {
     /// An opened "add host" link and the new host it is meant for.
     @State private var pendingImport: (hostID: UUID, link: String)?
     @State private var switching = false
+    /// Sidebar width that ends at the fold of an unfolded iPhone Duo (#215).
+    @State private var foldWidth: CGFloat?
     #if os(macOS)
     @Environment(\.openSettings) private var openSettings
     #endif
@@ -25,10 +27,11 @@ struct ContentView: View {
             #else
             NavigationSplitView {
                 HostSidebar(selection: $selection, editing: $editing, switching: $switching)
-                    .navigationSplitViewColumnWidth(min: 240, ideal: 280)
+                    .navigationSplitViewColumnWidth(min: foldWidth ?? 240, ideal: foldWidth ?? 280, max: foldWidth)
             } detail: {
                 WorkspaceDetailView(selection: $selection)
             }
+            .sidebarAtFold($foldWidth)
             #endif
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in

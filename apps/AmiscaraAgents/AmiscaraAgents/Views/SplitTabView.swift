@@ -114,6 +114,7 @@ private struct PaneTile: View {
                 PaneSearchButton(state: search)
             }
         }
+        .buttonStyle(.borderless)
         .font(.caption.weight(isSelected ? .semibold : .regular))
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
