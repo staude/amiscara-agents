@@ -21,6 +21,12 @@ export interface HostConfig {
   groupSpaces: boolean | null;
 }
 
+/** A named herdr session on a host (#213). */
+export interface HerdrSession {
+  name: string;
+  running: boolean;
+}
+
 export interface AppError {
   kind: string;
   /** English, for logs; `errorText` puts known errors in the user's language. */

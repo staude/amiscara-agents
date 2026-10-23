@@ -8,6 +8,7 @@
   import LinkDialog from "./components/LinkDialog.svelte";
   import ManageDialogs from "./components/ManageDialogs.svelte";
   import QuickSwitcher from "./components/QuickSwitcher.svelte";
+  import SessionDialog from "./components/SessionDialog.svelte";
   import Sidebar from "./components/Sidebar.svelte";
   import WorkspaceView from "./components/WorkspaceView.svelte";
   import * as core from "./lib/core";
@@ -22,6 +23,7 @@
 
   let editing = $state<{ host: HostConfig | null } | null>(null);
   let linkDialog = $state<{ url: string | null } | null>(null);
+  let addingSession = $state<HostConfig | null>(null);
 
   $effect(() => applyTheme(prefs.theme));
   // The Rust side words the tray, notifications and defaults in the same language.
@@ -104,7 +106,11 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="layout">
-  <Sidebar addHost={() => (editing = { host: null })} addLink={() => (linkDialog = { url: null })} />
+  <Sidebar
+    addHost={() => (editing = { host: null })}
+    addLink={() => (linkDialog = { url: null })}
+    addSession={(host) => (addingSession = host)}
+  />
   <main class="detail">
     {#if updater.available}
       <div class="update">
@@ -146,6 +152,16 @@
 
 {#if editing}
   <HostEditor host={editing.host} close={() => (editing = null)} />
+{/if}
+{#if addingSession}
+  <SessionDialog
+    host={addingSession}
+    close={() => (addingSession = null)}
+    pick={(draft) => {
+      addingSession = null;
+      editing = { host: draft };
+    }}
+  />
 {/if}
 {#if linkDialog}
   <LinkDialog url={linkDialog.url} close={() => (linkDialog = null)} />

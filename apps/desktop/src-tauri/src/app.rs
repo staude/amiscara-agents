@@ -282,6 +282,76 @@ pub async fn add_from_link(
     save_host(state, host).await
 }
 
+/// A named herdr session for the window (#213).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HerdrSessionInfo {
+    name: String,
+    running: bool,
+}
+
+impl From<herdr_session::HerdrSessionEntry> for HerdrSessionInfo {
+    fn from(entry: herdr_session::HerdrSessionEntry) -> Self {
+        Self {
+            name: entry.name,
+            running: entry.running,
+        }
+    }
+}
+
+/// The socket of herdr session `name` next to `default_socket` (or next to
+/// another session's socket); an empty name is the default session.
+#[tauri::command]
+pub fn session_socket(default_socket: String, name: String) -> Result<String, AppError> {
+    Ok(herdr_session::session_socket_path(&default_socket, &name)?)
+}
+
+/// The session name in `…/sessions/<name>/herdr.sock`, `null` otherwise.
+#[tauri::command]
+pub fn session_of_socket(socket_path: String) -> Option<String> {
+    herdr_session::session_name_of_socket(&socket_path)
+}
+
+#[tauri::command]
+pub fn valid_session_name(name: String) -> bool {
+    herdr_session::is_valid_session_name(&name)
+}
+
+/// This machine's default `herdr.sock`, absolute; `null` without a local socket.
+#[tauri::command]
+pub fn local_default_socket() -> Option<String> {
+    #[cfg(unix)]
+    {
+        herdr_transport::Connection::default_local_socket()
+            .map(|path| path.to_string_lossy().into_owned())
+    }
+    #[cfg(not(unix))]
+    None
+}
+
+/// The named herdr sessions on this machine, running or stopped.
+#[tauri::command]
+pub async fn local_sessions() -> Result<Vec<HerdrSessionInfo>, AppError> {
+    #[cfg(unix)]
+    {
+        let sessions = herdr_session::local_herdr_sessions().await?;
+        Ok(sessions.into_iter().map(HerdrSessionInfo::from).collect())
+    }
+    #[cfg(not(unix))]
+    Ok(Vec::new())
+}
+
+/// The named herdr sessions on a connected host; over SSH this needs SFTP.
+#[tauri::command]
+pub async fn host_sessions(
+    state: State<'_, AppState>,
+    host_id: String,
+) -> Result<Vec<HerdrSessionInfo>, AppError> {
+    let session = state.session(&host_id)?;
+    let sessions = session.herdr_sessions().await?;
+    Ok(sessions.into_iter().map(HerdrSessionInfo::from).collect())
+}
+
 /// Starts (or restarts) the live session of a host.
 #[tauri::command]
 pub async fn connect(

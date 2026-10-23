@@ -9,7 +9,11 @@
   import type { HostConfig, HostStatus, SessionUpdate, WorkspaceItem } from "../lib/types";
   import StatusDot from "./StatusDot.svelte";
 
-  let { addHost, addLink }: { addHost: () => void; addLink: () => void } = $props();
+  let {
+    addHost,
+    addLink,
+    addSession,
+  }: { addHost: () => void; addLink: () => void; addSession: (host: HostConfig) => void } = $props();
 
   function hostState(status: HostStatus | undefined): { css: string; label: string } {
     switch (status?.kind) {
@@ -84,6 +88,7 @@
           openMenu(e, [
             { label: t("hostSettingsAndKey"), action: () => model.select(host.id) },
             { label: t("reconnect"), action: () => void core.connect(host.id) },
+            { label: t("addSessionMenu"), action: () => addSession(host) },
             null,
             { label: t("newSpaceMenu"), disabled: !canWrite(host.id), action: () => (ui.dialog = { kind: "newSpace", hostId: host.id }) },
           ])}
@@ -91,6 +96,7 @@
       >
         <span class="glyph">{host.kind === "local" ? "▣" : "⇄"}</span>
         <span class="name">{host.name}</span>
+        {#if model.sessionNames[host.id]}<span class="small" title="Session">{model.sessionNames[host.id]}</span>{/if}
         {#if state.label}<span class="small {state.css}-text">{state.label}</span>{/if}
         <span class="conn {state.css}"></span>
       </div>

@@ -272,6 +272,23 @@ mockIPC(
       case "create_tab":
       case "create_worktree":
         return { workspaceId: "w2", tabId: "t3", paneId: "p5" };
+      case "session_socket": {
+        const name = a.name as string;
+        const dir = (a.defaultSocket as string).replace(/(\/sessions\/[^/]+)?\/herdr\.sock$/, "");
+        return name ? `${dir}/sessions/${name}/herdr.sock` : `${dir}/herdr.sock`;
+      }
+      case "session_of_socket":
+        return (a.socketPath as string).match(/\/sessions\/([^/]+)\/herdr\.sock$/)?.[1] ?? null;
+      case "valid_session_name":
+        return /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(a.name as string);
+      case "local_default_socket":
+        return null;
+      case "local_sessions":
+      case "host_sessions":
+        return [
+          { name: "herdr-remote-test", running: true },
+          { name: "amiscara-screenshots", running: false },
+        ];
       case "upload":
         return "/Users/frank/.amiscara-agents/uploads/img-1.png";
       default:

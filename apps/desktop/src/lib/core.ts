@@ -8,6 +8,7 @@ import type {
   AppError,
   AppInfo,
   DemoTarget,
+  HerdrSession,
   HostConfig,
   PaneContent,
   PaneEvent,
@@ -30,6 +31,14 @@ export const keyFingerprint = (publicKey: string) =>
   invoke<string>("key_fingerprint", { publicKey });
 export const addFromLink = (link: AddHostLink, trustHostKey: boolean) =>
   invoke<HostConfig>("add_from_link", { link, trustHostKey });
+export const sessionSocket = (defaultSocket: string, name: string) =>
+  invoke<string>("session_socket", { defaultSocket, name });
+export const sessionOfSocket = (socketPath: string) =>
+  invoke<string | null>("session_of_socket", { socketPath });
+export const validSessionName = (name: string) => invoke<boolean>("valid_session_name", { name });
+export const localDefaultSocket = () => invoke<string | null>("local_default_socket");
+export const localSessions = () => invoke<HerdrSession[]>("local_sessions");
+export const hostSessions = (hostId: string) => invoke<HerdrSession[]>("host_sessions", { hostId });
 export const pendingLinks = () => invoke<string[]>("pending_links");
 export const connect = (hostId: string) => invoke<void>("connect", { hostId });
 export const disconnect = (hostId: string) => invoke<void>("disconnect", { hostId });
