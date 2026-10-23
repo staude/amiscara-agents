@@ -21,6 +21,9 @@ struct HostSidebar: View {
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
+    @State private var addingSessionTo: HostConnection?
+    /// The entry chosen there, opened in the editor once the list is gone.
+    @State private var chosenSession: HostConfig?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
     /// Folded sections as "hostID/spaces", "hostID/agents" or
@@ -88,6 +91,14 @@ struct HostSidebar: View {
         .sheet(item: $showingQR) { config in
             HostQRView(config: config)
         }
+        .sheet(item: $addingSessionTo, onDismiss: {
+            if let chosenSession {
+                self.chosenSession = nil
+                editing = chosenSession
+            }
+        }) { connection in
+            AddSessionView(connection: connection) { chosenSession = $0 }
+        }
         .sheet(item: $renaming) { target in
             RenameView(target: target)
         }
@@ -109,6 +120,9 @@ struct HostSidebar: View {
         Button("Bearbeiten …", systemImage: "pencil") { editing = connection.config }
         Button("Neu verbinden", systemImage: "arrow.clockwise") { connection.start() }
         Button("QR-Code zeigen …", systemImage: "qrcode") { showingQR = connection.config }
+        Button("Weitere Session hinzufügen …", systemImage: "plus.rectangle.on.rectangle") {
+            addingSessionTo = connection
+        }
         Divider()
         Button("Entfernen", systemImage: "trash", role: .destructive) {
             store.remove(connection.id)
@@ -718,6 +732,12 @@ private struct HostHeader<Actions: View>: View {
         HStack(spacing: 6) {
             Image(systemName: connection.config.kind == .local ? "desktopcomputer" : "network")
             Text(connection.config.name)
+            if let session = sessionNameOfSocket(socketPath: connection.config.socketPath) {
+                Text("Session \(session)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             Spacer()
             HostStatusLabel(connection: connection)
             Menu {

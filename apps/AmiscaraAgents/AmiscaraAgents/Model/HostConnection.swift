@@ -224,6 +224,19 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The named herdr sessions on the host, running or stopped (#213).
+    /// Read only, but over SSH it needs the same SFTP access as uploads.
+    func herdrSessions() async throws -> [HerdrSession] {
+        if config.kind == .local {
+            return try await Task.detached { try localHerdrSessions() }.value
+        }
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.herdrSessions()
+        }.value
+    }
+
     /// The transcript of a full-screen agent such as Claude Code (#187).
     /// herdr collects it by scrolling the idle agent on the host and back,
     /// so it needs input allowed like sending keys.
