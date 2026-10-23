@@ -15,6 +15,8 @@ import Foundation
 ///   or (Mac) `settings`.
 /// - `-demoSearch <text>`: the pane search, open with this text.
 /// - `-demoWindow <width>x<height>`: the Mac window's content size.
+/// - `-demoWidgets YES`: publish the demo board to the widgets after all,
+///   for screenshots of widgets placed by hand (#215).
 enum DemoMode {
     #if DEBUG
     static let socket = UserDefaults.standard.string(forKey: "demoSocket")
@@ -23,6 +25,7 @@ enum DemoMode {
     static let view = UserDefaults.standard.string(forKey: "demoView")
     static let search = UserDefaults.standard.string(forKey: "demoSearch")
     static let window = UserDefaults.standard.string(forKey: "demoWindow")
+    static let widgets = UserDefaults.standard.bool(forKey: "demoWidgets")
     #else
     static let socket: String? = nil
     static let space: String? = nil
@@ -30,6 +33,7 @@ enum DemoMode {
     static let view: String? = nil
     static let search: String? = nil
     static let window: String? = nil
+    static let widgets = false
     #endif
 
     static var isOn: Bool { socket != nil }

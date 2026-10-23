@@ -63,8 +63,9 @@ final class HostStore {
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
                 .count)
-            guard !DemoMode.isOn else { return }
+            guard !DemoMode.isOn || DemoMode.widgets else { return }
             self.widgets.publish(self)
+            guard !DemoMode.isOn else { return }
             #if os(macOS)
             if let (key, name) = self.cloudHost(of: connection) {
                 self.cloudPush.send(update.attention, hostKey: key, hostName: name) { [weak connection] paneID in
