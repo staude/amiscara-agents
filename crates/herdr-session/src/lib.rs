@@ -5,6 +5,7 @@
 pub mod access;
 pub mod link;
 pub mod session;
+pub mod sessions;
 pub mod view;
 
 pub use access::authorized_keys_line;
@@ -15,4 +16,9 @@ pub use link::{
 pub use session::{
     Endpoint, PaneFollow, PaneSink, ScrollStep, Session, SessionError, SshIdentity,
     TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, UPLOAD_DIR,
+};
+#[cfg(unix)]
+pub use sessions::local_herdr_sessions;
+pub use sessions::{
+    HerdrSessionEntry, is_valid_session_name, session_name_of_socket, session_socket_path,
 };

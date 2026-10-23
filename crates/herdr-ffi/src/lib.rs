@@ -222,6 +222,55 @@ pub fn default_remote_socket(user: String) -> String {
     format!("/Users/{user}/.config/herdr/herdr.sock")
 }
 
+/// A named herdr session on a host (#213).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct HerdrSession {
+    pub name: String,
+    /// Whether its server runs right now.
+    pub running: bool,
+}
+
+impl From<herdr_session::HerdrSessionEntry> for HerdrSession {
+    fn from(entry: herdr_session::HerdrSessionEntry) -> Self {
+        Self {
+            name: entry.name,
+            running: entry.running,
+        }
+    }
+}
+
+/// The socket of herdr session `name` next to `default_socket` (or next to
+/// another session's socket); an empty name is the default session.
+#[uniffi::export]
+pub fn session_socket_path(default_socket: String, name: String) -> Result<String, FfiError> {
+    Ok(herdr_session::session_socket_path(&default_socket, &name)?)
+}
+
+/// The session name in `…/sessions/<name>/herdr.sock`, `None` otherwise.
+#[uniffi::export]
+pub fn session_name_of_socket(socket_path: String) -> Option<String> {
+    herdr_session::session_name_of_socket(&socket_path)
+}
+
+/// Whether `name` can name a herdr session.
+#[uniffi::export]
+pub fn is_valid_session_name(name: String) -> bool {
+    herdr_session::is_valid_session_name(&name)
+}
+
+/// The named herdr sessions on this machine, running or stopped. Empty on
+/// systems without a local socket.
+#[uniffi::export]
+pub fn local_herdr_sessions() -> Result<Vec<HerdrSession>, FfiError> {
+    #[cfg(unix)]
+    {
+        let sessions = runtime().block_on(herdr_session::local_herdr_sessions())?;
+        Ok(sessions.into_iter().map(HerdrSession::from).collect())
+    }
+    #[cfg(not(unix))]
+    Ok(Vec::new())
+}
+
 #[uniffi::export]
 pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL
@@ -433,6 +482,13 @@ impl HostSession {
         comment: String,
     ) -> Result<bool, FfiError> {
         Ok(runtime().block_on(self.session.authorize_device_key(&public_openssh, &comment))?)
+    }
+
+    /// The named herdr sessions on the host, running or stopped. Over SSH
+    /// this needs SFTP. Blocks; call it off the main thread.
+    pub fn herdr_sessions(&self) -> Result<Vec<HerdrSession>, FfiError> {
+        let sessions = runtime().block_on(self.session.herdr_sessions())?;
+        Ok(sessions.into_iter().map(HerdrSession::from).collect())
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
