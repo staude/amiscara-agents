@@ -56,7 +56,6 @@ struct PaneSearchButton: View {
     var body: some View {
         Button("Suchen", systemImage: "magnifyingglass", action: state.open)
             .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
             .help("In der Pane suchen (⌘F)")
     }
 }
