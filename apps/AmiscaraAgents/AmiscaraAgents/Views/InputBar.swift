@@ -138,6 +138,9 @@ struct InputBar: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             takePendingShare()
         }
+        .onReceive(NotificationCenter.default.publisher(for: PendingShare.arrived)) { _ in
+            takePendingShare()
+        }
         #endif
         .onChange(of: text) { keepDraft() }
         .onChange(of: attachments.map(\.id)) { keepDraft() }
@@ -201,8 +204,15 @@ struct InputBar: View {
         let shared = pending.share.text
         let current = text.trimmingCharacters(in: .whitespacesAndNewlines)
         text = current.isEmpty ? shared : current + "\n" + shared
-        if !pending.images.isEmpty {
-            addPasted(pending.images.map { ImageAttachment.make(data: $0, type: nil) })
+        guard !pending.images.isEmpty else { return }
+        guard connection.config.uploadAllowed else {
+            error = String(localized: "Die geteilten Bilder fehlen: Bilder hochladen ist für \(connection.config.name) aus.")
+            return
+        }
+        let images = pending.images.map { ImageAttachment.make(data: $0, type: nil) }
+        attachments.append(contentsOf: images.compactMap { $0 })
+        if images.contains(where: { $0 == nil }) {
+            error = String(localized: "Ein geteiltes Bild konnte nicht gelesen werden.")
         }
         #endif
     }

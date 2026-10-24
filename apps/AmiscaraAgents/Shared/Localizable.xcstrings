@@ -1616,6 +1616,16 @@
         }
       }
     },
+    "Die geteilten Bilder fehlen: Bilder hochladen ist für %@ aus." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shared images are missing: image upload is off for %@."
+          }
+        }
+      }
+    },
     "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
@@ -1842,6 +1852,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tapping a quick reply sends it right away. Drag to change the order."
+          }
+        }
+      }
+    },
+    "Ein geteiltes Bild konnte nicht gelesen werden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A shared image could not be read."
           }
         }
       }

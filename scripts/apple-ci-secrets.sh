@@ -100,7 +100,7 @@ if [[ -n "$dist" ]]; then
 fi
 unset password
 if [[ -n "$appstore_profiles" ]]; then
-    # As a .tar.gz: six plain profiles exceed GitHub's 48 KB per secret.
+    # As a .tar.gz: seven plain profiles exceed GitHub's 48 KB per secret.
     files=("$appstore_profiles"/*.mobileprovision)
     [[ -f "${files[0]}" ]] || die "no .mobileprovision in $appstore_profiles"
     tar -czf - -C "$appstore_profiles" "${files[@]##*/}" | base64 | tr -d '\n' \

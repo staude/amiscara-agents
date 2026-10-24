@@ -167,6 +167,8 @@ extension Notifier: UNUserNotificationCenterDelegate {
         }
         await MainActor.run {
             openRequest = SpaceRef(hostID: host, workspaceID: workspace, paneID: pane)
+            // A shared prompt's pane may be on screen already (#225).
+            NotificationCenter.default.post(name: PendingShare.arrived, object: nil)
         }
     }
 }

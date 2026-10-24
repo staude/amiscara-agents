@@ -15,6 +15,8 @@ struct PendingShare: Codable, Equatable {
     /// Image files next to the share, by name.
     let images: [String]
     let created: Date
+    /// The app brought the user to the pane once; it does not again.
+    var opened = false
 
     /// Older shares are dropped: the user moved on.
     static let maxAge: TimeInterval = 60 * 60
@@ -33,9 +35,9 @@ struct PendingShare: Codable, Equatable {
         try? FileManager.default.removeItem(at: directory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for image in imageData {
-            try image.data.write(to: directory.appending(path: image.name), options: [.atomic, .completeFileProtection])
+            try image.data.write(to: directory.appending(path: image.name), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         }
-        try JSONEncoder().encode(share).write(to: fileURL, options: [.atomic, .completeFileProtection])
+        try JSONEncoder().encode(share).write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
     /// The waiting share, if there is a fresh one.
@@ -58,6 +60,14 @@ struct PendingShare: Codable, Equatable {
         return (share, images)
     }
 
+    /// Notes that the app opened the share's pane, so becoming active
+    /// again does not pull the user back there.
+    static func markOpened() {
+        guard var share = peek(), let fileURL else { return }
+        share.opened = true
+        try? JSONEncoder().encode(share).write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
     static func clear() {
         if let directory { try? FileManager.default.removeItem(at: directory) }
     }
@@ -65,4 +75,8 @@ struct PendingShare: Codable, Equatable {
     /// The notification that brings the user to the app, posted by the
     /// extension; tapping it opens the agent like an agent notification.
     static let notificationCategory = "pending-share"
+
+    /// Posted in the app when a notification was opened, so a composer on
+    /// screen can take its share.
+    static let arrived = Notification.Name("net.staude.amiscara.agents.pendingShareArrived")
 }

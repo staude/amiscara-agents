@@ -49,7 +49,9 @@ struct AmiscaraAgentsApp: App {
             store.notifier.appActive = phase == .active
             #if os(iOS)
             // Something shared from another app (#225): to its agent.
-            if phase == .active, let share = PendingShare.peek() {
+            // Once: a pane that does not come up must not pull the user back.
+            if phase == .active, let share = PendingShare.peek(), !share.opened {
+                PendingShare.markOpened()
                 store.notifier.openRequest = SpaceRef(hostID: share.hostID, workspaceID: share.workspaceID, paneID: share.paneID)
             }
             #endif

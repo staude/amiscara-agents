@@ -6,7 +6,7 @@
 # Input from secrets: APPLE_API_KEY_P8 (base64), KEYCHAIN_PASSWORD, and
 # optionally P12 (base64) with P12_PASSWORD, and provisioning profiles for
 # manual signing: PROFILE (one, base64) or PROFILES (a .tar.gz of several,
-# base64; GitHub caps a secret at 48 KB, six plain profiles exceed it).
+# base64; GitHub caps a secret at 48 KB, seven plain profiles exceed it).
 set -euo pipefail
 
 dir="$RUNNER_TEMP/apple"
