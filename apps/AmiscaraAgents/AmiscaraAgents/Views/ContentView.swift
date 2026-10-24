@@ -80,11 +80,15 @@ struct ContentView: View {
             #endif
             // amiscara-agents://open?... from a widget opens that pane.
             if let target = WidgetSnapshot.parseOpenURL(url) {
-                selection = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
+                let ref = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
+                selection = ref
+                // A control's "dictate to the last agent" (#227).
+                if WidgetSnapshot.wantsDictation(url) { store.notifier.dictateRequest = ref }
                 return
             }
-            // amiscara-agents://add-host?... from a QR code or a pasted link.
-            guard url.scheme?.lowercased() == "amiscara-agents" else { return }
+            // amiscara-agents://add-host?... from a QR code or a pasted link;
+            // any other link (amiscara-agents://open) just opens the app.
+            guard url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "add-host" else { return }
             let config = HostConfig(name: "", kind: .ssh)
             pendingImport = (config.id, url.absoluteString)
             editing = config

@@ -2,6 +2,7 @@ import AppIntents
 import Foundation
 #if os(iOS)
 import UIKit
+import WidgetKit
 #endif
 
 // Shortcuts and Siri. The intents run in the app process and read the live
@@ -249,6 +250,11 @@ struct LastAgent: Codable, Equatable {
             name: item.name
         )
         UserDefaults.standard.set(try? JSONEncoder().encode(last), forKey: key)
+        // For the "dictate to the last agent" control (#227).
+        WidgetSnapshot.saveLastAgent(host: host, workspaceID: item.workspaceId, paneID: item.paneId)
+        #if os(iOS)
+        ControlCenter.shared.reloadControls(ofKind: WaitingControlKind.dictate)
+        #endif
     }
 }
 

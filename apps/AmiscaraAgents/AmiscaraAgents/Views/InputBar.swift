@@ -19,6 +19,7 @@ struct InputBar: View {
     @State private var dropTargeted = false
     @State private var choosingPhotos = false
     @FocusState private var composerFocused: Bool
+    @Environment(HostStore.self) private var store
     @State private var dictation = Dictation()
     /// Composer text from before dictation started; the transcript follows it.
     @State private var textBeforeDictation = ""
@@ -86,6 +87,12 @@ struct InputBar: View {
             text = base.isEmpty ? spoken : base + " " + spoken
         }
         .onDisappear { dictation.stop() }
+        // "Dictate to the last agent" from Control Center (#227).
+        .onChange(of: store.notifier.dictateRequest, initial: true) { _, request in
+            guard let request, request.hostID == connection.id, request.paneID == pane.paneId else { return }
+            store.notifier.dictateRequest = nil
+            if !dictation.isRunning { toggleDictation() }
+        }
         .toolbar {
             if verticalBar {
                 ToolbarItem(placement: .primaryAction) { dictationButton }

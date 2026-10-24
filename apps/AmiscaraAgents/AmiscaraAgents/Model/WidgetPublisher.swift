@@ -78,6 +78,10 @@ final class WidgetPublisher {
             written = snapshot
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
+            #if os(iOS)
+            // The waiting count of the Control Center control (#227).
+            ControlCenter.shared.reloadControls(ofKind: WaitingControlKind.waiting)
+            #endif
             #endif
             #if os(tvOS)
             // The Top Shelf reads the same snapshot (#130).

@@ -491,6 +491,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the space (`GIT_OPTIONAL_LOCKS=0`) and the app reads the result through
   the file access (needs input and "Bilder hochladen" on). Core:
   `Session::working_tree_diff`, `Connection::remove_file`, `herdr_core::diff`.
+- Control Center controls on iPhone and iPad (#227): "Wartende Agents"
+  shows how many agents wait and opens the first; "Diktat an letzten
+  Agent" opens the agent the last prompt went to with dictation running.
+  Both also work on the Lock Screen and the Action button. Links
+  `amiscara-agents://open` without a pane now just open the app.
 
 ### Changed
 

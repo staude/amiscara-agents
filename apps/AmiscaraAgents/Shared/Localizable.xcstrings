@@ -414,6 +414,16 @@
         }
       }
     },
+    "%lld warten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld waiting"
+          }
+        }
+      }
+    },
     "%lld wartet" : {
       "localizations" : {
         "en" : {
@@ -1662,6 +1672,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This Mac stores “waiting” and “done” in your private iCloud; iPhone and iPad with the same Apple Account get them as push notifications with answer buttons, and so does the Apple Watch. The devices must have this Mac set up as a host. With “Also send for SSH hosts” this also covers the hosts this Mac is connected to, such as a Linux server without its own Mac app; the same notification from a second Mac does not arrive twice. “Accept commands from the Apple Watch” (off unless turned on): when the iPhone is out of reach, the Watch stores answers (1, 2, 3, Enter, Esc) and prompts in iCloud, and this Mac sends them to the hosts it sends for. Any device with the same Apple Account can then send input; the host's “Allow input” still applies, and commands expire after 60 seconds."
+          }
+        }
+      }
+    },
+    "Diktat an letzten Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dictate to last agent"
           }
         }
       }
@@ -4692,6 +4712,16 @@
         }
       }
     },
+    "Zeigt, wie viele Agents warten, und öffnet den ersten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows how many agents wait and opens the first."
+          }
+        }
+      }
+    },
     "Zeile" : {
       "localizations" : {
         "en" : {
@@ -5218,6 +5248,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens Amiscara Agents at the chosen agent."
+          }
+        }
+      }
+    },
+    "Öffnet den Agent, an den zuletzt ein Prompt ging, und startet das Diktat." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the agent the last prompt went to and starts dictation."
           }
         }
       }
