@@ -312,10 +312,40 @@
     },
     "%lld Bilder werden angehängt." : {
       "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bild wird angehängt."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bilder werden angehängt."
+                }
+              }
+            }
+          }
+        },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld images will be attached."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld image will be attached."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld images will be attached."
+                }
+              }
+            }
           }
         }
       }
