@@ -167,6 +167,18 @@ final class AgentLiveActivity {
             return String(marked.dropFirst()).trimmingCharacters(in: .whitespaces)
         }
         let rows = raw.map { $0.trimmingCharacters(in: .whitespaces) }
+        if waiting {
+            // The question itself, not the numbered options under it.
+            let unframed = rows.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "│❯> ")) }
+            if let question = unframed.last(where: { $0.hasSuffix("?") }) { return question }
+            let isOption = { (row: String) in row.first?.isNumber == true && row.dropFirst().drop { $0.isNumber }.hasPrefix(".") }
+            let footer = ["for shortcuts", "esc to", "accept edits", "bypass permissions", "plan mode", "⏵", "ctrl+"]
+            return unframed.last { row in
+                !row.isEmpty && !isOption(row)
+                    && !row.allSatisfy { "─╭╮╰╯".contains($0) }
+                    && !footer.contains { row.localizedCaseInsensitiveContains($0) }
+            }
+        }
         let footer = ["for shortcuts", "esc to", "accept edits", "bypass permissions", "plan mode", "⏵", "ctrl+"]
         return rows.last { row in
             !row.isEmpty
