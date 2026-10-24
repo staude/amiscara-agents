@@ -1,9 +1,10 @@
 import Foundation
 import Observation
 
-/// Prompts and commands sent from the composer, per pane (#229), newest
-/// first, so an earlier one can be picked, edited and sent again. Kept on
-/// this device only; the demo mode keeps them in memory.
+/// Prompts sent from the composer to agent panes (#229), newest first, so
+/// an earlier one can be picked, edited and sent again. Kept on this device
+/// only, outside backups; the demo mode keeps them in memory. Shell input
+/// is not kept: it may be a password a command asked for.
 @MainActor
 @Observable
 final class PromptHistory {
@@ -69,6 +70,13 @@ final class PromptHistory {
         save()
     }
 
+    /// Drops the history of a removed host.
+    func forget(host: UUID) {
+        let prefix = host.uuidString + "/"
+        for key in stored.prompts.keys where key.hasPrefix(prefix) { forget(key) }
+        save()
+    }
+
     private func forget(_ key: String) {
         stored.prompts[key] = nil
         stored.used[key] = nil
@@ -79,6 +87,10 @@ final class PromptHistory {
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONEncoder().encode(stored).write(to: fileURL, options: [.atomic, .completeFileProtection])
+            var url = fileURL
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try url.setResourceValues(values)
         } catch {
             // A lost history entry is not worth an error in the composer.
         }

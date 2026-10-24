@@ -170,6 +170,7 @@ final class HostStore {
         #endif
         connection.stop()
         KeyStore.delete(for: id)
+        PromptHistory.shared.forget(host: id)
         connections.remove(at: index)
         save()
     }

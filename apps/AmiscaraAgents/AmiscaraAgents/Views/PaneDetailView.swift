@@ -73,6 +73,9 @@ struct PaneDetailView: View {
                 search.query = query
             }
             showingConversation = DemoMode.view == "conversation"
+            if let prompt = DemoMode.history, !prompt.isEmpty, let selection {
+                PromptHistory.shared.record(prompt, for: PromptHistory.key(host: selection.hostID, pane: selection.paneID))
+            }
         }
     }
 

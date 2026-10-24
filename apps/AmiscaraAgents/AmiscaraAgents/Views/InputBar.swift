@@ -563,7 +563,8 @@ struct InputBar: View {
             let shown = isAgent ? paths : paths.map(Self.shellQuoted)
             let full = ([prompt] + shown).filter { !$0.isEmpty }.joined(separator: isAgent ? "\n" : " ")
             try await connection.submit(full, to: pane.paneId, isAgent: isAgent)
-            history.record(prompt, for: historyKey)
+            // Agents only: a shell may have asked for a password.
+            if isAgent { history.record(prompt, for: historyKey) }
             text = ""
             attachments.removeAll { item in pending.contains { $0.id == item.id } }
         }
