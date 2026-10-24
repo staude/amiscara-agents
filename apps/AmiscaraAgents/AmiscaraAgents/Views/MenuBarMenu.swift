@@ -11,7 +11,10 @@ struct MenuBarMenu: View {
 
     var body: some View {
         let waiting = store.waitingAgents
-        if waiting.isEmpty {
+        if AppLock.shared.isEnabled && AppLock.shared.isLocked {
+            // No agent names or panes while the app lock holds (#232).
+            Text("Amiscara Agents ist gesperrt")
+        } else if waiting.isEmpty {
             Text("Kein Agent wartet")
         } else {
             // Host names only help when there is more than one host.
@@ -93,6 +96,8 @@ enum MainWindow {
     /// Activates the app and fronts the main window; false when none is open.
     @discardableResult
     static func bringToFront() -> Bool {
+        // While the app lock holds, its cover instead (#232).
+        if AppLockCurtain.shared.bringToFront() { return true }
         guard let window else { return false }
         NSApp.activate()
         if window.isMiniaturized { window.deminiaturize(nil) }

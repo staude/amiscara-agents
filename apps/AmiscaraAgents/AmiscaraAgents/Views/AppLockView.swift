@@ -7,8 +7,10 @@ import UIKit
 
 #if !os(tvOS)
 extension View {
-    /// Covers the content while the app lock (#232) holds, and on iOS also
-    /// while the app is not active, so the app switcher shows no panes.
+    /// Covers the app while the app lock (#232) holds, and on iOS also while
+    /// the app is not active, so the app switcher shows no panes. The cover
+    /// is a window of its own above sheets and alerts; on the Mac the app's
+    /// windows are hidden until it is unlocked.
     func appLock() -> some View {
         modifier(AppLockModifier())
     }
@@ -29,10 +31,11 @@ private struct AppLockModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay {
-                if covered {
-                    AppLockCover(lock: lock)
-                }
+            // Nothing behind the cover takes focus, keys or menu commands.
+            .disabled(covered)
+            .accessibilityHidden(covered)
+            .onChange(of: covered, initial: true) { _, covered in
+                AppLockCurtain.shared.show(covered, lock: lock)
             }
             #if os(iOS)
             // Not .inactive: Face ID itself and Control Center make the
@@ -54,6 +57,74 @@ private struct AppLockModifier: ViewModifier {
             .onAppear { lock.didReturn() }
             #endif
     }
+}
+
+/// The cover as a window above everything the app shows.
+@MainActor
+final class AppLockCurtain {
+    static let shared = AppLockCurtain()
+
+    #if os(iOS)
+    private var windows: [UIWindow] = []
+
+    func show(_ covered: Bool, lock: AppLock) {
+        guard covered else {
+            windows.forEach { $0.isHidden = true }
+            windows = []
+            return
+        }
+        guard windows.isEmpty else { return }
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            let window = UIWindow(windowScene: scene)
+            window.windowLevel = .alert + 1
+            window.rootViewController = UIHostingController(rootView: AppLockCover(lock: lock))
+            window.isHidden = false
+            windows.append(window)
+        }
+    }
+    #elseif os(macOS)
+    private var window: NSWindow?
+    private var hidden: [NSWindow] = []
+
+    var isShowing: Bool { window != nil }
+
+    func show(_ covered: Bool, lock: AppLock) {
+        guard covered else {
+            window?.orderOut(nil)
+            window = nil
+            hidden.forEach { $0.orderFront(nil) }
+            hidden.first?.makeKey()
+            hidden = []
+            return
+        }
+        guard window == nil else { return }
+        // The main window, its sheets and the settings; not the menu bar
+        // item's windows, which cannot become main.
+        hidden = NSApp.windows.filter { $0.isVisible && $0.canBecomeMain }
+        hidden.forEach { $0.orderOut(nil) }
+        let cover = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        cover.title = "Amiscara Agents"
+        cover.isReleasedWhenClosed = false
+        cover.contentView = NSHostingView(rootView: AppLockCover(lock: lock))
+        cover.center()
+        cover.makeKeyAndOrderFront(nil)
+        window = cover
+    }
+
+    /// Fronts the cover instead of a hidden window, e.g. for the menu bar.
+    @discardableResult
+    func bringToFront() -> Bool {
+        guard let window else { return false }
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+        return true
+    }
+    #endif
 }
 
 private struct AppLockCover: View {
@@ -87,15 +158,29 @@ private struct AppLockCover: View {
     }
 }
 
-/// The lock's settings: on/off and when it applies again.
+/// The lock's settings: on/off and when it applies again. Turning it off
+/// asks for the owner first.
 struct AppLockSettings: View {
     @AppStorage(AppLock.enabledKey) private var enabled = false
     @AppStorage(AppLock.delayKey) private var delay = AppLock.Delay.immediately.rawValue
 
     var body: some View {
-        Toggle("App sperren", isOn: $enabled)
-            .disabled(!enabled && !AppLock.isAvailable)
-            .onChange(of: enabled) { AppLock.shared.settingChanged() }
+        Toggle("App sperren", isOn: Binding(
+            get: { enabled },
+            set: { on in
+                if on {
+                    enabled = true
+                    AppLock.shared.settingChanged()
+                } else {
+                    Task {
+                        guard await AppLock.shared.confirmOwner() else { return }
+                        enabled = false
+                        AppLock.shared.settingChanged()
+                    }
+                }
+            }
+        ))
+        .disabled(!enabled && !AppLock.isAvailable)
         if enabled {
             Picker("Sperren", selection: $delay) {
                 ForEach(AppLock.Delay.allCases) { option in

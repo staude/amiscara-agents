@@ -73,10 +73,18 @@ final class AppLock {
         if isLocked { unlock() }
     }
 
-    /// Turning the setting off unlocks; turning it on does not lock the
-    /// running app, only the next return.
+    /// Turning the setting on does not lock the running app, only the next
+    /// return. Turning it off goes through `confirmOwner` first.
     func settingChanged() {
         if !isEnabled { isLocked = false }
+    }
+
+    /// Asks for Face ID, Touch ID or the passcode, e.g. before the lock is
+    /// turned off; true when the owner confirmed.
+    func confirmOwner() async -> Bool {
+        let context = LAContext()
+        let reason = String(localized: "App-Sperre ausschalten")
+        return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
     }
 
     func unlock() {

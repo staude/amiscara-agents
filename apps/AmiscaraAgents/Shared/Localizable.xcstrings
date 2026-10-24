@@ -686,6 +686,16 @@
         }
       }
     },
+    "App-Sperre ausschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn off the app lock"
+          }
+        }
+      }
+    },
     "Apple TV" : {
       "localizations" : {
         "en" : {
