@@ -215,8 +215,11 @@ enum PromptIntentError: Error, CustomLocalizedStringResourceConvertible {
 struct LastAgent: Codable, Equatable {
     let hostID: UUID
     let paneID: String
-    /// Who was in the pane: its space, agent kind and name.
+    /// Who was in the pane: its space (id and label, ids are positions
+    /// too), working directory, agent kind and name.
     let workspaceID: String
+    let workspaceLabel: String
+    let cwd: String?
     let agent: String
     let name: String?
 
@@ -229,13 +232,22 @@ struct LastAgent: Codable, Equatable {
     /// Still the same agent in that pane.
     func matches(_ item: BoardItem?) -> Bool {
         guard let item else { return false }
-        return item.workspaceId == workspaceID && item.agent == agent && item.name == name
+        return item.workspaceId == workspaceID && item.workspaceLabel == workspaceLabel
+            && item.cwd == cwd && item.agent == agent && item.name == name
     }
 
     @MainActor
     static func remember(_ item: BoardItem, on host: UUID) {
         guard !DemoMode.isOn else { return }
-        let last = LastAgent(hostID: host, paneID: item.paneId, workspaceID: item.workspaceId, agent: item.agent, name: item.name)
+        let last = LastAgent(
+            hostID: host,
+            paneID: item.paneId,
+            workspaceID: item.workspaceId,
+            workspaceLabel: item.workspaceLabel,
+            cwd: item.cwd,
+            agent: item.agent,
+            name: item.name
+        )
         UserDefaults.standard.set(try? JSONEncoder().encode(last), forKey: key)
     }
 }
