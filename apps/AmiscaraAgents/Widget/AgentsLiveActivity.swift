@@ -116,7 +116,8 @@ private struct LockScreenView: View {
                         }
                     }
                 }
-                if entry.id == detailed, entry.state == .blocked, !stale {
+                // Also when outdated: the agent may well still wait.
+                if entry.id == detailed, entry.state == .blocked {
                     AnswerButtons(entry: entry)
                 }
             }

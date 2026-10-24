@@ -23,6 +23,10 @@ final class AgentLiveActivity {
     private var synced = false
     /// Changes go out one after another, in order.
     private var pending: Task<Void, Never>?
+    /// When the activity last went out; unchanged content goes out again
+    /// after `resend`, so its stale date moves on while agents keep waiting.
+    private var sentAt = Date.distantPast
+    private static let resend: TimeInterval = 4 * 60
     /// Last screen lines per agent and when and for which state they were
     /// read; dropped when the agent leaves the activity.
     private var lines: [String: String] = [:]
@@ -76,9 +80,10 @@ final class AgentLiveActivity {
     private func apply(_ state: AgentsActivityAttributes.ContentState?) {
         let state = Self.isEnabled && ActivityAuthorizationInfo().areActivitiesEnabled
             ? state.flatMap { $0.agents.isEmpty ? nil : $0 } : nil
-        guard state != shown || !synced else { return }
+        guard state != shown || !synced || Date.now.timeIntervalSince(sentAt) >= Self.resend else { return }
         shown = state
         synced = true
+        sentAt = .now
         let previous = pending
         pending = Task {
             await previous?.value
@@ -94,9 +99,9 @@ final class AgentLiveActivity {
     /// looked up where they are used. False when a start failed.
     private nonisolated static func show(_ state: AgentsActivityAttributes.ContentState?) async -> Bool {
         let all = Activity<AgentsActivityAttributes>.activities
-        let running = all.filter { $0.activityState == .active }
-        // Ended by the system (after hours) or stale ones go.
-        for old in all where old.activityState != .active {
+        let running = all.filter { $0.activityState == .active || $0.activityState == .stale }
+        // Ended by the system (after hours) or dismissed ones go.
+        for old in all where old.activityState == .ended || old.activityState == .dismissed {
             await old.end(nil, dismissalPolicy: .immediate)
         }
         guard let state else {
@@ -134,7 +139,7 @@ final class AgentLiveActivity {
             for agent in wanted {
                 guard let connection = store.connection(for: agent.hostID), connection.isLive,
                       let excerpt = await connection.screenExcerpt(paneID: agent.paneID, lines: 30),
-                      let line = Self.lastOutputLine(excerpt)
+                      let line = Self.lastOutputLine(excerpt, waiting: agent.state == .blocked)
                 else { continue }
                 if lines[agent.id] != line {
                     lines[agent.id] = line
@@ -150,14 +155,18 @@ final class AgentLiveActivity {
         }
     }
 
-    /// The agent's own last line: Claude Code marks its output with ⏺;
-    /// otherwise the last line that is not frame or the TUI's footer
-    /// ("? for shortcuts", "esc to interrupt", mode hints).
-    static func lastOutputLine(_ screen: String) -> String? {
-        let rows = screen.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
-        if let marked = rows.last(where: { $0.hasPrefix("⏺") }) {
+    /// The line to show: for a waiting agent the last line of its question
+    /// (what the answer buttons answer); for a working one its own last
+    /// output, which Claude Code marks with ⏺ at the start of the row
+    /// (indented tool output with a ⏺ does not count). Otherwise the last
+    /// line that is not frame or the TUI's footer ("? for shortcuts", "esc
+    /// to interrupt", mode hints).
+    static func lastOutputLine(_ screen: String, waiting: Bool) -> String? {
+        let raw = screen.split(separator: "\n")
+        if !waiting, let marked = raw.last(where: { $0.hasPrefix("⏺") }) {
             return String(marked.dropFirst()).trimmingCharacters(in: .whitespaces)
         }
+        let rows = raw.map { $0.trimmingCharacters(in: .whitespaces) }
         let footer = ["for shortcuts", "esc to", "accept edits", "bypass permissions", "plan mode", "⏵", "ctrl+"]
         return rows.last { row in
             !row.isEmpty
