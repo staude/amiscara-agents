@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use herdr_core::pane::{self, Pacing};
 use herdr_core::sync::{self, SyncState};
-use herdr_core::{actions, claude, fullscreen};
+use herdr_core::{actions, claude, diff, fullscreen};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
 };
@@ -542,6 +542,80 @@ impl Session {
             .map_err(|err| SessionError::Files(err.to_string()))
     }
 
+    /// What changed in the working directory of a pane (#228): `git diff`
+    /// against `HEAD` plus untracked files, read only. herdr has no method
+    /// for it and device keys reach no shell, so a small script runs in a
+    /// short-lived, unfocused tab in the pane's directory and leaves its
+    /// output in the uploads folder, read and removed through SFTP. Needs
+    /// file access like uploads; takes a moment.
+    pub async fn working_tree_diff(
+        &self,
+        pane_id: &str,
+    ) -> Result<Vec<diff::DiffFile>, SessionError> {
+        let conn = self.connection()?;
+        let (workspace_id, cwd) = self
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| {
+                let rx = state.as_ref()?;
+                let session = rx.borrow().session.clone()?;
+                let pane = session.pane(pane_id)?;
+                let cwd = pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())?;
+                Some((pane.workspace_id.clone(), cwd))
+            })
+            .ok_or_else(|| {
+                SessionError::Files(format!("no working directory known for pane {pane_id}"))
+            })?;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+        let stamp = format!("diff-{}-{:09}", now.as_secs(), now.subsec_nanos());
+        let out = format!("{UPLOAD_DIR}/{stamp}.txt");
+        let script = conn
+            .upload(
+                UPLOAD_DIR,
+                &format!("{stamp}.sh"),
+                diff::diff_script(&out).as_bytes(),
+            )
+            .await
+            .map_err(|err| SessionError::Files(err.to_string()))?;
+        let script_rel = format!("{UPLOAD_DIR}/{stamp}.sh");
+        let done = format!("{out}.done");
+        let err_file = format!("{out}.err");
+
+        let result = async {
+            let tab =
+                run_in_tab(&conn, &workspace_id, &cwd, &format!("sh '{script}'; exit")).await?;
+            let finished = wait_for_file(&conn, &format!("{stamp}.txt.done")).await;
+            // The shell exits by itself; close the tab in case it stayed.
+            let _ = actions::close_tab(&conn, &tab).await;
+            finished?;
+            let data = conn
+                .read_file_range(&done, 0, MAX_DIFF_BYTES)
+                .await
+                .map_err(|err| SessionError::Files(err.to_string()))?;
+            let text = String::from_utf8_lossy(&data).into_owned();
+            if text.trim().is_empty() || text.trim() == diff::UNTRACKED_MARK {
+                let errors = conn
+                    .read_file_range(&err_file, 0, 4096)
+                    .await
+                    .unwrap_or_default();
+                let errors = String::from_utf8_lossy(&errors).trim().to_owned();
+                if !errors.is_empty() {
+                    return Err(SessionError::Files(errors));
+                }
+            }
+            Ok(diff::parse(&text))
+        }
+        .await;
+        for file in [&script_rel, &done, &err_file, &out] {
+            let _ = conn.remove_file(file).await;
+        }
+        result
+    }
+
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
     /// made unique and safe (`file-<time>-<name>`), and returns the absolute
     /// path. The name helps the agent tell what the file is.
@@ -836,6 +910,43 @@ fn named_upload(file_name: &str) -> String {
 /// `img-<unix seconds>-<nanos>.<ext>` for images, `file-…` for anything
 /// else: sortable, unique enough for one device uploading by hand, and a
 /// listing of the upload folder says what is what.
+/// The most of a diff the apps read; a bigger one is cut off.
+const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+
+/// Opens an unfocused tab in `cwd` and types `command` with Enter;
+/// returns the tab's id.
+async fn run_in_tab(
+    conn: &Connection,
+    workspace_id: &str,
+    cwd: &str,
+    command: &str,
+) -> Result<String, SessionError> {
+    let created = actions::create_tab(conn, workspace_id, Some(cwd)).await?;
+    actions::send_text(conn, &created.pane_id, command).await?;
+    actions::send_keys(conn, &created.pane_id, &["enter".to_owned()]).await?;
+    Ok(created.tab_id)
+}
+
+/// Waits until `name` shows up in the uploads folder, up to half a minute.
+async fn wait_for_file(conn: &Connection, name: &str) -> Result<(), SessionError> {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        let files = conn
+            .list_files(UPLOAD_DIR)
+            .await
+            .map_err(|err| SessionError::Files(err.to_string()))?;
+        if files.iter().any(|file| file.name == name) {
+            return Ok(());
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Err(SessionError::Files(
+                "git diff did not finish in time".into(),
+            ));
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    }
+}
+
 fn upload_name(ext: &str) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

@@ -300,6 +300,16 @@
         }
       }
     },
+    "%lld Dateien, +%lld −%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files, +%lld −%lld"
+          }
+        }
+      }
+    },
     "%lld Host(s) hinzugefügt" : {
       "localizations" : {
         "de" : {
@@ -1006,6 +1016,16 @@
         }
       }
     },
+    "Binärdatei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Binary file"
+          }
+        }
+      }
+    },
     "Bitte committen" : {
       "localizations" : {
         "en" : {
@@ -1096,6 +1116,16 @@
         }
       }
     },
+    "Das Arbeitsverzeichnis entspricht dem letzten Commit." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The working directory matches the last commit."
+          }
+        }
+      }
+    },
     "Das Feld „%@“ steht mehrfach im Code." : {
       "localizations" : {
         "en" : {
@@ -1142,6 +1172,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cannot read files on the host: %@"
+          }
+        }
+      }
+    },
+    "Dateien und Zeilen durchsuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search files and lines"
           }
         }
       }
@@ -1492,6 +1532,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The clipboard contains no image."
+          }
+        }
+      }
+    },
+    "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the changes through file access, like “Upload images” (Edit host)."
           }
         }
       }
@@ -1996,6 +2046,26 @@
         }
       }
     },
+    "Git wird gefragt …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asking Git …"
+          }
+        }
+      }
+    },
+    "Git-Änderungen im Arbeitsverzeichnis der Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Git changes in the pane's working directory"
+          }
+        }
+      }
+    },
     "Gruppe %@ aufklappen" : {
       "localizations" : {
         "en" : {
@@ -2482,6 +2552,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No connection to the host."
+          }
+        }
+      }
+    },
+    "Keine Zeilen geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No lines changed"
+          }
+        }
+      }
+    },
+    "Keine Änderungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No changes"
           }
         }
       }
@@ -4662,12 +4752,32 @@
         }
       }
     },
+    "aus %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "from %@"
+          }
+        }
+      }
+    },
     "bereit" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ready"
+          }
+        }
+      }
+    },
+    "binär" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "binary"
           }
         }
       }
@@ -4692,12 +4802,32 @@
         }
       }
     },
+    "gelöscht" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "deleted"
+          }
+        }
+      }
+    },
     "gestoppt" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "stopped"
+          }
+        }
+      }
+    },
+    "geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "modified"
           }
         }
       }
@@ -4802,12 +4932,32 @@
         }
       }
     },
+    "neu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "new"
+          }
+        }
+      }
+    },
     "nicht angemeldet" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "not signed in"
+          }
+        }
+      }
+    },
+    "nicht in Git" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not in Git"
           }
         }
       }
@@ -4838,6 +4988,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ssh-ed25519 AAAA…"
+          }
+        }
+      }
+    },
+    "umbenannt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "renamed"
           }
         }
       }
@@ -5018,6 +5178,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Load Older History"
+          }
+        }
+      }
+    },
+    "Änderungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes"
+          }
+        }
+      }
+    },
+    "Änderungen nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes not readable"
           }
         }
       }

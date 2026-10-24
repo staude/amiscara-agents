@@ -562,6 +562,39 @@ impl Connection {
         }
     }
 
+    /// Deletes the file `path` below the home directory; a missing file is
+    /// no error. Over SSH this needs SFTP like [`Connection::upload`].
+    pub async fn remove_file(&self, path: &str) -> Result<(), TransportError> {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let path = local_home_path(path)?;
+                match tokio::fs::remove_file(&path).await {
+                    Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                        Err(TransportError::Files(format!("{}: {err}", path.display())))
+                    }
+                    _ => Ok(()),
+                }
+            }
+            Inner::Ssh { handle, .. } => {
+                let sftp = sftp_session(handle, TransportError::Files).await?;
+                let failed =
+                    |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+                let home = sftp.canonicalize(".").await.map_err(failed)?;
+                let target = format!(
+                    "{}/{}",
+                    home.trim_end_matches('/'),
+                    path.trim_start_matches('/')
+                );
+                if sftp.try_exists(target.as_str()).await.map_err(failed)? {
+                    sftp.remove_file(target.as_str()).await.map_err(failed)?;
+                }
+                sftp.close().await.map_err(failed)?;
+                Ok(())
+            }
+        }
+    }
+
     /// Like [`Connection::subscribe`], with full subscription objects such as
     /// `{"type": "pane.agent_status_changed", "pane_id": "w1:p1"}`.
     pub async fn subscribe_to(

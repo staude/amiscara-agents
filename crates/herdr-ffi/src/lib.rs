@@ -25,6 +25,7 @@ pub use convert::{
     SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
     TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
+pub use convert::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind};
 pub use herdr_session::UPLOAD_DIR;
 
 uniffi::setup_scaffolding!();
@@ -423,6 +424,15 @@ impl HostSession {
         before: Option<TranscriptCursor>,
     ) -> Result<TranscriptPage, FfiError> {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
+    }
+
+    /// What changed in the working directory of a pane (#228): `git diff`
+    /// against `HEAD` plus untracked files, read only. Runs a small script
+    /// in a short-lived, unfocused tab and reads its output through SFTP,
+    /// so it needs file access like uploads. Blocks for a moment; call it
+    /// off the main thread.
+    pub fn working_tree_diff(&self, pane_id: String) -> Result<Vec<DiffFile>, FfiError> {
+        Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
     }
 
     /// The transcript of a full-screen agent such as Claude Code as plain

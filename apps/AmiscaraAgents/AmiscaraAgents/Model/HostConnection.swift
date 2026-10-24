@@ -224,6 +224,18 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// What changed in a pane's working directory (#228). Read only, but it
+    /// opens a short-lived tab to run Git and reads the result over SFTP, so
+    /// it needs both input and file access.
+    func workingTreeDiff(paneID: String) async throws -> [DiffFile] {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.workingTreeDiff(paneId: paneID)
+        }.value
+    }
+
     /// The named herdr sessions on the host, running or stopped (#213).
     /// Read only, but over SSH it needs the same SFTP access as uploads.
     func herdrSessions() async throws -> [HerdrSession] {
@@ -325,6 +337,7 @@ enum ConnectionFailure: LocalizedError {
     case notConnected
     case uploadOff
     case filesOff
+    case diffFilesOff
 
     var errorDescription: String? {
         switch self {
@@ -336,6 +349,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Keine Verbindung zum Host.")
         case .uploadOff:
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
+        case .diffFilesOff:
+            String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .filesOff:
             String(localized: "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         }

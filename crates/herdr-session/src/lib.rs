@@ -9,6 +9,7 @@ pub mod sessions;
 pub mod view;
 
 pub use access::authorized_keys_line;
+pub use herdr_core::diff::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind};
 pub use link::{
     ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, LinkError, decode_add_host_link,
     encode_add_host_link, public_key_fingerprint,

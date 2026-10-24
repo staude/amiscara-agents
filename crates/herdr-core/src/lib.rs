@@ -10,6 +10,7 @@
 
 pub mod actions;
 pub mod claude;
+pub mod diff;
 pub mod fullscreen;
 pub mod pane;
 pub mod spaces;
