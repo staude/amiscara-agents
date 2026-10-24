@@ -82,13 +82,14 @@ pub fn diff_script(out: &str) -> String {
     let out = out.rsplit('/').next().unwrap_or(out);
     // Fixed prefixes: `diff.mnemonicPrefix` or `diff.noprefix` in the
     // user's config would change them. From the repository's top, so
-    // tracked and untracked paths are relative to the same place.
+    // tracked and untracked paths are relative to the same place. A
+    // subshell, so `exit` outside a repository still leaves `.done`.
     format!(
         r#"#!/bin/sh
 # Amiscara Agents: the diff of this directory for the app (read only).
 export GIT_OPTIONAL_LOCKS=0 GIT_PAGER=cat LC_ALL=C
 out="$(dirname "$0")/{out}"
-{{
+(
   top=$(git rev-parse --show-toplevel) && cd "$top" || exit 1
   set -- -c core.quotepath=off diff --no-color --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/
   if git rev-parse --verify -q HEAD >/dev/null; then
@@ -105,7 +106,7 @@ out="$(dirname "$0")/{out}"
       printf '%s %s\n' '{large}' "$f"
     fi
   done
-}} >"$out" 2>"$out.err"
+) >"$out" 2>"$out.err"
 mv "$out" "$out.done"
 "#,
         mark = UNTRACKED_MARK,
