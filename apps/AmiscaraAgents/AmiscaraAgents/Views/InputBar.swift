@@ -25,6 +25,8 @@ struct InputBar: View {
     /// The iPhone Duo's vertical bar is shown; the microphone moves there.
     @State private var verticalBar = false
     @State private var editingQuickReplies = false
+    @State private var showingHistory = false
+    private let history = PromptHistory.shared
     /// Live mode: while an agent's composer starts with "/", or after a
     /// suggestion was taken with Tab, every change goes straight into the
     /// agent's own input line, so Claude Code shows its suggestions in the
@@ -146,9 +148,16 @@ struct InputBar: View {
         .sheet(isPresented: $editingQuickReplies) {
             QuickReplyEditor(store: quickReplies)
         }
+        .sheet(isPresented: $showingHistory) {
+            PromptHistoryView(history: history, key: historyKey) { prompt in
+                text = prompt
+                composerFocused = true
+            }
+        }
     }
 
     private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
+    private var historyKey: String { PromptHistory.key(host: connection.id, pane: pane.paneId) }
 
     private func keepDraft() {
         ComposerDraft.slot = (draftKey, text, attachments)
@@ -435,6 +444,12 @@ struct InputBar: View {
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
             attachMenu
+            if !history.prompts(for: historyKey).isEmpty {
+                Button("Verlauf", systemImage: "clock.arrow.circlepath") { showingHistory = true }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .help(String(localized: "Frühere Prompts dieser Pane"))
+            }
             TextField(
                 isAgent ? "Prompt an \(pane.agent ?? "Agent")" : "Befehl",
                 text: $text,
@@ -548,6 +563,8 @@ struct InputBar: View {
             let shown = isAgent ? paths : paths.map(Self.shellQuoted)
             let full = ([prompt] + shown).filter { !$0.isEmpty }.joined(separator: isAgent ? "\n" : " ")
             try await connection.submit(full, to: pane.paneId, isAgent: isAgent)
+            // Agents only: a shell may have asked for a password.
+            if isAgent { history.record(prompt, for: historyKey) }
             text = ""
             attachments.removeAll { item in pending.contains { $0.id == item.id } }
         }
