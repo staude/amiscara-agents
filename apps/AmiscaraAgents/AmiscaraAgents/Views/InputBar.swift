@@ -22,6 +22,8 @@ struct InputBar: View {
     @State private var dictation = Dictation()
     /// Composer text from before dictation started; the transcript follows it.
     @State private var textBeforeDictation = ""
+    /// The iPhone Duo's vertical bar is shown; the microphone moves there.
+    @State private var verticalBar = false
     @State private var editingQuickReplies = false
     /// Live mode: while an agent's composer starts with "/", or after a
     /// suggestion was taken with Tab, every change goes straight into the
@@ -82,6 +84,12 @@ struct InputBar: View {
             text = base.isEmpty ? spoken : base + " " + spoken
         }
         .onDisappear { dictation.stop() }
+        .toolbar {
+            if verticalBar {
+                ToolbarItem(placement: .primaryAction) { dictationButton }
+            }
+        }
+        .tracksVerticalBar($verticalBar)
         // ⌘V with images that the focused text view does not take itself
         // (iOS: a plain text view passes image pastes on).
         .pasteDestination(for: PastedImage.self) { images in
@@ -400,8 +408,10 @@ struct InputBar: View {
 
     private var keys: some View {
         HStack(spacing: 4) {
-            dictationButton
-            Divider().frame(height: 16)
+            if !verticalBar {
+                dictationButton
+                Divider().frame(height: 16)
+            }
             key("Esc", "esc", help: "Esc (⌘.)")
             key("Tab", "tab")
             key("⌃C", "ctrl+c", help: "Control-C (⌃C)")
