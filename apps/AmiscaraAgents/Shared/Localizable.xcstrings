@@ -69,6 +69,16 @@
         }
       }
     },
+    "%@ in %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ in %2$@: %3$@"
+          }
+        }
+      }
+    },
     "%@ ist fertig" : {
       "localizations" : {
         "en" : {

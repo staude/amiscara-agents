@@ -158,26 +158,28 @@ struct HostSidebar: View {
                     Button("Agent benennen …", systemImage: "pencil", action: rename)
                 }
                 #if !os(tvOS)
-                .swipeActions(edge: .leading) {
+                // No full swipe: a flick through the list must not approve
+                // a dialog or interrupt an agent.
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
                     if agent.agentState == .blocked {
                         Button("Bestätigen", systemImage: "return") {
-                            sendFromRow(connection) { try await connection.send(keys: ["enter"], to: agent.paneId) }
+                            sendFromRow(agent) { try await connection.send(keys: ["enter"], to: agent.paneId) }
                         }
                         .tint(AgentState.blocked.color)
                     } else if let reply = QuickReplyStore.shared.usable.first {
                         Button(reply.trimmed, systemImage: "arrowshape.turn.up.right") {
-                            sendFromRow(connection) { try await connection.submit(reply.trimmed, to: agent.paneId, isAgent: true) }
+                            sendFromRow(agent) { try await connection.submit(reply.trimmed, to: agent.paneId, isAgent: true) }
                         }
                         .tint(.accentColor)
                     }
                 }
-                .swipeActions(edge: .trailing) {
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button("Esc", systemImage: "escape") {
-                        sendFromRow(connection) { try await connection.send(keys: ["esc"], to: agent.paneId) }
+                        sendFromRow(agent) { try await connection.send(keys: ["esc"], to: agent.paneId) }
                     }
                     .tint(.orange)
                     Button("Control-C", systemImage: "xmark.octagon") {
-                        sendFromRow(connection) { try await connection.send(keys: ["ctrl+c"], to: agent.paneId) }
+                        sendFromRow(agent) { try await connection.send(keys: ["ctrl+c"], to: agent.paneId) }
                     }
                     .tint(.red)
                     Button("Agent benennen …", systemImage: "pencil", action: rename)
@@ -189,13 +191,15 @@ struct HostSidebar: View {
         }
     }
 
-    private func sendFromRow(_ connection: HostConnection, _ action: @escaping @MainActor () async throws -> Void) {
+    private func sendFromRow(_ agent: BoardItem, _ action: @escaping @MainActor () async throws -> Void) {
+        let name = agent.name ?? agent.agent
+        let place = agent.workspaceName
         Task {
             do {
                 try await action()
                 swipeSent += 1
             } catch {
-                swipeError = inputErrorMessage(error)
+                swipeError = String(localized: "\(name) in \(place): \(inputErrorMessage(error))")
             }
         }
     }
