@@ -56,6 +56,7 @@ final class AppLock {
         self.defaults = defaults
         // Locked from the start: a cold launch counts as coming back.
         let locked = defaults.bool(forKey: Self.enabledKey) && !DemoMode.isOn
+        isEnabled = locked
         isLocked = locked
         promptPending = locked
     }
@@ -103,7 +104,8 @@ final class AppLock {
         }
     }
 
-    var isEnabled: Bool { defaults.bool(forKey: Self.enabledKey) && !DemoMode.isOn }
+    /// Stored, so views that read the lock follow the setting.
+    private(set) var isEnabled: Bool
 
     var delay: Delay { Delay(rawValue: defaults.integer(forKey: Self.delayKey)) ?? .immediately }
 
@@ -134,6 +136,7 @@ final class AppLock {
     /// Turning the setting on does not lock the running app, only the next
     /// return. Turning it off goes through `confirmOwner` first.
     func settingChanged() {
+        isEnabled = defaults.bool(forKey: Self.enabledKey) && !DemoMode.isOn
         if !isEnabled { isLocked = false }
     }
 
