@@ -481,9 +481,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Live Activity on the iPhone (#224): working and waiting agents show on
   the Lock Screen and in the Dynamic Island, up to three, waiting first,
   with the last line of the screen; a waiting agent has the answer buttons
-  of its notification. Updated live while the app runs and from the Mac's
-  boards in iCloud in the background (iOS rations those pushes, so it can
-  lag). "Live-Aktivität" in the menu next to the hosts turns it off.
+  of its notification. Started while the app is in front, updated live
+  and from the Mac's boards in iCloud in the background (iOS rations those
+  pushes, so it can lag; an outdated one says so). "Live-Aktivität" in the menu next to the hosts turns it off.
 
 ### Changed
 

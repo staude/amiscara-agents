@@ -4872,6 +4872,16 @@
         }
       }
     },
+    "veraltet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "outdated"
+          }
+        }
+      }
+    },
     "verbunden" : {
       "localizations" : {
         "en" : {

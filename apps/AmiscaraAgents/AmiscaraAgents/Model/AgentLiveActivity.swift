@@ -18,12 +18,20 @@ final class AgentLiveActivity {
     }
 
     private var shown: AgentsActivityAttributes.ContentState?
-    /// Last screen lines per agent, read once per state change.
+    /// False until the first update compared with what is on screen: an
+    /// activity can outlive the app that started it.
+    private var synced = false
+    /// Changes go out one after another, in order.
+    private var pending: Task<Void, Never>?
+    /// Last screen lines per agent and when and for which state they were
+    /// read; dropped when the agent leaves the activity.
     private var lines: [String: String] = [:]
-    private var linesFor: [String: WidgetSnapshot.State] = [:]
+    private var linesRead: [String: (state: WidgetSnapshot.State, at: Date)] = [:]
 
     /// Without news an activity counts as outdated after this.
     private nonisolated static let staleAfter: TimeInterval = 15 * 60
+    /// A working agent's line is read again after this.
+    private static let lineRefresh: TimeInterval = 30
 
     func update(_ snapshot: WidgetSnapshot, store: HostStore) {
         // Like notifications: only hosts that may show their agents (the
@@ -46,6 +54,9 @@ final class AgentLiveActivity {
             waiting: entries.filter { $0.state == .blocked }.count,
             working: entries.filter { $0.state == .working }.count
         )
+        let shownIDs = Set(state.agents.map(\.id))
+        lines = lines.filter { shownIDs.contains($0.key) }
+        linesRead = linesRead.filter { shownIDs.contains($0.key) }
         for index in state.agents.indices {
             state.agents[index].line = lines[state.agents[index].id]
         }
@@ -65,20 +76,34 @@ final class AgentLiveActivity {
     private func apply(_ state: AgentsActivityAttributes.ContentState?) {
         let state = Self.isEnabled && ActivityAuthorizationInfo().areActivitiesEnabled
             ? state.flatMap { $0.agents.isEmpty ? nil : $0 } : nil
-        guard state != shown else { return }
+        guard state != shown || !synced else { return }
         shown = state
-        Task { await Self.show(state) }
+        synced = true
+        let previous = pending
+        pending = Task {
+            await previous?.value
+            // iOS starts activities only while the app is in front; a start
+            // from a background push fails and is tried again next time.
+            if !(await Self.show(state)) {
+                if self.shown == state { self.shown = nil }
+            }
+        }
     }
 
     /// Off the main actor: activities are not `Sendable`, so they are
-    /// looked up where they are used.
-    private nonisolated static func show(_ state: AgentsActivityAttributes.ContentState?) async {
-        let running = Activity<AgentsActivityAttributes>.activities
+    /// looked up where they are used. False when a start failed.
+    private nonisolated static func show(_ state: AgentsActivityAttributes.ContentState?) async -> Bool {
+        let all = Activity<AgentsActivityAttributes>.activities
+        let running = all.filter { $0.activityState == .active }
+        // Ended by the system (after hours) or stale ones go.
+        for old in all where old.activityState != .active {
+            await old.end(nil, dismissalPolicy: .immediate)
+        }
         guard let state else {
             for activity in running {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
-            return
+            return true
         }
         let content = ActivityContent(state: state, staleDate: .now.addingTimeInterval(staleAfter))
         if let activity = running.first {
@@ -87,27 +112,31 @@ final class AgentLiveActivity {
             for extra in running.dropFirst() {
                 await extra.end(nil, dismissalPolicy: .immediate)
             }
-        } else {
-            _ = try? Activity.request(attributes: AgentsActivityAttributes(), content: content)
+            return true
         }
+        return (try? Activity.request(attributes: AgentsActivityAttributes(), content: content)) != nil
     }
 
-    /// Reads the last line of each shown agent's screen once per state,
-    /// over the live connection; agents from iCloud boards stay without.
+    /// Reads the last line of what each shown agent wrote: once per state,
+    /// for a working agent again after `lineRefresh`, over the live
+    /// connection; agents from iCloud boards stay without.
     private func readLines(for agents: [AgentsActivityAttributes.Entry], store: HostStore) {
-        let wanted = agents.filter { linesFor[$0.id] != $0.state }
+        let now = Date.now
+        let wanted = agents.filter { agent in
+            guard let read = linesRead[agent.id] else { return true }
+            return read.state != agent.state
+                || (agent.state == .working && now.timeIntervalSince(read.at) >= Self.lineRefresh)
+        }
         guard !wanted.isEmpty else { return }
-        for agent in wanted { linesFor[agent.id] = agent.state }
+        for agent in wanted { linesRead[agent.id] = (agent.state, now) }
         Task {
             var changed = false
             for agent in wanted {
                 guard let connection = store.connection(for: agent.hostID), connection.isLive,
-                      let excerpt = await connection.screenExcerpt(paneID: agent.paneID, lines: 6)
+                      let excerpt = await connection.screenExcerpt(paneID: agent.paneID, lines: 30),
+                      let line = Self.lastOutputLine(excerpt)
                 else { continue }
-                let line = excerpt.split(separator: "\n")
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-                    .last { !$0.isEmpty && !$0.allSatisfy { "─│╭╮╰╯>❯ ".contains($0) } }
-                if let line, lines[agent.id] != line {
+                if lines[agent.id] != line {
                     lines[agent.id] = line
                     changed = true
                 }
@@ -118,6 +147,22 @@ final class AgentLiveActivity {
                 }
                 apply(state)
             }
+        }
+    }
+
+    /// The agent's own last line: Claude Code marks its output with ⏺;
+    /// otherwise the last line that is not frame or the TUI's footer
+    /// ("? for shortcuts", "esc to interrupt", mode hints).
+    static func lastOutputLine(_ screen: String) -> String? {
+        let rows = screen.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        if let marked = rows.last(where: { $0.hasPrefix("⏺") }) {
+            return String(marked.dropFirst()).trimmingCharacters(in: .whitespaces)
+        }
+        let footer = ["for shortcuts", "esc to", "accept edits", "bypass permissions", "plan mode", "⏵", "ctrl+"]
+        return rows.last { row in
+            !row.isEmpty
+                && !row.allSatisfy { "─│╭╮╰╯>❯ ".contains($0) }
+                && !footer.contains { row.localizedCaseInsensitiveContains($0) }
         }
     }
 }

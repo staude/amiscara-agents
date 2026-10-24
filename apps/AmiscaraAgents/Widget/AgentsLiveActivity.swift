@@ -9,7 +9,7 @@ import WidgetKit
 struct AgentsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AgentsActivityAttributes.self) { context in
-            LockScreenView(state: context.state)
+            LockScreenView(state: context.state, stale: context.isStale)
                 .padding(14)
                 .activityBackgroundTint(Color.black.opacity(0.6))
                 .activitySystemActionForegroundColor(.white)
@@ -74,6 +74,14 @@ struct AgentsLiveActivity: Widget {
 
 private struct LockScreenView: View {
     let state: AgentsActivityAttributes.ContentState
+    /// No news for a while: the app was not running or iOS held pushes.
+    let stale: Bool
+
+    /// The first waiting agent gets the answer buttons and its line; the
+    /// others one row each, so it fits the Lock Screen's height.
+    private var detailed: String? {
+        (state.agents.first { $0.state == .blocked } ?? state.agents.first)?.id
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -86,6 +94,9 @@ private struct LockScreenView: View {
                 if state.working > 0 {
                     Text("\(state.working) arbeiten").font(.caption.weight(.semibold)).foregroundStyle(.blue)
                 }
+                if stale {
+                    Text("veraltet").font(.caption).foregroundStyle(.secondary)
+                }
             }
             ForEach(state.agents) { entry in
                 Link(destination: WidgetSnapshot.openURL(host: entry.hostID, workspaceID: entry.workspaceID, paneID: entry.paneID)) {
@@ -97,7 +108,7 @@ private struct LockScreenView: View {
                             Spacer(minLength: 0)
                             Text(entry.state.label).font(.caption).foregroundStyle(entry.state.color)
                         }
-                        if let line = entry.line, !line.isEmpty {
+                        if entry.id == detailed, let line = entry.line, !line.isEmpty {
                             Text(line).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                                 // Screen content: hidden on a locked device
                                 // when the user hides sensitive content.
@@ -105,11 +116,12 @@ private struct LockScreenView: View {
                         }
                     }
                 }
-                if entry.state == .blocked {
+                if entry.id == detailed, entry.state == .blocked, !stale {
                     AnswerButtons(entry: entry)
                 }
             }
         }
+        .opacity(stale ? 0.6 : 1)
     }
 }
 
