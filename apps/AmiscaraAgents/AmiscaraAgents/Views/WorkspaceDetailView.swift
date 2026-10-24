@@ -55,6 +55,16 @@ struct WorkspaceDetailView: View {
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
                 #if !os(tvOS)
                 .navigationSubtitle(workspace.group ?? "")
+                // Handoff (#231): the other devices offer this pane.
+                .userActivity(PaneHandoff.activityType) { activity in
+                    activity.isEligibleForHandoff = PaneHandoff.describe(
+                        activity,
+                        connection: connection,
+                        workspaceID: workspace.workspaceId,
+                        paneID: paneID,
+                        title: workspace.worktreeName ?? workspace.name
+                    )
+                }
                 #endif
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)

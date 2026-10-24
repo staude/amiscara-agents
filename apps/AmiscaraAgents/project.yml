@@ -95,6 +95,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
+        # Handoff of the open pane (#231).
+        NSUserActivityTypes:
+          - net.staude.amiscara.agents.pane
         CFBundleURLTypes:
           # "Add host" links, see crates/herdr-ffi/src/add_host.rs.
           - CFBundleURLName: net.staude.amiscara.agents.add-host
@@ -170,6 +173,9 @@ targets:
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
         NSCameraUsageDescription: "Zum Scannen des QR-Codes, mit dem Sie einen Host hinzufügen."
+        # Handoff of the open pane (#231).
+        NSUserActivityTypes:
+          - net.staude.amiscara.agents.pane
         CFBundleURLTypes:
           - CFBundleURLName: net.staude.amiscara.agents.add-host
             CFBundleURLSchemes:

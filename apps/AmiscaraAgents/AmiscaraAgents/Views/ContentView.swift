@@ -61,6 +61,16 @@ struct ContentView: View {
             // Applied once: closing the editor or opening another drops it.
             if pendingImport?.hostID != id { pendingImport = nil }
         }
+        #if !os(tvOS)
+        // A pane handed off from another device (#231); without a matching
+        // host entry the app just opens.
+        .onContinueUserActivity(PaneHandoff.activityType) { activity in
+            guard let target = PaneHandoff.target(from: activity),
+                  let ref = PaneHandoff.resolve(target, in: store)
+            else { return }
+            selection = ref
+        }
+        #endif
         .onOpenURL { url in
             #if os(iOS)
             if let link = TVPairing.Link(url) {

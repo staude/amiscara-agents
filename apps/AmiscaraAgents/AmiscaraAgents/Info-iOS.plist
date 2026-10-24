@@ -45,6 +45,10 @@
 	<string>Zum Diktieren von Prompts direkt in das Eingabefeld.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Wandelt Ihr Diktat in Text für das Eingabefeld um.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>net.staude.amiscara.agents.pane</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

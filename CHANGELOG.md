@@ -465,6 +465,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   searchable; picking one puts it into the composer to edit and send
   again. Up to 50 per pane, on the device only and outside backups. Shell
   input and live slash commands are not kept.
+- Handoff of the open space and pane between Mac, iPhone and iPad (#231):
+  the other device offers it in the Dock or app switcher and opens the
+  same pane. Hosts are matched by SSH host key, user and herdr session,
+  so each device uses its own host entry; without one the app just opens.
 
 ### Changed
 
