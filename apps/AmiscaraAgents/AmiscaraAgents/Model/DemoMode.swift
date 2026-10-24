@@ -48,8 +48,11 @@ enum DemoMode {
     }
 
     /// The demo host: the session's socket, without notifications.
+    /// A fixed id, so links into the demo (UI tests) can name the host.
+    static let hostID = UUID(uuidString: "00000000-0000-0000-0000-00000000DE30")!
+
     static func host(socket: String) -> HostConfig {
-        var config = HostConfig(name: "Mac Studio", kind: .local)
+        var config = HostConfig(id: hostID, name: "Mac Studio", kind: .local)
         config.socketPath = socket
         config.notificationsOn = false
         return config
