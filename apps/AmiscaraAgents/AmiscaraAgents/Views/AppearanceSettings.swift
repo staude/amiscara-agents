@@ -80,6 +80,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 420)
+        .appLock()
         .fixedSize(horizontal: false, vertical: true)
     }
 }

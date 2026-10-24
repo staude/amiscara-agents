@@ -7,10 +7,10 @@ import UIKit
 
 #if !os(tvOS)
 extension View {
-    /// Covers the app while the app lock (#232) holds, and on iOS also while
-    /// the app is not active, so the app switcher shows no panes. The cover
-    /// is a window of its own above sheets and alerts; on the Mac the app's
-    /// windows are hidden until it is unlocked.
+    /// Covers the window while the app lock (#232) holds, and on iOS also
+    /// while the app is not active, so the app switcher shows no panes. The
+    /// cover is also a window of its own above sheets and alerts; on the Mac
+    /// the app's windows are hidden until it is unlocked.
     func appLock() -> some View {
         modifier(AppLockModifier())
     }
@@ -18,44 +18,25 @@ extension View {
 
 private struct AppLockModifier: ViewModifier {
     @State private var lock = AppLock.shared
-    @Environment(\.scenePhase) private var scenePhase
-
-    private var covered: Bool {
-        guard lock.isEnabled else { return false }
-        #if os(iOS)
-        return lock.isLocked || scenePhase != .active
-        #else
-        return lock.isLocked
-        #endif
-    }
 
     func body(content: Content) -> some View {
+        let covered = lock.isCovered
         content
             // Nothing behind the cover takes focus, keys or menu commands.
             .disabled(covered)
             .accessibilityHidden(covered)
+            // Each window covers itself too, also one opened while locked.
+            .overlay {
+                if covered {
+                    AppLockCover(lock: lock)
+                }
+            }
             .onChange(of: covered, initial: true) { _, covered in
                 AppLockCurtain.shared.show(covered, lock: lock)
             }
-            #if os(iOS)
-            // Not .inactive: Face ID itself and Control Center make the
-            // scene inactive without leaving the app.
-            .onChange(of: scenePhase, initial: true) { _, phase in
-                switch phase {
-                case .background: lock.didLeave()
-                case .active: lock.didReturn()
-                default: break
-                }
+            .onAppear {
+                if covered { AppLockCurtain.shared.show(true, lock: lock) }
             }
-            #elseif os(macOS)
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-                lock.didLeave()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                lock.didReturn()
-            }
-            .onAppear { lock.didReturn() }
-            #endif
     }
 }
 
@@ -66,30 +47,41 @@ final class AppLockCurtain {
 
     #if os(iOS)
     private var windows: [UIWindow] = []
+    /// The windows that were key before, to give the keyboard back.
+    private var keyWindows: [UIWindow] = []
 
+    /// Covers every scene that has no cover yet, so a scene connected while
+    /// locked gets one as well. The cover becomes the key window, so
+    /// keyboard shortcuts do not reach the panes behind it.
     func show(_ covered: Bool, lock: AppLock) {
         guard covered else {
             windows.forEach { $0.isHidden = true }
             windows = []
+            keyWindows.forEach { $0.makeKey() }
+            keyWindows = []
             return
         }
-        guard windows.isEmpty else { return }
-        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+        where !windows.contains(where: { $0.windowScene === scene }) {
+            if let key = scene.keyWindow { keyWindows.append(key) }
             let window = UIWindow(windowScene: scene)
             window.windowLevel = .alert + 1
             window.rootViewController = UIHostingController(rootView: AppLockCover(lock: lock))
-            window.isHidden = false
+            window.makeKeyAndVisible()
             windows.append(window)
         }
     }
     #elseif os(macOS)
     private var window: NSWindow?
     private var hidden: [NSWindow] = []
+    private var observers: [NSObjectProtocol] = []
 
-    var isShowing: Bool { window != nil }
-
+    /// Hides the app's windows behind a lock window; runs again whenever a
+    /// window comes up while locked (File › New Window, the Dock).
     func show(_ covered: Bool, lock: AppLock) {
         guard covered else {
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
+            observers = []
             window?.orderOut(nil)
             window = nil
             hidden.forEach { $0.orderFront(nil) }
@@ -97,11 +89,17 @@ final class AppLockCurtain {
             hidden = []
             return
         }
-        guard window == nil else { return }
-        // The main window, its sheets and the settings; not the menu bar
-        // item's windows, which cannot become main.
-        hidden = NSApp.windows.filter { $0.isVisible && $0.canBecomeMain }
-        hidden.forEach { $0.orderOut(nil) }
+        // The main window, its sheets and the settings, minimized ones too;
+        // not the menu bar item's windows, which cannot become main.
+        let shown = NSApp.windows.filter {
+            $0 !== window && $0.canBecomeMain && ($0.isVisible || $0.isMiniaturized)
+        }
+        shown.forEach { $0.orderOut(nil) }
+        hidden += shown.filter { !hidden.contains($0) }
+        if let window {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
         let cover = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
             styleMask: [.titled],
@@ -114,6 +112,15 @@ final class AppLockCurtain {
         cover.center()
         cover.makeKeyAndOrderFront(nil)
         window = cover
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didDeminiaturizeNotification, NSWindow.didBecomeMainNotification] {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                let other = ObjectIdentifier(note.object as AnyObject)
+                MainActor.assumeIsolated {
+                    guard let self, let cover = self.window, other != ObjectIdentifier(cover) else { return }
+                    self.show(true, lock: lock)
+                }
+            })
+        }
     }
 
     /// Fronts the cover instead of a hidden window, e.g. for the menu bar.

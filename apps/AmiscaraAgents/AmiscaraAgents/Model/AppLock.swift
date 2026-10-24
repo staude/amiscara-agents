@@ -2,11 +2,18 @@
 import Foundation
 import LocalAuthentication
 import Observation
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /// Optional lock with Face ID, Touch ID or the device passcode (#232): the
 /// app can run commands on the user's machines. Off by default. Coming back
-/// after `delay`, the content stays covered until unlocked; while the app
-/// is not active it is covered too, so the app switcher shows nothing.
+/// after `delay`, the content stays covered until unlocked; on iOS it is
+/// covered while the app is not active too, so the app switcher shows
+/// nothing. Follows the app as a whole (`start`), not single windows or
+/// scenes: the Mac app runs on without a window, the iPad has several.
 @MainActor
 @Observable
 final class AppLock {
@@ -36,13 +43,64 @@ final class AppLock {
     private(set) var isAuthenticating = false
     private(set) var failure: String?
     private var leftAt: Date?
+    /// The app is in front; on iOS the cover also shows while it is not.
+    private(set) var isActive = true
+    /// Ask once when the app becomes active after a return, not again
+    /// after a cancelled prompt (which makes the app active again too).
+    private var promptPending: Bool
+    private var observers: [NSObjectProtocol] = []
 
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         // Locked from the start: a cold launch counts as coming back.
-        isLocked = defaults.bool(forKey: Self.enabledKey) && !DemoMode.isOn
+        let locked = defaults.bool(forKey: Self.enabledKey) && !DemoMode.isOn
+        isLocked = locked
+        promptPending = locked
+    }
+
+    /// What the cover shows over: locked, or on iOS not in front.
+    var isCovered: Bool {
+        guard isEnabled else { return false }
+        #if os(iOS)
+        return isLocked || !isActive
+        #else
+        return isLocked
+        #endif
+    }
+
+    /// Follows the app's activation once, from the app's start.
+    func start() {
+        guard observers.isEmpty else { return }
+        let center = NotificationCenter.default
+        func on(_ name: Notification.Name, _ action: @escaping @MainActor (AppLock) -> Void) {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    if let self { action(self) }
+                }
+            })
+        }
+        #if os(iOS)
+        on(UIApplication.didEnterBackgroundNotification) { $0.didLeave() }
+        on(UIApplication.willEnterForegroundNotification) { $0.didReturn() }
+        on(UIApplication.willResignActiveNotification) { $0.isActive = false }
+        on(UIApplication.didBecomeActiveNotification) { $0.becameActive() }
+        #elseif os(macOS)
+        on(NSApplication.didResignActiveNotification) { $0.didLeave() }
+        on(NSApplication.didBecomeActiveNotification) {
+            $0.didReturn()
+            $0.becameActive()
+        }
+        #endif
+    }
+
+    private func becameActive() {
+        isActive = true
+        if promptPending {
+            promptPending = false
+            if isLocked { unlock() }
+        }
     }
 
     var isEnabled: Bool { defaults.bool(forKey: Self.enabledKey) && !DemoMode.isOn }
@@ -55,13 +113,13 @@ final class AppLock {
         LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
     }
 
-    func didLeave() {
+    private func didLeave() {
         guard isEnabled, !isLocked else { return }
         leftAt = .now
     }
 
     /// Back in the foreground: locks once the delay is over and asks at once.
-    func didReturn() {
+    private func didReturn() {
         guard isEnabled else {
             isLocked = false
             return
@@ -70,7 +128,7 @@ final class AppLock {
             isLocked = true
         }
         leftAt = nil
-        if isLocked { unlock() }
+        promptPending = isLocked
     }
 
     /// Turning the setting on does not lock the running app, only the next

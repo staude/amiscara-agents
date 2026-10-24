@@ -12,13 +12,16 @@ struct AppCommands: Commands {
     @FocusedValue(\.keySender) private var keySender
     @FocusedValue(\.paneSearch) private var paneSearch
 
+    /// Behind the app lock (#232) no shortcut reaches a pane.
+    private var locked: Bool { AppLock.shared.isCovered }
+
     var body: some Commands {
         // In the Edit menu, where Find lives in every Mac app. SwiftUI adds
         // no Find items of its own here (that would take TextEditingCommands),
         // so ⌘F, ⌘G and ⇧⌘G belong to the pane search.
         CommandGroup(after: .textEditing) {
             Divider()
-            Button("Suchen …") { paneSearch?.open() }
+            Button("Suchen …") { if !locked { paneSearch?.open() } }
                 .keyboardShortcut("f", modifiers: .command)
                 .disabled(paneSearch == nil)
             Button("Weitersuchen") { paneSearch?.step(1) }
@@ -29,7 +32,7 @@ struct AppCommands: Commands {
                 .disabled(paneSearch?.canStep != true)
         }
         CommandMenu("Gehe zu") {
-            Button("Schnell wechseln …") { navigator?.openSwitcher() }
+            Button("Schnell wechseln …") { if !locked { navigator?.openSwitcher() } }
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(navigator == nil)
             Divider()
@@ -57,7 +60,7 @@ struct AppCommands: Commands {
             key("Pfeil nach rechts", "right", .rightArrow, [.command, .option])
             Divider()
             ForEach(["1", "2", "3"], id: \.self) { option in
-                Button("Option \(option) wählen") { keySender?.send([option]) }
+                Button("Option \(option) wählen") { if !locked { keySender?.send([option]) } }
                     .keyboardShortcut(KeyEquivalent(Character(option)), modifiers: [.command, .option])
                     .disabled(keySender?.isBlocked != true)
             }
@@ -70,7 +73,7 @@ struct AppCommands: Commands {
         _ equivalent: KeyEquivalent,
         _ modifiers: EventModifiers
     ) -> some View {
-        Button(title) { keySender?.send([name]) }
+        Button(title) { if !locked { keySender?.send([name]) } }
             .keyboardShortcut(equivalent, modifiers: modifiers)
             .disabled(keySender == nil)
     }
