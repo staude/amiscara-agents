@@ -22,6 +22,10 @@ struct HostSidebar: View {
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
     @State private var addingSessionTo: HostConnection?
+    /// Why a swipe action on an agent row could not be sent.
+    @State private var swipeError: String?
+    /// Bumped after a swipe action went out, for the haptic.
+    @State private var swipeSent = 0
     /// The entry chosen there, opened in the editor once the list is gone.
     @State private var chosenSession: HostConfig?
     /// herdr's own switch under "agents": by space ("grouped") or by state.
@@ -103,6 +107,14 @@ struct HostSidebar: View {
             RenameView(target: target)
         }
         .closeConfirmation($closing)
+        .alert("Senden fehlgeschlagen", isPresented: Binding(get: { swipeError != nil }, set: { if !$0 { swipeError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(swipeError ?? "")
+        }
+        #if !os(tvOS)
+        .sensoryFeedback(.success, trigger: swipeSent)
+        #endif
         .sheet(item: $newSpaceOn) { connection in
             NewSpaceView(connection: connection) { created in
                 selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
@@ -126,6 +138,69 @@ struct HostSidebar: View {
         Divider()
         Button("Entfernen", systemImage: "trash", role: .destructive) {
             store.remove(connection.id)
+        }
+    }
+
+    /// An agent row with rename in its context menu and, with input
+    /// allowed, swipe actions (#230): leading confirms a waiting agent or
+    /// sends the first quick reply, trailing has Esc, Ctrl-C and rename.
+    @ViewBuilder
+    private func agentRow(_ connection: HostConnection, _ entry: AgentOrder.Entry) -> some View {
+        let agent = entry.agent
+        let row = AgentRow(agent: agent, tabNumber: entry.tabNumber)
+            .tag(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId))
+        if RenameTarget.available(on: connection) {
+            let rename = {
+                renaming = RenameTarget(connection: connection, kind: .agent(paneID: agent.paneId), current: agent.name ?? "")
+            }
+            row
+                .contextMenu {
+                    Button("Agent benennen …", systemImage: "pencil", action: rename)
+                }
+                #if !os(tvOS)
+                // No full swipe: a flick through the list must not approve
+                // a dialog or interrupt an agent.
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    if agent.agentState == .blocked {
+                        Button("Bestätigen", systemImage: "return") {
+                            sendFromRow(agent) { try await connection.send(keys: ["enter"], to: agent.paneId) }
+                        }
+                        .tint(AgentState.blocked.color)
+                    } else if let reply = QuickReplyStore.shared.usable.first {
+                        Button(reply.trimmed, systemImage: "arrowshape.turn.up.right") {
+                            sendFromRow(agent) { try await connection.submit(reply.trimmed, to: agent.paneId, isAgent: true) }
+                        }
+                        .tint(.accentColor)
+                    }
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button("Esc", systemImage: "escape") {
+                        sendFromRow(agent) { try await connection.send(keys: ["esc"], to: agent.paneId) }
+                    }
+                    .tint(.orange)
+                    Button("Control-C", systemImage: "xmark.octagon") {
+                        sendFromRow(agent) { try await connection.send(keys: ["ctrl+c"], to: agent.paneId) }
+                    }
+                    .tint(.red)
+                    Button("Agent benennen …", systemImage: "pencil", action: rename)
+                        .tint(.gray)
+                }
+                #endif
+        } else {
+            row
+        }
+    }
+
+    private func sendFromRow(_ agent: BoardItem, _ action: @escaping @MainActor () async throws -> Void) {
+        let name = agent.name ?? agent.agent
+        let place = agent.workspaceName
+        Task {
+            do {
+                try await action()
+                swipeSent += 1
+            } catch {
+                swipeError = String(localized: "\(name) in \(place): \(inputErrorMessage(error))")
+            }
         }
     }
 
@@ -190,15 +265,7 @@ struct HostSidebar: View {
             }
             if !agentsFolded {
                 ForEach(AgentOrder.sorted(update, by: agentOrder), id: \.agent.paneId) { entry in
-                    AgentRow(agent: entry.agent, tabNumber: entry.tabNumber)
-                        .tag(SpaceRef(hostID: connection.id, workspaceID: entry.agent.workspaceId, paneID: entry.agent.paneId))
-                        .renameAction(available: RenameTarget.available(on: connection), label: "Agent benennen …") {
-                            renaming = RenameTarget(
-                                connection: connection,
-                                kind: .agent(paneID: entry.agent.paneId),
-                                current: entry.agent.name ?? ""
-                            )
-                        }
+                    agentRow(connection, entry)
                 }
             }
         }
