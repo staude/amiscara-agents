@@ -496,6 +496,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Agent" opens the agent the last prompt went to with dictation running.
   Both also work on the Lock Screen and the Action button. Links
   `amiscara-agents://open` without a pane now just open the app.
+- Share extension on iPhone and iPad (#225): "Share → Amiscara Agents" in
+  Safari, Photos, Mail and other apps takes text, a link or up to five
+  images, lets you pick the agent and edit the prompt, and hands it to the
+  app: a notification opens the agent with the composer filled (images
+  attached), and the prompt is sent from there. The extension itself holds
+  no SSH session. New App ID `net.staude.amiscara.agents.share` with the
+  App Group.
 
 ### Changed
 

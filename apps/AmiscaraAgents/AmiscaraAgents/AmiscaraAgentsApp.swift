@@ -53,6 +53,10 @@ struct AmiscaraAgentsApp: App {
                 store.reconnectStale()
                 #if os(iOS)
                 Task { await CloudPushSubscriptions.shared.install() }
+                // Something shared from another app (#225): to its agent.
+                if let share = PendingShare.peek() {
+                    store.notifier.openRequest = SpaceRef(hostID: share.hostID, workspaceID: share.workspaceID, paneID: share.paneID)
+                }
                 #endif
                 #if !os(macOS)
                 Task { await store.widgets.refreshFromCloud(store) }
