@@ -103,8 +103,9 @@ struct WidgetSnapshot: Codable, Equatable {
 
     // MARK: Links
 
-    /// Opens the agent's pane in the app, like a tapped notification.
-    static func openURL(host: UUID, workspaceID: String, paneID: String) -> URL {
+    /// Opens the agent's pane in the app, like a tapped notification;
+    /// `dictate` also starts dictation into its composer (#227).
+    static func openURL(host: UUID, workspaceID: String, paneID: String, dictate: Bool = false) -> URL {
         var components = URLComponents()
         components.scheme = "amiscara-agents"
         components.host = "open"
@@ -112,8 +113,34 @@ struct WidgetSnapshot: Codable, Equatable {
             URLQueryItem(name: "host", value: host.uuidString),
             URLQueryItem(name: "space", value: workspaceID),
             URLQueryItem(name: "pane", value: paneID),
-        ]
+        ] + (dictate ? [URLQueryItem(name: "dictate", value: "1")] : [])
         return components.url!
+    }
+
+    /// Opens the app without a pane.
+    static let appURL = URL(string: "amiscara-agents://open")!
+
+    /// Whether an `openURL` link asks for dictation.
+    static func wantsDictation(_ url: URL) -> Bool {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "dictate" && $0.value == "1" } == true
+    }
+
+    // MARK: Last agent
+
+
+    /// The pane the last prompt went to, for the controls (#227); the app
+    /// keeps the full record (`LastAgent`).
+    static let lastAgentKey = "lastAgentTarget"
+
+    static func saveLastAgent(host: UUID, workspaceID: String, paneID: String) {
+        UserDefaults(suiteName: appGroup)?.set([host.uuidString, workspaceID, paneID], forKey: lastAgentKey)
+    }
+
+    static func lastAgent() -> (host: UUID, workspaceID: String, paneID: String)? {
+        guard let parts = UserDefaults(suiteName: appGroup)?.stringArray(forKey: lastAgentKey), parts.count == 3,
+              let host = UUID(uuidString: parts[0])
+        else { return nil }
+        return (host, parts[1], parts[2])
     }
 
     /// The parts of an `openURL` link, or `nil` for any other URL.
@@ -126,4 +153,22 @@ struct WidgetSnapshot: Codable, Equatable {
         else { return nil }
         return (host, space, pane)
     }
+}
+
+/// The kinds of the Control Center controls (#227).
+enum WaitingControlKind {
+    static let waiting = "net.staude.amiscara.agents.control.waiting"
+    static let dictate = "net.staude.amiscara.agents.control.dictate"
+}
+
+/// "Dictate to this pane" from a control (#227); stale after a minute, so
+/// a pane that shows much later does not turn the microphone on by itself.
+struct DictateRequest: Equatable, Sendable {
+    let hostID: UUID
+    let paneID: String
+    let at: Date
+
+    static let maxAge: TimeInterval = 60
+
+    var isFresh: Bool { Date.now.timeIntervalSince(at) < Self.maxAge }
 }

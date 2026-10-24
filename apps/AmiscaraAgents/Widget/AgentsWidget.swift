@@ -7,6 +7,8 @@ struct AmiscaraAgentsWidgets: WidgetBundle {
         AgentsWidget()
         #if os(iOS)
         AgentsLiveActivity()
+        WaitingAgentsControl()
+        DictateControl()
         #endif
     }
 }

@@ -317,6 +317,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             == CloudPushSubscriptions.boardSubscriptionID
         else { return .noData }
         WidgetCenter.shared.reloadTimelines(ofKind: WidgetSnapshot.widgetKind)
+        ControlCenter.shared.reloadControls(ofKind: WaitingControlKind.waiting)
         await WidgetPublisher.backgroundRefresh?()
         return .newData
     }
