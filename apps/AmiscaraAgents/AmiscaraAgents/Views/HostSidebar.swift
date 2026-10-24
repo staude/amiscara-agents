@@ -83,6 +83,10 @@ struct HostSidebar: View {
                         TerminalSettings()
                             .pickerStyle(.menu)
                     }
+                    Section("App-Sperre") {
+                        AppLockSettings()
+                            .pickerStyle(.menu)
+                    }
                 }
             }
             #endif

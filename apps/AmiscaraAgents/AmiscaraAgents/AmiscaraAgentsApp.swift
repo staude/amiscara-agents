@@ -18,6 +18,10 @@ struct AmiscaraAgentsApp: App {
         let store = HostStore()
         _store = State(initialValue: store)
         #if !os(tvOS)
+        // The app lock follows the app's activation from the start (#232).
+        AppLock.shared.start()
+        #endif
+        #if !os(tvOS)
         // Shortcuts and Siri run in this process and read the same store.
         AppDependencyManager.shared.add(dependency: store)
         #endif
@@ -29,6 +33,9 @@ struct AmiscaraAgentsApp: App {
             ContentView()
                 .environment(store)
                 .appAppearance(appearance)
+                #if !os(tvOS)
+                .appLock()
+                #endif
                 #if os(macOS)
                 .frame(minWidth: 960, minHeight: 600)
                 #endif

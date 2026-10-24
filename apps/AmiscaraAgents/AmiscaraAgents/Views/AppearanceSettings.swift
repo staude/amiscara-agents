@@ -69,10 +69,18 @@ struct SettingsView: View {
             Section("Terminal") {
                 TerminalSettings()
             }
+            Section {
+                AppLockSettings()
+            } header: {
+                Text("App-Sperre")
+            } footer: {
+                Text("Fragt nach Touch ID oder dem Passwort, wenn Sie zur App zurückkehren.")
+            }
             UpdateSettings()
         }
         .formStyle(.grouped)
         .frame(width: 420)
+        .appLock()
         .fixedSize(horizontal: false, vertical: true)
     }
 }

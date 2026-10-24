@@ -37,6 +37,8 @@
 	<string>public.app-category.developer-tools</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Zum Scannen des QR-Codes, mit dem Sie einen Host hinzufügen.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Zum Entsperren der App, wenn Sie die App-Sperre eingeschaltet haben.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Frank Neumann-Staude</string>
 	<key>NSLocalNetworkUsageDescription</key>

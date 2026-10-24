@@ -469,6 +469,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the other device offers it in the Dock or app switcher and opens the
   same pane. Hosts are matched by SSH host key, user and herdr session,
   so each device uses its own host entry; without one the app just opens.
+- Optional app lock (#232): with "App sperren" on, the app asks for Face
+  ID, Touch ID or the passcode when it starts and when it comes back after
+  the chosen time (at once, 1 or 5 minutes). Until then the content is
+  covered, on iOS also in the app switcher. Off by default; the settings
+  are in the menu next to the hosts (iOS) and in the settings window (Mac).
 
 ### Changed
 
