@@ -160,3 +160,15 @@ enum WaitingControlKind {
     static let waiting = "net.staude.amiscara.agents.control.waiting"
     static let dictate = "net.staude.amiscara.agents.control.dictate"
 }
+
+/// "Dictate to this pane" from a control (#227); stale after a minute, so
+/// a pane that shows much later does not turn the microphone on by itself.
+struct DictateRequest: Equatable, Sendable {
+    let hostID: UUID
+    let paneID: String
+    let at: Date
+
+    static let maxAge: TimeInterval = 60
+
+    var isFresh: Bool { Date.now.timeIntervalSince(at) < Self.maxAge }
+}

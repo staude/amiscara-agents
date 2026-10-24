@@ -83,9 +83,12 @@ struct ContentView: View {
                 let ref = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
                 selection = ref
                 // A control's "dictate to the last agent" (#227).
-                if WidgetSnapshot.wantsDictation(url) { store.notifier.dictateRequest = ref }
+                store.notifier.dictateRequest = WidgetSnapshot.wantsDictation(url)
+                    ? DictateRequest(hostID: target.host, paneID: target.paneID, at: .now)
+                    : nil
                 return
             }
+            store.notifier.dictateRequest = nil
             // amiscara-agents://add-host?... from a QR code or a pasted link;
             // any other link (amiscara-agents://open) just opens the app.
             guard url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "add-host" else { return }

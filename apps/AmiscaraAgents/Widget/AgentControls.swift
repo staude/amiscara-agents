@@ -32,7 +32,12 @@ struct WaitingAgentsControl: ControlWidget {
         var previewValue: Value { Value(waiting: 1, url: WidgetSnapshot.appURL) }
 
         func currentValue() async throws -> Value {
-            let snapshot = WidgetSnapshot.load()
+            // With the Mac's boards from iCloud, like the widget, so it is
+            // right while the app does not run.
+            let local = WidgetSnapshot.load()
+            let keys = local.hosts.compactMap(\.hostKey)
+            let boards = (try? await CloudBoard.fetch(hostKeys: keys)) ?? []
+            let snapshot = local.merging(boards)
             let first = snapshot.agents.first { $0.agent.state == .blocked }
             let url = first.map {
                 WidgetSnapshot.openURL(host: $0.host.id, workspaceID: $0.agent.workspaceID, paneID: $0.agent.paneID)

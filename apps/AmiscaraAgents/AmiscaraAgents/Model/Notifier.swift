@@ -16,7 +16,7 @@ final class Notifier: NSObject {
     /// Set when a notification is tapped; the window opens it and clears it.
     var openRequest: SpaceRef?
     /// Start dictation in this pane's composer once it shows (#227).
-    var dictateRequest: SpaceRef?
+    var dictateRequest: DictateRequest?
 
     /// Sends an answer key chosen on a notification (also on the Watch) to
     /// host and pane; true when it went out. Set by the store.
@@ -180,7 +180,7 @@ extension Notifier: UNUserNotificationCenterDelegate {
 @Observable
 final class Notifier {
     var openRequest: SpaceRef?
-    var dictateRequest: SpaceRef?
+    var dictateRequest: DictateRequest?
     @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String) async -> Bool)?
     @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
     @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)?

@@ -88,11 +88,12 @@ struct InputBar: View {
         }
         .onDisappear { dictation.stop() }
         // "Dictate to the last agent" from Control Center (#227).
-        .onChange(of: store.notifier.dictateRequest, initial: true) { _, request in
-            guard let request, request.hostID == connection.id, request.paneID == pane.paneId else { return }
-            store.notifier.dictateRequest = nil
-            if !dictation.isRunning { toggleDictation() }
-        }
+        // Not behind the app lock (#232): once it is unlocked.
+        .modifier(RequestedDictation(
+            request: store.notifier.dictateRequest,
+            covered: AppLock.shared.isCovered,
+            start: startRequestedDictation
+        ))
         .toolbar {
             if verticalBar {
                 ToolbarItem(placement: .primaryAction) { dictationButton }
@@ -161,6 +162,21 @@ struct InputBar: View {
                 composerFocused = true
             }
         }
+    }
+
+    /// Dictation a control asked for (#227), for this pane, fresh, and not
+    /// while the app lock covers the app.
+    private func startRequestedDictation() {
+        guard let request = store.notifier.dictateRequest,
+              request.hostID == connection.id, request.paneID == pane.paneId
+        else { return }
+        guard request.isFresh else {
+            store.notifier.dictateRequest = nil
+            return
+        }
+        guard !AppLock.shared.isCovered else { return }
+        store.notifier.dictateRequest = nil
+        if !dictation.isRunning { toggleDictation() }
     }
 
     private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
@@ -682,4 +698,19 @@ struct InputBar: View {
 @MainActor
 private enum ComposerDraft {
     static var slot: (key: String, text: String, attachments: [ImageAttachment])?
+}
+
+/// Starts dictation a control asked for (#227) when the request or the app
+/// lock changes; its own modifier, so the input bar's chain stays short
+/// enough for the type checker.
+private struct RequestedDictation: ViewModifier {
+    let request: DictateRequest?
+    let covered: Bool
+    let start: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: request, initial: true) { start() }
+            .onChange(of: covered) { start() }
+    }
 }
