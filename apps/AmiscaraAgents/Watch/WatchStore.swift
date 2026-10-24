@@ -127,15 +127,22 @@ final class WatchStore: NSObject {
         }
         // WatchConnectivity takes property lists; they are not `Sendable`.
         nonisolated(unsafe) let message = message
-        let error: String? = await withCheckedContinuation { continuation in
+        let error = await Self.send(message, over: session)
+        WKInterfaceDevice.current().play(error == nil ? .success : .failure)
+        return error
+    }
+
+    /// Nonisolated: WatchConnectivity calls the handlers on a background
+    /// queue, and handlers inferred as main actor isolated trap there (#218).
+    private nonisolated static func send(_ message: [String: Any], over session: WCSession) async -> String? {
+        nonisolated(unsafe) let message = message
+        return await withCheckedContinuation { continuation in
             session.sendMessage(message) { reply in
                 continuation.resume(returning: WatchMessage.parseReply(reply))
             } errorHandler: { error in
                 continuation.resume(returning: error.localizedDescription)
             }
         }
-        WKInterfaceDevice.current().play(error == nil ? .success : .failure)
-        return error
     }
 
     /// Leaves the command in iCloud for the Mac app on the host and waits

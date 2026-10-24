@@ -515,6 +515,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Dictation no longer quits the app right after granting speech
+  recognition access on first use; the access handler ran with main actor
+  isolation on a background queue. The Watch app's replies to the iPhone
+  had the same pattern (#218).
 - Apple apps with "Zeilen umbrechen" on: a frame line of a wide pane (such
   as Claude Code's rules) no longer widens the terminal beyond the window,
   which squeezed the Mac sidebar to half its width and cut the wrapped
