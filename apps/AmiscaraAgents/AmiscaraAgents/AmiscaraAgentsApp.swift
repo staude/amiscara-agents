@@ -47,16 +47,18 @@ struct AmiscaraAgentsApp: App {
             // iOS suspends the app and the SSH session with it. Coming back,
             // reconnect at once instead of waiting out the retry pause.
             store.notifier.appActive = phase == .active
+            #if os(iOS)
+            // Something shared from another app (#225): to its agent.
+            if phase == .active, let share = PendingShare.peek() {
+                store.notifier.openRequest = SpaceRef(hostID: share.hostID, workspaceID: share.workspaceID, paneID: share.paneID)
+            }
+            #endif
             // The screenshot demo (#199) leaves widgets and iCloud alone.
             guard !DemoMode.isOn else { return }
             if phase == .active {
                 store.reconnectStale()
                 #if os(iOS)
                 Task { await CloudPushSubscriptions.shared.install() }
-                // Something shared from another app (#225): to its agent.
-                if let share = PendingShare.peek() {
-                    store.notifier.openRequest = SpaceRef(hostID: share.hostID, workspaceID: share.workspaceID, paneID: share.paneID)
-                }
                 #endif
                 #if !os(macOS)
                 Task { await store.widgets.refreshFromCloud(store) }
