@@ -244,3 +244,66 @@ pub struct TranscriptPage {
     /// Byte offset this page starts at; 0 means the conversation's start.
     pub start: u64,
 }
+
+pub use herdr_session::{
+    DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff,
+};
+
+/// How a file changed in a working tree diff (#228).
+#[uniffi::remote(Enum)]
+pub enum DiffFileStatus {
+    Modified,
+    Added,
+    Deleted,
+    Renamed,
+    /// Not tracked by Git yet.
+    Untracked,
+}
+
+#[uniffi::remote(Enum)]
+pub enum DiffLineKind {
+    Context,
+    Added,
+    Removed,
+    /// `\\ No newline at end of file`.
+    Note,
+}
+
+#[uniffi::remote(Record)]
+pub struct DiffLine {
+    pub kind: DiffLineKind,
+    /// The line without its `+`, `-` or ` ` prefix.
+    pub text: String,
+}
+
+#[uniffi::remote(Record)]
+pub struct DiffHunk {
+    /// The `@@ -a,b +c,d @@ context` line.
+    pub header: String,
+    pub lines: Vec<DiffLine>,
+}
+
+/// One file of a working tree diff.
+#[uniffi::remote(Record)]
+pub struct DiffFile {
+    /// The path after the change (before it for a deleted file).
+    pub path: String,
+    /// The path before a rename.
+    pub old_path: Option<String>,
+    pub status: DiffFileStatus,
+    /// Binary content; no hunks.
+    pub binary: bool,
+    /// An untracked file too big to show; no hunks.
+    pub too_large: bool,
+    pub additions: u32,
+    pub deletions: u32,
+    pub hunks: Vec<DiffHunk>,
+}
+
+/// A working tree diff; `truncated` when it was cut off at the size the
+/// apps read.
+#[uniffi::remote(Record)]
+pub struct WorkingTreeDiff {
+    pub files: Vec<DiffFile>,
+    pub truncated: bool,
+}

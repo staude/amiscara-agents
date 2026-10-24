@@ -484,6 +484,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   of its notification. Started while the app is in front, updated live
   and from the Mac's boards in iCloud in the background (iOS rations those
   pushes, so it can lag; an outdated one says so). "Live-Aktivität" in the menu next to the hosts turns it off.
+- Git changes of a pane (#228): the ± button in the pane header (Mac,
+  iPhone, iPad) shows what changed in the pane's working directory against
+  `HEAD`, untracked files included, per file with colored hunks and a
+  search. Read only: the host runs Git in a short-lived, unfocused tab of
+  the space (`GIT_OPTIONAL_LOCKS=0`) and the app reads the result through
+  the file access (needs input and "Bilder hochladen" on). Core:
+  `Session::working_tree_diff`, `Connection::remove_file`, `herdr_core::diff`.
 
 ### Changed
 

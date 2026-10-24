@@ -7,6 +7,7 @@ struct PaneDetailView: View {
     @State private var model = PaneModel()
     @State private var search = PaneSearchState()
     @State private var showingConversation = false
+    @State private var showingDiff = false
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
     /// The pane's buttons sit in the vertical bar of an iPhone Duo (#215).
     @State private var verticalBar = false
@@ -63,6 +64,13 @@ struct PaneDetailView: View {
                 ConversationView(connection: connection, paneID: selection.paneID)
             }
         }
+        #if !os(tvOS)
+        .sheet(isPresented: $showingDiff) {
+            if let selection, let connection = store.connection(for: selection.hostID) {
+                DiffView(connection: connection, paneID: selection.paneID)
+            }
+        }
+        #endif
         .tracksVerticalBar($verticalBar)
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
         .task(id: selection) {
@@ -130,6 +138,15 @@ struct PaneDetailView: View {
             .labelStyle(.iconOnly)
             .help(String(localized: "Gesprächsverlauf aus der Claude-Sitzung"))
         }
+        #if !os(tvOS)
+        if connection.config.inputAllowed {
+            Button("Änderungen", systemImage: "plusminus") {
+                showingDiff = true
+            }
+            .labelStyle(.iconOnly)
+            .help(String(localized: "Git-Änderungen im Arbeitsverzeichnis der Pane"))
+        }
+        #endif
         SelectTextButton(title: pane?.title.isEmpty == false ? pane!.title : paneID) {
             model.content?.plainText ?? ""
         }
