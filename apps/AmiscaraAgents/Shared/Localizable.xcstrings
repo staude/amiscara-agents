@@ -936,6 +936,16 @@
         }
       }
     },
+    "Control-C" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control-C"
+          }
+        }
+      }
+    },
     "Control-C senden" : {
       "localizations" : {
         "en" : {
@@ -1632,6 +1642,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "There are already too many agents with this name."
+          }
+        }
+      }
+    },
+    "Esc" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esc"
           }
         }
       }
@@ -3218,6 +3238,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send"
+          }
+        }
+      }
+    },
+    "Senden fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending failed"
           }
         }
       }

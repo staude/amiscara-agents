@@ -457,6 +457,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   swaps the input bar. `scripts/screenshots.sh --platform duo` captures
   the outer display. The widget comes in the extra large sizes as well
   (two columns, or one tall column) for the inner display and the iPad.
+- Swipe actions on agent rows (#230): swiping right confirms a waiting
+  agent or sends the first quick reply, swiping left offers Esc, Control-C
+  and rename. Only for hosts with input on.
 
 ### Changed
 
