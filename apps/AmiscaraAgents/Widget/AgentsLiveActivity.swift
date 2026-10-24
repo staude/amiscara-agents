@@ -37,6 +37,7 @@ struct AgentsLiveActivity: Widget {
                             Text(first.place).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             if let line = first.line, !line.isEmpty {
                                 Text(line).font(.caption.monospaced()).lineLimit(2)
+                                    .privacySensitive()
                             }
                             if first.state == .blocked {
                                 AnswerButtons(entry: first)
@@ -98,6 +99,9 @@ private struct LockScreenView: View {
                         }
                         if let line = entry.line, !line.isEmpty {
                             Text(line).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                                // Screen content: hidden on a locked device
+                                // when the user hides sensitive content.
+                                .privacySensitive()
                         }
                     }
                 }

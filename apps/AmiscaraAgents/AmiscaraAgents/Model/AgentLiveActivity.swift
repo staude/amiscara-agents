@@ -26,8 +26,11 @@ final class AgentLiveActivity {
     private nonisolated static let staleAfter: TimeInterval = 15 * 60
 
     func update(_ snapshot: WidgetSnapshot, store: HostStore) {
+        // Like notifications: only hosts that may show their agents (the
+        // demo host has notifications off).
         let entries = snapshot.agents
             .filter { $0.agent.state == .blocked || $0.agent.state == .working }
+            .filter { DemoMode.isOn || (store.connection(for: $0.host.id)?.config.notificationsOn ?? false) }
             .map { pair in
                 AgentsActivityAttributes.Entry(
                     hostID: pair.host.id,
