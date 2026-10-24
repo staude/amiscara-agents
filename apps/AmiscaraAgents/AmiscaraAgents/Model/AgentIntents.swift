@@ -5,9 +5,10 @@ import UIKit
 #endif
 
 // Shortcuts and Siri. The intents run in the app process and read the live
-// HostStore the app registers with AppDependencyManager; none of them sends
-// anything to herdr. Agent names, titles and hosts are private, so every
-// intent needs an unlocked device and the query answers nothing while locked.
+// HostStore the app registers with AppDependencyManager; only the prompt
+// intents (#226) send to herdr, with the composer's checks. Agent names,
+// titles and hosts are private, so every intent needs an unlocked device
+// and the query answers nothing while locked.
 
 /// An agent pane on a host, as Shortcuts and Siri see it.
 struct AgentEntity: AppEntity {
@@ -134,6 +135,123 @@ struct OpenAgentIntent: OpenIntent {
     }
 }
 
+/// "Sag Claude im Shop: …" (#226): a prompt to an agent, as the composer
+/// sends it. Siri asks for the agent and the text when they are missing.
+struct SendPromptIntent: AppIntent {
+    static let title: LocalizedStringResource = "Prompt an Agent senden"
+    static let description = IntentDescription("Schickt einen Prompt an den gewählten Agent, wie das Eingabefeld der App.")
+    static let authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
+
+    @Parameter(title: "Agent", requestValueDialog: "An welchen Agent?")
+    var target: AgentEntity
+
+    @Parameter(title: "Prompt", inputOptions: String.IntentInputOptions(multiline: true), requestValueDialog: "Was soll ich senden?")
+    var prompt: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("\(\.$prompt) an \(\.$target) senden")
+    }
+
+    @Dependency private var store: HostStore
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        try await store.sendPrompt(prompt, toHost: target.hostID, pane: target.paneID)
+        return .result(dialog: "Gesendet an \(target.name).")
+    }
+}
+
+/// The same for the Action button: to the agent the last prompt went to,
+/// from the app or from Siri.
+struct SendPromptToLastAgentIntent: AppIntent {
+    static let title: LocalizedStringResource = "Prompt an letzten Agent senden"
+    static let description = IntentDescription("Schickt einen Prompt an den Agent, an den zuletzt ein Prompt ging.")
+    static let authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
+
+    @Parameter(title: "Prompt", inputOptions: String.IntentInputOptions(multiline: true), requestValueDialog: "Was soll ich senden?")
+    var prompt: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("\(\.$prompt) an den letzten Agent senden")
+    }
+
+    @Dependency private var store: HostStore
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Pane ids are positions and come back for other agents (a new
+        // space, a restarted server): the agent must still be the same.
+        guard let last = LastAgent.current,
+              let agent = await store.agents().first(where: { $0.hostID == last.hostID && $0.paneID == last.paneID }),
+              last.matches(store.boardItem(host: agent.hostID, pane: agent.paneID))
+        else { throw PromptIntentError.noLastAgent }
+        try await store.sendPrompt(prompt, toHost: agent.hostID, pane: agent.paneID)
+        return .result(dialog: "Gesendet an \(agent.name).")
+    }
+}
+
+enum PromptIntentError: Error, CustomLocalizedStringResourceConvertible {
+    case emptyPrompt
+    case noLastAgent
+    case hostGone
+    case unreachable(String)
+    case inputOff(String)
+    case failed(String)
+
+    var localizedStringResource: LocalizedStringResource {
+        switch self {
+        case .emptyPrompt: "Der Prompt ist leer."
+        case .noLastAgent: "Es gibt noch keinen letzten Agent, oder er läuft nicht mehr. Senden Sie einmal aus der App."
+        case .hostGone: "Der Host dieses Agents ist auf diesem Gerät nicht eingerichtet."
+        case .unreachable(let host): "\(host) ist gerade nicht erreichbar."
+        case .inputOff(let host): "Eingaben sind für \(host) ausgeschaltet."
+        case .failed(let message): "Senden fehlgeschlagen: \(message)"
+        }
+    }
+}
+
+/// The agent pane the last prompt went to, for the "last agent" intent
+/// and control (#226, #227). Kept on this device.
+struct LastAgent: Codable, Equatable {
+    let hostID: UUID
+    let paneID: String
+    /// Who was in the pane: its space (id and label, ids are positions
+    /// too), working directory, agent kind and name.
+    let workspaceID: String
+    let workspaceLabel: String
+    let cwd: String?
+    let agent: String
+    let name: String?
+
+    private static let key = "lastAgent"
+
+    static var current: LastAgent? {
+        UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(LastAgent.self, from: $0) }
+    }
+
+    /// Still the same agent in that pane.
+    func matches(_ item: BoardItem?) -> Bool {
+        guard let item else { return false }
+        return item.workspaceId == workspaceID && item.workspaceLabel == workspaceLabel
+            && item.cwd == cwd && item.agent == agent && item.name == name
+    }
+
+    @MainActor
+    static func remember(_ item: BoardItem, on host: UUID) {
+        guard !DemoMode.isOn else { return }
+        let last = LastAgent(
+            hostID: host,
+            paneID: item.paneId,
+            workspaceID: item.workspaceId,
+            workspaceLabel: item.workspaceLabel,
+            cwd: item.cwd,
+            agent: item.agent,
+            name: item.name
+        )
+        UserDefaults.standard.set(try? JSONEncoder().encode(last), forKey: key)
+    }
+}
+
 struct HerdrShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -155,10 +273,55 @@ struct HerdrShortcuts: AppShortcutsProvider {
             shortTitle: "Agent öffnen",
             systemImageName: "terminal"
         )
+        AppShortcut(
+            intent: SendPromptIntent(),
+            phrases: [
+                "Prompt an Agent in \(.applicationName) senden",
+                "Sag einem Agent in \(.applicationName) etwas",
+            ],
+            shortTitle: "Prompt senden",
+            systemImageName: "paperplane"
+        )
+        AppShortcut(
+            intent: SendPromptToLastAgentIntent(),
+            phrases: [
+                "Sag dem letzten Agent in \(.applicationName) etwas",
+                "Prompt an letzten Agent in \(.applicationName)",
+            ],
+            shortTitle: "An letzten Agent",
+            systemImageName: "paperplane.circle"
+        )
     }
 }
 
 extension HostStore {
+    /// Sends a prompt as the composer does, after the same checks.
+    func sendPrompt(_ prompt: String, toHost hostID: UUID, pane paneID: String) async throws {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { throw PromptIntentError.emptyPrompt }
+        guard let connection = connection(for: hostID) else { throw PromptIntentError.hostGone }
+        guard connection.config.inputAllowed else { throw PromptIntentError.inputOff(connection.config.name) }
+        reconnectStale()
+        let deadline = ContinuousClock.now + .seconds(6)
+        while connection.isSettling, ContinuousClock.now < deadline, !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        guard connection.isLive else { throw PromptIntentError.unreachable(connection.config.name) }
+        do {
+            try await connection.submit(text, to: paneID, isAgent: true)
+        } catch {
+            throw PromptIntentError.failed(inputErrorMessage(error))
+        }
+        if let item = boardItem(host: hostID, pane: paneID) {
+            LastAgent.remember(item, on: hostID)
+        }
+    }
+
+    /// The agent in a pane as the board shows it.
+    func boardItem(host hostID: UUID, pane paneID: String) -> BoardItem? {
+        connection(for: hostID)?.update?.board.first { $0.paneId == paneID }
+    }
+
     /// All agents on live hosts, waiting ones first. Waits briefly for hosts
     /// still connecting: an intent may have just launched or woken the app,
     /// and an empty board then would be a wrong answer.
@@ -168,7 +331,7 @@ extension HostStore {
         guard Platform.isUnlocked else { return [] }
         reconnectStale()
         let deadline = ContinuousClock.now + .seconds(6)
-        while connections.contains(where: \.isSettling), ContinuousClock.now < deadline {
+        while connections.contains(where: \.isSettling), ContinuousClock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(100))
         }
         return connections

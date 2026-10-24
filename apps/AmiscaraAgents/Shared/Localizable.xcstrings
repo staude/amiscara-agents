@@ -4,6 +4,26 @@
     "" : {
       "shouldTranslate" : false
     },
+    "${prompt} an ${target} senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send ${prompt} to ${target}"
+          }
+        }
+      }
+    },
+    "${prompt} an den letzten Agent senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send ${prompt} to the last agent"
+          }
+        }
+      }
+    },
     "%@" : {
       "shouldTranslate" : false
     },
@@ -85,6 +105,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ is done"
+          }
+        }
+      }
+    },
+    "%@ ist gerade nicht erreichbar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ cannot be reached right now."
           }
         }
       }
@@ -612,6 +642,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open Amiscara Agents"
+          }
+        }
+      }
+    },
+    "An letzten Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To last agent"
+          }
+        }
+      }
+    },
+    "An welchen Agent?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To which agent?"
           }
         }
       }
@@ -1216,6 +1266,16 @@
         }
       }
     },
+    "Der Host dieses Agents ist auf diesem Gerät nicht eingerichtet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This agent's host is not set up on this device."
+          }
+        }
+      }
+    },
     "Der Host „%@“ im Code ist ungültig." : {
       "localizations" : {
         "en" : {
@@ -1292,6 +1352,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The port in the code is invalid."
+          }
+        }
+      }
+    },
+    "Der Prompt ist leer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The prompt is empty."
           }
         }
       }
@@ -1626,6 +1696,16 @@
         }
       }
     },
+    "Eingaben sind für %@ ausgeschaltet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input is turned off for %@."
+          }
+        }
+      }
+    },
     "Eingaben sind für diesen Host ausgeschaltet." : {
       "localizations" : {
         "en" : {
@@ -1702,6 +1782,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This Mac's host key is missing."
+          }
+        }
+      }
+    },
+    "Es gibt noch keinen letzten Agent, oder er läuft nicht mehr. Senden Sie einmal aus der App." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is no last agent yet, or it is no longer running. Send a prompt from the app once."
           }
         }
       }
@@ -1862,6 +1952,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only works while the agent is not working"
+          }
+        }
+      }
+    },
+    "Gesendet an %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent to %@."
           }
         }
       }
@@ -3072,6 +3172,36 @@
         }
       }
     },
+    "Prompt an Agent senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send prompt to agent"
+          }
+        }
+      }
+    },
+    "Prompt an letzten Agent senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send prompt to last agent"
+          }
+        }
+      }
+    },
+    "Prompt senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send prompt"
+          }
+        }
+      }
+    },
     "Prompt „%@“" : {
       "localizations" : {
         "en" : {
@@ -3168,6 +3298,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SSH works, but the herdr socket does not. Is herdr running there, and is the socket path right?"
+          }
+        }
+      }
+    },
+    "Schickt einen Prompt an den Agent, an den zuletzt ein Prompt ging." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends a prompt to the agent the last prompt went to."
+          }
+        }
+      }
+    },
+    "Schickt einen Prompt an den gewählten Agent, wie das Eingabefeld der App." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends a prompt to the chosen agent, like the app's input field."
           }
         }
       }
@@ -3368,6 +3518,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sending failed"
+          }
+        }
+      }
+    },
+    "Senden fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending failed: %@"
           }
         }
       }
@@ -4278,6 +4438,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What you send to this pane shows up here."
+          }
+        }
+      }
+    },
+    "Was soll ich senden?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What should I send?"
           }
         }
       }

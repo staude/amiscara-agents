@@ -23,6 +23,52 @@
         }
       }
     },
+    "Prompt an Agent in ${applicationName} senden" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Prompt an Agent in ${applicationName} senden",
+              "Sag einem Agent in ${applicationName} etwas"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Send a prompt to an agent in ${applicationName}",
+              "Tell an agent in ${applicationName} something"
+            ]
+          }
+        }
+      }
+    },
+    "Sag dem letzten Agent in ${applicationName} etwas" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Sag dem letzten Agent in ${applicationName} etwas",
+              "Prompt an letzten Agent in ${applicationName}"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tell the last agent in ${applicationName} something",
+              "Prompt the last agent in ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
     "Wartende Agents in ${applicationName}" : {
       "extractionState" : "stale",
       "localizations" : {
