@@ -87,6 +87,7 @@ struct HostSidebar: View {
                         AppLockSettings()
                             .pickerStyle(.menu)
                     }
+                    LiveActivityToggle()
                 }
             }
             #endif
@@ -854,3 +855,16 @@ struct NoHostsView: View {
         #endif
     }
 }
+
+#if os(iOS)
+/// Turns the Live Activity of working agents on and off (#224).
+private struct LiveActivityToggle: View {
+    @Environment(HostStore.self) private var store
+    @AppStorage(AgentLiveActivity.enabledKey) private var enabled = true
+
+    var body: some View {
+        Toggle("Live-Aktivität", isOn: $enabled)
+            .onChange(of: enabled) { AgentLiveActivity.shared.settingChanged(store: store) }
+    }
+}
+#endif

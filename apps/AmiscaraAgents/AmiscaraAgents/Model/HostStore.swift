@@ -43,6 +43,15 @@ final class HostStore {
         WatchBridge.shared.prompt = { [weak self] host, pane, text in
             await self?.promptError(text, to: pane, on: host) ?? String(localized: "Die App ist nicht bereit.")
         }
+        // Answer buttons of the Live Activity (#224).
+        AgentActivityBridge.answer = { [weak self] host, pane, key in
+            await self?.answer(key, to: pane, on: host) ?? false
+        }
+        // A new board from the Mac while in the background.
+        WidgetPublisher.backgroundRefresh = { [weak self] in
+            guard let self, !DemoMode.isOn else { return }
+            await self.widgets.refreshFromCloud(self)
+        }
         #endif
         notifier.hostForKey = { [weak self] key in
             self?.connections.first { CloudPush.hostKey(forPublicKey: $0.config.pinnedHostKey) == key }?.id

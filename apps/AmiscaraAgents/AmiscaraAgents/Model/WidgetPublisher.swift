@@ -21,6 +21,12 @@ final class WidgetPublisher {
     /// Longest gap between two writes while the app runs.
     private static let refresh: TimeInterval = 5 * 60
 
+    #if os(iOS)
+    /// Set by the store: fetches the Mac's boards after a silent push, for
+    /// the Live Activity (#224); the widgets fetch them themselves.
+    static var backgroundRefresh: (@MainActor () async -> Void)?
+    #endif
+
     func start(_ store: HostStore) {
         timer = Timer.scheduledTimer(withTimeInterval: Self.refresh, repeats: true) { [weak self, weak store] _ in
             Task { @MainActor in
@@ -59,6 +65,9 @@ final class WidgetPublisher {
             )
         }
         let snapshot = WidgetSnapshot(updated: .now, hosts: hosts).merging(cloudBoards)
+        #if os(iOS)
+        AgentLiveActivity.shared.update(snapshot, store: store)
+        #endif
         guard force || snapshot.hosts != written?.hosts else { return }
         #if os(iOS)
         // The Watch shows the same (#157).
