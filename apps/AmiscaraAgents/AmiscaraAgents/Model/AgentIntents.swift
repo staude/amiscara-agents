@@ -5,9 +5,10 @@ import UIKit
 #endif
 
 // Shortcuts and Siri. The intents run in the app process and read the live
-// HostStore the app registers with AppDependencyManager; none of them sends
-// anything to herdr. Agent names, titles and hosts are private, so every
-// intent needs an unlocked device and the query answers nothing while locked.
+// HostStore the app registers with AppDependencyManager; only the prompt
+// intents (#226) send to herdr, with the composer's checks. Agent names,
+// titles and hosts are private, so every intent needs an unlocked device
+// and the query answers nothing while locked.
 
 /// An agent pane on a host, as Shortcuts and Siri see it.
 struct AgentEntity: AppEntity {
@@ -178,8 +179,11 @@ struct SendPromptToLastAgentIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Pane ids are positions and come back for other agents (a new
+        // space, a restarted server): the agent must still be the same.
         guard let last = LastAgent.current,
-              let agent = await store.agents().first(where: { $0.hostID == last.hostID && $0.paneID == last.paneID })
+              let agent = await store.agents().first(where: { $0.hostID == last.hostID && $0.paneID == last.paneID }),
+              last.matches(store.boardItem(host: agent.hostID, pane: agent.paneID))
         else { throw PromptIntentError.noLastAgent }
         try await store.sendPrompt(prompt, toHost: agent.hostID, pane: agent.paneID)
         return .result(dialog: "Gesendet an \(agent.name).")
@@ -208,25 +212,31 @@ enum PromptIntentError: Error, CustomLocalizedStringResourceConvertible {
 
 /// The agent pane the last prompt went to, for the "last agent" intent
 /// and control (#226, #227). Kept on this device.
-struct LastAgent: Equatable {
+struct LastAgent: Codable, Equatable {
     let hostID: UUID
     let paneID: String
+    /// Who was in the pane: its space, agent kind and name.
+    let workspaceID: String
+    let agent: String
+    let name: String?
 
-    private static let hostKey = "lastAgentHost"
-    private static let paneKey = "lastAgentPane"
+    private static let key = "lastAgent"
 
     static var current: LastAgent? {
-        let defaults = UserDefaults.standard
-        guard let host = defaults.string(forKey: hostKey).flatMap(UUID.init(uuidString:)),
-              let pane = defaults.string(forKey: paneKey)
-        else { return nil }
-        return LastAgent(hostID: host, paneID: pane)
+        UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(LastAgent.self, from: $0) }
     }
 
-    static func remember(host: UUID, pane: String) {
+    /// Still the same agent in that pane.
+    func matches(_ item: BoardItem?) -> Bool {
+        guard let item else { return false }
+        return item.workspaceId == workspaceID && item.agent == agent && item.name == name
+    }
+
+    @MainActor
+    static func remember(_ item: BoardItem, on host: UUID) {
         guard !DemoMode.isOn else { return }
-        UserDefaults.standard.set(host.uuidString, forKey: hostKey)
-        UserDefaults.standard.set(pane, forKey: paneKey)
+        let last = LastAgent(hostID: host, paneID: item.paneId, workspaceID: item.workspaceId, agent: item.agent, name: item.name)
+        UserDefaults.standard.set(try? JSONEncoder().encode(last), forKey: key)
     }
 }
 
@@ -281,7 +291,7 @@ extension HostStore {
         guard connection.config.inputAllowed else { throw PromptIntentError.inputOff(connection.config.name) }
         reconnectStale()
         let deadline = ContinuousClock.now + .seconds(6)
-        while connection.isSettling, ContinuousClock.now < deadline {
+        while connection.isSettling, ContinuousClock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(100))
         }
         guard connection.isLive else { throw PromptIntentError.unreachable(connection.config.name) }
@@ -290,7 +300,14 @@ extension HostStore {
         } catch {
             throw PromptIntentError.failed(inputErrorMessage(error))
         }
-        LastAgent.remember(host: hostID, pane: paneID)
+        if let item = boardItem(host: hostID, pane: paneID) {
+            LastAgent.remember(item, on: hostID)
+        }
+    }
+
+    /// The agent in a pane as the board shows it.
+    func boardItem(host hostID: UUID, pane paneID: String) -> BoardItem? {
+        connection(for: hostID)?.update?.board.first { $0.paneId == paneID }
     }
 
     /// All agents on live hosts, waiting ones first. Waits briefly for hosts
@@ -302,7 +319,7 @@ extension HostStore {
         guard Platform.isUnlocked else { return [] }
         reconnectStale()
         let deadline = ContinuousClock.now + .seconds(6)
-        while connections.contains(where: \.isSettling), ContinuousClock.now < deadline {
+        while connections.contains(where: \.isSettling), ContinuousClock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(100))
         }
         return connections

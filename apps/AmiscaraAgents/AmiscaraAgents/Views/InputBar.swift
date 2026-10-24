@@ -566,7 +566,9 @@ struct InputBar: View {
             if isAgent {
                 // Agents only: a shell may have asked for a password.
                 history.record(prompt, for: historyKey)
-                LastAgent.remember(host: connection.id, pane: pane.paneId)
+                if let item = connection.update?.board.first(where: { $0.paneId == pane.paneId }) {
+                    LastAgent.remember(item, on: connection.id)
+                }
             }
             text = ""
             attachments.removeAll { item in pending.contains { $0.id == item.id } }
