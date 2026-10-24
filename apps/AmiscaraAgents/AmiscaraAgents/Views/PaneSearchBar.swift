@@ -49,13 +49,26 @@ struct PaneSearchBar: View {
     }
 }
 
-/// The magnifier in a pane header; the same action as ⌘F.
+/// The magnifier in a pane header: opens the search like ⌘F and closes it
+/// again, a larger target than the bar's own close button.
 struct PaneSearchButton: View {
     let state: PaneSearchState
 
     var body: some View {
-        Button("Suchen", systemImage: "magnifyingglass", action: state.open)
-            .labelStyle(.iconOnly)
-            .help("In der Pane suchen (⌘F)")
+        #if os(tvOS)
+        // tvOS has no button style for toggles.
+        Button("Suchen", systemImage: "magnifyingglass") {
+            state.isOpen ? state.close() : state.open()
+        }
+        .labelStyle(.iconOnly)
+        #else
+        Toggle("Suchen", systemImage: "magnifyingglass", isOn: Binding(
+            get: { state.isOpen },
+            set: { $0 ? state.open() : state.close() }
+        ))
+        .toggleStyle(.button)
+        .labelStyle(.iconOnly)
+        .help("In der Pane suchen (⌘F)")
+        #endif
     }
 }
