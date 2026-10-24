@@ -474,6 +474,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the chosen time (at once, 1 or 5 minutes). Until then the content is
   covered, on iOS also in the app switcher. Off by default; the settings
   are in the menu next to the hosts (iOS) and in the settings window (Mac).
+- Siri and Shortcuts can send prompts (#226): "Prompt an Agent senden"
+  asks for the agent and the text, "Prompt an letzten Agent senden" goes
+  to the agent the last prompt went to, for the Action button. Same checks
+  as the composer (input on, host reachable).
 
 ### Changed
 
