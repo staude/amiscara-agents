@@ -460,6 +460,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The magnifier in a pane header and in the iPhone Duo's side bar closes
+  the pane search again and shows as selected while it is open (#220).
 - The core no longer words a refused "add host" link in German:
   `herdr-session` returns `LinkError` and `herdr-ffi` `AddHostLinkError`
   with the reason, and the apps put it in the user's language. The desktop
