@@ -576,6 +576,26 @@
         }
       }
     },
+    "Amiscara Agents entsperren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Amiscara Agents"
+          }
+        }
+      }
+    },
+    "Amiscara Agents ist gesperrt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amiscara Agents is locked"
+          }
+        }
+      }
+    },
     "Amiscara Agents sucht beim Start und danach alle 24 Stunden nach einer neuen Version. Updates laden im Hintergrund und werden beim nächsten Beenden installiert." : {
       "localizations" : {
         "en" : {
@@ -642,6 +662,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "To the End"
+          }
+        }
+      }
+    },
+    "App sperren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock app"
+          }
+        }
+      }
+    },
+    "App-Sperre" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App lock"
           }
         }
       }
@@ -1606,6 +1646,16 @@
         }
       }
     },
+    "Entsperren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock"
+          }
+        }
+      }
+    },
     "Erlauben Sie Amiscara Agents in den Einstellungen den Zugriff auf die Kamera. Alternativ können Sie den Link vom Mac kopieren und im Host-Editor einfügen." : {
       "localizations" : {
         "en" : {
@@ -1722,6 +1772,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Photos"
+          }
+        }
+      }
+    },
+    "Fragt nach Touch ID oder dem Passwort, wenn Sie zur App zurückkehren." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks for Touch ID or your password when you return to the app."
           }
         }
       }
@@ -2522,6 +2582,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A notification when an agent waits for an answer or is done. On iPad and iPhone they arrive in the background through iCloud while the Mac app runs on the host."
+          }
+        }
+      }
+    },
+    "Nach 1 Minute" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After 1 minute"
+          }
+        }
+      }
+    },
+    "Nach 5 Minuten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After 5 minutes"
           }
         }
       }
@@ -3372,6 +3452,16 @@
         }
       }
     },
+    "Sofort" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immediately"
+          }
+        }
+      }
+    },
     "Solarized" : {
       "localizations" : {
         "en" : {
@@ -3508,6 +3598,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Group spaces by name"
+          }
+        }
+      }
+    },
+    "Sperren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock"
           }
         }
       }

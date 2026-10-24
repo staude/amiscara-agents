@@ -45,6 +45,24 @@
         }
       }
     },
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Info.plist",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Entsperren der App, wenn Sie die App-Sperre eingeschaltet haben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To unlock the app when you have turned on the app lock."
+          }
+        }
+      }
+    },
     "NSHumanReadableCopyright" : {
       "comment" : "Copyright (human-readable)",
       "extractionState" : "extracted_with_value",

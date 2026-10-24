@@ -176,6 +176,8 @@ targets:
         # Handoff of the open pane (#231).
         NSUserActivityTypes:
           - net.staude.amiscara.agents.pane
+        # App lock (#232).
+        NSFaceIDUsageDescription: "Zum Entsperren der App, wenn Sie die App-Sperre eingeschaltet haben."
         CFBundleURLTypes:
           - CFBundleURLName: net.staude.amiscara.agents.add-host
             CFBundleURLSchemes:

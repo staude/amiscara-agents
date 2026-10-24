@@ -29,6 +29,9 @@ struct AmiscaraAgentsApp: App {
             ContentView()
                 .environment(store)
                 .appAppearance(appearance)
+                #if !os(tvOS)
+                .appLock()
+                #endif
                 #if os(macOS)
                 .frame(minWidth: 960, minHeight: 600)
                 #endif
