@@ -165,7 +165,9 @@ final class Dictation {
         }
     }
 
-    private static func speechAllowed() async -> Bool {
+    /// Nonisolated: Speech calls the handler on a background queue, and a
+    /// handler inferred as main actor isolated traps there (#218).
+    private nonisolated static func speechAllowed() async -> Bool {
         switch SFSpeechRecognizer.authorizationStatus() {
         case .authorized: return true
         case .notDetermined:
