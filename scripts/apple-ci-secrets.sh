@@ -15,7 +15,7 @@
 # <file>`; delete that file afterwards. --devid-profile takes the
 # Developer ID provisioning profile "Amiscara Agents Developer ID"
 # (developer.apple.com > Profiles), which scripts/ExportOptions.plist
-# names. --appstore-profiles takes a folder with the six App Store profiles
+# names. --appstore-profiles takes a folder with the seven App Store profiles
 # that scripts/ExportOptions-TestFlight-*.plist name. See docs/release.md.
 set -euo pipefail
 
