@@ -31,7 +31,8 @@ async fn diff_of_a_demo_pane() {
         }
     }
     let files = files.expect("diff");
-    for file in &files {
+    println!("truncated: {}", files.truncated);
+    for file in &files.files {
         println!(
             "{:?} {} +{} -{} hunks {}",
             file.status,

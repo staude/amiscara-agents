@@ -245,7 +245,9 @@ pub struct TranscriptPage {
     pub start: u64,
 }
 
-pub use herdr_session::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind};
+pub use herdr_session::{
+    DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff,
+};
 
 /// How a file changed in a working tree diff (#228).
 #[uniffi::remote(Enum)]
@@ -256,8 +258,6 @@ pub enum DiffFileStatus {
     Renamed,
     /// Not tracked by Git yet.
     Untracked,
-    /// Binary content; no hunks.
-    Binary,
 }
 
 #[uniffi::remote(Enum)]
@@ -291,7 +291,19 @@ pub struct DiffFile {
     /// The path before a rename.
     pub old_path: Option<String>,
     pub status: DiffFileStatus,
+    /// Binary content; no hunks.
+    pub binary: bool,
+    /// An untracked file too big to show; no hunks.
+    pub too_large: bool,
     pub additions: u32,
     pub deletions: u32,
     pub hunks: Vec<DiffHunk>,
+}
+
+/// A working tree diff; `truncated` when it was cut off at the size the
+/// apps read.
+#[uniffi::remote(Record)]
+pub struct WorkingTreeDiff {
+    pub files: Vec<DiffFile>,
+    pub truncated: bool,
 }

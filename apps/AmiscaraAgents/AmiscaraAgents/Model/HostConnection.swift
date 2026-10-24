@@ -227,7 +227,7 @@ final class HostConnection: Identifiable {
     /// What changed in a pane's working directory (#228). Read only, but it
     /// opens a short-lived tab to run Git and reads the result over SFTP, so
     /// it needs both input and file access.
-    func workingTreeDiff(paneID: String) async throws -> [DiffFile] {
+    func workingTreeDiff(paneID: String) async throws -> WorkingTreeDiff {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
         guard let session, isLive else { throw ConnectionFailure.notConnected }

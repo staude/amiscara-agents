@@ -1546,6 +1546,16 @@
         }
       }
     },
+    "Die Änderungen sind zu groß und wurden abgeschnitten; es fehlen Dateien." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The changes are too large and were cut off; files are missing."
+          }
+        }
+      }
+    },
     "Diesem Host ist noch kein Host-Key vertraut. Verbinden Sie sich einmal und bestätigen Sie den Fingerprint, dann gibt es hier den QR-Code." : {
       "localizations" : {
         "en" : {
@@ -4712,6 +4722,16 @@
         }
       }
     },
+    "Zu groß zum Anzeigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too large to show"
+          }
+        }
+      }
+    },
     "Zuletzt" : {
       "localizations" : {
         "en" : {
@@ -4768,16 +4788,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ready"
-          }
-        }
-      }
-    },
-    "binär" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "binary"
           }
         }
       }

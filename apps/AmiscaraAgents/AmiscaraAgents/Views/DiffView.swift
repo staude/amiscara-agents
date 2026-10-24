@@ -10,6 +10,7 @@ struct DiffView: View {
     let paneID: String
     @Environment(\.dismiss) private var dismiss
     @State private var files: [DiffFile] = []
+    @State private var truncated = false
     @State private var loading = false
     @State private var loaded = false
     @State private var error: String?
@@ -77,6 +78,15 @@ struct DiffView: View {
                     }
                 } header: {
                     Text(summary)
+                } footer: {
+                    if truncated {
+                        Label("Die Änderungen sind zu groß und wurden abgeschnitten; es fehlen Dateien.", systemImage: "scissors")
+                    }
+                    // A failed reload keeps the last list; say it is old.
+                    if let error {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
                 }
             }
             #if os(macOS)
@@ -98,7 +108,9 @@ struct DiffView: View {
             loaded = true
         }
         do {
-            files = try await connection.workingTreeDiff(paneID: paneID)
+            let diff = try await connection.workingTreeDiff(paneID: paneID)
+            files = diff.files
+            truncated = diff.truncated
             error = nil
             // A single file opens right away.
             if files.count == 1 { open = [files[0].path] }
@@ -146,8 +158,10 @@ private struct FileHunks: View {
     let file: DiffFile
 
     var body: some View {
-        if file.status == .binary {
+        if file.binary {
             Text("Binärdatei").font(.caption).foregroundStyle(.secondary)
+        } else if file.tooLarge {
+            Text("Zu groß zum Anzeigen").font(.caption).foregroundStyle(.secondary)
         } else if file.hunks.isEmpty {
             Text("Keine Zeilen geändert").font(.caption).foregroundStyle(.secondary)
         } else {
@@ -180,7 +194,6 @@ extension DiffFileStatus {
         case .deleted: "D"
         case .renamed: "R"
         case .untracked: "?"
-        case .binary: "B"
         }
     }
 
@@ -191,7 +204,6 @@ extension DiffFileStatus {
         case .deleted: String(localized: "gelöscht")
         case .renamed: String(localized: "umbenannt")
         case .untracked: String(localized: "nicht in Git")
-        case .binary: String(localized: "binär")
         }
     }
 
@@ -200,7 +212,7 @@ extension DiffFileStatus {
         case .added, .untracked: .green
         case .deleted: .red
         case .renamed: .blue
-        case .modified, .binary: .orange
+        case .modified: .orange
         }
     }
 }

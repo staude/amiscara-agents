@@ -551,7 +551,7 @@ impl Session {
     pub async fn working_tree_diff(
         &self,
         pane_id: &str,
-    ) -> Result<Vec<diff::DiffFile>, SessionError> {
+    ) -> Result<diff::WorkingTreeDiff, SessionError> {
         let conn = self.connection()?;
         let (workspace_id, cwd) = self
             .state
@@ -586,16 +586,26 @@ impl Session {
         let err_file = format!("{out}.err");
 
         let result = async {
+            // A leading space keeps it out of the shell's history where the
+            // shell honours that (fish, zsh/bash with ignorespace).
             let tab =
-                run_in_tab(&conn, &workspace_id, &cwd, &format!("sh '{script}'; exit")).await?;
+                run_in_tab(&conn, &workspace_id, &cwd, &format!(" sh '{script}'; exit")).await?;
             let finished = wait_for_file(&conn, &format!("{stamp}.txt.done")).await;
             // The shell exits by itself; close the tab in case it stayed.
             let _ = actions::close_tab(&conn, &tab).await;
             finished?;
-            let data = conn
-                .read_file_range(&done, 0, MAX_DIFF_BYTES)
+            let mut data = conn
+                .read_file_range(&done, 0, MAX_DIFF_BYTES + 1)
                 .await
                 .map_err(|err| SessionError::Files(err.to_string()))?;
+            let truncated = data.len() as u64 > MAX_DIFF_BYTES;
+            if truncated {
+                // Up to the last complete line.
+                data.truncate(MAX_DIFF_BYTES as usize);
+                if let Some(end) = data.iter().rposition(|byte| *byte == b'\n') {
+                    data.truncate(end + 1);
+                }
+            }
             let text = String::from_utf8_lossy(&data).into_owned();
             if text.trim().is_empty() || text.trim() == diff::UNTRACKED_MARK {
                 let errors = conn
@@ -607,7 +617,10 @@ impl Session {
                     return Err(SessionError::Files(errors));
                 }
             }
-            Ok(diff::parse(&text))
+            Ok(diff::WorkingTreeDiff {
+                files: diff::parse(&text),
+                truncated,
+            })
         }
         .await;
         for file in [&script_rel, &done, &err_file, &out] {
@@ -922,8 +935,16 @@ async fn run_in_tab(
     command: &str,
 ) -> Result<String, SessionError> {
     let created = actions::create_tab(conn, workspace_id, Some(cwd)).await?;
-    actions::send_text(conn, &created.pane_id, command).await?;
-    actions::send_keys(conn, &created.pane_id, &["enter".to_owned()]).await?;
+    let typed = async {
+        actions::send_text(conn, &created.pane_id, command).await?;
+        actions::send_keys(conn, &created.pane_id, &["enter".to_owned()]).await
+    }
+    .await;
+    if let Err(err) = typed {
+        // Leave no idle shell tab behind.
+        let _ = actions::close_tab(conn, &created.tab_id).await;
+        return Err(err.into());
+    }
     Ok(created.tab_id)
 }
 

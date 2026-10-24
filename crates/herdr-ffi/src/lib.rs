@@ -25,7 +25,7 @@ pub use convert::{
     SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
     TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
-pub use convert::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind};
+pub use convert::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff};
 pub use herdr_session::UPLOAD_DIR;
 
 uniffi::setup_scaffolding!();
@@ -431,7 +431,7 @@ impl HostSession {
     /// in a short-lived, unfocused tab and reads its output through SFTP,
     /// so it needs file access like uploads. Blocks for a moment; call it
     /// off the main thread.
-    pub fn working_tree_diff(&self, pane_id: String) -> Result<Vec<DiffFile>, FfiError> {
+    pub fn working_tree_diff(&self, pane_id: String) -> Result<WorkingTreeDiff, FfiError> {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
     }
 
