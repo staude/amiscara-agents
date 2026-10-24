@@ -178,6 +178,8 @@ targets:
           - net.staude.amiscara.agents.pane
         # App lock (#232).
         NSFaceIDUsageDescription: "Zum Entsperren der App, wenn Sie die App-Sperre eingeschaltet haben."
+        # Working and waiting agents on the Lock Screen (#224).
+        NSSupportsLiveActivities: true
         CFBundleURLTypes:
           - CFBundleURLName: net.staude.amiscara.agents.add-host
             CFBundleURLSchemes:

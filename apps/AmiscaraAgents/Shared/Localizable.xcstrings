@@ -516,6 +516,16 @@
         }
       }
     },
+    "Agent antworten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Answer agent"
+          }
+        }
+      }
+    },
     "Agent benennen" : {
       "localizations" : {
         "en" : {
@@ -2606,6 +2616,16 @@
         }
       }
     },
+    "Live-Aktivität" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Activity"
+          }
+        }
+      }
+    },
     "Löschen" : {
       "localizations" : {
         "en" : {
@@ -3992,6 +4012,16 @@
         }
       }
     },
+    "Taste" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key"
+          }
+        }
+      }
+    },
     "Taste %@" : {
       "localizations" : {
         "en" : {
@@ -4818,6 +4848,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "unknown"
+          }
+        }
+      }
+    },
+    "und %lld weitere Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %lld more agents"
+          }
+        }
+      }
+    },
+    "und 1 weiterer Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and 1 more agent"
+          }
+        }
+      }
+    },
+    "veraltet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "outdated"
           }
         }
       }

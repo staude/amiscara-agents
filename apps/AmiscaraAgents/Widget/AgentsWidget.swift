@@ -5,6 +5,9 @@ import WidgetKit
 struct AmiscaraAgentsWidgets: WidgetBundle {
     var body: some Widget {
         AgentsWidget()
+        #if os(iOS)
+        AgentsLiveActivity()
+        #endif
     }
 }
 
