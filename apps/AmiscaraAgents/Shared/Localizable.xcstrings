@@ -1726,6 +1726,16 @@
         }
       }
     },
+    "Frühere Prompts dieser Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Earlier prompts to this pane"
+          }
+        }
+      }
+    },
     "Fügen Sie einen Rechner hinzu, auf dem herdr läuft." : {
       "localizations" : {
         "en" : {
@@ -2732,6 +2742,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No hosts yet. Open Amiscara Agents on the iPhone."
+          }
+        }
+      }
+    },
+    "Noch keine Prompts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No prompts yet"
           }
         }
       }
@@ -3952,12 +3972,42 @@
         }
       }
     },
+    "Verlauf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        }
+      }
+    },
     "Verlauf des Agenten, ohne Farben" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The agent's history, without colors"
+          }
+        }
+      }
+    },
+    "Verlauf durchsuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search history"
+          }
+        }
+      }
+    },
+    "Verlauf leeren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear history"
           }
         }
       }
@@ -4108,6 +4158,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for an answer"
+          }
+        }
+      }
+    },
+    "Was Sie an diese Pane senden, steht hier." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What you send to this pane shows up here."
           }
         }
       }

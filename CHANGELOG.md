@@ -460,6 +460,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Swipe actions on agent rows (#230): swiping right confirms a waiting
   agent or sends the first quick reply, swiping left offers Esc, Control-C
   and rename. Only for hosts with input on.
+- Prompt history per pane (#229): the clock button next to the composer
+  lists what was sent to this pane, newest first and searchable; picking
+  an entry puts it into the composer to edit and send again. Up to 50
+  entries per pane, kept on the device only.
 
 ### Changed
 
