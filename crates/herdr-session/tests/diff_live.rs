@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use herdr_session::{Endpoint, Session};
+use herdr_session::{Endpoint, Session, SpaceSort};
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs a herdr test session"]
@@ -15,6 +15,7 @@ async fn diff_of_a_demo_pane() {
             socket_path: Some(socket),
         },
         false,
+        SpaceSort::Herdr,
         |_| {},
     )
     .expect("session");

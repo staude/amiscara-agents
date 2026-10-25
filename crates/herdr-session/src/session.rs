@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use herdr_core::pane::{self, Pacing};
+use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState};
 use herdr_core::{actions, claude, diff, fullscreen};
 use herdr_transport::{
@@ -223,6 +224,8 @@ pub struct Session {
     /// Whether spaces are grouped by their "Bereich/Name" labels. A change
     /// rebuilds the last update, so the app needs no reconnect.
     group_by_name: watch::Sender<bool>,
+    /// How spaces are sorted in the sidebar; a change rebuilds the same way.
+    space_sort: watch::Sender<SpaceSort>,
     forward: JoinHandle<()>,
     runtime: Handle,
 }
@@ -230,12 +233,13 @@ pub struct Session {
 impl Session {
     /// Connects in the background and calls `on_update` with every state
     /// change from then on, on a runtime thread. `group_spaces_by_name` is
-    /// the host's setting for the "Bereich/Name" convention (see
-    /// `herdr_core::spaces`). Call it inside a Tokio runtime; the session's
+    /// the host's setting for the "Bereich/Name" convention, `space_sort`
+    /// its order of spaces (see `herdr_core::spaces`). Call it inside a Tokio runtime; the session's
     /// tasks run there.
     pub fn start(
         endpoint: Endpoint,
         group_spaces_by_name: bool,
+        space_sort: SpaceSort,
         on_update: impl Fn(SessionUpdate) + Send + 'static,
     ) -> Result<Self, SessionError> {
         let connector = Connector::new(endpoint)?;
@@ -246,13 +250,15 @@ impl Session {
         });
         let mut updates = rx.clone();
         let (group_by_name, mut grouping) = watch::channel(group_spaces_by_name);
+        let (space_sort, mut sorting) = watch::channel(space_sort);
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
             let mut previous: Option<Arc<herdr_core::SessionState>> = None;
             loop {
                 let state = updates.borrow_and_update().clone();
                 let by_name = *grouping.borrow_and_update();
-                let update = view::session_update(&state, previous.as_deref(), by_name);
+                let sort = sorting.borrow_and_update().clone();
+                let update = view::session_update(&state, previous.as_deref(), by_name, &sort);
                 if state.session.is_some() {
                     previous = state.session.clone();
                 }
@@ -266,12 +272,14 @@ impl Session {
                         }
                     }
                     Ok(()) = grouping.changed() => {}
+                    Ok(()) = sorting.changed() => {}
                 }
             }
         });
         Ok(Self {
             state: Mutex::new(Some(rx)),
             group_by_name,
+            space_sort,
             forward,
             runtime,
         })
@@ -283,6 +291,16 @@ impl Session {
         self.group_by_name.send_if_modified(|current| {
             let changed = *current != on;
             *current = on;
+            changed
+        });
+    }
+
+    /// Changes the order of spaces; a rebuilt update follows right away,
+    /// without reconnecting.
+    pub fn set_space_sort(&self, sort: SpaceSort) {
+        self.space_sort.send_if_modified(|current| {
+            let changed = *current != sort;
+            *current = sort;
             changed
         });
     }

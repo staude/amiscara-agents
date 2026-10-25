@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use herdr_core::SessionState;
 use herdr_core::pane::PaneScreen;
-use herdr_core::spaces;
+use herdr_core::spaces::{self, SpaceSort};
 use herdr_core::sync::{SyncState, SyncStatus};
 use herdr_core::terminal::{Color, Span};
 use herdr_proto::{AgentStatus, PaneInfo, TabLayout};
@@ -46,8 +46,9 @@ pub struct SessionUpdate {
     pub protocol_supported: bool,
     pub focused_pane_id: Option<String>,
     pub workspaces: Vec<WorkspaceItem>,
-    /// The spaces in sidebar order: herdr's, with linked worktrees under
-    /// their repository and spaces of one name group next to each other.
+    /// The spaces in sidebar order: herdr's or the host's sort, with linked
+    /// worktrees under their repository and spaces of one name group next
+    /// to each other.
     pub space_order: Vec<SpaceSlot>,
     /// Agent panes, most urgent first.
     pub board: Vec<BoardItem>,
@@ -222,11 +223,13 @@ pub enum TermColor {
 }
 
 /// `group_by_name` is the host's setting for the "Bereich/Name" convention:
-/// off, every space keeps its full label and herdr's order.
+/// off, every space keeps its full label and herdr's order. `sort` orders
+/// the spaces on each level of the sidebar.
 pub fn session_update(
     state: &SyncState,
     previous: Option<&SessionState>,
     group_by_name: bool,
+    sort: &SpaceSort,
 ) -> SessionUpdate {
     let status = match &state.status {
         SyncStatus::Connecting => HostStatus::Connecting,
@@ -260,7 +263,7 @@ pub fn session_update(
         };
     };
 
-    let arranged = spaces::arrange(&session.workspaces, group_by_name);
+    let arranged = spaces::arrange(&session.workspaces, group_by_name, sort);
     let names: HashMap<&str, (&str, Option<&str>)> = arranged
         .iter()
         .map(|p| (p.workspace.workspace_id.as_str(), (p.name, p.group)))
