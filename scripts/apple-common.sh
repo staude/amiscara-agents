@@ -50,7 +50,9 @@ build_number() { echo "${BUILD_NUMBER:-$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "
 # Stops unless the keychain holds a signing identity of the team, e.g.
 # require_identity "Developer ID Application".
 require_identity() {
-    security find-identity -v -p codesigning | grep -q "$1: .*($team)" \
+    local identities
+    identities=$(security find-identity -v -p codesigning)
+    grep -q "$1: .*($team)" <<<"$identities" \
         || die "no '$1' certificate for team $team in the keychain"
 }
 
