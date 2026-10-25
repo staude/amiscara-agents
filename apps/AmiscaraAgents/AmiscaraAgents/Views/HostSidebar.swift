@@ -219,6 +219,7 @@ struct HostSidebar: View {
                 summary: spacesFolded ? "\(update.workspaces.count)" : nil
             ) { toggle(connection.id, "spaces") }
             Spacer()
+            spaceSortMenu(connection, update)
             if connection.config.inputAllowed && connection.isLive {
                 Button("Neuer Space", systemImage: "plus") { newSpaceOn = connection }
                     .labelStyle(.iconOnly)
@@ -227,10 +228,13 @@ struct HostSidebar: View {
             }
         }
         if !spacesFolded {
-            ForEach(SpaceOrder.blocks(SpaceOrder.arrange(update))) { block in
+            let arranged = SpaceOrder.arrange(update)
+            // Drag and drop only in the manual order: the others would undo it.
+            let reorderable = connection.config.spaceSort == .manual ? arranged : nil
+            ForEach(SpaceOrder.blocks(arranged)) { block in
                 switch block {
                 case .space(let entry):
-                    spaceRow(connection, update, entry, grouped: false)
+                    spaceRow(connection, update, entry, grouped: false, reorder: reorderable)
                 case .group(let name, let entries):
                     let key = "group/\(name)"
                     let folded = isCollapsed(connection.id, key)
@@ -241,9 +245,10 @@ struct HostSidebar: View {
                         waiting: update.board.filter { $0.agentState == .blocked && ids.contains($0.workspaceId) }.count,
                         collapsed: folded
                     ) { toggle(connection.id, key) }
+                    .spaceReordering(key, among: reorderable) { reorder(connection, $0, dragged: $1, onto: key) }
                     if !folded {
                         ForEach(entries, id: \.workspace.workspaceId) { entry in
-                            spaceRow(connection, update, entry, grouped: true)
+                            spaceRow(connection, update, entry, grouped: true, reorder: reorderable)
                         }
                     }
                 }
@@ -276,9 +281,44 @@ struct HostSidebar: View {
         }
     }
 
-    private func spaceRow(_ connection: HostConnection, _ update: SessionUpdate, _ entry: SpaceOrder.Entry, grouped: Bool) -> some View {
-        SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
-            .tag(SpaceRef(hostID: connection.id, workspaceID: entry.workspace.workspaceId))
+    /// herdr's order, by name or manual (#243), per host.
+    private func spaceSortMenu(_ connection: HostConnection, _ update: SessionUpdate) -> some View {
+        let mode = Binding {
+            connection.config.spaceSort ?? .herdr
+        } set: { mode in
+            // Manual starts from what the sidebar shows now.
+            let order = mode == .manual ? update.spaceOrder.map(\.workspaceId) : nil
+            store.setSpaceSort(mode, order: order, for: connection.id)
+        }
+        return Menu("Spaces sortieren", systemImage: "arrow.up.arrow.down") {
+            Picker("Spaces sortieren", selection: mode) {
+                ForEach(SpaceSortMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.inline)
+        }
+        .labelStyle(.iconOnly)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .buttonStyle(.borderless)
+        .font(.caption)
+        .help(String(localized: "Spaces sortieren"))
+    }
+
+    /// Stores the order after a drop; `false` when the drop is not allowed
+    /// there, e.g. a space dropped into another group.
+    private func reorder(_ connection: HostConnection, _ entries: [SpaceOrder.Entry], dragged: String, onto target: String) -> Bool {
+        guard let order = SpaceOrder.moved(entries, dragged: dragged, onto: target) else { return false }
+        store.setSpaceSort(.manual, order: order, for: connection.id)
+        return true
+    }
+
+    private func spaceRow(_ connection: HostConnection, _ update: SessionUpdate, _ entry: SpaceOrder.Entry, grouped: Bool, reorder entries: [SpaceOrder.Entry]?) -> some View {
+        let key = entry.workspace.workspaceId
+        return SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
+            .tag(SpaceRef(hostID: connection.id, workspaceID: key))
+            .spaceReordering(key, among: entries) { reorder(connection, $0, dragged: $1, onto: key) }
             .renameAction(available: RenameTarget.available(on: connection)) {
                 renaming = RenameTarget(
                     connection: connection,
@@ -483,9 +523,10 @@ struct NewWorktreeView: View {
     }
 }
 
-/// The sidebar's order of spaces, worked out by the core: herdr's order,
-/// each linked worktree right after its repository's space, and spaces
-/// named "Bereich/Name" moved together behind the first of their group.
+/// The sidebar's order of spaces, worked out by the core: herdr's order or
+/// the host's sort, each linked worktree right after its repository's
+/// space, and spaces named "Bereich/Name" moved together behind the first
+/// of their group.
 enum SpaceOrder {
     struct Entry {
         let workspace: WorkspaceItem
@@ -531,6 +572,77 @@ enum SpaceOrder {
             }
         }
         return blocks
+    }
+
+    /// Where a dragged row may go: groups and ungrouped spaces at the top,
+    /// spaces within their group, worktrees under their repository.
+    private enum Level: Equatable {
+        case top
+        case group(String)
+        case worktrees(of: String)
+    }
+
+    /// The rows that move with `key` (a workspace ID or `group/<Name>`): a
+    /// group with all its entries, a space with its nested worktrees.
+    private static func segment(_ key: String, in entries: [Entry]) -> (level: Level, range: Range<Int>)? {
+        if let index = entries.firstIndex(where: { $0.workspace.workspaceId == key }) {
+            if entries[index].nested {
+                guard let head = entries[..<index].lastIndex(where: { !$0.nested }) else { return nil }
+                return (.worktrees(of: entries[head].workspace.workspaceId), index..<index + 1)
+            }
+            let end = entries[(index + 1)...].firstIndex { !$0.nested } ?? entries.endIndex
+            return (entries[index].workspace.group.map { .group($0) } ?? .top, index..<end)
+        }
+        guard key.hasPrefix("group/") else { return nil }
+        let name = String(key.dropFirst("group/".count))
+        guard let first = entries.firstIndex(where: { $0.workspace.group == name }),
+              let last = entries.lastIndex(where: { $0.workspace.group == name }) else { return nil }
+        return (.top, first..<last + 1)
+    }
+
+    /// The manual order after dropping `dragged` on `target`: behind it when
+    /// it came from above, otherwise in front of it. `nil` when both are on
+    /// different levels or the same row.
+    static func moved(_ entries: [Entry], dragged: String, onto target: String) -> [String]? {
+        guard dragged != target,
+              let from = segment(dragged, in: entries),
+              let to = segment(target, in: entries),
+              from.level == to.level else { return nil }
+        var ids = entries.map(\.workspace.workspaceId)
+        let moving = Array(ids[from.range])
+        ids.removeSubrange(from.range)
+        let index = from.range.lowerBound < to.range.lowerBound
+            ? to.range.upperBound - from.range.count
+            : to.range.lowerBound
+        ids.insert(contentsOf: moving, at: index)
+        return ids
+    }
+}
+
+extension View {
+    /// Drag and drop for the manual order of spaces (#243). `key` is a
+    /// workspace ID or `group/<Name>`; `entries` is the sidebar's order, or
+    /// `nil` outside the manual order. `onDrop` gets it with the dragged key.
+    @ViewBuilder
+    fileprivate func spaceReordering(
+        _ key: String,
+        among entries: [SpaceOrder.Entry]?,
+        onDrop: @escaping ([SpaceOrder.Entry], String) -> Bool
+    ) -> some View {
+        #if os(tvOS)
+        self
+        #else
+        if let entries {
+            self
+                .draggable(key)
+                .dropDestination(for: String.self) { items, _ in
+                    guard let dragged = items.first else { return false }
+                    return onDrop(entries, dragged)
+                }
+        } else {
+            self
+        }
+        #endif
     }
 }
 

@@ -2886,6 +2886,16 @@
         }
       }
     },
+    "Manuell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual"
+          }
+        }
+      }
+    },
     "Mehr als %u Zeilen liefert herdr nicht." : {
       "localizations" : {
         "en" : {
@@ -3006,6 +3016,16 @@
         }
       }
     },
+    "Name A–Z" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name A–Z"
+          }
+        }
+      }
+    },
     "Name der Session" : {
       "localizations" : {
         "en" : {
@@ -3022,6 +3042,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Name or IP address at which iPhone and iPad reach this Mac over SSH. Remote Login must be on in System Settings under General > Sharing."
+          }
+        }
+      }
+    },
+    "Name Z–A" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name Z–A"
           }
         }
       }
@@ -3558,6 +3588,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search Backward"
+          }
+        }
+      }
+    },
+    "Spaces sortieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort Spaces"
           }
         }
       }
@@ -4838,6 +4878,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Same as the app"
+          }
+        }
+      }
+    },
+    "wie herdr" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "as herdr"
           }
         }
       }
