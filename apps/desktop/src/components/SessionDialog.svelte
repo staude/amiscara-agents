@@ -68,6 +68,9 @@
         // A key line serves one socket: the new entry gets a key of its own.
         publicKey: null,
         allowUpload: null,
+        // herdr numbers spaces per server: another session's order means nothing.
+        spaceSort: null,
+        spaceOrder: null,
       };
       pick(draft);
     } catch (err) {
