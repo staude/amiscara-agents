@@ -20,6 +20,8 @@
         <string>Amiscara Agents App Store iOS</string>
         <key>net.staude.amiscara.agents.widget</key>
         <string>Amiscara Agents App Store iOS Widget</string>
+        <key>net.staude.amiscara.agents.share</key>
+        <string>Amiscara Agents App Store iOS Share</string>
         <key>net.staude.amiscara.agents.watchkitapp</key>
         <string>Amiscara Agents App Store Watch</string>
         <key>net.staude.amiscara.agents.watchkitapp.widget</key>

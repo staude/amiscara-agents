@@ -15,7 +15,7 @@
 # <file>`; delete that file afterwards. --devid-profile takes the
 # Developer ID provisioning profile "Amiscara Agents Developer ID"
 # (developer.apple.com > Profiles), which scripts/ExportOptions.plist
-# names. --appstore-profiles takes a folder with the six App Store profiles
+# names. --appstore-profiles takes a folder with the seven App Store profiles
 # that scripts/ExportOptions-TestFlight-*.plist name. See docs/release.md.
 set -euo pipefail
 
@@ -100,7 +100,7 @@ if [[ -n "$dist" ]]; then
 fi
 unset password
 if [[ -n "$appstore_profiles" ]]; then
-    # As a .tar.gz: six plain profiles exceed GitHub's 48 KB per secret.
+    # As a .tar.gz: seven plain profiles exceed GitHub's 48 KB per secret.
     files=("$appstore_profiles"/*.mobileprovision)
     [[ -f "${files[0]}" ]] || die "no .mobileprovision in $appstore_profiles"
     tar -czf - -C "$appstore_profiles" "${files[@]##*/}" | base64 | tr -d '\n' \

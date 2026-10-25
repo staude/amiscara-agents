@@ -134,6 +134,8 @@ targets:
       - framework: Generated/HerdrFFI.xcframework
         embed: false
       - target: AmiscaraAgentsWidget-iOS
+      # "Share → Amiscara Agents" (#225).
+      - target: AmiscaraAgentsShare-iOS
       # Installed on the paired Watch together with the app (#157).
       - target: AmiscaraAgents-watchOS
     entitlements:
@@ -263,6 +265,44 @@ targets:
     info:
       path: Widget/Info-iOS.plist
       properties: *widgetInfo
+  # Share extension (#225): leaves text, links and images for the app in
+  # the App Group; it holds no SSH session itself.
+  AmiscaraAgentsShare-iOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+        excludes:
+          - "*.entitlements"
+          - "*.plist"
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents.share
+        PRODUCT_NAME: AmiscaraAgentsShare
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        SKIP_INSTALL: YES
+    entitlements:
+      path: ShareExtension/AmiscaraAgentsShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.net.staude.amiscara.agents
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Amiscara Agents
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 5
   # Apple TV (#95, #126): the same sources; what tvOS lacks is guarded with
   # `#if !os(tvOS)` or excluded here.
   AmiscaraAgents-tvOS:

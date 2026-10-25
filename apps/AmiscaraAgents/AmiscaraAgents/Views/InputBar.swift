@@ -1,6 +1,9 @@
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(iOS)
+import UIKit
+#endif
 
 /// Input under the pane screen: one-tap answers while an agent waits, a key
 /// bar, and a composer. Answers appear only here, next to the screen they
@@ -119,14 +122,26 @@ struct InputBar: View {
             text = ""
             error = nil
             attachments = []
+            takePendingShare()
         }
         // Folding an iPhone Duo or resizing a window can swap this bar for
         // a new one; the composer goes along (#215).
         .onAppear {
-            guard let draft = ComposerDraft.slot, draft.key == draftKey else { return }
-            text = draft.text
-            attachments = draft.attachments
+            if let draft = ComposerDraft.slot, draft.key == draftKey {
+                text = draft.text
+                attachments = draft.attachments
+            }
+            takePendingShare()
         }
+        #if os(iOS)
+        // A share for this pane while the bar is on screen (#225).
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            takePendingShare()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: PendingShare.arrived)) { _ in
+            takePendingShare()
+        }
+        #endif
         .onChange(of: text) { keepDraft() }
         .onChange(of: attachments.map(\.id)) { keepDraft() }
         .onChange(of: pickedPhotos) { _, items in
@@ -180,6 +195,27 @@ struct InputBar: View {
     }
 
     private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
+
+    /// Text and images shared to this pane from another app (#225): into
+    /// the composer, not sent.
+    private func takePendingShare() {
+        #if os(iOS)
+        guard let pending = PendingShare.take(hostID: connection.id, paneID: pane.paneId) else { return }
+        let shared = pending.share.text
+        let current = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = current.isEmpty ? shared : current + "\n" + shared
+        guard !pending.images.isEmpty else { return }
+        guard connection.config.uploadAllowed else {
+            error = String(localized: "Die geteilten Bilder fehlen: Bilder hochladen ist für \(connection.config.name) aus.")
+            return
+        }
+        let images = pending.images.map { ImageAttachment.make(data: $0, type: nil) }
+        attachments.append(contentsOf: images.compactMap { $0 })
+        if images.contains(where: { $0 == nil }) {
+            error = String(localized: "Ein geteiltes Bild konnte nicht gelesen werden.")
+        }
+        #endif
+    }
     private var historyKey: String { PromptHistory.key(host: connection.id, pane: pane.paneId) }
 
     private func keepDraft() {

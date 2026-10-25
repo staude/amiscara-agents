@@ -179,6 +179,16 @@
         }
       }
     },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@ · %@ · %@ · Tab %@" : {
       "localizations" : {
         "de" : {
@@ -296,6 +306,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$lld agents are waiting: %2$@."
+          }
+        }
+      }
+    },
+    "%lld Bilder werden angehängt." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bild wird angehängt."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bilder werden angehängt."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld image will be attached."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld images will be attached."
+                }
+              }
+            }
           }
         }
       }
@@ -702,6 +752,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open Amiscara Agents"
+          }
+        }
+      }
+    },
+    "Amiscara Agents öffnet den Agent mit diesem Prompt; gesendet wird erst dort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amiscara Agents opens the agent with this prompt; it is only sent from there."
+          }
+        }
+      }
+    },
+    "An Agent senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to agent"
           }
         }
       }
@@ -1576,6 +1646,16 @@
         }
       }
     },
+    "Die geteilten Bilder fehlen: Bilder hochladen ist für %@ aus." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The shared images are missing: image upload is off for %@."
+          }
+        }
+      }
+    },
     "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
@@ -1802,6 +1882,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tapping a quick reply sends it right away. Drag to change the order."
+          }
+        }
+      }
+    },
+    "Ein geteiltes Bild konnte nicht gelesen werden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A shared image could not be read."
           }
         }
       }
@@ -2522,6 +2612,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No agents active"
+          }
+        }
+      }
+    },
+    "Keine Agents bekannt. Öffnen Sie Amiscara Agents einmal, damit die Liste hier erscheint." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agents known yet. Open Amiscara Agents once so the list shows up here."
           }
         }
       }
@@ -3358,6 +3458,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send prompt to last agent"
+          }
+        }
+      }
+    },
+    "Prompt für %@ bereit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt for %@ ready"
           }
         }
       }
@@ -4258,6 +4368,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Select and Copy Text"
+          }
+        }
+      }
+    },
+    "Tippen, um ihn in Amiscara Agents zu senden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to send it in Amiscara Agents."
           }
         }
       }

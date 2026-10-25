@@ -47,6 +47,14 @@ struct AmiscaraAgentsApp: App {
             // iOS suspends the app and the SSH session with it. Coming back,
             // reconnect at once instead of waiting out the retry pause.
             store.notifier.appActive = phase == .active
+            #if os(iOS)
+            // Something shared from another app (#225): to its agent.
+            // Once: a pane that does not come up must not pull the user back.
+            if phase == .active, let share = PendingShare.peek(), !share.opened {
+                PendingShare.markOpened()
+                store.notifier.openRequest = SpaceRef(hostID: share.hostID, workspaceID: share.workspaceID, paneID: share.paneID)
+            }
+            #endif
             // The screenshot demo (#199) leaves widgets and iCloud alone.
             guard !DemoMode.isOn else { return }
             if phase == .active {
