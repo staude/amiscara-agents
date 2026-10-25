@@ -54,6 +54,21 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
         set { groupSpaces = newValue }
     }
 
+    /// How the sidebar orders spaces; missing means herdr's order.
+    var spaceSort: SpaceSortMode?
+    /// Workspace IDs in the user's order, for `SpaceSortMode.manual`.
+    var spaceOrder: [String]?
+
+    /// What the session sorts by (see `herdr_core::spaces::SpaceSort`).
+    var spaceSorting: SpaceSort {
+        switch spaceSort ?? .herdr {
+        case .herdr: .herdr
+        case .nameAscending: .nameAscending
+        case .nameDescending: .nameDescending
+        case .manual: .manual(order: spaceOrder ?? [])
+        }
+    }
+
     var uploadAllowed: Bool {
         get { kind == .local || (allowUpload ?? false) }
         set { allowUpload = newValue }
@@ -61,5 +76,19 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
 
     static func local() -> HostConfig {
         HostConfig(name: String(localized: "Dieser Mac"), kind: .local)
+    }
+}
+
+/// The order of spaces in the sidebar, per host and device.
+enum SpaceSortMode: String, Codable, CaseIterable, Sendable {
+    case herdr, nameAscending, nameDescending, manual
+
+    var label: String {
+        switch self {
+        case .herdr: String(localized: "wie herdr")
+        case .nameAscending: String(localized: "Name A–Z")
+        case .nameDescending: String(localized: "Name Z–A")
+        case .manual: String(localized: "Manuell")
+        }
     }
 }

@@ -19,7 +19,7 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, ConfigError};
-use crate::hosts::{self, Auth, HostConfig, HostKind, HostStore, QuickReplies};
+use crate::hosts::{self, Auth, HostConfig, HostKind, HostStore, QuickReplies, SpaceSortMode};
 use crate::notify::{self, Notice};
 use crate::tray::{self, WaitingAgents};
 
@@ -175,7 +175,32 @@ pub async fn save_host(
     } else if !cfg!(unix) {
         return Err(ConfigError::LocalSocketUnix.into());
     }
+    // The sidebar changes the order while the editor holds an older copy.
+    let mut store = state.store();
+    if let Ok(saved) = store.get(&host.id) {
+        host.space_sort = saved.space_sort;
+        host.space_order = saved.space_order;
+    }
+    store.put(host.clone())?;
+    Ok(host)
+}
+
+/// Changes the order of spaces in the sidebar (#243); a running session
+/// sends a rebuilt update at once, without reconnecting.
+#[tauri::command]
+pub fn set_space_sort(
+    state: State<'_, AppState>,
+    host_id: String,
+    mode: SpaceSortMode,
+    order: Option<Vec<String>>,
+) -> Result<HostConfig, AppError> {
+    let mut host = state.store().get(&host_id)?;
+    host.space_sort = Some(mode);
+    host.space_order = order;
     state.store().put(host.clone())?;
+    if let Ok(session) = state.session(&host_id) {
+        session.set_space_sort(host.space_sort());
+    }
     Ok(host)
 }
 
@@ -278,6 +303,8 @@ pub async fn add_from_link(
         allow_upload: None,
         notify: None,
         group_spaces: None,
+        space_sort: None,
+        space_order: None,
     };
     save_host(state, host).await
 }
@@ -422,29 +449,34 @@ fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), App
     }
     let host_name = host.name.clone();
     let notify_on = host.notify.unwrap_or(true);
-    let session = Session::start(endpoint, host.group_spaces_by_name(), move |update| {
-        let _ = emitter.emit(
-            "session-update",
-            UpdateEvent {
-                host_id: &host_id,
-                generation,
-                update: &update,
-            },
-        );
-        let state = emitter.state::<AppState>();
-        let mut waiting = state.waiting.lock().unwrap_or_else(|p| p.into_inner());
-        if waiting.set(&host_id, &host_name, &update.board) {
-            tray::refresh(&emitter, &waiting);
-        }
-        drop(waiting);
-        if notify_on {
-            for item in &update.attention {
-                if !state.is_watched(&emitter, &host_id, &item.pane_id) {
-                    notify::show(&emitter, Notice::new(&host_id, &host_name, item));
+    let session = Session::start(
+        endpoint,
+        host.group_spaces_by_name(),
+        host.space_sort(),
+        move |update| {
+            let _ = emitter.emit(
+                "session-update",
+                UpdateEvent {
+                    host_id: &host_id,
+                    generation,
+                    update: &update,
+                },
+            );
+            let state = emitter.state::<AppState>();
+            let mut waiting = state.waiting.lock().unwrap_or_else(|p| p.into_inner());
+            if waiting.set(&host_id, &host_name, &update.board) {
+                tray::refresh(&emitter, &waiting);
+            }
+            drop(waiting);
+            if notify_on {
+                for item in &update.attention {
+                    if !state.is_watched(&emitter, &host_id, &item.pane_id) {
+                        notify::show(&emitter, Notice::new(&host_id, &host_name, item));
+                    }
                 }
             }
-        }
-    })?;
+        },
+    )?;
     sessions.insert(host.id.clone(), Arc::new(session));
     Ok(())
 }

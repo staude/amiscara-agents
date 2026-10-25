@@ -67,6 +67,7 @@ pub fn run() {
             app::list_hosts,
             app::save_host,
             app::regenerate_key,
+            app::set_space_sort,
             app::delete_host,
             app::key_line,
             app::decode_link,

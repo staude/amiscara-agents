@@ -165,7 +165,18 @@ final class HostStore {
     }
 
     func update(_ config: HostConfig) {
-        connection(for: config.id)?.apply(config)
+        guard let connection = connection(for: config.id) else { return }
+        // The sidebar changes the order while an editor holds an older copy.
+        var config = config
+        config.spaceSort = connection.config.spaceSort
+        config.spaceOrder = connection.config.spaceOrder
+        connection.apply(config)
+        save()
+    }
+
+    func setSpaceSort(_ mode: SpaceSortMode, order: [String]?, for id: UUID) {
+        guard let connection = connection(for: id) else { return }
+        connection.setSpaceSort(mode, order: order)
         save()
     }
 

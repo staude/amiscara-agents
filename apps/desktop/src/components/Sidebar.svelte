@@ -1,12 +1,12 @@
 <script lang="ts">
   import { t } from "../lib/i18n.svelte";
   import * as core from "../lib/core";
-  import { canWrite, openMenu, spaceMenu, ui } from "../lib/manage.svelte";
+  import { canWrite, openMenu, spaceMenu, ui, type MenuItem } from "../lib/manage.svelte";
   import { nav } from "../lib/nav.svelte";
   import { prefs } from "../lib/prefs.svelte";
-  import { arrange, blocks, sortedAgents, stateLabel } from "../lib/spaces";
+  import { arrange, blocks, moveSpace, sortedAgents, stateLabel, type SpaceEntry } from "../lib/spaces";
   import { model } from "../lib/state.svelte";
-  import type { HostConfig, HostStatus, SessionUpdate, WorkspaceItem } from "../lib/types";
+  import type { HostConfig, HostStatus, SessionUpdate, SpaceSortMode, WorkspaceItem } from "../lib/types";
   import StatusDot from "./StatusDot.svelte";
 
   let {
@@ -51,6 +51,46 @@
 
   function onHostKey(event: KeyboardEvent, host: HostConfig) {
     if (event.key === "Enter") model.select(host.id);
+  }
+
+  const sortLabels: Record<SpaceSortMode, () => string> = {
+    herdr: () => t("sortHerdr"),
+    nameAscending: () => t("sortNameAscending"),
+    nameDescending: () => t("sortNameDescending"),
+    manual: () => t("sortManual"),
+  };
+
+  function setSort(hostId: string, mode: SpaceSortMode, order: string[] | null) {
+    model.setSpaceSort(hostId, mode, order).catch((err) => (model.error = core.errorText(err)));
+  }
+
+  /** herdr's order, by name or manual (#243); manual starts from what the sidebar shows. */
+  function sortMenu(host: HostConfig, update: SessionUpdate): MenuItem[] {
+    const current = host.spaceSort ?? "herdr";
+    return (Object.keys(sortLabels) as SpaceSortMode[]).map((mode) => ({
+      label: `${mode === current ? "✓ " : ""}${sortLabels[mode]()}`,
+      action: () => setSort(host.id, mode, mode === "manual" ? update.spaceOrder.map((slot) => slot.workspaceId) : null),
+    }));
+  }
+
+  // Drag and drop of spaces and groups, only in the manual order. The key
+  // is a workspace ID or `group/<Name>`, behind the host: herdr numbers the
+  // IDs per server and group names repeat, so a row from another host is no drop.
+  function onDragStart(event: DragEvent, hostId: string, key: string) {
+    event.dataTransfer?.setData("text/plain", `${hostId}\n${key}`);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function allowDrop(event: DragEvent) {
+    event.preventDefault();
+  }
+
+  function onDrop(event: DragEvent, hostId: string, entries: SpaceEntry[], target: string) {
+    event.preventDefault();
+    const data = event.dataTransfer?.getData("text/plain") ?? "";
+    const host = `${hostId}\n`;
+    const order = data.startsWith(host) ? moveSpace(entries, data.slice(host.length), target) : null;
+    if (order) setSort(hostId, "manual", order);
   }
 </script>
 
@@ -108,17 +148,29 @@
             <span class="chevron" class:open={!spacesFolded}>›</span> spaces
             {#if spacesFolded}<span class="small">{update.workspaces.length}</span>{/if}
           </button>
-          {#if canWrite(host.id)}
-            <button class="order" title={t("newSpace")} onclick={() => (ui.dialog = { kind: "newSpace", hostId: host.id })}>+</button>
-          {/if}
+          <span>
+            <button class="order" title={t("sortSpaces")} onclick={(e) => openMenu(e, sortMenu(host, update))}>⇅</button>
+            {#if canWrite(host.id)}
+              <button class="order" title={t("newSpace")} onclick={() => (ui.dialog = { kind: "newSpace", hostId: host.id })}>+</button>
+            {/if}
+          </span>
         </div>
         {#if !spacesFolded}
-          {#each blocks(arrange(update)) as block (block.kind === "space" ? block.entry.workspace.workspaceId : `group/${block.name}`)}
+          {@const arranged = arrange(update)}
+          {@const manual = host.spaceSort === "manual"}
+          {#each blocks(arranged) as block (block.kind === "space" ? block.entry.workspace.workspaceId : `group/${block.name}`)}
             {#if block.kind === "group"}
               {@const key = `group/${block.name}`}
               {@const folded = prefs.isCollapsed(host.id, key)}
               {@const waiting = waitingIn(update, block.entries.map((e) => e.workspace.workspaceId))}
-              <button class="row group" onclick={() => prefs.toggle(host.id, key)}>
+              <button
+                class="row group"
+                draggable={manual}
+                onclick={() => prefs.toggle(host.id, key)}
+                ondragstart={manual ? (e) => onDragStart(e, host.id, key) : undefined}
+                ondragover={manual ? allowDrop : undefined}
+                ondrop={manual ? (e) => onDrop(e, host.id, arranged, key) : undefined}
+              >
                 <span class="chevron" class:open={!folded}>›</span>
                 <span class="label">{block.name}</span>
                 {#if waiting > 0}<span class="small blocked-text">{t("waitingCount", { n: waiting })}</span>{/if}
@@ -130,8 +182,12 @@
                 class="row space"
                 class:grouped={block.kind === "group"}
                 class:selected={isSpace(host.id, entry.workspace.workspaceId)}
+                draggable={manual}
                 onclick={() => model.select(host.id, entry.workspace.workspaceId)}
                 oncontextmenu={(e) => openMenu(e, spaceMenu(host.id, entry.workspace))}
+                ondragstart={manual ? (e) => onDragStart(e, host.id, entry.workspace.workspaceId) : undefined}
+                ondragover={manual ? allowDrop : undefined}
+                ondrop={manual ? (e) => onDrop(e, host.id, arranged, entry.workspace.workspaceId) : undefined}
               >
                 {#if entry.nested}<span class="nest">└</span>{/if}
                 <StatusDot state={entry.workspace.agentState} />

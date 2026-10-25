@@ -119,6 +119,29 @@ impl From<Endpoint> for herdr_session::Endpoint {
     }
 }
 
+/// How the sidebar orders spaces (see `herdr_core::spaces::SpaceSort`).
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum SpaceSort {
+    Herdr,
+    NameAscending,
+    NameDescending,
+    /// Workspace IDs in the user's order; spaces not listed follow.
+    Manual {
+        order: Vec<String>,
+    },
+}
+
+impl From<SpaceSort> for herdr_session::SpaceSort {
+    fn from(sort: SpaceSort) -> Self {
+        match sort {
+            SpaceSort::Herdr => Self::Herdr,
+            SpaceSort::NameAscending => Self::NameAscending,
+            SpaceSort::NameDescending => Self::NameDescending,
+            SpaceSort::Manual { order } => Self::Manual(order),
+        }
+    }
+}
+
 /// A key pair in OpenSSH text form.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct SshKey {
@@ -306,18 +329,24 @@ pub struct HostSession {
 impl HostSession {
     /// Connects in the background and reports to `observer` from then on.
     /// `group_spaces_by_name` is the host's setting for the "Bereich/Name"
-    /// convention (see `herdr_core::spaces`).
-    #[uniffi::constructor(default(group_spaces_by_name = true))]
+    /// convention, `space_sort` its order of spaces, `None` for herdr's (see
+    /// `herdr_core::spaces`).
+    #[uniffi::constructor(default(group_spaces_by_name = true, space_sort = None))]
     pub fn start(
         endpoint: Endpoint,
         observer: Box<dyn SessionObserver>,
         group_spaces_by_name: bool,
+        space_sort: Option<SpaceSort>,
     ) -> Result<Arc<Self>, FfiError> {
         let _entered = runtime().enter();
-        let session =
-            herdr_session::Session::start(endpoint.into(), group_spaces_by_name, move |update| {
+        let session = herdr_session::Session::start(
+            endpoint.into(),
+            group_spaces_by_name,
+            space_sort.map(Into::into).unwrap_or_default(),
+            move |update| {
                 observer.on_update(update);
-            })?;
+            },
+        )?;
         Ok(Arc::new(Self { session }))
     }
 
@@ -325,6 +354,12 @@ impl HostSession {
     /// rebuilt update right away, without reconnecting.
     pub fn set_group_spaces_by_name(&self, on: bool) {
         self.session.set_group_spaces_by_name(on);
+    }
+
+    /// Changes the order of spaces; the observer gets a rebuilt update
+    /// right away, without reconnecting.
+    pub fn set_space_sort(&self, sort: SpaceSort) {
+        self.session.set_space_sort(sort.into());
     }
 
     /// Ends the session and closes the connection. Pane followers stop too.

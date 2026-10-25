@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use herdr_session::SpaceSort;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
@@ -68,6 +69,22 @@ pub struct HostConfig {
     /// Grouping of "Bereich/Name" spaces; missing means on.
     #[serde(default)]
     pub group_spaces: Option<bool>,
+    /// Order of spaces in the sidebar; missing means herdr's.
+    #[serde(default)]
+    pub space_sort: Option<SpaceSortMode>,
+    /// Workspace IDs in the user's order, for `SpaceSortMode::Manual`.
+    #[serde(default)]
+    pub space_order: Option<Vec<String>>,
+}
+
+/// The order of spaces in the sidebar; same values as in the Apple apps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SpaceSortMode {
+    Herdr,
+    NameAscending,
+    NameDescending,
+    Manual,
 }
 
 fn default_port() -> u16 {
@@ -77,6 +94,18 @@ fn default_port() -> u16 {
 impl HostConfig {
     pub fn group_spaces_by_name(&self) -> bool {
         self.group_spaces.unwrap_or(true)
+    }
+
+    /// What the session sorts spaces by.
+    pub fn space_sort(&self) -> SpaceSort {
+        match self.space_sort.unwrap_or(SpaceSortMode::Herdr) {
+            SpaceSortMode::Herdr => SpaceSort::Herdr,
+            SpaceSortMode::NameAscending => SpaceSort::NameAscending,
+            SpaceSortMode::NameDescending => SpaceSort::NameDescending,
+            SpaceSortMode::Manual => {
+                SpaceSort::Manual(self.space_order.clone().unwrap_or_default())
+            }
+        }
     }
 
     /// The `socket_path` for an `authorized_keys` line: `None` for the
@@ -224,6 +253,24 @@ mod tests {
         assert_eq!(host.auth, Auth::Key);
         assert!(host.group_spaces_by_name());
         assert!(host.pinned_host_key.is_none());
+        assert_eq!(host.space_sort(), SpaceSort::Herdr);
+    }
+
+    #[test]
+    fn space_sort_uses_the_manual_order() {
+        let host: HostConfig = serde_json::from_str(
+            r#"{"id":"a","name":"w","kind":"local","spaceSort":"manual","spaceOrder":["w2","w1"]}"#,
+        )
+        .expect("host");
+        assert_eq!(
+            host.space_sort(),
+            SpaceSort::Manual(vec!["w2".into(), "w1".into()])
+        );
+        let host: HostConfig = serde_json::from_str(
+            r#"{"id":"a","name":"w","kind":"local","spaceSort":"nameDescending"}"#,
+        )
+        .expect("host");
+        assert_eq!(host.space_sort(), SpaceSort::NameDescending);
     }
 
     #[test]

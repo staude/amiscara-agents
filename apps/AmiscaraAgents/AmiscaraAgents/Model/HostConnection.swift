@@ -43,7 +43,8 @@ final class HostConnection: Identifiable {
             session = try HostSession.start(
                 endpoint: try endpoint(),
                 observer: bridge,
-                groupSpacesByName: config.groupSpacesByName
+                groupSpacesByName: config.groupSpacesByName,
+                spaceSort: config.spaceSorting
             )
             generation += 1
         } catch {
@@ -71,6 +72,14 @@ final class HostConnection: Identifiable {
         self.config = config
         update = nil
         start()
+    }
+
+    /// Changes the order of spaces; the running session sends a rebuilt
+    /// update at once, without reconnecting.
+    func setSpaceSort(_ mode: SpaceSortMode, order: [String]?) {
+        config.spaceSort = mode
+        config.spaceOrder = order
+        session?.setSpaceSort(sort: config.spaceSorting)
     }
 
     func followPane(_ paneID: String, live: Bool = true, observer: PaneObserver) -> PaneFollow? {

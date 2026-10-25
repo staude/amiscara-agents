@@ -37,6 +37,60 @@ export function blocks(entries: SpaceEntry[]): SpaceBlock[] {
   return out;
 }
 
+/** Where a dragged row may go, as in HostSidebar.swift. */
+type Level = { kind: "top" } | { kind: "group"; name: string } | { kind: "worktrees"; of: string };
+
+const sameLevel = (a: Level, b: Level) =>
+  a.kind === b.kind &&
+  (a.kind !== "group" || a.name === (b as { name: string }).name) &&
+  (a.kind !== "worktrees" || a.of === (b as { of: string }).of);
+
+/**
+ * The rows that move with `key` (a workspace ID or `group/<Name>`), from
+ * `start` to before `end`: a group with all its entries, a space with its
+ * nested worktrees.
+ */
+function segment(key: string, entries: SpaceEntry[]): { level: Level; start: number; end: number } | null {
+  const index = entries.findIndex((e) => e.workspace.workspaceId === key);
+  if (index >= 0) {
+    const entry = entries[index];
+    if (entry.nested) {
+      let head = index - 1;
+      while (head >= 0 && entries[head].nested) head--;
+      if (head < 0) return null;
+      return { level: { kind: "worktrees", of: entries[head].workspace.workspaceId }, start: index, end: index + 1 };
+    }
+    let end = index + 1;
+    while (end < entries.length && entries[end].nested) end++;
+    const group = entry.workspace.group;
+    return { level: group ? { kind: "group", name: group } : { kind: "top" }, start: index, end };
+  }
+  if (!key.startsWith("group/")) return null;
+  const name = key.slice("group/".length);
+  const start = entries.findIndex((e) => e.workspace.group === name);
+  if (start < 0) return null;
+  let end = start;
+  while (end < entries.length && entries[end].workspace.group === name) end++;
+  return { level: { kind: "top" }, start, end };
+}
+
+/**
+ * The manual order after dropping `dragged` on `target` (#243): behind it
+ * when it came from above, otherwise in front of it. `null` when both are
+ * on different levels or the same row.
+ */
+export function moveSpace(entries: SpaceEntry[], dragged: string, target: string): string[] | null {
+  if (dragged === target) return null;
+  const from = segment(dragged, entries);
+  const to = segment(target, entries);
+  if (!from || !to || !sameLevel(from.level, to.level)) return null;
+  const ids = entries.map((e) => e.workspace.workspaceId);
+  const moving = ids.splice(from.start, from.end - from.start);
+  const at = from.start < to.start ? to.end - moving.length : to.start;
+  ids.splice(at, 0, ...moving);
+  return ids;
+}
+
 export const urgency: Record<AgentState, number> = {
   blocked: 0,
   working: 1,

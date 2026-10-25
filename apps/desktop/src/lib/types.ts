@@ -19,7 +19,14 @@ export interface HostConfig {
   allowUpload: boolean | null;
   notify: boolean | null;
   groupSpaces: boolean | null;
+  /** Order of spaces in the sidebar; `null` is herdr's. */
+  spaceSort: SpaceSortMode | null;
+  /** Workspace IDs in the user's order, for `manual`. */
+  spaceOrder: string[] | null;
 }
+
+/** The order of spaces in the sidebar (#243). */
+export type SpaceSortMode = "herdr" | "nameAscending" | "nameDescending" | "manual";
 
 /** A named herdr session on a host (#213). */
 export interface HerdrSession {
