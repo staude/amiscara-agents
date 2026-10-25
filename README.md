@@ -266,7 +266,10 @@ amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) 
 
 Only digits reach `nc`. Without the case the app says that the host does
 not forward `localhost` for this device; existing hosts need the new line
-once.
+once. Each browser connection then takes one SSH session of the key, so
+the app keeps at most four open at a time (sshd allows ten per connection
+by default). A forwarded port closes on the device after 30 minutes
+without connections; the agent opens the page again when needed.
 
 Older lines used `restrict,port-forwarding,command="/usr/bin/false"` and a
 `direct-streamlocal` channel. They keep working (the app tries streamlocal
@@ -335,7 +338,8 @@ A `.deb` does not update itself; install the new one by hand.
 1. Install and start [herdr](https://herdr.dev) on the host. The apps use
    its default socket `~/.config/herdr/herdr.sock`.
 2. Make sure SSH works: `sshd` running, `nc` installed (it connects the
-   session to the socket; macOS ships it).
+   session to the socket; macOS ships it). Forwarding local web pages also
+   needs `nc -z` (OpenBSD netcat, current ncat).
 3. In the app add a host: name, address, port, user. The app creates a key
    and shows its `authorized_keys` line; append it to
    `~/.ssh/authorized_keys` of that user on the host.

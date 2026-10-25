@@ -48,8 +48,10 @@ pub struct OpenRequest {
     pub url: String,
 }
 
-/// Token names of an [`OpenRequest`].
+/// Token names of an [`OpenRequest`]; a client that opened one sets
+/// `open_done` to its id.
 pub const OPEN_ID_TOKEN: &str = "open_id";
+pub const OPEN_DONE_TOKEN: &str = "open_done";
 pub const OPEN_URL_TOKEN_PREFIX: &str = "open_url_";
 /// How many URL pieces the stand-in writes at most (15 × 80 characters).
 pub const OPEN_URL_PARTS: usize = 15;
@@ -156,8 +158,8 @@ impl SessionState {
     }
 
     /// Pages the panes ask to open right now, in pane order. A request
-    /// stays until the stand-in's time to live runs out or a client
-    /// dismisses it, so every client shows the same ones. Only `http` and
+    /// stays until the stand-in's time to live runs out or a client marks
+    /// it done, so every client shows the same ones. Only `http` and
     /// `https` URLs of printable ASCII count; the URL ends at the first
     /// missing piece.
     pub fn open_requests(&self) -> Vec<OpenRequest> {
@@ -165,6 +167,9 @@ impl SessionState {
             .iter()
             .filter_map(|pane| {
                 let open_id = pane.tokens.get(OPEN_ID_TOKEN).filter(|id| !id.is_empty())?;
+                if pane.tokens.get(OPEN_DONE_TOKEN) == Some(open_id) {
+                    return None;
+                }
                 let url: String = (0..OPEN_URL_PARTS)
                     .map_while(|i| pane.tokens.get(&format!("{OPEN_URL_TOKEN_PREFIX}{i}")))
                     .map(String::as_str)
@@ -713,6 +718,22 @@ mod tests {
         // Every client sees the same request until it is gone.
         assert_eq!(state.open_requests(), state.open_requests());
         assert!(snapshot().open_requests().is_empty());
+    }
+
+    #[test]
+    fn open_requests_marked_done_vanish_but_newer_ones_stay() {
+        let done = with_tokens(&[
+            ("open_id", "1-1"),
+            ("open_url_0", "https://example.com/"),
+            ("open_done", "1-1"),
+        ]);
+        assert!(done.open_requests().is_empty());
+        let newer = with_tokens(&[
+            ("open_id", "2-2"),
+            ("open_url_0", "https://example.com/"),
+            ("open_done", "1-1"),
+        ]);
+        assert_eq!(newer.open_requests().len(), 1);
     }
 
     #[test]

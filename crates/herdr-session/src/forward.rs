@@ -5,13 +5,14 @@
 use std::collections::HashMap;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener as StdListener, TcpStream};
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use herdr_core::sync::SyncState;
 use tokio::net::TcpListener;
 use tokio::runtime::Handle;
-use tokio::sync::watch;
+use tokio::sync::{Semaphore, watch};
 use tokio::task::{JoinHandle, JoinSet};
 
 /// The port of a URL that points at the host itself (`localhost`,
@@ -22,16 +23,33 @@ pub(crate) fn local_port(url: &str) -> Option<u16> {
     matches!(host.as_str(), "localhost" | "127.0.0.1" | "[::1]").then_some(authority.port)
 }
 
-/// `url` with `port` instead of its own. The host name stays: dev servers
-/// such as Vite check the `Host` header.
-pub(crate) fn with_port(url: &str, port: u16) -> Option<String> {
+/// `url` with `port` instead of its own. The host name stays, since dev
+/// servers such as Vite check the `Host` header; only `[::1]` becomes
+/// `127.0.0.1` when this machine has no IPv6 loopback (`ipv6: false`).
+pub(crate) fn with_port(url: &str, port: u16, ipv6: bool) -> Option<String> {
     let authority = Authority::of(url)?;
+    let host_start = authority.host_end - authority.host.len();
+    let host = if !ipv6 && authority.host == "[::1]" {
+        "127.0.0.1"
+    } else {
+        authority.host
+    };
     Some(format!(
-        "{}:{port}{}",
-        &url[..authority.host_end],
+        "{}{host}:{port}{}",
+        &url[..host_start],
         &url[authority.end..]
     ))
 }
+
+/// At most this many tunnels at once per session; more browser
+/// connections wait for a free one. With a restricted key every tunnel is
+/// an SSH session channel, and sshd allows 10 per connection by default
+/// (`MaxSessions`), herdr's subscriptions included.
+const MAX_TUNNELS: usize = 4;
+/// A listener without connections for this long closes; the agent opens
+/// the page again when it is needed. Until then other programs on this
+/// machine could reach the host's port too.
+const IDLE_CLOSE: Duration = Duration::from_secs(30 * 60);
 
 /// Host and port of a URL, with where they end in it.
 struct Authority<'a> {
@@ -79,26 +97,62 @@ impl<'a> Authority<'a> {
     }
 }
 
-/// The listeners of one session, by host port. They end with the session.
-#[derive(Default)]
+/// The listeners of one session, by host port. They end with the session
+/// or after [`IDLE_CLOSE`] without connections.
 pub(crate) struct Forwards {
     listeners: Mutex<HashMap<u16, Forward>>,
+    tunnels: Arc<Semaphore>,
+}
+
+impl Default for Forwards {
+    fn default() -> Self {
+        Self {
+            listeners: Mutex::default(),
+            tunnels: Arc::new(Semaphore::new(MAX_TUNNELS)),
+        }
+    }
 }
 
 struct Forward {
     local_port: u16,
+    /// Whether it listens on `[::1]` too.
+    ipv6: bool,
     task: JoinHandle<()>,
+}
+
+/// Open tunnels of one listener and when the last one ended.
+struct Activity {
+    open: AtomicUsize,
+    last: Mutex<Instant>,
+}
+
+impl Activity {
+    fn touch(&self) {
+        if let Ok(mut last) = self.last.lock() {
+            *last = Instant::now();
+        }
+    }
+
+    fn idle_for(&self) -> Duration {
+        if self.open.load(Ordering::Relaxed) > 0 {
+            return Duration::ZERO;
+        }
+        self.last
+            .lock()
+            .map_or(Duration::ZERO, |last| last.elapsed())
+    }
 }
 
 impl Forwards {
     /// The local port that reaches `host_port` on the host, listening from
-    /// now on: the same number when it is free here, otherwise any.
+    /// now on: the same number when it is free here, otherwise any. The
+    /// flag says whether it listens on `[::1]` too.
     pub(crate) fn ensure(
         &self,
         host_port: u16,
         state: watch::Receiver<SyncState>,
         runtime: &Handle,
-    ) -> io::Result<u16> {
+    ) -> io::Result<(u16, bool)> {
         let mut listeners = self
             .listeners
             .lock()
@@ -106,10 +160,15 @@ impl Forwards {
         if let Some(forward) = listeners.get(&host_port)
             && !forward.task.is_finished()
         {
-            return Ok(forward.local_port);
+            return Ok((forward.local_port, forward.ipv6));
         }
-        let sockets = bind_loopback(host_port).or_else(|_| bind_loopback(0))?;
+        // A free port's `[::1]` twin can be taken by chance; try again.
+        let sockets = bind_loopback(host_port)
+            .or_else(|_| bind_loopback(0))
+            .or_else(|_| bind_loopback(0))
+            .or_else(|_| bind_loopback(0))?;
         let local_port = sockets[0].local_addr()?.port();
+        let ipv6 = sockets.len() > 1;
         let listeners_here = {
             let _entered = runtime.enter();
             sockets
@@ -120,16 +179,44 @@ impl Forwards {
                 })
                 .collect::<io::Result<Vec<_>>>()?
         };
+        let activity = Arc::new(Activity {
+            open: AtomicUsize::new(0),
+            last: Mutex::new(Instant::now()),
+        });
+        let tunnels = Arc::clone(&self.tunnels);
         let task = runtime.spawn(async move {
             let mut accepts = JoinSet::new();
             for listener in listeners_here {
-                accepts.spawn(accept(listener, host_port, state.clone()));
+                accepts.spawn(accept(
+                    listener,
+                    host_port,
+                    state.clone(),
+                    Arc::clone(&tunnels),
+                    Arc::clone(&activity),
+                ));
             }
-            // Dropping the set when aborted closes listeners and tunnels.
-            while accepts.join_next().await.is_some() {}
+            // Returning drops the set, which closes listeners and tunnels;
+            // so does aborting the task.
+            loop {
+                tokio::select! {
+                    done = accepts.join_next() => if done.is_none() { return },
+                    () = tokio::time::sleep(Duration::from_secs(60)) => {
+                        if activity.idle_for() >= IDLE_CLOSE {
+                            return;
+                        }
+                    }
+                }
+            }
         });
-        listeners.insert(host_port, Forward { local_port, task });
-        Ok(local_port)
+        listeners.insert(
+            host_port,
+            Forward {
+                local_port,
+                ipv6,
+                task,
+            },
+        );
+        Ok((local_port, ipv6))
     }
 
     /// Closes all listeners and their tunnels.
@@ -178,7 +265,13 @@ fn answers(port: u16) -> bool {
     .any(|addr| TcpStream::connect_timeout(addr, Duration::from_millis(200)).is_ok())
 }
 
-async fn accept(listener: TcpListener, host_port: u16, state: watch::Receiver<SyncState>) {
+async fn accept(
+    listener: TcpListener,
+    host_port: u16,
+    state: watch::Receiver<SyncState>,
+    limit: Arc<Semaphore>,
+    activity: Arc<Activity>,
+) {
     let mut tunnels = JoinSet::new();
     loop {
         tokio::select! {
@@ -192,8 +285,15 @@ async fn accept(listener: TcpListener, host_port: u16, state: watch::Receiver<Sy
                 // listener keeps working with the new one.
                 let connection = state.borrow().connection.clone();
                 if let Some(conn) = connection {
+                    let limit = Arc::clone(&limit);
+                    let activity = Arc::clone(&activity);
+                    activity.open.fetch_add(1, Ordering::Relaxed);
                     tunnels.spawn(async move {
-                        let _ = conn.forward_tcp(host_port, stream).await;
+                        if let Ok(_permit) = limit.acquire_owned().await {
+                            let _ = conn.forward_tcp(host_port, stream).await;
+                        }
+                        activity.touch();
+                        activity.open.fetch_sub(1, Ordering::Relaxed);
                     });
                 }
             }
@@ -231,19 +331,27 @@ mod tests {
     #[test]
     fn only_the_port_changes() {
         assert_eq!(
-            with_port("http://localhost:5173/mockup?x=1#top", 50123).as_deref(),
+            with_port("http://localhost:5173/mockup?x=1#top", 50123, true).as_deref(),
             Some("http://localhost:50123/mockup?x=1#top")
         );
         assert_eq!(
-            with_port("http://127.0.0.1", 8000).as_deref(),
+            with_port("http://127.0.0.1", 8000, true).as_deref(),
             Some("http://127.0.0.1:8000")
         );
         assert_eq!(
-            with_port("http://[::1]:3000/a", 3001).as_deref(),
+            with_port("http://[::1]:3000/a", 3001, true).as_deref(),
             Some("http://[::1]:3001/a")
         );
         assert_eq!(
-            with_port("http://u@localhost:1/", 2).as_deref(),
+            with_port("http://[::1]:3000/a", 3001, false).as_deref(),
+            Some("http://127.0.0.1:3001/a")
+        );
+        assert_eq!(
+            with_port("http://localhost:3000/a", 3001, false).as_deref(),
+            Some("http://localhost:3001/a")
+        );
+        assert_eq!(
+            with_port("http://u@localhost:1/", 2, true).as_deref(),
             Some("http://u@localhost:2/")
         );
     }

@@ -22,9 +22,11 @@ use crate::view::{self, PaneContent, SessionUpdate};
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
 
-/// The metadata source of the host's browser stand-in, which the apps
-/// write to when they dismiss an open request.
-const OPEN_SOURCE: &str = "amiscara-agents";
+/// The metadata source the apps mark opened requests under (#247); the
+/// host's browser stand-in reports them as `amiscara-agents`.
+const OPEN_DONE_SOURCE: &str = "amiscara-agents-done";
+/// How long a request lives, as in `scripts/host/amiscara-open`.
+const OPEN_TTL_MS: u64 = 120_000;
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -365,51 +367,34 @@ impl Session {
             .ok()
             .and_then(|state| state.clone())
             .ok_or_else(|| SessionError::NotConnected("session stopped".into()))?;
-        let local = self
+        let (local, ipv6) = self
             .forwards
             .ensure(port, state, &self.runtime)
             .map_err(|err| SessionError::Rejected(format!("no local port to forward to: {err}")))?;
-        forward::with_port(url, local)
+        forward::with_port(url, local, ipv6)
             .ok_or_else(|| SessionError::Rejected(format!("cannot read the address {url}")))
     }
 
     /// Takes an open request back on the host, so no other client offers
-    /// it any more: clears its tokens unless the pane has asked for another
-    /// page meanwhile.
+    /// it any more: marks it done (`open_done`); a newer request of the
+    /// pane stays.
     pub async fn dismiss_open_request(
         &self,
         pane_id: &str,
         request_id: &str,
     ) -> Result<(), SessionError> {
-        let current = self.state.lock().ok().and_then(|state| {
-            let session = state.as_ref()?.borrow().session.clone()?;
-            session
-                .pane(pane_id)?
-                .tokens
-                .get(herdr_core::OPEN_ID_TOKEN)
-                .cloned()
-        });
-        if current.as_deref() != Some(request_id) {
-            return Ok(());
-        }
-        let mut tokens = serde_json::Map::new();
-        tokens.insert(
-            herdr_core::OPEN_ID_TOKEN.to_owned(),
-            serde_json::Value::Null,
-        );
-        for i in 0..herdr_core::OPEN_URL_PARTS {
-            tokens.insert(
-                format!("{}{i}", herdr_core::OPEN_URL_TOKEN_PREFIX),
-                serde_json::Value::Null,
-            );
-        }
+        // A mark under a source of its own instead of clearing the
+        // request: herdr has no compare-and-set, and clearing could take a
+        // newer request of the pane along that this client has not seen
+        // yet. The mark outlives the request (same time to live, set later).
         let conn = self.connection()?;
         conn.request(
             "pane.report_metadata",
             serde_json::json!({
                 "pane_id": pane_id,
-                "source": OPEN_SOURCE,
-                "tokens": tokens,
+                "source": OPEN_DONE_SOURCE,
+                "tokens": { herdr_core::OPEN_DONE_TOKEN: request_id },
+                "ttl_ms": OPEN_TTL_MS,
             }),
         )
         .await
