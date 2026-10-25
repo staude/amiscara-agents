@@ -31,6 +31,7 @@
   const requestKey = (hostId: string, request: OpenRequest) => `${hostId}|${request.paneId}|${request.requestId}`;
   let hiddenRequests = $state<Record<string, true>>({});
   let requestErrors = $state<Record<string, string>>({});
+  let openingRequests = $state<Record<string, true>>({});
   let openRequests = $derived(
     model.hosts.flatMap((host) =>
       (model.updates[host.id]?.openRequests ?? [])
@@ -40,6 +41,8 @@
   );
 
   async function openRequest(host: HostConfig, request: OpenRequest, key: string) {
+    if (openingRequests[key]) return;
+    openingRequests[key] = true;
     delete requestErrors[key];
     try {
       const url = await core.openRequestUrl(host.id, request.url);
@@ -48,6 +51,8 @@
       core.dismissOpenRequest(host.id, request.paneId, request.requestId).catch(() => {});
     } catch (err) {
       requestErrors[key] = core.errorText(err);
+    } finally {
+      delete openingRequests[key];
     }
   }
 
@@ -156,7 +161,7 @@
           <code>{request.url}</code>
           {#if requestErrors[key]}<span class="update-error">{requestErrors[key]}</span>{/if}
         </div>
-        <button class="primary" onclick={() => openRequest(host, request, key)}>{t("openRequestOpen")}</button>
+        <button class="primary" disabled={openingRequests[key]} onclick={() => openRequest(host, request, key)}>{t("openRequestOpen")}</button>
         <button onclick={() => (hiddenRequests[key] = true)}>{t("openRequestIgnore")}</button>
       </div>
     {/each}

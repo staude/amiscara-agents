@@ -352,7 +352,9 @@ A `.deb` does not update itself; install the new one by hand.
    Agents such as Claude Code open links through `BROWSER`; the script
    still opens the page on the host and offers it to the connected apps
    for two minutes. Programs that call `open` or `xdg-open` directly are
-   not covered, nor URLs over 1200 characters. For pages on the host's
+   not covered, nor URLs over 1200 characters. A sign-in that returns to
+   `localhost` from an outside page (e.g. `gh auth login`) only works on
+   the host: just the page the agent opened is forwarded. For pages on the host's
    `localhost` turn on "Lokale Webseiten weiterleiten" for the host and
    replace its key line. The Mac app on the host itself ("Dieser Mac")
    does not ask: the page opens there already. On iPhone and iPad the page
