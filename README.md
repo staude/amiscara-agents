@@ -261,7 +261,7 @@ can reach ports on the host's `localhost` for pages agents open there, and
 nothing else:
 
 ```
-amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; echo amiscara-tcp; exec nc localhost $p ;;
+amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; nc -z localhost $p || { echo amiscara-tcp-closed; exit 1; }; echo amiscara-tcp; exec nc localhost $p ;;
 ```
 
 Only digits reach `nc`. Without the case the app says that the host does

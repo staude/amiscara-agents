@@ -368,7 +368,7 @@ impl Session {
         let local = self
             .forwards
             .ensure(port, state, &self.runtime)
-            .map_err(|err| SessionError::Forward(err.to_string()))?;
+            .map_err(|err| SessionError::Rejected(format!("no local port to forward to: {err}")))?;
         forward::with_port(url, local)
             .ok_or_else(|| SessionError::Rejected(format!("cannot read the address {url}")))
     }

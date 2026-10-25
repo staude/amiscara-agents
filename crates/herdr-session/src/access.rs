@@ -11,7 +11,8 @@ use crate::session::SessionError;
 /// user; without it SFTP is refused. With `allow_web`, `amiscara-tcp <port>`
 /// connects to `localhost:<port>` on the host (#247: pages of dev servers
 /// that an agent opens), after printing `amiscara-tcp` so the app can tell
-/// it from a line without that case. The apps reach herdr through a session
+/// it from a line without that case (`amiscara-tcp-closed` when nothing
+/// listens there). The apps reach herdr through a session
 /// running `herdr` once sshd refuses their streamlocal channel.
 ///
 /// `socket_path`: the host's `herdr.sock` when it is not the default
@@ -66,7 +67,7 @@ pub(crate) fn gate_options(
     };
     // Only digits reach `nc`, so the port needs no quotes.
     let web = if allow_web {
-        " amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; echo amiscara-tcp; exec nc localhost $p ;;"
+        " amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; nc -z localhost $p || { echo amiscara-tcp-closed; exit 1; }; echo amiscara-tcp; exec nc localhost $p ;;"
     } else {
         ""
     };
@@ -113,7 +114,7 @@ mod tests {
             .public_openssh;
         let line = authorized_keys_line(&key, false, true, None).expect("line");
         assert!(
-            line.contains(r#"*sftp*) exit 1 ;; amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; echo amiscara-tcp; exec nc localhost $p ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#),
+            line.contains(r#"*sftp*) exit 1 ;; amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; nc -z localhost $p || { echo amiscara-tcp-closed; exit 1; }; echo amiscara-tcp; exec nc localhost $p ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#),
             "{line}"
         );
         assert!(line.starts_with("restrict,command=") && !line.contains("port-forwarding"));

@@ -375,6 +375,12 @@ impl Connection {
         let mut line = String::new();
         match tokio::time::timeout(TCP_GATE_TIMEOUT, reader.read_line(&mut line)).await {
             Ok(Ok(_)) if line.trim_end() == TCP_GATE_READY => Ok(reader),
+            Ok(Ok(_)) if line.trim_end() == TCP_GATE_CLOSED => {
+                Err(TransportError::Io(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    format!("nothing answers on localhost:{port} on the host"),
+                )))
+            }
             Ok(Err(err)) => Err(err.into()),
             _ => Err(refused()),
         }
@@ -726,6 +732,8 @@ impl Subscription {
 
 /// What the `amiscara-tcp` case of a key's line prints before it connects.
 pub const TCP_GATE_READY: &str = "amiscara-tcp";
+/// What it prints instead when nothing listens on the port.
+pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
 /// How long the gate may take to answer.
 const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
 

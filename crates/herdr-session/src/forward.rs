@@ -4,8 +4,9 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener as StdListener};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener as StdListener, TcpStream};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use herdr_core::sync::SyncState;
 use tokio::net::TcpListener;
@@ -52,6 +53,11 @@ impl<'a> Authority<'a> {
         };
         let start = scheme.len() + 3;
         let end = start + rest.find(['/', '?', '#']).unwrap_or(rest.len());
+        // Browsers read `\` like `/` in web URLs; such an address is not
+        // taken apart here.
+        if url[start..end].contains('\\') {
+            return None;
+        }
         let host_start = start + url[start..end].rfind('@').map_or(0, |at| at + 1);
         let host_port = &url[host_start..end];
         let host_len = if host_port.starts_with('[') {
@@ -145,8 +151,13 @@ impl Drop for Forwards {
 /// `127.0.0.1:<port>` and, where the system has it, `[::1]` on the same
 /// port, since the browser may try either for `localhost`. When something
 /// on this machine holds the port on `::1` already, the browser could end
-/// up there, so the port counts as taken.
+/// up there, so the port counts as taken. On macOS and Windows a bind can
+/// succeed next to a server listening on all addresses and take over its
+/// loopback traffic, so a port that answers counts as taken too.
 fn bind_loopback(port: u16) -> io::Result<Vec<StdListener>> {
+    if port != 0 && answers(port) {
+        return Err(io::Error::from(io::ErrorKind::AddrInUse));
+    }
     let v4 = StdListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, port)))?;
     let port = v4.local_addr()?.port();
     match StdListener::bind(SocketAddr::from((Ipv6Addr::LOCALHOST, port))) {
@@ -157,6 +168,16 @@ fn bind_loopback(port: u16) -> io::Result<Vec<StdListener>> {
     }
 }
 
+/// Whether something on this machine accepts connections on `port`.
+fn answers(port: u16) -> bool {
+    [
+        SocketAddr::from((Ipv4Addr::LOCALHOST, port)),
+        SocketAddr::from((Ipv6Addr::LOCALHOST, port)),
+    ]
+    .iter()
+    .any(|addr| TcpStream::connect_timeout(addr, Duration::from_millis(200)).is_ok())
+}
+
 async fn accept(listener: TcpListener, host_port: u16, state: watch::Receiver<SyncState>) {
     let mut tunnels = JoinSet::new();
     loop {
@@ -164,7 +185,7 @@ async fn accept(listener: TcpListener, host_port: u16, state: watch::Receiver<Sy
             accepted = listener.accept() => {
                 let Ok((stream, _)) = accepted else {
                     // E.g. out of file descriptors; try again shortly.
-                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    tokio::time::sleep(Duration::from_millis(200)).await;
                     continue;
                 };
                 // The connection of this moment: after a reconnect the
@@ -199,6 +220,7 @@ mod tests {
             "http://example.com/?next=http://localhost:5173",
             "http://localhost:99999/",
             "http://localhost:x/",
+            "http://evil.example\\@localhost:5173/",
             "ftp://localhost/",
             "localhost:5173",
         ] {
@@ -224,5 +246,14 @@ mod tests {
             with_port("http://u@localhost:1/", 2).as_deref(),
             Some("http://u@localhost:2/")
         );
+    }
+    #[test]
+    fn a_port_in_use_here_is_not_taken_over() {
+        let server = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = server.local_addr().expect("addr").port();
+        assert!(super::answers(port));
+        assert!(super::bind_loopback(port).is_err());
+        drop(server);
+        assert!(super::bind_loopback(0).is_ok());
     }
 }
