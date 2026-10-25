@@ -245,7 +245,7 @@ struct HostSidebar: View {
                         waiting: update.board.filter { $0.agentState == .blocked && ids.contains($0.workspaceId) }.count,
                         collapsed: folded
                     ) { toggle(connection.id, key) }
-                    .spaceReordering(key, among: reorderable) { reorder(connection, $0, dragged: $1, onto: key) }
+                    .spaceReordering(key, on: connection.id, among: reorderable) { reorder(connection, $0, dragged: $1, onto: key) }
                     if !folded {
                         ForEach(entries, id: \.workspace.workspaceId) { entry in
                             spaceRow(connection, update, entry, grouped: true, reorder: reorderable)
@@ -318,7 +318,7 @@ struct HostSidebar: View {
         let key = entry.workspace.workspaceId
         return SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
             .tag(SpaceRef(hostID: connection.id, workspaceID: key))
-            .spaceReordering(key, among: entries) { reorder(connection, $0, dragged: $1, onto: key) }
+            .spaceReordering(key, on: connection.id, among: entries) { reorder(connection, $0, dragged: $1, onto: key) }
             .renameAction(available: RenameTarget.available(on: connection)) {
                 renaming = RenameTarget(
                     connection: connection,
@@ -623,9 +623,12 @@ extension View {
     /// Drag and drop for the manual order of spaces (#243). `key` is a
     /// workspace ID or `group/<Name>`; `entries` is the sidebar's order, or
     /// `nil` outside the manual order. `onDrop` gets it with the dragged key.
+    /// The dragged text carries the host, because herdr numbers the IDs per
+    /// server and group names repeat: a row from another host is no drop.
     @ViewBuilder
     fileprivate func spaceReordering(
         _ key: String,
+        on hostID: UUID,
         among entries: [SpaceOrder.Entry]?,
         onDrop: @escaping ([SpaceOrder.Entry], String) -> Bool
     ) -> some View {
@@ -634,10 +637,11 @@ extension View {
         #else
         if let entries {
             self
-                .draggable(key)
+                .draggable("\(hostID.uuidString)\n\(key)")
                 .dropDestination(for: String.self) { items, _ in
-                    guard let dragged = items.first else { return false }
-                    return onDrop(entries, dragged)
+                    let host = "\(hostID.uuidString)\n"
+                    guard let item = items.first, item.hasPrefix(host) else { return false }
+                    return onDrop(entries, String(item.dropFirst(host.count)))
                 }
         } else {
             self

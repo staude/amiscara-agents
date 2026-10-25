@@ -74,9 +74,10 @@
   }
 
   // Drag and drop of spaces and groups, only in the manual order. The key
-  // is a workspace ID or `group/<Name>`.
-  function onDragStart(event: DragEvent, key: string) {
-    event.dataTransfer?.setData("text/plain", key);
+  // is a workspace ID or `group/<Name>`, behind the host: herdr numbers the
+  // IDs per server and group names repeat, so a row from another host is no drop.
+  function onDragStart(event: DragEvent, hostId: string, key: string) {
+    event.dataTransfer?.setData("text/plain", `${hostId}\n${key}`);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
   }
 
@@ -86,8 +87,9 @@
 
   function onDrop(event: DragEvent, hostId: string, entries: SpaceEntry[], target: string) {
     event.preventDefault();
-    const dragged = event.dataTransfer?.getData("text/plain");
-    const order = dragged ? moveSpace(entries, dragged, target) : null;
+    const data = event.dataTransfer?.getData("text/plain") ?? "";
+    const host = `${hostId}\n`;
+    const order = data.startsWith(host) ? moveSpace(entries, data.slice(host.length), target) : null;
     if (order) setSort(hostId, "manual", order);
   }
 </script>
@@ -165,7 +167,7 @@
                 class="row group"
                 draggable={manual}
                 onclick={() => prefs.toggle(host.id, key)}
-                ondragstart={manual ? (e) => onDragStart(e, key) : undefined}
+                ondragstart={manual ? (e) => onDragStart(e, host.id, key) : undefined}
                 ondragover={manual ? allowDrop : undefined}
                 ondrop={manual ? (e) => onDrop(e, host.id, arranged, key) : undefined}
               >
@@ -183,7 +185,7 @@
                 draggable={manual}
                 onclick={() => model.select(host.id, entry.workspace.workspaceId)}
                 oncontextmenu={(e) => openMenu(e, spaceMenu(host.id, entry.workspace))}
-                ondragstart={manual ? (e) => onDragStart(e, entry.workspace.workspaceId) : undefined}
+                ondragstart={manual ? (e) => onDragStart(e, host.id, entry.workspace.workspaceId) : undefined}
                 ondragover={manual ? allowDrop : undefined}
                 ondrop={manual ? (e) => onDrop(e, host.id, arranged, entry.workspace.workspaceId) : undefined}
               >
