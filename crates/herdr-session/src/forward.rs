@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener as StdListener, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -103,6 +103,10 @@ impl<'a> Authority<'a> {
 pub(crate) struct Forwards {
     listeners: Mutex<HashMap<u16, Forward>>,
     tunnels: Arc<Semaphore>,
+    /// Whether this session's key went through the gate once. A new
+    /// connection after a reconnect does not know it before its first
+    /// tunnel, and the key line does not change in between.
+    gated: Arc<AtomicBool>,
 }
 
 impl Default for Forwards {
@@ -110,6 +114,7 @@ impl Default for Forwards {
         Self {
             listeners: Mutex::default(),
             tunnels: Arc::new(Semaphore::new(MAX_GATED_TUNNELS)),
+            gated: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -185,6 +190,7 @@ impl Forwards {
             last: Mutex::new(Instant::now()),
         });
         let tunnels = Arc::clone(&self.tunnels);
+        let gated = Arc::clone(&self.gated);
         let task = runtime.spawn(async move {
             let mut accepts = JoinSet::new();
             for listener in listeners_here {
@@ -193,6 +199,7 @@ impl Forwards {
                     host_port,
                     state.clone(),
                     Arc::clone(&tunnels),
+                    Arc::clone(&gated),
                     Arc::clone(&activity),
                 ));
             }
@@ -271,6 +278,7 @@ async fn accept(
     host_port: u16,
     state: watch::Receiver<SyncState>,
     limit: Arc<Semaphore>,
+    gated: Arc<AtomicBool>,
     activity: Arc<Activity>,
 ) {
     let mut tunnels = JoinSet::new();
@@ -287,6 +295,7 @@ async fn accept(
                 let connection = state.borrow().connection.clone();
                 if let Some(conn) = connection {
                     let limit = Arc::clone(&limit);
+                    let gated = Arc::clone(&gated);
                     let activity = Arc::clone(&activity);
                     activity.open.fetch_add(1, Ordering::Relaxed);
                     let state = state.clone();
@@ -294,6 +303,9 @@ async fn accept(
                         let mut conn = conn;
                         let mut _permit = None;
                         if conn.tcp_gated() {
+                            gated.store(true, Ordering::Relaxed);
+                        }
+                        if gated.load(Ordering::Relaxed) {
                             _permit = limit.acquire_owned().await.ok();
                             // The wait can outlast a reconnect.
                             if let Some(fresh) = state.borrow().connection.clone() {
@@ -301,6 +313,9 @@ async fn accept(
                             }
                         }
                         let _ = conn.forward_tcp(host_port, stream).await;
+                        if conn.tcp_gated() {
+                            gated.store(true, Ordering::Relaxed);
+                        }
                         activity.touch();
                         activity.open.fetch_sub(1, Ordering::Relaxed);
                     });
