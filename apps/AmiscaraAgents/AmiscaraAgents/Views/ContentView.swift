@@ -32,6 +32,10 @@ struct ContentView: View {
                 WorkspaceDetailView(selection: $selection)
             }
             .sidebarAtFold($foldWidth)
+            .overlay(alignment: .bottom) {
+                // Pages agents on the hosts want opened (#247).
+                OpenRequestBanner()
+            }
             #endif
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in

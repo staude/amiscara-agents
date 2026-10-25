@@ -42,15 +42,20 @@ guard key.publicOpenssh.hasPrefix("ssh-ed25519 "), key.fingerprint.hasPrefix("SH
     fail("generated key looks wrong")
 }
 // Only the herdr socket, no forwarding (#132); SFTP only with uploads on.
-let line = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: false, socketPath: nil)
+let line = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: false, allowWeb: false, socketPath: nil)
 guard line.hasPrefix("restrict,command=\""), line.contains("*sftp*) exit 1 ;;"), !line.contains("port-forwarding") else {
     fail("authorized_keys line: \(line)")
 }
-let sftpLine = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: true, socketPath: nil)
+let sftpLine = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: true, allowWeb: false, socketPath: nil)
 guard sftpLine.contains("*sftp*) exec /usr/libexec/sftp-server ;;") else {
     fail("authorized_keys line with SFTP: \(sftpLine)")
 }
-if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AAAA x", allowSftp: false, socketPath: nil)) != nil {
+// Pages on the host's localhost only with web forwarding on (#247).
+let webLine = try authorizedKeysLine(publicOpenssh: key.publicOpenssh, allowSftp: false, allowWeb: true, socketPath: nil)
+guard webLine.contains("amiscara-tcp*)"), !line.contains("amiscara-tcp"), !webLine.contains("port-forwarding") else {
+    fail("authorized_keys line with web forwarding: \(webLine)")
+}
+if (try? authorizedKeysLine(publicOpenssh: key.publicOpenssh + "\nssh-ed25519 AAAA x", allowSftp: false, allowWeb: false, socketPath: nil)) != nil {
     fail("multi-line public key was accepted")
 }
 print("ok   keys: \(key.fingerprint)")

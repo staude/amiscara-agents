@@ -74,6 +74,15 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
         set { allowUpload = newValue }
     }
 
+    /// Whether the key line lets pages on the host's `localhost` through,
+    /// for pages agents open there (#247). Missing means off.
+    var allowWebForward: Bool?
+
+    var webForwardAllowed: Bool {
+        get { allowWebForward ?? false }
+        set { allowWebForward = newValue }
+    }
+
     static func local() -> HostConfig {
         HostConfig(name: String(localized: "Dieser Mac"), kind: .local)
     }

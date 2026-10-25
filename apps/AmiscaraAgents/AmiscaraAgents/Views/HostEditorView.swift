@@ -213,8 +213,11 @@ struct HostEditorView: View {
     private var keySection: some View {
         Section {
             Toggle("Bilder hochladen (SFTP)", isOn: $config.uploadAllowed)
+            #if !os(tvOS)
+            Toggle("Lokale Webseiten weiterleiten", isOn: $config.webForwardAllowed)
+            #endif
             if let publicKey = config.publicKey {
-                let line = (try? authorizedKeysLine(publicOpenssh: publicKey, allowSftp: config.uploadAllowed, socketPath: config.socketPath.isEmpty ? nil : config.socketPath)) ?? publicKey
+                let line = (try? authorizedKeysLine(publicOpenssh: publicKey, allowSftp: config.uploadAllowed, allowWeb: config.webForwardAllowed, socketPath: config.socketPath.isEmpty ? nil : config.socketPath)) ?? publicKey
                 Text(line)
                     .font(.system(.caption, design: .monospaced))
                     .selectableText()
@@ -253,6 +256,9 @@ struct HostEditorView: View {
                 if config.uploadAllowed {
                     Text("Mit „Bilder hochladen“ läuft für diesen Schlüssel sftp-server. Er kann dann alle Dateien Ihres Benutzers lesen und schreiben, auch ~/.ssh/authorized_keys, und sich so selbst mehr Rechte geben. Nach dem Umschalten die Zeile auf dem Server ersetzen.")
                         .foregroundStyle(.orange)
+                }
+                if config.webForwardAllowed {
+                    Text("Mit „Lokale Webseiten weiterleiten“ erreicht der Schlüssel zusätzlich Ports unter localhost auf dem Server, damit Seiten, die ein Agent dort öffnet, auch hier laden. Nach dem Umschalten die Zeile auf dem Server ersetzen.")
                 }
             }
         }

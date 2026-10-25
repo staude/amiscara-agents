@@ -64,6 +64,8 @@ final class HostConnection: Identifiable {
     func apply(_ config: HostConfig) {
         var regrouped = self.config
         regrouped.groupSpaces = config.groupSpaces
+        // Only changes the key line, not the session.
+        regrouped.allowWebForward = config.allowWebForward
         if regrouped == config, let session {
             self.config = config
             session.setGroupSpacesByName(on: config.groupSpacesByName)
@@ -295,6 +297,27 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The address to open for a page an agent asked for (#247): a page on
+    /// the host's `localhost` is forwarded through the connection to a
+    /// port on this device, other URLs come back unchanged.
+    func openAddress(for request: OpenRequest) async throws -> String {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        let url = request.url
+        return try await Task.detached {
+            try session.openUrl(url: url)
+        }.value
+    }
+
+    /// Takes an open request back on the host, so other devices stop
+    /// offering it. Best effort: the request expires on its own.
+    func dismiss(_ request: OpenRequest) async {
+        guard let session else { return }
+        let (paneID, requestID) = (request.paneId, request.requestId)
+        try? await Task.detached {
+            try session.dismissOpenRequest(paneId: paneID, requestId: requestID)
+        }.value
+    }
+
     /// Types text into a pane without Enter.
     func send(text: String, to paneID: String) async throws {
         let session = try writableSession()
@@ -379,6 +402,8 @@ func inputErrorMessage(_ error: Error) -> String {
         String(localized: "Dateien auf dem Host nicht lesbar: \(message)")
     case FfiError.AgentWorking:
         String(localized: "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt.")
+    case FfiError.Forward:
+        String(localized: "Der Host leitet localhost für dieses Gerät nicht weiter. „Lokale Webseiten weiterleiten“ einschalten (Host bearbeiten) und die neue Schlüsselzeile auf dem Host eintragen.")
     default:
         error.localizedDescription
     }

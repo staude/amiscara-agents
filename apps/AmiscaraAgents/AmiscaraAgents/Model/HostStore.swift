@@ -153,6 +153,19 @@ final class HostStore {
         }
     }
 
+    /// Open requests hidden on this device with "Ignorieren", by `key`.
+    var ignoredOpenRequests: Set<String> = []
+
+    /// Pages agents on the hosts want opened (#247), over all hosts in
+    /// sidebar order, without those ignored here. A request leaves once any
+    /// device opened it or its time ran out.
+    var openRequests: [PendingOpen] {
+        connections.flatMap { connection in
+            (connection.update?.openRequests ?? []).map { PendingOpen(connection: connection, request: $0) }
+        }
+        .filter { !ignoredOpenRequests.contains($0.key) }
+    }
+
     func connection(for id: UUID?) -> HostConnection? {
         connections.first { $0.id == id }
     }
@@ -235,4 +248,14 @@ final class HostStore {
         // Added, removed or renamed hosts show in the widgets at once.
         widgets.publish(self)
     }
+}
+
+/// A page an agent on a host wants opened, with its host.
+struct PendingOpen: Identifiable {
+    let connection: HostConnection
+    let request: OpenRequest
+
+    /// Unique over hosts and panes; a new request of the pane gets a new one.
+    var key: String { "\(connection.id)|\(request.paneId)|\(request.requestId)" }
+    var id: String { key }
 }

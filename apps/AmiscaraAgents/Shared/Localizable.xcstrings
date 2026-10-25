@@ -646,6 +646,16 @@
         }
       }
     },
+    "Agent in %@ möchte eine Seite öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An agent in %@ wants to open a page"
+          }
+        }
+      }
+    },
     "Agent starten" : {
       "localizations" : {
         "en" : {
@@ -1432,6 +1442,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This agent's host is not set up on this device."
+          }
+        }
+      }
+    },
+    "Der Host leitet localhost für dieses Gerät nicht weiter. „Lokale Webseiten weiterleiten“ einschalten (Host bearbeiten) und die neue Schlüsselzeile auf dem Host eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The host does not forward its localhost for this device. Turn on “Forward local web pages” (edit host) and add the new key line on the host."
           }
         }
       }
@@ -2406,6 +2426,16 @@
         }
       }
     },
+    "Ignorieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ignore"
+          }
+        }
+      }
+    },
     "Im Code fehlt der Benutzer." : {
       "localizations" : {
         "en" : {
@@ -2876,6 +2906,16 @@
         }
       }
     },
+    "Lokale Webseiten weiterleiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forward local web pages"
+          }
+        }
+      }
+    },
     "Löschen" : {
       "localizations" : {
         "en" : {
@@ -2962,6 +3002,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "With “Upload images”, sftp-server runs for this key. It can then read and write all files of your user, including ~/.ssh/authorized_keys, and so give itself more rights. After switching, replace the line on the server."
+          }
+        }
+      }
+    },
+    "Mit „Lokale Webseiten weiterleiten“ erreicht der Schlüssel zusätzlich Ports unter localhost auf dem Server, damit Seiten, die ein Agent dort öffnet, auch hier laden. Nach dem Umschalten die Zeile auf dem Server ersetzen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With “Forward local web pages” the key also reaches ports on localhost of the server, so pages an agent opens there load here too. Replace the line on the server after switching."
           }
         }
       }
@@ -4472,6 +4522,16 @@
         }
       }
     },
+    "Ungültige Adresse: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid address: %@"
+          }
+        }
+      }
+    },
     "Ungültiger Schlüssel: %@" : {
       "localizations" : {
         "en" : {
@@ -5438,6 +5498,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Changes not readable"
+          }
+        }
+      }
+    },
+    "Öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
           }
         }
       }
