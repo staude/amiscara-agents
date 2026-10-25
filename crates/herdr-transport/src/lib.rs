@@ -328,13 +328,17 @@ impl Connection {
     /// older line, or a shell without `amiscara-tcp`) this fails within
     /// [`TCP_GATE_TIMEOUT`] instead of handing out a stream to `herdr.sock`.
     async fn open_tcp(&self, port: u16) -> Result<BufReader<Box<dyn Stream>>, TransportError> {
-        let Inner::Ssh {
-            handle, tcp_gated, ..
-        } = &self.inner
-        else {
-            return Err(TransportError::Forward(
-                "a local connection has nothing to forward".into(),
-            ));
+        // A `match`, since on Windows `Ssh` is the only variant.
+        let (handle, tcp_gated) = match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                return Err(TransportError::Forward(
+                    "a local connection has nothing to forward".into(),
+                ));
+            }
+            Inner::Ssh {
+                handle, tcp_gated, ..
+            } => (handle, tcp_gated),
         };
         if !tcp_gated.load(Ordering::Relaxed) {
             match handle
