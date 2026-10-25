@@ -6,3 +6,4 @@ apps/AmiscaraAgents/Generated/
 __pycache__/
 CLAUDE.local.md
 HANDOFF.md
+.worktrees/
