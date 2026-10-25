@@ -387,6 +387,18 @@ impl Session {
         // request: herdr has no compare-and-set, and clearing could take a
         // newer request of the pane along that this client has not seen
         // yet. The mark outlives the request (same time to live, set later).
+        // An older id must not hide a newer request another client marked.
+        let current = self.state.lock().ok().and_then(|state| {
+            let session = state.as_ref()?.borrow().session.clone()?;
+            session
+                .pane(pane_id)?
+                .tokens
+                .get(herdr_core::OPEN_ID_TOKEN)
+                .cloned()
+        });
+        if current.as_deref() != Some(request_id) {
+            return Ok(());
+        }
         let conn = self.connection()?;
         conn.request(
             "pane.report_metadata",

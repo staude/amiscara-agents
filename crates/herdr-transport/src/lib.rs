@@ -386,6 +386,16 @@ impl Connection {
         }
     }
 
+    /// Whether TCP goes through the `amiscara-tcp` gate, so every tunnel
+    /// takes an SSH session channel; known after the first attempt.
+    pub fn tcp_gated(&self) -> bool {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => false,
+            Inner::Ssh { tcp_gated, .. } => tcp_gated.load(Ordering::Relaxed),
+        }
+    }
+
     /// Checks that `localhost:<port>` on the host can be reached, with one
     /// short connection to it.
     pub async fn check_tcp(&self, port: u16) -> Result<(), TransportError> {

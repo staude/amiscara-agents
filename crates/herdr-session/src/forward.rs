@@ -41,11 +41,12 @@ pub(crate) fn with_port(url: &str, port: u16, ipv6: bool) -> Option<String> {
     ))
 }
 
-/// At most this many tunnels at once per session; more browser
+/// At most this many gated tunnels at once per session; more browser
 /// connections wait for a free one. With a restricted key every tunnel is
 /// an SSH session channel, and sshd allows 10 per connection by default
-/// (`MaxSessions`), herdr's subscriptions included.
-const MAX_TUNNELS: usize = 4;
+/// (`MaxSessions`), herdr's two subscriptions and requests included.
+/// `direct-tcpip` tunnels do not count there and are not limited.
+const MAX_GATED_TUNNELS: usize = 5;
 /// A listener without connections for this long closes; the agent opens
 /// the page again when it is needed. Until then other programs on this
 /// machine could reach the host's port too.
@@ -108,7 +109,7 @@ impl Default for Forwards {
     fn default() -> Self {
         Self {
             listeners: Mutex::default(),
-            tunnels: Arc::new(Semaphore::new(MAX_TUNNELS)),
+            tunnels: Arc::new(Semaphore::new(MAX_GATED_TUNNELS)),
         }
     }
 }
@@ -288,10 +289,18 @@ async fn accept(
                     let limit = Arc::clone(&limit);
                     let activity = Arc::clone(&activity);
                     activity.open.fetch_add(1, Ordering::Relaxed);
+                    let state = state.clone();
                     tunnels.spawn(async move {
-                        if let Ok(_permit) = limit.acquire_owned().await {
-                            let _ = conn.forward_tcp(host_port, stream).await;
+                        let mut conn = conn;
+                        let mut _permit = None;
+                        if conn.tcp_gated() {
+                            _permit = limit.acquire_owned().await.ok();
+                            // The wait can outlast a reconnect.
+                            if let Some(fresh) = state.borrow().connection.clone() {
+                                conn = fresh;
+                            }
                         }
+                        let _ = conn.forward_tcp(host_port, stream).await;
                         activity.touch();
                         activity.open.fetch_sub(1, Ordering::Relaxed);
                     });

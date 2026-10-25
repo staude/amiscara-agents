@@ -267,8 +267,8 @@ amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) 
 Only digits reach `nc`. Without the case the app says that the host does
 not forward `localhost` for this device; existing hosts need the new line
 once. Each browser connection then takes one SSH session of the key, so
-the app keeps at most four open at a time (sshd allows ten per connection
-by default). A forwarded port closes on the device after 30 minutes
+the app keeps at most five open at a time (sshd allows ten per connection
+by default); a page with more waits for a free one. A forwarded port closes on the device after 30 minutes
 without connections; the agent opens the page again when needed.
 
 Older lines used `restrict,port-forwarding,command="/usr/bin/false"` and a
