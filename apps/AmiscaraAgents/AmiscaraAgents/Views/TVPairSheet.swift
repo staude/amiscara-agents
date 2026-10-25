@@ -64,7 +64,7 @@ struct TVPairSheet: View {
                 } footer: {
                     Text("Koppeln gibt diesem Apple TV dauerhaft Zugriff auf herdr auf den gewählten Hosts. Auf jedem kommt diese Zeile in ~/.ssh/authorized_keys (die alte Datei bleibt als authorized_keys.bak-amiscara): nur Zugriff auf herdr, keine Shell, keine Dateien.")
                 }
-                if let line = try? authorizedKeysLine(publicOpenssh: link.publicKey, allowSftp: false, socketPath: nil) {
+                if let line = try? authorizedKeysLine(publicOpenssh: link.publicKey, allowSftp: false, allowWeb: false, socketPath: nil) {
                     Section("Zeile") {
                         // As written by the core: the key's own comment
                         // replaced by one naming the device.

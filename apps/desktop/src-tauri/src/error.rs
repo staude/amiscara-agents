@@ -72,6 +72,7 @@ impl AppError {
                 SessionError::InvalidLink(_) => "invalidLink",
                 SessionError::Files(_) => "files",
                 SessionError::AgentWorking(_) => "agentWorking",
+                SessionError::Forward(_) => "forward",
             },
             Self::Store(_) => "store",
             Self::KeyStore(_) => "keyStore",

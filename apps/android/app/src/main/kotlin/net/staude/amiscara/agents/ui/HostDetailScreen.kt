@@ -155,8 +155,9 @@ private fun HostKeyCard(host: HostConfig, key: String, fingerprint: String, chan
 private fun DeviceKeyCard(host: HostConfig, app: AmiscaraApp, showError: (String) -> Unit) {
     val publicKey = host.publicKey ?: return
     val allowSftp = host.allowUpload ?: false
-    val line = remember(publicKey, allowSftp, host.customSocket) {
-        runCatching { authorizedKeysLine(publicKey, allowSftp, host.customSocket) }
+    val allowWeb = host.allowWebForward ?: false
+    val line = remember(publicKey, allowSftp, allowWeb, host.customSocket) {
+        runCatching { authorizedKeysLine(publicKey, allowSftp, allowWeb, host.customSocket) }
     }
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
@@ -168,7 +169,8 @@ private fun DeviceKeyCard(host: HostConfig, app: AmiscaraApp, showError: (String
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.device_key), style = MaterialTheme.typography.titleSmall)
             Text(
-                stringResource(if (allowSftp) R.string.device_key_text_sftp else R.string.device_key_text, host.host),
+                stringResource(if (allowSftp) R.string.device_key_text_sftp else R.string.device_key_text, host.host) +
+                    if (allowWeb) " " + stringResource(R.string.device_key_web) else "",
                 style = MaterialTheme.typography.bodySmall,
             )
             line.fold(

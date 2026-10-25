@@ -16,7 +16,7 @@
     line = null;
     if (host.kind === "ssh" && host.auth === "key" && host.publicKey) {
       core
-        .keyLine(host.id, host.allowUpload ?? false)
+        .keyLine(host.id, host.allowUpload ?? false, host.allowWebForward ?? false)
         .then((text) => (line = text))
         .catch((err) => (error = core.errorText(err)));
     }
@@ -136,6 +136,7 @@
         {t("keyLineBefore", { host: host.host })} <code>~/.ssh/authorized_keys</code>{host.allowUpload
           ? t("keyLineAfterSftp")
           : t("keyLineAfter")}
+        {#if host.allowWebForward}{t("keyLineWeb")}{/if}
       </p>
       {#if line}
         <pre class="detail key">{line}</pre>

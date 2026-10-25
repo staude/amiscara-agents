@@ -25,6 +25,8 @@ data class HostConfig(
     val allowInput: Boolean? = null,
     /** Whether files may be uploaded over SFTP; missing means off. */
     val allowUpload: Boolean? = null,
+    /** Whether the key's line lets pages on the host's localhost through (#247); missing means off. */
+    val allowWebForward: Boolean? = null,
     /** Notifications when an agent waits or finishes; missing means on. */
     val notify: Boolean? = null,
     /** Grouping of "Bereich/Name" spaces; missing means on. */

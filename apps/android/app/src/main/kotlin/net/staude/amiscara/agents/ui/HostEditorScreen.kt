@@ -70,6 +70,7 @@ fun HostEditorScreen(
                 socketPath = socket,
                 publicKey = null,
                 allowUpload = false,
+                allowWebForward = false,
             )
         }
     }
@@ -84,6 +85,7 @@ fun HostEditorScreen(
     var socketTouched by remember { mutableStateOf(initial != null) }
     var allowInput by remember { mutableStateOf(initial?.allowInput ?: true) }
     var allowUpload by remember { mutableStateOf(initial?.allowUpload ?: false) }
+    var allowWebForward by remember { mutableStateOf(initial?.allowWebForward ?: false) }
     var groupSpaces by remember { mutableStateOf(initial?.groupSpacesByName ?: true) }
     var notify by remember { mutableStateOf(initial?.notify ?: true) }
     var session by remember { mutableStateOf(initial?.socketPath?.let(::sessionNameOfSocket) ?: "") }
@@ -110,6 +112,7 @@ fun HostEditorScreen(
             socketPath = effectiveSocket,
             allowInput = allowInput,
             allowUpload = allowUpload,
+            allowWebForward = allowWebForward,
             groupSpaces = groupSpaces,
             notify = notify,
         )
@@ -216,6 +219,7 @@ fun HostEditorScreen(
             )
             SwitchRow(stringResource(R.string.allow_input), allowInput) { allowInput = it }
             SwitchRow(stringResource(R.string.allow_upload), allowUpload) { allowUpload = it }
+            SwitchRow(stringResource(R.string.allow_web_forward), allowWebForward) { allowWebForward = it }
             SwitchRow(stringResource(R.string.group_spaces), groupSpaces) { groupSpaces = it }
             SwitchRow(stringResource(R.string.host_notify), notify) { notify = it }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

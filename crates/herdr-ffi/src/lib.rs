@@ -21,8 +21,8 @@ pub use add_host::{
     encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate,
-    SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
+    AgentState, BoardItem, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem, ScrollStep,
+    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
     TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
 pub use convert::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff};
@@ -57,6 +57,10 @@ pub enum FfiError {
     /// herdr collects a full-screen agent's history only while it is idle.
     #[error("{0}")]
     AgentWorking(String),
+    /// The host does not forward its `localhost` for this key; renew the
+    /// key's `authorized_keys` line with web forwarding (#247).
+    #[error("{0}")]
+    Forward(String),
 }
 
 impl From<SessionError> for FfiError {
@@ -72,6 +76,7 @@ impl From<SessionError> for FfiError {
             SessionError::InvalidLink(err) => Self::Rejected(err.to_string()),
             SessionError::Files(message) => Self::Files(message),
             SessionError::AgentWorking(message) => Self::AgentWorking(message),
+            SessionError::Forward(message) => Self::Forward(message),
         }
     }
 }
@@ -178,8 +183,9 @@ pub fn describe_ssh_key(private_openssh: String) -> Result<SshKey, FfiError> {
 /// (`restrict`), and a forced command that connects every session to the
 /// herdr socket. With `allow_sftp`, an SFTP request runs `sftp-server`
 /// instead (uploads, history), which can read and write all files of the
-/// user; without it SFTP is refused. The apps reach herdr through a session
-/// running `herdr` once sshd refuses their streamlocal channel.
+/// user; without it SFTP is refused. With `allow_web`, the app can reach
+/// ports on the host's `localhost` (#247). The apps reach herdr through a
+/// session running `herdr` once sshd refuses their streamlocal channel.
 ///
 /// `socket_path`: the host's `herdr.sock` when it is not the default
 /// `$HOME/.config/herdr/herdr.sock`; absolute, without quotes or `$`.
@@ -191,11 +197,13 @@ pub fn describe_ssh_key(private_openssh: String) -> Result<SshKey, FfiError> {
 pub fn authorized_keys_line(
     public_openssh: String,
     allow_sftp: bool,
+    allow_web: bool,
     socket_path: Option<String>,
 ) -> Result<String, FfiError> {
     Ok(herdr_session::authorized_keys_line(
         &public_openssh,
         allow_sftp,
+        allow_web,
         socket_path.as_deref(),
     )?)
 }
@@ -365,6 +373,25 @@ impl HostSession {
     /// Ends the session and closes the connection. Pane followers stop too.
     pub fn stop(&self) {
         self.session.stop();
+    }
+
+    /// The address to open for a page an agent asked for (#247): a page on
+    /// the host's `localhost` is forwarded through the connection to a port
+    /// on this device, other URLs come back unchanged. Fails with `Forward`
+    /// when the key's line does not allow it. Blocks for a moment; call it
+    /// off the main thread.
+    pub fn open_url(&self, url: String) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.open_url(&url))?)
+    }
+
+    /// Takes an open request back on the host, so other devices stop
+    /// offering it. Blocks for one round trip.
+    pub fn dismiss_open_request(
+        &self,
+        pane_id: String,
+        request_id: String,
+    ) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.dismiss_open_request(&pane_id, &request_id))?)
     }
 
     /// Sends a prompt to the agent in a pane, followed by Enter. Blocks for

@@ -204,6 +204,11 @@ pub struct PaneInfo {
     pub agent_status: AgentStatus,
     #[serde(default)]
     pub revision: u64,
+    /// Custom values set via `pane.report_metadata`, merged per source;
+    /// herdr cuts each value to 80 characters. The host's browser stand-in
+    /// reports opened URLs here (`open_id`, `open_url_0`, ...).
+    #[serde(default)]
+    pub tokens: BTreeMap<String, String>,
 }
 
 /// `pane.get` result.

@@ -3,6 +3,7 @@
 //! The Swift apps reach this through `herdr-ffi`, the desktop app directly.
 
 pub mod access;
+mod forward;
 pub mod link;
 pub mod session;
 pub mod sessions;

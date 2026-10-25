@@ -63,6 +63,10 @@ pub struct HostConfig {
     /// Whether files may be uploaded over SFTP; missing means off.
     #[serde(default)]
     pub allow_upload: Option<bool>,
+    /// Whether the key's line lets pages on the host's `localhost` through
+    /// (#247); missing means off.
+    #[serde(default)]
+    pub allow_web_forward: Option<bool>,
     /// Notifications when an agent waits or finishes; missing means on.
     #[serde(default)]
     pub notify: Option<bool>,

@@ -42,6 +42,7 @@
     <string name="trust_host_key">Host-Key vertrauen</string>
     <string name="device_key">Schlüssel dieses Geräts</string>
     <string name="device_key_text">Diese Zeile auf %1$s in ~/.ssh/authorized_keys eintragen. Sie lässt nur den herdr-Socket zu.</string>
+    <string name="device_key_web">Sie lässt außerdem Seiten unter localhost des Hosts durch.</string>
     <string name="device_key_text_sftp">Diese Zeile auf %1$s in ~/.ssh/authorized_keys eintragen. Sie lässt nur den herdr-Socket und Dateien per SFTP zu.</string>
     <string name="copy_line">Zeile kopieren</string>
     <string name="copied">Kopiert</string>
@@ -77,6 +78,7 @@
     <string name="add_session_continue">Weiter</string>
     <string name="allow_input">Eingaben an Agents senden (Prompts, Tasten, Anlegen und Schließen)</string>
     <string name="allow_upload">Dateien hochladen (SFTP, Zugriff auf alle Dateien des Benutzers)</string>
+    <string name="allow_web_forward">Lokale Webseiten weiterleiten (Seiten unter localhost des Hosts, die Agenten öffnen)</string>
     <string name="group_spaces">Spaces nach „Bereich/Name“ gruppieren</string>
 
     <!-- Add from link -->
@@ -294,6 +296,10 @@
     <string name="error_agent_blocked">Der Agent wartet auf eine Antwort. Bitte zuerst beantworten.</string>
     <string name="error_upload">Hochladen fehlgeschlagen: %1$s</string>
     <string name="error_files">Dateien auf dem Host nicht lesbar: %1$s</string>
+    <string name="error_forward">Der Host leitet localhost für dieses Gerät nicht weiter. Unter „Bearbeiten“ „Lokale Webseiten weiterleiten“ einschalten und die neue Schlüsselzeile auf dem Host eintragen.</string>
+    <string name="open_request_title">Ein Agent in %1$s möchte eine Seite öffnen</string>
+    <string name="open_request_open">Öffnen</string>
+    <string name="open_request_ignore">Ignorieren</string>
     <string name="error_agent_working">Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt.</string>
     <string name="error_host_key_conflict">„%1$s“ unter derselben Adresse vertraut einem anderen Host-Key. Der Link wurde nicht übernommen. Prüfen Sie den Host-Key auf dem Server.</string>
     <string name="error_host_user_missing">Host und Benutzer fehlen.</string>

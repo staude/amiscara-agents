@@ -28,6 +28,7 @@ const host = (id: string, name: string, kind: "ssh" | "local"): HostConfig => ({
   auth: "key",
   allowInput: true,
   allowUpload: true,
+  allowWebForward: true,
   notify: null,
   groupSpaces: null,
   spaceSort: null,
@@ -158,6 +159,16 @@ const update: SessionUpdate = {
   ],
   board,
   attention: [],
+  openRequests: [
+    {
+      paneId: "p1",
+      requestId: "1761400000-4242",
+      url: "http://localhost:5173/mockup",
+      workspaceLabel: "Privat/Dorfkino",
+      paneTitle: "claude",
+      localAddress: true,
+    },
+  ],
 };
 
 const color = (kind: "default" | number | [number, number, number]): TermColor =>
@@ -250,6 +261,11 @@ mockIPC(
       }
       case "key_line":
         return `restrict,command="…" ${hosts[0].publicKey}`;
+      case "open_request_url":
+        return a.url;
+      case "dismiss_open_request":
+        update.openRequests = update.openRequests.filter((r) => r.requestId !== a.requestId);
+        return null;
       case "follow_pane": {
         const channel = a.channel as { id: number };
         const paneId = a.paneId as string;

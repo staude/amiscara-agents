@@ -95,6 +95,8 @@ pub fn run() {
             app::agent_history,
             app::scroll_agent,
             app::upload,
+            app::open_request_url,
+            app::dismiss_open_request,
             app::quick_replies,
             app::set_language,
             app::save_quick_replies,

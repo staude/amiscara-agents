@@ -53,6 +53,11 @@ pub enum TransportError {
     /// directory is missing or not readable.
     #[error("file access failed: {0}")]
     Files(String),
+    /// The connection may not reach ports on the host: the key's line
+    /// lacks the `amiscara-tcp` case (or sshd forbids TCP forwarding), or
+    /// the connection is local.
+    #[error("port forwarding failed: {0}")]
+    Forward(String),
     /// The server presented a different key than the trusted one.
     #[error("host key for {host} changed, it is now {fingerprint}")]
     HostKeyChanged {
@@ -212,6 +217,10 @@ enum Inner {
         /// session to `herdr.sock` (#132). Requests then go over a session
         /// channel running `herdr`.
         gated: std::sync::atomic::AtomicBool,
+        /// The same for `direct-tcpip`: TCP then goes over a session channel
+        /// running `amiscara-tcp <port>`, which the key's line answers with
+        /// `nc localhost <port>` when it allows web forwarding.
+        tcp_gated: std::sync::atomic::AtomicBool,
     },
 }
 
@@ -278,6 +287,7 @@ impl Connection {
                 handle,
                 socket_path,
                 gated: std::sync::atomic::AtomicBool::new(false),
+                tcp_gated: std::sync::atomic::AtomicBool::new(false),
             },
             next_id: AtomicU64::new(1),
         })
@@ -291,6 +301,7 @@ impl Connection {
                 handle,
                 socket_path,
                 gated,
+                ..
             } => {
                 if !gated.load(Ordering::Relaxed) {
                     match handle
@@ -310,6 +321,100 @@ impl Connection {
                 Ok(Box::new(channel.into_stream()))
             }
         }
+    }
+
+    /// A channel to `localhost:<port>` on the host. Over the gate the
+    /// key's line first answers with [`TCP_GATE_READY`]; without it (an
+    /// older line, or a shell without `amiscara-tcp`) this fails within
+    /// [`TCP_GATE_TIMEOUT`] instead of handing out a stream to `herdr.sock`.
+    async fn open_tcp(&self, port: u16) -> Result<BufReader<Box<dyn Stream>>, TransportError> {
+        // A `match`, since on Windows `Ssh` is the only variant.
+        let (handle, tcp_gated) = match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                return Err(TransportError::Forward(
+                    "a local connection has nothing to forward".into(),
+                ));
+            }
+            Inner::Ssh {
+                handle, tcp_gated, ..
+            } => (handle, tcp_gated),
+        };
+        if !tcp_gated.load(Ordering::Relaxed) {
+            match handle
+                .channel_open_direct_tcpip("localhost", u32::from(port), "127.0.0.1", 0)
+                .await
+            {
+                Ok(channel) => {
+                    let stream: Box<dyn Stream> = Box::new(channel.into_stream());
+                    return Ok(BufReader::new(stream));
+                }
+                // `restrict` in the key's line: try the gate.
+                Err(russh::Error::ChannelOpenFailure(
+                    russh::ChannelOpenFailure::AdministrativelyProhibited,
+                )) => tcp_gated.store(true, Ordering::Relaxed),
+                Err(russh::Error::ChannelOpenFailure(russh::ChannelOpenFailure::ConnectFailed)) => {
+                    return Err(TransportError::Io(std::io::Error::new(
+                        std::io::ErrorKind::ConnectionRefused,
+                        format!("nothing answers on localhost:{port} on the host"),
+                    )));
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
+        let channel = handle.channel_open_session().await?;
+        channel.exec(true, format!("amiscara-tcp {port}")).await?;
+        let stream: Box<dyn Stream> = Box::new(channel.into_stream());
+        let mut reader = BufReader::new(stream);
+        let refused = || {
+            TransportError::Forward(
+                "the host does not forward localhost for this key; renew its authorized_keys line"
+                    .into(),
+            )
+        };
+        let mut line = String::new();
+        match tokio::time::timeout(TCP_GATE_TIMEOUT, reader.read_line(&mut line)).await {
+            Ok(Ok(_)) if line.trim_end() == TCP_GATE_READY => Ok(reader),
+            Ok(Ok(_)) if line.trim_end() == TCP_GATE_CLOSED => {
+                Err(TransportError::Io(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    format!("nothing answers on localhost:{port} on the host"),
+                )))
+            }
+            Ok(Err(err)) => Err(err.into()),
+            _ => Err(refused()),
+        }
+    }
+
+    /// Whether TCP goes through the `amiscara-tcp` gate, so every tunnel
+    /// takes an SSH session channel; known after the first attempt.
+    pub fn tcp_gated(&self) -> bool {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => false,
+            Inner::Ssh { tcp_gated, .. } => tcp_gated.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Checks that `localhost:<port>` on the host can be reached, with one
+    /// short connection to it.
+    pub async fn check_tcp(&self, port: u16) -> Result<(), TransportError> {
+        let mut stream = self.open_tcp(port).await?;
+        let _ = stream.shutdown().await;
+        Ok(())
+    }
+
+    /// Connects `local` with `localhost:<port>` on the host until either
+    /// side closes. Over SSH a `direct-tcpip` channel, for keys with the
+    /// restricted line the `amiscara-tcp` gate.
+    pub async fn forward_tcp(
+        &self,
+        port: u16,
+        mut local: tokio::net::TcpStream,
+    ) -> Result<(), TransportError> {
+        let mut remote = self.open_tcp(port).await?;
+        tokio::io::copy_bidirectional(&mut local, &mut remote).await?;
+        Ok(())
     }
 
     /// Opens the channel for one future request ahead of time.
@@ -634,6 +739,13 @@ impl Subscription {
         }
     }
 }
+
+/// What the `amiscara-tcp` case of a key's line prints before it connects.
+pub const TCP_GATE_READY: &str = "amiscara-tcp";
+/// What it prints instead when nothing listens on the port.
+pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
+/// How long the gate may take to answer.
+const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Where herdr keeps its named sessions, below the home directory.
 pub const HERDR_SESSIONS_DIR: &str = ".config/herdr/sessions";

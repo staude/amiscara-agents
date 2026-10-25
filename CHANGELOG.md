@@ -503,6 +503,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
   attached), and the prompt is sent from there. The extension itself holds
   no SSH session. New App ID `net.staude.amiscara.agents.share` with the
   App Group.
+- Pages agents open on the host (#247): `scripts/host/amiscara-open` stands
+  in as `BROWSER` in herdr panes, opens the page on the host as before and
+  reports it as pane metadata (`open_id`, `open_url_0` to `open_url_14`,
+  two minutes). Mac (remote hosts), iPhone, iPad, Android and the desktop
+  app offer it ("Agent möchte eine Seite öffnen"); opening it on one device
+  takes it back on the host, so the others drop it. Pages on the host's
+  `localhost` load through the SSH connection: a listener on the device's
+  loopback, the same port where free, `direct-tcpip` or, for restricted
+  keys, the new `amiscara-tcp` case of the key line, switched on per host
+  with "Lokale Webseiten weiterleiten". Core: `PaneInfo::tokens`,
+  `SessionState::open_requests`, `SessionUpdate::open_requests`,
+  `Session::open_url`, `Session::dismiss_open_request`,
+  `Connection::forward_tcp`, `authorized_keys_line(…, allow_web, …)`.
 
 ### Changed
 

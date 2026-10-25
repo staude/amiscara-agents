@@ -1,7 +1,10 @@
 package net.staude.amiscara.agents.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.view.KeyEvent
 import android.widget.Toast
@@ -9,16 +12,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,12 +37,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
@@ -243,6 +253,7 @@ fun AppNavigation(app: AmiscaraApp) {
         }
 
         dialog?.let { ManageDialogView(app, it, dismiss = { dialog = null }, created = openSpace) }
+        OpenRequestDialog(app)
         if (switcher) {
             QuickSwitcher(app, dismiss = { switcher = false }) {
                 switcher = false
@@ -250,6 +261,55 @@ fun AppNavigation(app: AmiscaraApp) {
             }
         }
     }
+}
+
+/**
+ * Pages agents on the hosts want opened (#247), the first one at a time.
+ * Opening forwards a page on the host's localhost, hands it to the browser
+ * and takes the request back on the host, so other devices drop it too;
+ * ignoring hides it on this device only.
+ */
+@Composable
+private fun OpenRequestDialog(app: AmiscaraApp) {
+    val requests by app.connections.openRequests.collectAsStateWithLifecycle()
+    val pending = requests.firstOrNull() ?: return
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var error by remember(pending.key) { mutableStateOf<String?>(null) }
+    var opening by remember(pending.key) { mutableStateOf(false) }
+    val request = pending.request
+    AlertDialog(
+        onDismissRequest = { app.connections.ignore(pending) },
+        title = { Text(stringResource(R.string.open_request_title, request.workspaceLabel.ifEmpty { pending.hostName })) },
+        text = {
+            Column {
+                Text(request.url, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !opening, onClick = {
+                opening = true
+                scope.launch {
+                    app.connections.openAddress(pending).fold(
+                        onSuccess = { address ->
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(address)))
+                                app.connections.dismiss(pending)
+                            } catch (e: ActivityNotFoundException) {
+                                error = e.message
+                            }
+                        },
+                        onFailure = { error = it.message },
+                    )
+                    opening = false
+                }
+            }) { Text(stringResource(R.string.open_request_open)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { app.connections.ignore(pending) }) { Text(stringResource(R.string.open_request_ignore)) }
+        },
+    )
 }
 
 /** Keeps the selected space over rotation and process death. */

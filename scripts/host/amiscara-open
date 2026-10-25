@@ -1,0 +1,55 @@
+#!/bin/sh
+# Browser stand-in for herdr panes on a host (#247): opens the page as
+# before and offers it to the connected Amiscara Agents apps, which ask
+# "An agent wants to open a page". Set it as the browser of the shells in
+# herdr panes, e.g. in ~/.zshrc or ~/.bashrc:
+#
+#   [ -n "$HERDR_PANE_ID" ] && export BROWSER="$HOME/.amiscara-agents/bin/amiscara-open"
+#
+# The URL goes to the pane as metadata (`herdr pane report-metadata`,
+# source `amiscara-agents`): `open_id` plus the URL in pieces of 80
+# characters, `open_url_0` to `open_url_14`, since herdr cuts every value
+# to 80. Longer URLs (over 1200 characters) and anything but http(s) only
+# open on the host. The request vanishes after two minutes or once an app
+# opened it. Always exits 0, so the calling program carries on.
+
+url=${1-}
+
+# The real browser first. xdg-open would call this script again through
+# BROWSER, hence without it.
+case $(uname -s) in
+Darwin) open "$@" >/dev/null 2>&1 ;;
+*)
+    if [ -n "${DISPLAY-}" ] || [ -n "${WAYLAND_DISPLAY-}" ]; then
+        env -u BROWSER xdg-open "$@" >/dev/null 2>&1 &
+    fi
+    ;;
+esac
+
+[ -n "${HERDR_PANE_ID-}" ] || exit 0
+export LC_ALL=C
+case $url in
+http://* | https://*) ;;
+*) exit 0 ;;
+esac
+case $url in
+*[!!-~]*) exit 0 ;;
+esac
+[ "${#url}" -le 1200 ] || exit 0
+
+set -- pane report-metadata "$HERDR_PANE_ID" --source amiscara-agents \
+    --ttl-ms 120000 --token "open_id=$(date +%s)-$$"
+rest=$url
+i=0
+while [ "$i" -lt 15 ]; do
+    if [ -n "$rest" ]; then
+        set -- "$@" --token "open_url_$i=$(printf '%s' "$rest" | cut -c1-80)"
+        rest=$(printf '%s' "$rest" | cut -c81-)
+    else
+        # A shorter URL than the last one must not keep its tail.
+        set -- "$@" --clear-token "open_url_$i"
+    fi
+    i=$((i + 1))
+done
+"${HERDR_BIN_PATH:-herdr}" "$@" >/dev/null 2>&1
+exit 0

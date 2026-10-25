@@ -22,6 +22,7 @@
       auth: "key",
       allowInput: null,
       allowUpload: null,
+      allowWebForward: null,
       notify: null,
       groupSpaces: null,
       spaceSort: null,
@@ -199,6 +200,14 @@
           onchange={(e) => (draft.allowUpload = e.currentTarget.checked)}
         />
         {t("allowUpload")}
+      </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={draft.allowWebForward ?? false}
+          onchange={(e) => (draft.allowWebForward = e.currentTarget.checked)}
+        />
+        {t("allowWebForward")}
       </label>
     {:else}
       <label class="row">
