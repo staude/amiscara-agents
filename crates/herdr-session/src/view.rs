@@ -55,6 +55,27 @@ pub struct SessionUpdate {
     /// Agents that started waiting or finished since the previous update;
     /// empty on the first update after start. For notifications.
     pub attention: Vec<BoardItem>,
+    /// Pages agents on the host want opened (#247), all that are pending
+    /// right now: a request leaves the list once a client opened it or its
+    /// time ran out. Always empty for a local host, whose own browser
+    /// opens them already.
+    pub open_requests: Vec<OpenRequest>,
+}
+
+/// A page an agent on the host wants opened, see
+/// [`SessionUpdate::open_requests`].
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenRequest {
+    pub pane_id: String,
+    /// Pass it back to `dismiss_open_request`.
+    pub request_id: String,
+    pub url: String,
+    pub workspace_label: String,
+    pub pane_title: String,
+    /// The URL points at the host itself (`localhost`, `127.0.0.1`,
+    /// `[::1]`); `open_url` forwards it through the connection.
+    pub local_address: bool,
 }
 
 /// One place in the sidebar's list of spaces.
@@ -224,12 +245,14 @@ pub enum TermColor {
 
 /// `group_by_name` is the host's setting for the "Bereich/Name" convention:
 /// off, every space keeps its full label and herdr's order. `sort` orders
-/// the spaces on each level of the sidebar.
+/// the spaces on each level of the sidebar. `open_requests` is false for a
+/// local host.
 pub fn session_update(
     state: &SyncState,
     previous: Option<&SessionState>,
     group_by_name: bool,
     sort: &SpaceSort,
+    open_requests: bool,
 ) -> SessionUpdate {
     let status = match &state.status {
         SyncStatus::Connecting => HostStatus::Connecting,
@@ -260,6 +283,7 @@ pub fn session_update(
             space_order: Vec::new(),
             board: Vec::new(),
             attention: Vec::new(),
+            open_requests: Vec::new(),
         };
     };
 
@@ -390,9 +414,33 @@ pub fn session_update(
         None => Vec::new(),
     };
 
+    let open_requests = if open_requests {
+        session
+            .open_requests()
+            .into_iter()
+            .map(|request| {
+                let pane = session.pane(&request.pane_id);
+                OpenRequest {
+                    workspace_label: pane
+                        .and_then(|pane| session.workspace(&pane.workspace_id))
+                        .map(|ws| ws.label.clone())
+                        .unwrap_or_default(),
+                    pane_title: pane.map(title).unwrap_or_default(),
+                    local_address: crate::forward::local_port(&request.url).is_some(),
+                    pane_id: request.pane_id,
+                    request_id: request.open_id,
+                    url: request.url,
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     SessionUpdate {
         status,
         attention,
+        open_requests,
         server_version: Some(session.version.clone()),
         protocol_supported: session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
         focused_pane_id: session.focused_pane_id.clone(),

@@ -37,6 +37,23 @@ pub enum Applied {
     NeedsSnapshot,
 }
 
+/// A page the host's browser stand-in (`scripts/host/amiscara-open`) wants
+/// opened, from a pane's `open_id` and `open_url_0`, `open_url_1`, ...
+/// tokens (herdr cuts every value to 80 characters).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenRequest {
+    pub pane_id: String,
+    /// Distinguishes requests of one pane; dismissing names it.
+    pub open_id: String,
+    pub url: String,
+}
+
+/// Token names of an [`OpenRequest`].
+pub const OPEN_ID_TOKEN: &str = "open_id";
+pub const OPEN_URL_TOKEN_PREFIX: &str = "open_url_";
+/// How many URL pieces the stand-in writes at most (15 × 80 characters).
+pub const OPEN_URL_PARTS: usize = 15;
+
 /// One agent on the board.
 #[derive(Debug, Clone, Copy)]
 pub struct BoardEntry<'a> {
@@ -135,6 +152,33 @@ impl SessionState {
                     .is_none_or(|old| old.agent_status != pane.agent_status)
             })
             .map(|pane| pane.pane_id.clone())
+            .collect()
+    }
+
+    /// Pages the panes ask to open right now, in pane order. A request
+    /// stays until the stand-in's time to live runs out or a client
+    /// dismisses it, so every client shows the same ones. Only `http` and
+    /// `https` URLs of printable ASCII count; the URL ends at the first
+    /// missing piece.
+    pub fn open_requests(&self) -> Vec<OpenRequest> {
+        self.panes
+            .iter()
+            .filter_map(|pane| {
+                let open_id = pane.tokens.get(OPEN_ID_TOKEN).filter(|id| !id.is_empty())?;
+                let url: String = (0..OPEN_URL_PARTS)
+                    .map_while(|i| pane.tokens.get(&format!("{OPEN_URL_TOKEN_PREFIX}{i}")))
+                    .map(String::as_str)
+                    .collect();
+                let scheme = url.split_once("://")?.0.to_ascii_lowercase();
+                (matches!(scheme.as_str(), "http" | "https")
+                    && url.len() > scheme.len() + 3
+                    && url.bytes().all(|byte| (b'!'..=b'~').contains(&byte)))
+                .then(|| OpenRequest {
+                    pane_id: pane.pane_id.clone(),
+                    open_id: open_id.clone(),
+                    url,
+                })
+            })
             .collect()
     }
 
@@ -639,5 +683,62 @@ mod tests {
             }}
         }));
         assert_eq!(state.apply(&moved), Applied::NeedsSnapshot);
+    }
+
+    fn with_tokens(tokens: &[(&str, &str)]) -> SessionState {
+        let mut state = snapshot();
+        state.panes[1].tokens = tokens
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+            .collect();
+        state
+    }
+
+    #[test]
+    fn open_requests_join_the_url_pieces() {
+        let state = with_tokens(&[
+            ("open_id", "1700000000-42"),
+            ("open_url_0", "http://localhost:5173/"),
+            ("open_url_1", "mockup?x=1"),
+            ("other", "kept apart"),
+        ]);
+        assert_eq!(
+            state.open_requests(),
+            vec![OpenRequest {
+                pane_id: "w1:p2".into(),
+                open_id: "1700000000-42".into(),
+                url: "http://localhost:5173/mockup?x=1".into(),
+            }]
+        );
+        // Every client sees the same request until it is gone.
+        assert_eq!(state.open_requests(), state.open_requests());
+        assert!(snapshot().open_requests().is_empty());
+    }
+
+    #[test]
+    fn open_requests_end_at_a_gap() {
+        let state = with_tokens(&[
+            ("open_id", "1-1"),
+            ("open_url_0", "https://example.com/"),
+            ("open_url_2", "ignored"),
+        ]);
+        assert_eq!(state.open_requests()[0].url, "https://example.com/");
+    }
+
+    #[test]
+    fn open_requests_need_an_id_and_a_web_scheme() {
+        for tokens in [
+            &[("open_url_0", "https://example.com/")][..],
+            &[("open_id", ""), ("open_url_0", "https://example.com/")],
+            &[("open_id", "1-1"), ("open_url_0", "file:///etc/passwd")],
+            &[("open_id", "1-1"), ("open_url_0", "javascript:alert(1)")],
+            &[("open_id", "1-1"), ("open_url_0", "https://")],
+            &[("open_id", "1-1"), ("open_url_0", "https://a b")],
+            &[("open_id", "1-1")],
+        ] {
+            assert!(with_tokens(tokens).open_requests().is_empty(), "{tokens:?}");
+        }
+        let upper = with_tokens(&[("open_id", "1-1"), ("open_url_0", "HTTPS://example.com")]);
+        assert_eq!(upper.open_requests().len(), 1);
     }
 }

@@ -16,10 +16,15 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
+use crate::forward::{self, Forwards};
 use crate::view::{self, PaneContent, SessionUpdate};
 
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
+
+/// The metadata source of the host's browser stand-in, which the apps
+/// write to when they dismiss an open request.
+const OPEN_SOURCE: &str = "amiscara-agents";
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -51,6 +56,11 @@ pub enum SessionError {
     /// herdr collects a full-screen agent's history only while it is idle.
     #[error("{0}")]
     AgentWorking(String),
+    /// The host does not forward its `localhost` for this key: the key's
+    /// `authorized_keys` line predates web forwarding (#247) and needs to
+    /// be renewed, or sshd forbids TCP forwarding.
+    #[error("{0}")]
+    Forward(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -227,6 +237,11 @@ pub struct Session {
     /// How spaces are sorted in the sidebar; a change rebuilds the same way.
     space_sort: watch::Sender<SpaceSort>,
     forward: JoinHandle<()>,
+    /// Over SSH: pages on the host's `localhost` need forwarding, and open
+    /// requests are reported (a local host opens them itself).
+    remote: bool,
+    /// Listeners for pages on the host's `localhost`, see [`Session::open_url`].
+    forwards: Forwards,
     runtime: Handle,
 }
 
@@ -242,6 +257,7 @@ impl Session {
         space_sort: SpaceSort,
         on_update: impl Fn(SessionUpdate) + Send + 'static,
     ) -> Result<Self, SessionError> {
+        let remote = matches!(endpoint, Endpoint::Ssh { .. });
         let connector = Connector::new(endpoint)?;
         let runtime = Handle::current();
         let rx = sync::spawn(move || {
@@ -258,7 +274,8 @@ impl Session {
                 let state = updates.borrow_and_update().clone();
                 let by_name = *grouping.borrow_and_update();
                 let sort = sorting.borrow_and_update().clone();
-                let update = view::session_update(&state, previous.as_deref(), by_name, &sort);
+                let update =
+                    view::session_update(&state, previous.as_deref(), by_name, &sort, remote);
                 if state.session.is_some() {
                     previous = state.session.clone();
                 }
@@ -281,6 +298,8 @@ impl Session {
             group_by_name,
             space_sort,
             forward,
+            remote,
+            forwards: Forwards::default(),
             runtime,
         })
     }
@@ -308,6 +327,7 @@ impl Session {
     /// Ends the session and closes the connection. Pane followers stop too.
     pub fn stop(&self) {
         self.forward.abort();
+        self.forwards.stop();
         if let Ok(mut state) = self.state.lock() {
             state.take();
         }
@@ -319,6 +339,82 @@ impl Session {
             .ok()
             .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().connection.clone()))
             .ok_or_else(|| SessionError::NotConnected("not connected to herdr".into()))
+    }
+
+    /// The address to open for a page an agent asked for (#247). A page on
+    /// the host's own `localhost` gets a listener on this machine's
+    /// loopback that tunnels through the connection; the URL then names its
+    /// port and keeps the host name. Other URLs come back unchanged. Fails
+    /// with [`SessionError::Forward`] when the key's line does not allow
+    /// it, checked with one connection to the port.
+    pub async fn open_url(&self, url: &str) -> Result<String, SessionError> {
+        let Some(port) = forward::local_port(url).filter(|_| self.remote) else {
+            return Ok(url.to_owned());
+        };
+        let conn = self.connection()?;
+        conn.check_tcp(port).await.map_err(|err| match err {
+            TransportError::Forward(message) => SessionError::Forward(message),
+            TransportError::Io(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
+                SessionError::Rejected(err.to_string())
+            }
+            other => SessionError::NotConnected(other.to_string()),
+        })?;
+        let state = self
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.clone())
+            .ok_or_else(|| SessionError::NotConnected("session stopped".into()))?;
+        let local = self
+            .forwards
+            .ensure(port, state, &self.runtime)
+            .map_err(|err| SessionError::Forward(err.to_string()))?;
+        forward::with_port(url, local)
+            .ok_or_else(|| SessionError::Rejected(format!("cannot read the address {url}")))
+    }
+
+    /// Takes an open request back on the host, so no other client offers
+    /// it any more: clears its tokens unless the pane has asked for another
+    /// page meanwhile.
+    pub async fn dismiss_open_request(
+        &self,
+        pane_id: &str,
+        request_id: &str,
+    ) -> Result<(), SessionError> {
+        let current = self.state.lock().ok().and_then(|state| {
+            let session = state.as_ref()?.borrow().session.clone()?;
+            session
+                .pane(pane_id)?
+                .tokens
+                .get(herdr_core::OPEN_ID_TOKEN)
+                .cloned()
+        });
+        if current.as_deref() != Some(request_id) {
+            return Ok(());
+        }
+        let mut tokens = serde_json::Map::new();
+        tokens.insert(
+            herdr_core::OPEN_ID_TOKEN.to_owned(),
+            serde_json::Value::Null,
+        );
+        for i in 0..herdr_core::OPEN_URL_PARTS {
+            tokens.insert(
+                format!("{}{i}", herdr_core::OPEN_URL_TOKEN_PREFIX),
+                serde_json::Value::Null,
+            );
+        }
+        let conn = self.connection()?;
+        conn.request(
+            "pane.report_metadata",
+            serde_json::json!({
+                "pane_id": pane_id,
+                "source": OPEN_SOURCE,
+                "tokens": tokens,
+            }),
+        )
+        .await
+        .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        Ok(())
     }
 
     /// Sends a prompt to the agent in a pane, followed by Enter.
@@ -533,7 +629,7 @@ impl Session {
         let (Some(kind), Some(blob)) = (fields.next(), fields.next()) else {
             return Err(SessionError::Key("no key in line".into()));
         };
-        let base = format!("{} {kind} {blob}", gate_options(false, None)?);
+        let base = format!("{} {kind} {blob}", gate_options(false, false, None)?);
         let comment: String = comment
             .chars()
             .map(|ch| {

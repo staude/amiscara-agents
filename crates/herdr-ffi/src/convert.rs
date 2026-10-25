@@ -2,8 +2,9 @@
 //! types: same names and fields, so the Swift side is unchanged.
 
 pub use herdr_session::view::{
-    AgentState, BoardItem, HostStatus, PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot,
-    SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
+    AgentState, BoardItem, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
+    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
+    WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -42,6 +43,22 @@ pub struct SessionUpdate {
     /// Agents that started waiting or finished since the previous update;
     /// empty on the first update after start. For notifications.
     pub attention: Vec<BoardItem>,
+    /// Pages agents on the host want opened (#247), all pending ones;
+    /// always empty for a local host.
+    pub open_requests: Vec<OpenRequest>,
+}
+
+/// A page an agent on the host wants opened.
+#[uniffi::remote(Record)]
+pub struct OpenRequest {
+    pub pane_id: String,
+    /// Pass it back to `dismiss_open_request`.
+    pub request_id: String,
+    pub url: String,
+    pub workspace_label: String,
+    pub pane_title: String,
+    /// The URL points at the host itself; `open_url` forwards it.
+    pub local_address: bool,
 }
 
 /// One place in the sidebar's list of spaces.
