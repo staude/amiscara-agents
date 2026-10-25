@@ -44,6 +44,7 @@
     <string name="trust_host_key">Trust host key</string>
     <string name="device_key">This device\'s key</string>
     <string name="device_key_text">Add this line to ~/.ssh/authorized_keys on %1$s. It allows the herdr socket only.</string>
+    <string name="device_key_web">It also lets pages on the host\'s localhost through.</string>
     <string name="device_key_text_sftp">Add this line to ~/.ssh/authorized_keys on %1$s. It allows only the herdr socket and files over SFTP.</string>
     <string name="copy_line">Copy line</string>
     <string name="copied">Copied</string>
@@ -79,6 +80,7 @@
     <string name="add_session_continue">Continue</string>
     <string name="allow_input">Send input to agents (prompts, keys, creating and closing)</string>
     <string name="allow_upload">Upload files (SFTP, access to all of the user\'s files)</string>
+    <string name="allow_web_forward">Forward local web pages (pages on the host\'s localhost that agents open)</string>
     <string name="group_spaces">Group spaces by \"Area/Name\"</string>
 
     <!-- Add from link -->
@@ -300,6 +302,10 @@
     <string name="error_agent_blocked">The agent is waiting for an answer. Answer it first.</string>
     <string name="error_upload">Upload failed: %1$s</string>
     <string name="error_files">Cannot read files on the host: %1$s</string>
+    <string name="error_forward">The host does not forward its localhost for this device. Turn on “Forward local web pages” under “Edit” and add the new key line on the host.</string>
+    <string name="open_request_title">An agent in %1$s wants to open a page</string>
+    <string name="open_request_open">Open</string>
+    <string name="open_request_ignore">Ignore</string>
     <string name="error_agent_working">The agent is working. Its history is available once it is done; paging works already.</string>
     <string name="error_host_key_conflict">\"%1$s\" at the same address trusts a different host key. The link was not added. Check the host key on the server.</string>
     <string name="error_host_user_missing">Host and user are missing.</string>

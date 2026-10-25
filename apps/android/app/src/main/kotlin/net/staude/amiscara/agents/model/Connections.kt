@@ -6,9 +6,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -16,6 +19,7 @@ import net.staude.amiscara.agents.core.BoardItem
 import net.staude.amiscara.agents.core.FfiException
 import net.staude.amiscara.agents.core.HostSession
 import net.staude.amiscara.agents.core.HostStatus
+import net.staude.amiscara.agents.core.OpenRequest
 import net.staude.amiscara.agents.core.SessionObserver
 import net.staude.amiscara.agents.core.SessionUpdate
 import net.staude.amiscara.agents.R
@@ -29,7 +33,7 @@ import net.staude.amiscara.agents.R
  */
 class Connections(
     private val hosts: HostRepository,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     private val attention: (hostId: String, items: List<BoardItem>) -> Unit = { _, _ -> },
 ) {
     private class Running(val config: HostConfig, val session: HostSession)
@@ -47,6 +51,54 @@ class Connections(
 
     /** Why a host's session could not even start, per host id. */
     val startErrors: StateFlow<Map<String, String>> = startErrorState.asStateFlow()
+
+    /** Open requests hidden on this device with "Ignorieren", by [PendingOpen.key]. */
+    private val ignoredState = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Pages agents on the hosts want opened (#247), in host order, without
+     * those ignored here. A request leaves once any device opened it or its
+     * time ran out.
+     */
+    val openRequests: StateFlow<List<PendingOpen>> =
+        combine(hosts.hosts, updateState, ignoredState) { list, updates, ignored ->
+            list.flatMap { host ->
+                updates[host.id]?.openRequests.orEmpty().map { PendingOpen(host.id, host.name, it) }
+            }.filter { it.key !in ignored }
+        }.stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    /** Hides a request on this device only. */
+    fun ignore(request: PendingOpen) {
+        ignoredState.update { it + request.key }
+    }
+
+    /**
+     * The address to open for [request]: a page on the host's localhost is
+     * forwarded to a port on this device, other URLs come back unchanged.
+     * A failure carries a message for the user ([HostException]).
+     */
+    suspend fun openAddress(request: PendingOpen): Result<String> {
+        val session = running[request.hostId]?.session
+            ?: return Result.failure(HostException(Texts.get(R.string.no_connection)))
+        return withContext(Dispatchers.IO) {
+            try {
+                Result.success(session.openUrl(request.request.url))
+            } catch (e: FfiException) {
+                Result.failure(HostException(inputErrorMessage(e)))
+            } catch (e: IllegalStateException) {
+                Result.failure(HostException(Texts.get(R.string.no_connection)))
+            }
+        }
+    }
+
+    /** Takes [request] back on the host, so other devices drop it too; best effort. */
+    fun dismiss(request: PendingOpen) {
+        ignore(request)
+        val session = running[request.hostId]?.session ?: return
+        scope.launch(Dispatchers.IO) {
+            runCatching { session.dismissOpenRequest(request.request.paneId, request.request.requestId) }
+        }
+    }
 
     init {
         scope.launch { hosts.hosts.collect(::sync) }
@@ -173,5 +225,12 @@ fun inputErrorMessage(error: FfiException): String = when (error) {
     is FfiException.Upload -> Texts.get(R.string.error_upload, error.message.orEmpty())
     is FfiException.Files -> Texts.get(R.string.error_files, error.message.orEmpty())
     is FfiException.AgentWorking -> Texts.get(R.string.error_agent_working)
+    is FfiException.Forward -> Texts.get(R.string.error_forward)
     else -> error.message ?: error.toString()
+}
+
+/** A page an agent on a host wants opened, with its host. */
+data class PendingOpen(val hostId: String, val hostName: String, val request: OpenRequest) {
+    /** Unique over hosts and panes; a new request of the pane gets a new one. */
+    val key: String get() = "$hostId|${request.paneId}|${request.requestId}"
 }
