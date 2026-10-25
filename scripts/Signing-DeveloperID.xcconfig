@@ -1,0 +1,9 @@
+// Manual signing for the Mac archive of scripts/release.sh (-xcconfig).
+// Xcode then never asks the Apple account for a development certificate;
+// see docs/release.md. Profile names as in scripts/ExportOptions.plist.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = Developer ID Application
+PROVISIONING_PROFILE_SPECIFIER = $(PROFILE_$(PRODUCT_BUNDLE_IDENTIFIER:c99extidentifier))
+
+// Targets without an entry (the widget needs no profile, HerdrFFI neither) sign without one.
+PROFILE_net_staude_amiscara_agents[sdk=macosx*] = Amiscara Agents Developer ID

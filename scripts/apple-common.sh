@@ -23,8 +23,10 @@ has_api_key() {
     [[ -n "${APPLE_API_KEY_PATH:-}" && -n "${APPLE_API_KEY_ID:-}" && -n "${APPLE_API_ISSUER_ID:-}" ]]
 }
 
-# Arguments for -allowProvisioningUpdates; with an API key xcodebuild needs
-# no signed-in Xcode account.
+# Arguments for -allowProvisioningUpdates, used by the export only: the
+# archive signs manually (scripts/Signing-*.xcconfig), so Xcode never
+# creates a development certificate. With an API key xcodebuild needs no
+# signed-in Xcode account.
 xcode_auth=(-allowProvisioningUpdates)
 if has_api_key; then
     [[ -f "$APPLE_API_KEY_PATH" ]] || die "APPLE_API_KEY_PATH: no file at $APPLE_API_KEY_PATH"
@@ -44,6 +46,15 @@ fi
 
 marketing_version() { sed -n 's/^ *MARKETING_VERSION: "\(.*\)"$/\1/p' "$spec"; }
 build_number() { echo "${BUILD_NUMBER:-$(sed -n 's/^ *CURRENT_PROJECT_VERSION: "\(.*\)"$/\1/p' "$spec")}"; }
+
+# Stops unless the keychain holds a signing identity of the team, e.g.
+# require_identity "Developer ID Application".
+require_identity() {
+    local identities
+    identities=$(security find-identity -v -p codesigning)
+    grep -q "$1: .*($team)" <<<"$identities" \
+        || die "no '$1' certificate for team $team in the keychain"
+}
 
 require_clean_tree() {
     if [[ -n "$(git status --porcelain)" ]]; then

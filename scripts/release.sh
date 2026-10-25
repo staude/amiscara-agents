@@ -17,9 +17,13 @@
 # `updates` (scripts/sparkle-feed.sh; RELEASE_FEED=0 leaves it out, as the
 # CI does, which signs the feed in a step of its own).
 #
-# In CI an App Store Connect API key replaces both (APPLE_API_KEY_PATH,
-# APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, see scripts/apple-common.sh); the
-# certificate then comes from a temporary keychain or from cloud signing.
+# The archive is signed manually (scripts/Signing-DeveloperID.xcconfig), so
+# no development certificate is needed or created.
+#
+# In CI an App Store Connect API key replaces the notarytool profile
+# (APPLE_API_KEY_PATH, APPLE_API_KEY_ID, APPLE_API_ISSUER_ID, see
+# scripts/apple-common.sh); the certificate then comes from a temporary
+# keychain (.github/scripts/apple-signing.sh).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -38,12 +42,7 @@ else
 fi
 
 # Preconditions first, so nothing is built that cannot be shipped.
-if ! security find-identity -v -p codesigning | grep -q "Developer ID Application: .*($team)"; then
-    # With an API key of the Admin role Xcode signs with a cloud-managed
-    # Developer ID certificate instead.
-    has_api_key || die "no 'Developer ID Application' certificate for team $team in the keychain"
-    echo "release: no Developer ID certificate in the keychain, using cloud signing"
-fi
+require_identity "Developer ID Application"
 xcrun notarytool history "${notary_auth[@]}" >/dev/null 2>&1 \
     || die "notarytool cannot sign in (profile '$profile' or API key missing or invalid)"
 command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
@@ -68,7 +67,7 @@ step "Archive"
 xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme AmiscaraAgents \
     -configuration Release -destination 'generic/platform=macOS' \
     -derivedDataPath "$out/derived" -archivePath "$out/AmiscaraAgents.xcarchive" \
-    "${xcode_auth[@]}" archive -quiet ${build_settings[@]+"${build_settings[@]}"}
+    -xcconfig scripts/Signing-DeveloperID.xcconfig archive -quiet ${build_settings[@]+"${build_settings[@]}"}
 
 step "Export with Developer ID"
 xcodebuild -exportArchive -archivePath "$out/AmiscaraAgents.xcarchive" \

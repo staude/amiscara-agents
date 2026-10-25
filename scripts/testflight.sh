@@ -8,7 +8,9 @@
 #
 # Needs the app record in App Store Connect, the App Store profiles that
 # scripts/ExportOptions-TestFlight-<platform>.plist names (Xcode > Settings
-# > Accounts > Download Manual Profiles) and either an Xcode account of
+# > Accounts > Download Manual Profiles), the Apple Distribution certificate
+# in the keychain (the archive is signed manually with
+# scripts/Signing-AppStore.xcconfig) and either an Xcode account of
 # team 7N2W4T6UPV on this Mac or an App Store Connect API key in the
 # environment (see scripts/apple-common.sh). A build number goes up only
 # once: run scripts/bump-build.sh and commit first, or set BUILD_NUMBER.
@@ -26,6 +28,7 @@ case "${1:-all}" in
 esac
 
 command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
+require_identity "Apple Distribution"
 require_clean_tree
 
 version=$(marketing_version)
@@ -57,7 +60,7 @@ for platform in "${platforms[@]}"; do
     xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme "$scheme" \
         -configuration Release -destination "$destination" \
         -derivedDataPath "$out/derived" -archivePath "$archive" \
-        "${xcode_auth[@]}" archive -quiet ${build_settings[@]+"${build_settings[@]}"}
+        -xcconfig scripts/Signing-AppStore.xcconfig archive -quiet ${build_settings[@]+"${build_settings[@]}"}
 
     step "Upload $scheme"
     xcodebuild -exportArchive -archivePath "$archive" \
