@@ -70,6 +70,7 @@ fun HostEditorScreen(
                 socketPath = socket,
                 publicKey = null,
                 allowUpload = false,
+                allowWebForward = false,
             )
         }
     }

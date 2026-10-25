@@ -706,6 +706,7 @@ pub async fn open_request_url(
 }
 
 /// Takes an open request back on the host, so other devices drop it too.
+/// It writes to herdr, so not on a read-only host.
 #[tauri::command]
 pub async fn dismiss_open_request(
     state: State<'_, AppState>,
@@ -713,7 +714,7 @@ pub async fn dismiss_open_request(
     pane_id: String,
     request_id: String,
 ) -> Result<(), AppError> {
-    let session = state.session(&host_id)?;
+    let session = writable(&state, &host_id)?;
     Ok(session.dismiss_open_request(&pane_id, &request_id).await?)
 }
 

@@ -91,9 +91,13 @@ class Connections(
         }
     }
 
-    /** Takes [request] back on the host, so other devices drop it too; best effort. */
+    /**
+     * Takes [request] back on the host, so other devices drop it too; best
+     * effort. It writes to herdr, so not on a read-only host.
+     */
     fun dismiss(request: PendingOpen) {
         ignore(request)
+        if (hosts.get(request.hostId)?.allowInput == false) return
         val session = running[request.hostId]?.session ?: return
         scope.launch(Dispatchers.IO) {
             runCatching { session.dismissOpenRequest(request.request.paneId, request.request.requestId) }

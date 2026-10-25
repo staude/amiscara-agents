@@ -355,7 +355,10 @@ A `.deb` does not update itself; install the new one by hand.
    not covered, nor URLs over 1200 characters. For pages on the host's
    `localhost` turn on "Lokale Webseiten weiterleiten" for the host and
    replace its key line. The Mac app on the host itself ("Dieser Mac")
-   does not ask: the page opens there already.
+   does not ask: the page opens there already. On iPhone and iPad the page
+   opens inside the app; Android hands it to the browser, and a forwarded
+   page keeps loading only while Android keeps the app running in the
+   background (reliably with "Bereitschaft" on).
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user

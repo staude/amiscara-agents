@@ -309,9 +309,10 @@ final class HostConnection: Identifiable {
     }
 
     /// Takes an open request back on the host, so other devices stop
-    /// offering it. Best effort: the request expires on its own.
+    /// offering it. Best effort: the request expires on its own. It writes
+    /// to herdr, so not on a read-only host.
     func dismiss(_ request: OpenRequest) async {
-        guard let session else { return }
+        guard config.inputAllowed, let session else { return }
         let (paneID, requestID) = (request.paneId, request.requestId)
         try? await Task.detached {
             try session.dismissOpenRequest(paneId: paneID, requestId: requestID)
