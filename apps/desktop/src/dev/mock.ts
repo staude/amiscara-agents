@@ -30,6 +30,8 @@ const host = (id: string, name: string, kind: "ssh" | "local"): HostConfig => ({
   allowUpload: true,
   notify: null,
   groupSpaces: null,
+  spaceSort: null,
+  spaceOrder: null,
 });
 
 const hosts = [host("work", "work", "ssh"), host("nas", "nas", "ssh")];
@@ -240,6 +242,12 @@ mockIPC(
       case "save_quick_replies":
         replies = (a.replies as string[]).filter((r) => r.trim());
         return null;
+      case "set_space_sort": {
+        const known = hosts.find((h) => h.id === a.hostId) ?? hosts[0];
+        known.spaceSort = a.mode as HostConfig["spaceSort"];
+        known.spaceOrder = (a.order as string[] | null) ?? null;
+        return known;
+      }
       case "key_line":
         return `restrict,command="…" ${hosts[0].publicKey}`;
       case "follow_pane": {

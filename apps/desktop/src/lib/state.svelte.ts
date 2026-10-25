@@ -2,7 +2,7 @@
 // sidebar selects.
 
 import * as core from "./core";
-import type { AppInfo, HostConfig, SessionUpdate, WorkspaceItem } from "./types";
+import type { AppInfo, HostConfig, SessionUpdate, SpaceSortMode, WorkspaceItem } from "./types";
 
 /** A host (its settings), a space, or a space with one of its panes. */
 export interface Selection {
@@ -64,6 +64,11 @@ class AppModel {
     this.replace(saved);
     await core.connect(saved.id);
     return saved;
+  }
+
+  /** Changes the order of spaces; the session sends a rebuilt update. */
+  async setSpaceSort(hostId: string, mode: SpaceSortMode, order: string[] | null) {
+    this.replace(await core.setSpaceSort(hostId, mode, order));
   }
 
   /** The session name for the sidebar, from the host's socket. */

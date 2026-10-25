@@ -24,6 +24,8 @@
       allowUpload: null,
       notify: null,
       groupSpaces: null,
+      spaceSort: null,
+      spaceOrder: null,
     };
   }
 

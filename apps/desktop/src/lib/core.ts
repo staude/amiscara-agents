@@ -14,6 +14,7 @@ import type {
   PaneEvent,
   ScrollStep,
   SessionUpdate,
+  SpaceSortMode,
   TranscriptCursor,
   TranscriptPage,
 } from "./types";
@@ -24,6 +25,8 @@ export const listHosts = () => invoke<HostConfig[]>("list_hosts");
 export const saveHost = (host: HostConfig) => invoke<HostConfig>("save_host", { host });
 export const deleteHost = (hostId: string) => invoke<void>("delete_host", { hostId });
 export const regenerateKey = (hostId: string) => invoke<HostConfig>("regenerate_key", { hostId });
+export const setSpaceSort = (hostId: string, mode: SpaceSortMode, order: string[] | null) =>
+  invoke<HostConfig>("set_space_sort", { hostId, mode, order });
 export const keyLine = (hostId: string, allowSftp: boolean) =>
   invoke<string>("key_line", { hostId, allowSftp });
 export const decodeLink = (text: string) => invoke<AddHostLink>("decode_link", { text });
