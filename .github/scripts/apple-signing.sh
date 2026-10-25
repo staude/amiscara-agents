@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Puts the App Store Connect API key and an optional certificate (.p12)
-# for apple-release.yml in $RUNNER_TEMP/apple, the certificate in a
-# temporary keychain that codesign finds. `--cleanup` removes both.
+# Puts the App Store Connect API key and the certificate (.p12) for
+# apple-release.yml in $RUNNER_TEMP/apple, the certificate in a temporary
+# keychain that codesign finds. `--cleanup` removes both.
 #
 # Input from secrets: APPLE_API_KEY_P8 (base64), KEYCHAIN_PASSWORD, and
-# optionally P12 (base64) with P12_PASSWORD, and provisioning profiles for
-# manual signing: PROFILE (one, base64) or PROFILES (a .tar.gz of several,
+# P12 (base64) with P12_PASSWORD, and the provisioning profiles for manual
+# signing: PROFILE (one, base64) or PROFILES (a .tar.gz of several,
 # base64; GitHub caps a secret at 48 KB, seven plain profiles exceed it).
 set -euo pipefail
 
@@ -54,10 +54,7 @@ if [[ -n "${PROFILES:-}" ]]; then
     rmdir "$dir/profiles"
 fi
 
-if [[ -z "${P12:-}" ]]; then
-    echo "No certificate in the secrets: Xcode signs with a cloud-managed one (API key with the Admin role)."
-    exit 0
-fi
+[[ -n "${P12:-}" ]] || { echo "::error::secret P12 missing (scripts/apple-ci-secrets.sh)"; exit 1; }
 
 printf '%s' "$P12" | base64 --decode >"$dir/cert.p12"
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"

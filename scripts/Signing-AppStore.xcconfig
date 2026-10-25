@@ -1,0 +1,16 @@
+// Manual signing for the iOS and tvOS archives of scripts/testflight.sh
+// (-xcconfig). Xcode then never asks the Apple account for a development
+// certificate; see docs/release.md. Profile names as in
+// scripts/ExportOptions-TestFlight-<platform>.plist. The profile depends on
+// the SDK because the iOS and tvOS app share a bundle ID.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = Apple Distribution
+PROVISIONING_PROFILE_SPECIFIER = $(PROFILE_$(PRODUCT_BUNDLE_IDENTIFIER:c99extidentifier))
+
+PROFILE_net_staude_amiscara_agents[sdk=iphoneos*] = Amiscara Agents App Store iOS
+PROFILE_net_staude_amiscara_agents_widget[sdk=iphoneos*] = Amiscara Agents App Store iOS Widget
+PROFILE_net_staude_amiscara_agents_share[sdk=iphoneos*] = Amiscara Agents App Store iOS Share
+PROFILE_net_staude_amiscara_agents_watchkitapp[sdk=watchos*] = Amiscara Agents App Store Watch
+PROFILE_net_staude_amiscara_agents_watchkitapp_widget[sdk=watchos*] = Amiscara Agents App Store Watch Widget
+PROFILE_net_staude_amiscara_agents[sdk=appletvos*] = Amiscara Agents App Store tvOS
+PROFILE_net_staude_amiscara_agents_topshelf[sdk=appletvos*] = Amiscara Agents App Store Top Shelf

@@ -42,10 +42,10 @@ git commit -am "chore(release): build N"
 scripts/release.sh             # oder --install für /Applications
 ```
 
-`release.sh` prüft zuerst Zertifikat, Notarisierungsprofil, xcodegen und einen sauberen Git-Stand und bricht sonst ab, bevor gebaut wird. Danach:
+`release.sh` prüft zuerst das Developer-ID-Zertifikat im Schlüsselbund, Notarisierungsprofil, xcodegen und einen sauberen Git-Stand und bricht sonst ab, bevor gebaut wird. Danach:
 
 1. Rust-Core (`scripts/build-ffi.sh release`) und Xcode-Projekt (`xcodegen generate`)
-2. Archiv (`xcodebuild archive`, Release)
+2. Archiv (`xcodebuild archive`, Release), von Hand signiert mit `scripts/Signing-DeveloperID.xcconfig` (Developer ID und Profil „Amiscara Agents Developer ID“). Ein Entwicklerzertifikat braucht das Archiv nicht, Xcode legt dafür auch keines an (#246).
 3. Export mit Developer ID (`scripts/ExportOptions.plist`), Hardened Runtime
 4. Notarisierung (`notarytool submit --wait`) und `stapler staple`
 5. Prüfung: `codesign -dv`, `spctl -a -t exec`, `stapler validate`
@@ -82,7 +82,7 @@ scripts/testflight.sh          # oder: ios, tvos
 
 Das Skript baut die Rust-Slices (`iphoneos`, `appletvos`), archiviert `AmiscaraAgents-iOS` (mit der Watch-App) und `AmiscaraAgents-tvOS` und lädt beide mit `scripts/ExportOptions-TestFlight-ios.plist` bzw. `-tvos.plist` hoch. Lokal meldet sich Xcode mit dem Account aus Xcode › Einstellungen › Accounts an.
 
-Die Ausfuhr signiert von Hand mit sieben App-Store-Profilen, weil ein API-Schlüssel Xcodes eigene Profile nicht sieht: „Amiscara Agents App Store iOS“, „… iOS Widget“, „… iOS Share“ (Teilen-Erweiterung `net.staude.amiscara.agents.share` mit der App Group, #225), „… Watch“, „… Watch Widget“ (Typ App Store, iOS) sowie „… tvOS“ und „… Top Shelf“ (Typ App Store, tvOS), alle mit dem Apple-Distribution-Zertifikat. Lokal holt Xcode › Einstellungen › Accounts › „Download Manual Profiles“ sie. Sie laufen mit dem Zertifikat ab und müssen danach neu erzeugt werden (developer.apple.com › Profiles, gleiche Namen). Vorher muss der App-Eintrag in App Store Connect existieren, und das CloudKit-Schema muss in Production deployt sein, sonst sehen TestFlight-Builds keine Daten.
+Archiv und Ausfuhr signieren von Hand (das Archiv mit `scripts/Signing-AppStore.xcconfig`, `testflight.sh` prüft vorher das Apple-Distribution-Zertifikat im Schlüsselbund) mit sieben App-Store-Profilen, weil ein API-Schlüssel Xcodes eigene Profile nicht sieht: „Amiscara Agents App Store iOS“, „… iOS Widget“, „… iOS Share“ (Teilen-Erweiterung `net.staude.amiscara.agents.share` mit der App Group, #225), „… Watch“, „… Watch Widget“ (Typ App Store, iOS) sowie „… tvOS“ und „… Top Shelf“ (Typ App Store, tvOS), alle mit dem Apple-Distribution-Zertifikat. Lokal holt Xcode › Einstellungen › Accounts › „Download Manual Profiles“ sie. Sie laufen mit dem Zertifikat ab und müssen danach neu erzeugt werden (developer.apple.com › Profiles, gleiche Namen). Vorher muss der App-Eintrag in App Store Connect existieren, und das CloudKit-Schema muss in Production deployt sein, sonst sehen TestFlight-Builds keine Daten.
 
 ## CI
 
@@ -105,7 +105,7 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
 
 1. **App-Store-Connect-API-Key anlegen.** In App Store Connect unter Benutzer und Zugriff › Integrationen › App Store Connect API › Team-Schlüssel einen Schlüssel erzeugen:
    - Rolle **Admin**, damit Xcode die App-Store-Profile anlegen und herunterladen kann.
-   - Cloud-verwaltete Zertifikate kann ein API-Schlüssel auch als Admin nicht nutzen („Cloud signing permission error“), darum werden die Zertifikate als `.p12` hinterlegt (Schritt 2 und 3).
+   - Cloud-verwaltete Zertifikate kann ein API-Schlüssel auch als Admin nicht nutzen („Cloud signing permission error“), darum sind die Zertifikate als `.p12` Pflicht (Schritt 2 und 3); ohne sie bricht der Lauf ab.
    - Die `.p8`-Datei lässt sich nur einmal herunterladen. Key-ID und Issuer-ID stehen auf derselben Seite.
    - Derselbe Schlüssel meldet `notarytool` an, ein App-spezifisches Passwort braucht die CI nicht.
 
@@ -130,6 +130,12 @@ Alle Daten liegen als Secrets in der GitHub-Umgebung `apple-release`, nie im Rep
 6. **Tags schützen.** Unter Settings › Rules › Rulesets ein Tag-Ruleset für `apple-v*` und `desktop-v*` anlegen (Ziel: Tags, Regeln „Restrict creations“, „Restrict updates“, „Restrict deletions“, Ausnahme nur für Admins). Der Workflow prüft zusätzlich, dass der Commit eines Tags auf `main` liegt, und bricht sonst ab, bevor er die Signierdaten liest.
 7. **Erster Lauf:** `gh workflow run apple-release.yml -f target=mac`, danach `-f target=testflight`.
 
-Secrets: `SPARKLE_ED_PRIVATE_KEY` (signiert die Updates), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `KEYCHAIN_PASSWORD` (zufällig, schützt nur den temporären Schlüsselbund im Runner), optional `APPLE_DEVID_P12` und `APPLE_DEVID_P12_PASSWORD`, `APPLE_DIST_P12` und `APPLE_DIST_P12_PASSWORD`, dazu die Profile `APPLE_DEVID_PROFILE` und `APPLE_APPSTORE_PROFILES`.
+Secrets: `SPARKLE_ED_PRIVATE_KEY` (signiert die Updates), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8`, `KEYCHAIN_PASSWORD` (zufällig, schützt nur den temporären Schlüsselbund im Runner), `APPLE_DEVID_P12` und `APPLE_DEVID_P12_PASSWORD`, `APPLE_DIST_P12` und `APPLE_DIST_P12_PASSWORD`, dazu die Profile `APPLE_DEVID_PROFILE` und `APPLE_APPSTORE_PROFILES`.
+
+### Alte CI-Entwicklerzertifikate aufräumen
+
+Bis #246 archivierte die CI mit automatischer Signierung. Ohne Entwicklerzertifikat auf dem Runner legte Xcode bei jedem Lauf ein neues „Mac Development“ bzw. „Apple Development“ an, dessen privater Schlüssel mit dem Runner verloren ging. Nach etwa acht Läufen war das Limit des Kontos erreicht, und Mac-Release wie TestFlight scheiterten mit „maximum number of certificates“. Seit #246 signiert das Archiv von Hand, es entstehen keine neuen.
+
+Die alten unter developer.apple.com › Certificates widerrufen. Bleiben müssen „Developer ID Application“, „Apple Distribution“ und das Entwicklerzertifikat des eigenen Macs (das mit dem privaten Schlüssel im Schlüsselbund). Zur Kontrolle `gh workflow run apple-release.yml -f target=both` zweimal laufen lassen: Danach darf dort kein neues Entwicklerzertifikat stehen.
 
 `xcode-27` ist bei GitHub noch ein Vorschau-Image. Sobald es ein reguläres Image mit Xcode 27 gibt, `runs-on` und `XCODE_APP` im Workflow anpassen.
