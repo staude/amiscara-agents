@@ -8,8 +8,8 @@
 #       [--devid <developer-id.p12>] [--devid-profile <profile>] [--dist <apple-distribution.p12>] \
 #       [--appstore-profiles <dir>] [--sparkle <sparkle-key>]
 #
-# Without --devid or --dist the workflow signs with cloud-managed
-# certificates, which needs an API key of the Admin role. Passwords of
+# --devid is needed for the Mac job and --dist for TestFlight; the workflow
+# has no cloud signing (#246). Passwords of
 # the .p12 files are asked for and not echoed. --sparkle takes the private
 # Sparkle key exported with `generate_keys --account amiscara-agents -x
 # <file>`; delete that file afterwards. --devid-profile takes the
