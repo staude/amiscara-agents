@@ -245,12 +245,14 @@ pub fn key_line(
     state: State<'_, AppState>,
     host_id: String,
     allow_sftp: bool,
+    allow_web: bool,
 ) -> Result<String, AppError> {
     let host = state.store().get(&host_id)?;
     let public = host.public_key.as_deref().ok_or(ConfigError::NoOwnKey)?;
     Ok(herdr_session::authorized_keys_line(
         public,
         allow_sftp,
+        allow_web,
         host.custom_socket(),
     )?)
 }
@@ -301,6 +303,7 @@ pub async fn add_from_link(
         auth: Auth::Key,
         allow_input: None,
         allow_upload: None,
+        allow_web_forward: None,
         notify: None,
         group_spaces: None,
         space_sort: None,
@@ -688,6 +691,30 @@ pub async fn upload(
         let ext = header("x-file-extension").unwrap_or_default();
         Ok(session.upload_file(data, &ext).await?)
     }
+}
+
+/// The address to open for a page an agent on the host asked for (#247):
+/// pages on the host's `localhost` are forwarded to a port here.
+#[tauri::command]
+pub async fn open_request_url(
+    state: State<'_, AppState>,
+    host_id: String,
+    url: String,
+) -> Result<String, AppError> {
+    let session = state.session(&host_id)?;
+    Ok(session.open_url(&url).await?)
+}
+
+/// Takes an open request back on the host, so other devices drop it too.
+#[tauri::command]
+pub async fn dismiss_open_request(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+    request_id: String,
+) -> Result<(), AppError> {
+    let session = state.session(&host_id)?;
+    Ok(session.dismiss_open_request(&pane_id, &request_id).await?)
 }
 
 /// `%XX` escapes from `encodeURIComponent`; anything malformed stays as is.

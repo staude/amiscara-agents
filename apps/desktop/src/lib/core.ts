@@ -27,8 +27,8 @@ export const deleteHost = (hostId: string) => invoke<void>("delete_host", { host
 export const regenerateKey = (hostId: string) => invoke<HostConfig>("regenerate_key", { hostId });
 export const setSpaceSort = (hostId: string, mode: SpaceSortMode, order: string[] | null) =>
   invoke<HostConfig>("set_space_sort", { hostId, mode, order });
-export const keyLine = (hostId: string, allowSftp: boolean) =>
-  invoke<string>("key_line", { hostId, allowSftp });
+export const keyLine = (hostId: string, allowSftp: boolean, allowWeb: boolean) =>
+  invoke<string>("key_line", { hostId, allowSftp, allowWeb });
 export const decodeLink = (text: string) => invoke<AddHostLink>("decode_link", { text });
 export const keyFingerprint = (publicKey: string) =>
   invoke<string>("key_fingerprint", { publicKey });
@@ -62,6 +62,11 @@ export const agentHistory = (hostId: string, paneId: string) =>
   invoke<PaneContent>("agent_history", { hostId, paneId });
 export const scrollAgent = (hostId: string, paneId: string, step: ScrollStep) =>
   invoke<void>("scroll_agent", { hostId, paneId, step });
+/** The address to open for a page an agent asked for; localhost pages are forwarded. */
+export const openRequestUrl = (hostId: string, url: string) =>
+  invoke<string>("open_request_url", { hostId, url });
+export const dismissOpenRequest = (hostId: string, paneId: string, requestId: string) =>
+  invoke<void>("dismiss_open_request", { hostId, paneId, requestId });
 export const quickReplies = () => invoke<string[]>("quick_replies");
 export const setLanguage = (lang: string) => invoke<void>("set_language", { lang });
 export const saveQuickReplies = (replies: string[]) =>
@@ -184,6 +189,8 @@ export function errorText(err: unknown): string {
       return t("errorUpload", { error: error.message });
     case "files":
       return t("errorFiles", { error: error.message });
+    case "forward":
+      return t("errorForward");
     case "key":
       return t("errorKey", { error: error.message });
     default:

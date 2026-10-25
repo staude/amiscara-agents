@@ -1,6 +1,7 @@
 <script lang="ts">
   import { i18n, t } from "./lib/i18n.svelte";
   import { onMount } from "svelte";
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import { openDemo } from "./lib/demo.svelte";
   import ContextMenu from "./components/ContextMenu.svelte";
   import HostEditor from "./components/HostEditor.svelte";
@@ -19,11 +20,36 @@
   import { applyTheme, prefs } from "./lib/prefs.svelte";
   import { model } from "./lib/state.svelte";
   import { updater } from "./lib/update.svelte";
-  import type { HostConfig } from "./lib/types";
+  import type { HostConfig, OpenRequest } from "./lib/types";
 
   let editing = $state<{ host: HostConfig | null } | null>(null);
   let linkDialog = $state<{ url: string | null } | null>(null);
   let addingSession = $state<HostConfig | null>(null);
+
+  // Pages agents on the hosts want opened (#247). Ignoring hides one here
+  // only; opening takes it back on the host, so other devices drop it too.
+  const requestKey = (hostId: string, request: OpenRequest) => `${hostId}|${request.paneId}|${request.requestId}`;
+  let hiddenRequests = $state<Record<string, true>>({});
+  let requestErrors = $state<Record<string, string>>({});
+  let openRequests = $derived(
+    model.hosts.flatMap((host) =>
+      (model.updates[host.id]?.openRequests ?? [])
+        .filter((request) => !hiddenRequests[requestKey(host.id, request)])
+        .map((request) => ({ host, request, key: requestKey(host.id, request) })),
+    ),
+  );
+
+  async function openRequest(host: HostConfig, request: OpenRequest, key: string) {
+    delete requestErrors[key];
+    try {
+      const url = await core.openRequestUrl(host.id, request.url);
+      await openUrl(url);
+      hiddenRequests[key] = true;
+      core.dismissOpenRequest(host.id, request.paneId, request.requestId).catch(() => {});
+    } catch (err) {
+      requestErrors[key] = core.errorText(err);
+    }
+  }
 
   $effect(() => applyTheme(prefs.theme));
   // The Rust side words the tray, notifications and defaults in the same language.
@@ -123,6 +149,17 @@
         {/if}
       </div>
     {/if}
+    {#each openRequests as { host, request, key } (key)}
+      <div class="open-request">
+        <div class="open-request-text">
+          <strong>{t("openRequestTitle", { space: request.workspaceLabel || host.name })}</strong>
+          <code>{request.url}</code>
+          {#if requestErrors[key]}<span class="update-error">{requestErrors[key]}</span>{/if}
+        </div>
+        <button class="primary" onclick={() => openRequest(host, request, key)}>{t("openRequestOpen")}</button>
+        <button onclick={() => (hiddenRequests[key] = true)}>{t("openRequestIgnore")}</button>
+      </div>
+    {/each}
     {#if model.selectedHost && model.selectedWorkspace}
       {#key `${model.selectedHost.id}/${model.selectedWorkspace.workspaceId}`}
         <WorkspaceView host={model.selectedHost} workspace={model.selectedWorkspace} />
@@ -223,6 +260,28 @@
     padding: 6px 12px;
     background: color-mix(in srgb, var(--accent) 15%, var(--bg));
     border-bottom: 1px solid var(--line);
+  }
+  .open-request {
+    flex: none !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: color-mix(in srgb, var(--accent) 15%, var(--bg));
+    border-bottom: 1px solid var(--line);
+  }
+  .open-request-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .open-request-text code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
   }
   .update-error {
     color: var(--danger);

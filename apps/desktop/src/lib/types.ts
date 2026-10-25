@@ -17,6 +17,8 @@ export interface HostConfig {
   auth: Auth;
   allowInput: boolean | null;
   allowUpload: boolean | null;
+  /** Pages on the host's localhost through the key's line (#247). */
+  allowWebForward: boolean | null;
   notify: boolean | null;
   groupSpaces: boolean | null;
   /** Order of spaces in the sidebar; `null` is herdr's. */
@@ -155,6 +157,19 @@ export interface SessionUpdate {
   spaceOrder: SpaceSlot[];
   board: BoardItem[];
   attention: BoardItem[];
+  /** Pages agents on the host want opened (#247); empty for a local host. */
+  openRequests: OpenRequest[];
+}
+
+/** A page an agent on the host wants opened. */
+export interface OpenRequest {
+  paneId: string;
+  requestId: string;
+  url: string;
+  workspaceLabel: string;
+  paneTitle: string;
+  /** Points at the host itself; `openRequestUrl` forwards it. */
+  localAddress: boolean;
 }
 
 export type TermColor =
