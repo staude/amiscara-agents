@@ -118,6 +118,11 @@ code), so a host is set up the same way everywhere.
   [Uploads](#uploads-and-the-claude-conversation).
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane.
+- **Pages agents open:** when an agent on the host opens a browser (a
+  mockup, a sign-in), the apps on other devices offer the page; pages on
+  the host's `localhost` load through the SSH connection. Needs the
+  browser stand-in on the host, see
+  [Setting up a host](#setting-up-a-host). Not on the Apple TV and Watch.
 - **Quick switcher** (⌘K or Ctrl+K) across spaces and agents of all hosts,
   and keyboard shortcuts for spaces, tabs, search and the keys sent to the
   pane.
@@ -250,6 +255,19 @@ socket, whatever the client asks to run. Every app shows this line for its
 key in the host editor, ready to copy. The desktop app can log in through
 the SSH agent instead; that key then needs such a line too.
 
+With "Lokale Webseiten weiterleiten" (Apple) or "Forward local web pages"
+(desktop, Android) on, the line gets one more case before `*)`, so the app
+can reach ports on the host's `localhost` for pages agents open there, and
+nothing else:
+
+```
+amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; echo amiscara-tcp; exec nc localhost $p ;;
+```
+
+Only digits reach `nc`. Without the case the app says that the host does
+not forward `localhost` for this device; existing hosts need the new line
+once.
+
 Older lines used `restrict,port-forwarding,command="/usr/bin/false"` and a
 `direct-streamlocal` channel. They keep working (the app tries streamlocal
 first and switches to the session when sshd refuses it), but
@@ -322,6 +340,22 @@ A `.deb` does not update itself; install the new one by hand.
    and shows its `authorized_keys` line; append it to
    `~/.ssh/authorized_keys` of that user on the host.
 4. Connect and confirm the host key fingerprint.
+5. Optional, for pages agents open (#247): copy
+   [`scripts/host/amiscara-open`](scripts/host/amiscara-open) to
+   `~/.amiscara-agents/bin/` on the host, `chmod +x` it and make it the
+   browser of the shells in herdr panes, in `~/.zshrc` or `~/.bashrc`:
+
+   ```sh
+   [ -n "$HERDR_PANE_ID" ] && export BROWSER="$HOME/.amiscara-agents/bin/amiscara-open"
+   ```
+
+   Agents such as Claude Code open links through `BROWSER`; the script
+   still opens the page on the host and offers it to the connected apps
+   for two minutes. Programs that call `open` or `xdg-open` directly are
+   not covered, nor URLs over 1200 characters. For pages on the host's
+   `localhost` turn on "Lokale Webseiten weiterleiten" for the host and
+   replace its key line. The Mac app on the host itself ("Dieser Mac")
+   does not ask: the page opens there already.
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user
