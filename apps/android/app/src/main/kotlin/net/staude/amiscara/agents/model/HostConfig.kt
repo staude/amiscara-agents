@@ -1,7 +1,9 @@
 package net.staude.amiscara.agents.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.staude.amiscara.agents.core.Endpoint
+import net.staude.amiscara.agents.core.SpaceSort
 
 /**
  * One host; the fields and their JSON names follow `HostConfig` of the
@@ -31,8 +33,21 @@ data class HostConfig(
     val notify: Boolean? = null,
     /** Grouping of "Bereich/Name" spaces; missing means on. */
     val groupSpaces: Boolean? = null,
+    /** Order of the sidebar's spaces (#245); missing means herdr's. */
+    val spaceSort: SpaceSortMode? = null,
+    /** Workspace IDs in the user's order, for [SpaceSortMode.MANUAL]. */
+    val spaceOrder: List<String>? = null,
 ) {
     val groupSpacesByName: Boolean get() = groupSpaces ?: true
+
+    /** The order for the core; a running session takes it without restarting. */
+    val spaceSorting: SpaceSort
+        get() = when (spaceSort) {
+            null, SpaceSortMode.HERDR -> SpaceSort.Herdr
+            SpaceSortMode.NAME_ASCENDING -> SpaceSort.NameAscending
+            SpaceSortMode.NAME_DESCENDING -> SpaceSort.NameDescending
+            SpaceSortMode.MANUAL -> SpaceSort.Manual(spaceOrder.orEmpty())
+        }
 
     /**
      * The socket for an `authorized_keys` line: `null` for the default
@@ -63,4 +78,13 @@ data class HostConfig(
         fun defaultSocket(user: String, macHost: Boolean) =
             "${if (macHost) "/Users" else "/home"}/$user$DEFAULT_SOCKET_SUFFIX"
     }
+}
+
+/** How the sidebar orders spaces; the JSON names follow `hosts.rs`. */
+@Serializable
+enum class SpaceSortMode {
+    @SerialName("herdr") HERDR,
+    @SerialName("nameAscending") NAME_ASCENDING,
+    @SerialName("nameDescending") NAME_DESCENDING,
+    @SerialName("manual") MANUAL,
 }

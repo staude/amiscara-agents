@@ -23,12 +23,15 @@ class HostException(message: String) : Exception(message)
  * format as the desktop app), with their private keys in the [KeyVault].
  * Writes are synchronized; the list is published as a flow.
  */
+/** `hosts.json`'s format; a sort mode of a newer app reads as missing. */
+internal val hostJson = Json {
+    ignoreUnknownKeys = true
+    coerceInputValues = true
+    prettyPrint = true
+}
+
 class HostRepository(context: Context, private val vault: KeyVault) {
     private val file = AtomicFile(File(context.filesDir, "hosts.json"))
-    private val json = Json {
-        ignoreUnknownKeys = true
-        prettyPrint = true
-    }
     private val state = MutableStateFlow(load())
 
     /** Whether the screenshot demo replaced the hosts; then nothing is written. */
@@ -47,8 +50,12 @@ class HostRepository(context: Context, private val vault: KeyVault) {
      */
     @Synchronized
     fun save(draft: HostConfig): HostConfig {
+        // The editor holds an older copy; the sidebar's order stays as stored.
+        val stored = get(draft.id)
         var host = draft.copy(
             id = draft.id.ifEmpty { UUID.randomUUID().toString() },
+            spaceSort = stored?.spaceSort,
+            spaceOrder = stored?.spaceOrder,
             name = draft.name.trim(),
             host = draft.host.trim(),
             user = draft.user.trim(),
@@ -87,6 +94,13 @@ class HostRepository(context: Context, private val vault: KeyVault) {
         demo = true
         vault.store(host.id, privateKey)
         state.value = listOf(host)
+    }
+
+    /** Stores how the host's spaces are ordered, `order` for [SpaceSortMode.MANUAL]. */
+    @Synchronized
+    fun setSpaceSort(id: String, mode: SpaceSortMode, order: List<String>?) {
+        val host = get(id) ?: return
+        put(host.copy(spaceSort = mode, spaceOrder = order))
     }
 
     /** Pins `key` after the user confirmed its fingerprint. */
@@ -139,7 +153,7 @@ class HostRepository(context: Context, private val vault: KeyVault) {
         }
         val out = file.startWrite()
         try {
-            out.write(json.encodeToString(hosts).toByteArray())
+            out.write(hostJson.encodeToString(hosts).toByteArray())
             file.finishWrite(out)
         } catch (e: Exception) {
             file.failWrite(out)
@@ -149,7 +163,7 @@ class HostRepository(context: Context, private val vault: KeyVault) {
     }
 
     private fun load(): List<HostConfig> = try {
-        json.decodeFromString(String(file.readFully()))
+        hostJson.decodeFromString(String(file.readFully()))
     } catch (_: FileNotFoundException) {
         emptyList()
     }
