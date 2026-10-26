@@ -546,12 +546,12 @@
         }
       }
     },
-    "%lld Zeichen, als Datei im Eingabefeld" : {
+    "%lld Zeichen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld characters, as a file in the composer"
+            "value" : "%lld characters"
           }
         }
       }
@@ -992,6 +992,16 @@
         }
       }
     },
+    "Aus einem Link. Prüfen Sie den Text, bevor Sie ihn an einen Agent geben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From a link. Check the text before you hand it to an agent."
+          }
+        }
+      }
+    },
     "Aus Zwischenablage" : {
       "localizations" : {
         "en" : {
@@ -1298,6 +1308,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The field “%@” appears more than once in the code."
+          }
+        }
+      }
+    },
+    "Das Geteilte enthält keinen Text und kein Bild." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What was shared holds no text and no image."
           }
         }
       }
@@ -1708,6 +1728,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The version in the code is invalid."
+          }
+        }
+      }
+    },
+    "Die Vorschau zeigt die ersten %lld von %lld Zeichen; die Datei enthält alle." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Die Vorschau zeigt die ersten %1$lld von %2$lld Zeichen; die Datei enthält alle."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The preview shows the first %1$lld of %2$lld characters; the file holds all of them."
           }
         }
       }
@@ -2368,6 +2404,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Upload failed: %@"
+          }
+        }
+      }
+    },
+    "Hochladen ist für %@ aus; der Text kommt statt einer Datei ins Eingabefeld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading is off for %@; the text goes into the composer instead of a file."
           }
         }
       }
