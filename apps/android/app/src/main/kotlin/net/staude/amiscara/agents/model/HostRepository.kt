@@ -18,11 +18,6 @@ import net.staude.amiscara.agents.R
 /** A host could not be saved; the message is German and meant for the user. */
 class HostException(message: String) : Exception(message)
 
-/**
- * The hosts the user added, as `hosts.json` in the app's files (same
- * format as the desktop app), with their private keys in the [KeyVault].
- * Writes are synchronized; the list is published as a flow.
- */
 /** `hosts.json`'s format; a sort mode of a newer app reads as missing. */
 internal val hostJson = Json {
     ignoreUnknownKeys = true
@@ -30,6 +25,11 @@ internal val hostJson = Json {
     prettyPrint = true
 }
 
+/**
+ * The hosts the user added, as `hosts.json` in the app's files (same
+ * format as the desktop app), with their private keys in the [KeyVault].
+ * Writes are synchronized; the list is published as a flow.
+ */
 class HostRepository(context: Context, private val vault: KeyVault) {
     private val file = AtomicFile(File(context.filesDir, "hosts.json"))
     private val state = MutableStateFlow(load())
