@@ -210,6 +210,9 @@ private struct ShareView: View {
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
         asFile = Handoff.suggestsFile(text: text, isMarkdownFile: markdown)
+        if text.isEmpty && loaded.isEmpty && !providers.isEmpty {
+            error = String(localized: "Das Geteilte enthält keinen Text und kein Bild.")
+        }
         loading = false
     }
 
