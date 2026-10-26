@@ -229,7 +229,8 @@ struct InputBar: View {
             ? try? ImageAttachment.file(data: Data(handoff.utf8), name: Handoff.fileName(at: created))
             : nil
         guard let attachment else {
-            text = [current, prompt, handoff].filter { !$0.isEmpty }.joined(separator: "\n")
+            // The prompt speaks of a file; without one the text stands alone.
+            text = [current, handoff].filter { !$0.isEmpty }.joined(separator: "\n")
             error = connection.config.uploadAllowed
                 ? String(localized: "Die Übergabe ist zu groß für eine Datei; der Text steht im Eingabefeld.")
                 : String(localized: "Hochladen ist für \(connection.config.name) aus; der Text steht im Eingabefeld.")
