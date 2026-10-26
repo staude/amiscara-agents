@@ -28,6 +28,9 @@ apps (not on the Apple TV, Watch, Android or desktop app).
 
 The clipboard and the link open a sheet with the agents of all connected
 hosts, a preview of the text and the prompt. "Weiter" opens that agent.
+Any page or app can open such a link, so the sheet marks text from a link;
+read it before you send it. The preview shows the first 4000 characters
+and says so when there is more; the file holds all of it.
 
 ## What the agent gets
 

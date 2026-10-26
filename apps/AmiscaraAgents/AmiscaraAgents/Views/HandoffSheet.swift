@@ -25,6 +25,7 @@ struct HandoffSheet: View {
         let name: String
         let place: String
         let state: AgentState
+        let uploadAllowed: Bool
 
         var id: String { "\(hostID.uuidString)/\(paneID)" }
     }
@@ -40,9 +41,11 @@ struct HandoffSheet: View {
                     hostName: connection.config.name,
                     workspaceID: agent.workspaceId,
                     paneID: agent.paneId,
-                    name: agent.agent.isEmpty ? String(localized: "Agent") : agent.agent,
+                    // As in the sidebar: two Claudes in one tab differ by name.
+                    name: agent.name.map { "\($0) · \(agent.agent)" } ?? (agent.agent.isEmpty ? String(localized: "Agent") : agent.agent),
                     place: entry.tabNumber.map { "\(agent.spacePlace) · \($0)" } ?? agent.spacePlace,
-                    state: agent.agentState
+                    state: agent.agentState,
+                    uploadAllowed: connection.config.uploadAllowed
                 )
             }
         }
@@ -75,6 +78,11 @@ struct HandoffSheet: View {
                     .pickerStyle(.inline)
                 }
                 Section("Übergabe") {
+                    if request.fromLink {
+                        Label("Aus einem Link. Prüfen Sie den Text, bevor Sie ihn an einen Agent geben.", systemImage: "link")
+                            .font(.callout)
+                            .foregroundStyle(.orange)
+                    }
                     ScrollView {
                         Text(previewText)
                             .font(.callout.monospaced())
@@ -82,9 +90,20 @@ struct HandoffSheet: View {
                             .selectableText()
                     }
                     .frame(maxHeight: 220)
-                    Text("\(request.text.count) Zeichen, als Datei im Eingabefeld")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Group {
+                        if request.text.count > Self.previewLength {
+                            Text("Die Vorschau zeigt die ersten \(Self.previewLength) von \(request.text.count) Zeichen; die Datei enthält alle.")
+                        } else {
+                            Text("\(request.text.count) Zeichen")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    if let choice = choices.first(where: { $0.id == selection }), !choice.uploadAllowed {
+                        Text("Hochladen ist für \(choice.hostName) aus; der Text kommt statt einer Datei ins Eingabefeld.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
                 Section("Prompt") {
                     TextField("Prompt", text: $prompt, axis: .vertical)
@@ -140,14 +159,18 @@ struct HandoffSheet: View {
     }
 
     /// The link's agent, else the first on the link's host, else the first.
+    /// A pane without a host is looked for on every host.
     private func preferred(in choices: [Choice]) -> String? {
-        let onHost = choices.filter { request.names(hostID: $0.hostID, name: $0.hostName) }
-        return (onHost.first { $0.paneID == request.pane } ?? onHost.first ?? choices.first)?.id
+        let onHost = request.host == nil ? choices : choices.filter { request.names(hostID: $0.hostID, name: $0.hostName) }
+        let pane = onHost.first { $0.paneID == request.pane }
+        return (pane ?? (request.host == nil ? nil : onHost.first) ?? choices.first)?.id
     }
+
+    private static let previewLength = 4000
 
     /// The start of a long text; all of it goes into the file.
     private var previewText: String {
-        request.text.count > 4000 ? String(request.text.prefix(4000)) + " …" : request.text
+        request.text.count > Self.previewLength ? String(request.text.prefix(Self.previewLength)) + " …" : request.text
     }
 
     private func handOver(_ choices: [Choice]) {

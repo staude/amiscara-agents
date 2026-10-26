@@ -58,6 +58,9 @@ enum Handoff {
         var host: String?
         /// herdr's pane id.
         var pane: String?
+        /// From a link: any page or app may have written the text, so the
+        /// sheet says where it came from.
+        var fromLink = false
 
         /// Whether `host` names this host: its id, or its name ignoring case.
         func names(hostID: UUID, name: String) -> Bool {
@@ -79,7 +82,7 @@ enum Handoff {
         func value(_ name: String) -> String? {
             items.first { $0.name == name }?.value.flatMap { $0.isEmpty ? nil : $0 }
         }
-        return Request(text: text, host: value("host"), pane: value("pane"))
+        return Request(text: text, host: value("host"), pane: value("pane"), fromLink: true)
     }
 }
 #endif
