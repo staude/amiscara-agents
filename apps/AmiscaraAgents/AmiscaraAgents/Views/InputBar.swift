@@ -117,7 +117,8 @@ struct InputBar: View {
             catchImagePaste()
         }
         #endif
-        .onChange(of: pane.paneId) {
+        // The key, not only the pane: two hosts may use the same pane id.
+        .onChange(of: draftKey) {
             dictation.stop()
             text = ""
             error = nil
