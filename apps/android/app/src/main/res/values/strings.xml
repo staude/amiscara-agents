@@ -100,7 +100,6 @@
     <!-- Sidebar -->
     <string name="spaces">Spaces</string>
     <string name="agents">Agents</string>
-    <string name="sort_spaces">Sort spaces</string>
     <string name="sort_herdr">as herdr</string>
     <string name="sort_name_ascending">Name A–Z</string>
     <string name="sort_name_descending">Name Z–A</string>
