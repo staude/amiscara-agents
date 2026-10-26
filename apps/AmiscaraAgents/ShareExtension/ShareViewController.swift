@@ -78,6 +78,8 @@ private struct ShareView: View {
     @State private var selection: String?
     @State private var loading = true
     @State private var error: String?
+    /// The note that nothing readable was shared; gone once there is text.
+    @State private var nothingShared = false
 
     var body: some View {
         NavigationStack {
@@ -164,6 +166,12 @@ private struct ShareView: View {
             }
         }
         .task { await load() }
+        .onChange(of: text) {
+            if nothingShared && !text.isEmpty {
+                nothingShared = false
+                error = nil
+            }
+        }
     }
 
     /// Images go up as images; the switch is for text only.
@@ -183,6 +191,11 @@ private struct ShareView: View {
         var loaded: [(name: String, data: Data)] = []
         var markdown = false
         for provider in providers {
+            // Files from other apps may come as Markdown content, no URL.
+            if let markdownType = UTType("net.daringfireball.markdown"),
+               provider.registeredContentTypes.contains(where: { $0.conforms(to: markdownType) }) {
+                markdown = true
+            }
             // Images first: attachments from Files or Mail also carry a
             // file URL.
             if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
@@ -213,6 +226,7 @@ private struct ShareView: View {
         if text.isEmpty && loaded.isEmpty && !providers.isEmpty {
             error = String(localized: "Das Geteilte enthält keinen Text und kein Bild.")
         }
+        nothingShared = error != nil
         loading = false
     }
 
