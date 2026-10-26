@@ -516,6 +516,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `SessionState::open_requests`, `SessionUpdate::open_requests`,
   `Session::open_url`, `Session::dismiss_open_request`,
   `Connection::forward_tcp`, `authorized_keys_line(…, allow_web, …)`.
+- Handoff from other AI tools (#236): text from Claude, ChatGPT or another
+  tool goes to an agent as `handoff-<date>-<time>.md` in its composer, with
+  a prompt that is kept for next time ("Lies die Übergabe in dieser Datei
+  und setze sie um:" by default); the path follows the prompt when it is
+  sent. Three ways in: the share extension, now also on the Mac (new
+  target `AmiscaraAgentsShare`, it opens the app itself) and with the
+  switch "Als Übergabe-Datei" for long text and Markdown files; "Übergabe
+  aus Zwischenablage …" (⌥⌘V in "Gehe zu", a toolbar button on iPhone and
+  iPad); and links `amiscara-agents://prompt?text=…&host=…&pane=…`. The
+  clipboard and links open a sheet with the agents of the connected hosts
+  and a preview. Template and details in `docs/ai-handoff.md`.
 
 ### Changed
 

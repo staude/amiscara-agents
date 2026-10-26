@@ -123,6 +123,10 @@ code), so a host is set up the same way everywhere.
   the host's `localhost` load through the SSH connection. Needs the
   browser stand-in on the host, see
   [Setting up a host](#setting-up-a-host). Not on the Apple TV and Watch.
+- **Handoff from other AI tools:** text planned in Claude, ChatGPT or
+  elsewhere goes to an agent as a Markdown file in its composer, by share
+  sheet, from the clipboard or as an `amiscara-agents://prompt` link, see
+  [docs/ai-handoff.md](docs/ai-handoff.md). Mac, iPhone and iPad.
 - **Quick switcher** (⌘K or Ctrl+K) across spaces and agents of all hosts,
   and keyboard shortcuts for spaces, tabs, search and the keys sent to the
   pane.
