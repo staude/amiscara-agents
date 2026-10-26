@@ -52,6 +52,8 @@ targets:
       - framework: Generated/HerdrFFI.xcframework
         embed: false
       - target: AmiscaraAgentsWidget
+      # "Share → Amiscara Agents" on the Mac (#236).
+      - target: AmiscaraAgentsShare
       - package: Sparkle
         product: Sparkle
     settings:
@@ -299,10 +301,48 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
-            NSExtensionActivationRule:
+            NSExtensionActivationRule: &shareActivation
               NSExtensionActivationSupportsText: true
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsImageWithMaxCount: 5
+              # A Markdown file to hand over (#236).
+              NSExtensionActivationSupportsFileWithMaxCount: 1
+  # The same on the Mac (#236): sandboxed like every extension, and it
+  # opens the app itself instead of posting a notification.
+  AmiscaraAgentsShare:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: ShareExtension
+        excludes:
+          - "*.entitlements"
+          - "*.plist"
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents.share
+        PRODUCT_NAME: AmiscaraAgentsShare
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: ShareExtension/Info-macOS.plist
+        ENABLE_HARDENED_RUNTIME: YES
+        SKIP_INSTALL: YES
+    entitlements:
+      path: ShareExtension/AmiscaraAgentsShare-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - 7N2W4T6UPV.net.staude.amiscara.agents
+    info:
+      path: ShareExtension/Info-macOS.plist
+      properties:
+        CFBundleDisplayName: Amiscara Agents
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule: *shareActivation
   # Apple TV (#95, #126): the same sources; what tvOS lacks is guarded with
   # `#if !os(tvOS)` or excluded here.
   AmiscaraAgents-tvOS:
