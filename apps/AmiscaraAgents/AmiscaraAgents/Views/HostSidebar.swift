@@ -298,7 +298,7 @@ struct HostSidebar: View {
             let order = mode == .manual ? update.spaceOrder.map(\.workspaceId) : nil
             store.setSpaceSort(mode, order: order, for: connection.id)
         }
-        return Menu("Spaces sortieren", systemImage: "arrow.up.arrow.down") {
+        return Menu(mode.wrappedValue.label) {
             Picker("Spaces sortieren", selection: mode) {
                 ForEach(SpaceSortMode.allCases, id: \.self) { mode in
                     Text(mode.label).tag(mode)
@@ -306,7 +306,6 @@ struct HostSidebar: View {
             }
             .pickerStyle(.inline)
         }
-        .labelStyle(.iconOnly)
         .menuIndicator(.hidden)
         .fixedSize()
         .buttonStyle(.borderless)

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -342,8 +341,8 @@ private fun SpacesLabel(current: SpaceSortMode, choose: (SpaceSortMode) -> Unit)
     Row(verticalAlignment = Alignment.CenterVertically) {
         SectionLabel(stringResource(R.string.spaces))
         Box {
-            IconButton(onClick = { menu = true }) {
-                Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.sort_spaces))
+            TextButton(onClick = { menu = true }) {
+                Text(stringResource(SORT_LABELS.first { it.first == current }.second), style = MaterialTheme.typography.labelMedium)
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 for ((mode, label) in SORT_LABELS) {

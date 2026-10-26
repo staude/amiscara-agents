@@ -149,7 +149,7 @@
             {#if spacesFolded}<span class="small">{update.workspaces.length}</span>{/if}
           </button>
           <span>
-            <button class="order" title={t("sortSpaces")} onclick={(e) => openMenu(e, sortMenu(host, update))}>⇅</button>
+            <button class="order" title={t("sortSpaces")} onclick={(e) => openMenu(e, sortMenu(host, update))}>{sortLabels[host.spaceSort ?? "herdr"]()}</button>
             {#if canWrite(host.id)}
               <button class="order" title={t("newSpace")} onclick={() => (ui.dialog = { kind: "newSpace", hostId: host.id })}>+</button>
             {/if}
