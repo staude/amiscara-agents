@@ -16,6 +16,8 @@ struct HandoffSheet: View {
     /// Once the user picked, hosts coming up later do not move the choice.
     @State private var picked = false
     @State private var error: String?
+    /// The sidebar's order of agents.
+    @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
 
     private struct Choice: Identifiable {
         let hostID: UUID
@@ -34,7 +36,7 @@ struct HandoffSheet: View {
     private var choices: [Choice] {
         store.connections.filter { $0.isLive && $0.config.inputAllowed }.flatMap { connection -> [Choice] in
             guard let update = connection.update else { return [] }
-            return AgentOrder.sorted(update, by: .grouped).map { entry in
+            return AgentOrder.sorted(update, by: agentOrder).map { entry in
                 let agent = entry.agent
                 return Choice(
                     hostID: connection.id,
