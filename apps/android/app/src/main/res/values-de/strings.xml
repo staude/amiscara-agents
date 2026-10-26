@@ -98,6 +98,12 @@
     <!-- Sidebar -->
     <string name="spaces">Spaces</string>
     <string name="agents">Agents</string>
+    <string name="sort_spaces">Spaces sortieren</string>
+    <string name="sort_herdr">wie herdr</string>
+    <string name="sort_name_ascending">Name A–Z</string>
+    <string name="sort_name_descending">Name Z–A</string>
+    <string name="sort_manual">Manuell</string>
+    <string name="move_space">Verschieben</string>
     <string name="host_details">Host-Details</string>
     <string name="state_blocked">wartet</string>
     <string name="state_working">arbeitet</string>

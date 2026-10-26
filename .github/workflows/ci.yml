@@ -120,7 +120,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/29.0.14206865
       # Gradle hands the NDK to scripts/build-android-ffi.sh.
-      - run: ./gradlew assembleDebug lintDebug
+      - run: ./gradlew assembleDebug lintDebug testDebugUnitTest
 
   desktop:
     name: Desktop app (${{ matrix.os }})

@@ -40,6 +40,60 @@ fun blocks(entries: List<SpaceEntry>): List<SpaceBlock> {
     return out
 }
 
+/** Drag key of a whole name group; a space's is its workspace ID. */
+const val GROUP_KEY_PREFIX = "group/"
+
+/** Where a dragged row may go, as in `spaces.ts`. */
+private sealed interface Level {
+    data object Top : Level
+    data class Group(val name: String) : Level
+    data class Worktrees(val of: String) : Level
+}
+
+/** The rows that move with `key`, from `start` to before `end`. */
+private class Segment(val level: Level, val start: Int, val end: Int)
+
+/** A group with all its entries, a space with its nested worktrees. */
+private fun segment(key: String, entries: List<SpaceEntry>): Segment? {
+    val index = entries.indexOfFirst { it.workspace.workspaceId == key }
+    if (index >= 0) {
+        val entry = entries[index]
+        if (entry.nested) {
+            val head = (index - 1 downTo 0).firstOrNull { !entries[it].nested } ?: return null
+            return Segment(Level.Worktrees(entries[head].workspace.workspaceId), index, index + 1)
+        }
+        var end = index + 1
+        while (end < entries.size && entries[end].nested) end++
+        val group = entry.workspace.group
+        return Segment(if (group != null) Level.Group(group) else Level.Top, index, end)
+    }
+    if (!key.startsWith(GROUP_KEY_PREFIX)) return null
+    val name = key.removePrefix(GROUP_KEY_PREFIX)
+    val start = entries.indexOfFirst { it.workspace.group == name }
+    if (start < 0) return null
+    var end = start
+    while (end < entries.size && entries[end].workspace.group == name) end++
+    return Segment(Level.Top, start, end)
+}
+
+/**
+ * The manual order after dropping `dragged` on `target` (#245): behind it
+ * when it came from above, otherwise in front of it. `null` when both are
+ * on different levels or the same row.
+ */
+fun moveSpace(entries: List<SpaceEntry>, dragged: String, target: String): List<String>? {
+    if (dragged == target) return null
+    val from = segment(dragged, entries) ?: return null
+    val to = segment(target, entries) ?: return null
+    if (from.level != to.level) return null
+    val ids = entries.map { it.workspace.workspaceId }.toMutableList()
+    val moving = ids.subList(from.start, from.end).toList()
+    ids.subList(from.start, from.end).clear()
+    val at = if (from.start < to.start) to.end - moving.size else to.start
+    ids.addAll(at, moving)
+    return ids
+}
+
 /** "reviewer · claude" or "claude". */
 val BoardItem.title: String get() = name?.let { "$it · $agent" } ?: agent
 

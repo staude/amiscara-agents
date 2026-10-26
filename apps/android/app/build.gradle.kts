@@ -143,4 +143,6 @@ dependencies {
     implementation("${libs.jna.get()}@aar")
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    testImplementation(libs.junit)
 }

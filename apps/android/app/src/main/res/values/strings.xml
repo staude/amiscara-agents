@@ -100,6 +100,12 @@
     <!-- Sidebar -->
     <string name="spaces">Spaces</string>
     <string name="agents">Agents</string>
+    <string name="sort_spaces">Sort spaces</string>
+    <string name="sort_herdr">as herdr</string>
+    <string name="sort_name_ascending">Name A–Z</string>
+    <string name="sort_name_descending">Name Z–A</string>
+    <string name="sort_manual">Manual</string>
+    <string name="move_space">Move</string>
     <string name="host_details">Host details</string>
     <string name="state_blocked">waiting</string>
     <string name="state_working">working</string>

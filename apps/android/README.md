@@ -35,6 +35,7 @@ of an add-host link) are still German for now.
 cd apps/android
 ./gradlew assembleDebug            # also builds the Rust core
 ./gradlew lintDebug
+./gradlew testDebugUnitTest        # unit tests on the JVM
 ../../scripts/install-android.sh   # build, install and launch (adb)
 ```
 

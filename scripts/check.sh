@@ -2,7 +2,7 @@
 # The checks to run before pushing; CI runs the same and more for every
 # pull request.
 # --apple also builds the Mac and iOS schemes (needs ./setup.sh once),
-# --android the Android app with lint (needs the NDK and cargo-ndk).
+# --android the Android app with lint and unit tests (needs the NDK and cargo-ndk).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -36,6 +36,6 @@ if $android; then
     export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
     export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/29.0.14206865}"
     cargo ndk -t arm64-v8a -P 29 clippy -p herdr-ffi --locked -- -D warnings
-    (cd apps/android && ./gradlew -q assembleDebug lintDebug)
+    (cd apps/android && ./gradlew -q assembleDebug lintDebug testDebugUnitTest)
 fi
 echo "All checks passed."

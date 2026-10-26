@@ -1,11 +1,15 @@
 package net.staude.amiscara.agents.ui
 
+import android.content.ClipData
+import android.content.ClipDescription
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.draganddrop.dragAndDropSource
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,9 +17,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -39,9 +47,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.DragAndDropTransferData
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -52,15 +67,18 @@ import net.staude.amiscara.agents.AmiscaraApp
 import net.staude.amiscara.agents.R
 import net.staude.amiscara.agents.core.HostStatus
 import net.staude.amiscara.agents.core.WorkspaceItem
+import net.staude.amiscara.agents.model.GROUP_KEY_PREFIX
 import net.staude.amiscara.agents.model.SpaceBlock
 import net.staude.amiscara.agents.model.SpaceEntry
 import net.staude.amiscara.agents.model.SpaceSelection
+import net.staude.amiscara.agents.model.SpaceSortMode
 import net.staude.amiscara.agents.model.arrange
 import net.staude.amiscara.agents.model.blocks
 import net.staude.amiscara.agents.core.sessionNameOfSocket
 import net.staude.amiscara.agents.model.HostConfig
 import net.staude.amiscara.agents.model.closingState
 import net.staude.amiscara.agents.model.linkedWorktrees
+import net.staude.amiscara.agents.model.moveSpace
 import net.staude.amiscara.agents.model.place
 import net.staude.amiscara.agents.model.repositoryOf
 import net.staude.amiscara.agents.model.title
@@ -192,19 +210,30 @@ fun Sidebar(
                     }
                     if (update == null || !live) continue
                     val entries = arrange(update)
+                    val sort = host.spaceSort ?: SpaceSortMode.HERDR
                     if (entries.isNotEmpty()) {
-                        item(key = "spaces-${host.id}") { SectionLabel(stringResource(R.string.spaces)) }
+                        item(key = "spaces-${host.id}") {
+                            SpacesLabel(sort) { mode ->
+                                val order = if (mode == SpaceSortMode.MANUAL) entries.map { it.workspace.workspaceId } else null
+                                app.hosts.setSpaceSort(host.id, mode, order)
+                            }
+                        }
+                    }
+                    val drag = if (sort == SpaceSortMode.MANUAL) {
+                        SpaceDrag(host.id, entries) { app.hosts.setSpaceSort(host.id, SpaceSortMode.MANUAL, it) }
+                    } else {
+                        null
                     }
                     for (block in blocks(entries)) {
                         when (block) {
                             is SpaceBlock.Space -> item(key = "space-${host.id}-${block.entry.workspace.workspaceId}") {
-                                SpaceRow(block.entry, update.workspaces, host.id, writable, selected, grouped = false, openSpace, manage)
+                                SpaceRow(block.entry, update.workspaces, host.id, writable, selected, grouped = false, drag, openSpace, manage)
                             }
                             is SpaceBlock.Group -> {
-                                item(key = "group-${host.id}-${block.name}") { GroupLabel(block.name) }
+                                item(key = "group-${host.id}-${block.name}") { GroupLabel(block.name, drag) }
                                 for (entry in block.entries) {
                                     item(key = "space-${host.id}-${entry.workspace.workspaceId}") {
-                                        SpaceRow(entry, update.workspaces, host.id, writable, selected, grouped = true, openSpace, manage)
+                                        SpaceRow(entry, update.workspaces, host.id, writable, selected, grouped = true, drag, openSpace, manage)
                                     }
                                 }
                             }
@@ -306,17 +335,140 @@ private fun SectionLabel(text: String) {
     )
 }
 
+/** "Spaces" with the menu of sort modes (#245); on this device, also without input. */
 @Composable
-private fun GroupLabel(name: String) {
-    Text(
-        name,
-        Modifier.padding(start = 24.dp, top = 8.dp, bottom = 2.dp),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+private fun SpacesLabel(current: SpaceSortMode, choose: (SpaceSortMode) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SectionLabel(stringResource(R.string.spaces))
+        Box {
+            IconButton(onClick = { menu = true }) {
+                Icon(Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.sort_spaces))
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                for ((mode, label) in SORT_LABELS) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(label)) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Check, contentDescription = null, Modifier.alpha(if (mode == current) 1f else 0f))
+                        },
+                        onClick = {
+                            menu = false
+                            choose(mode)
+                        },
+                    )
+                }
+            }
+        }
+    }
 }
 
-/** A space; a long press opens rename, new worktree and close. */
+private val SORT_LABELS = listOf(
+    SpaceSortMode.HERDR to R.string.sort_herdr,
+    SpaceSortMode.NAME_ASCENDING to R.string.sort_name_ascending,
+    SpaceSortMode.NAME_DESCENDING to R.string.sort_name_descending,
+    SpaceSortMode.MANUAL to R.string.sort_manual,
+)
+
+/** Moving a host's spaces by their handle in the manual order (#245). */
+private class SpaceDrag(val hostId: String, val entries: List<SpaceEntry>, val save: (List<String>) -> Unit)
+
+/**
+ * The handle that drags the row of `key` (a workspace ID or a group's
+ * key) after a long press. Outside the row's own long press, which keeps
+ * opening its menu.
+ */
+@Composable
+private fun DragHandle(drag: SpaceDrag, key: String) {
+    Box(
+        Modifier
+            .size(40.dp)
+            .dragAndDropSource { _ -> DragAndDropTransferData(ClipData.newPlainText("space", "${drag.hostId}\n$key")) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Default.Menu,
+            contentDescription = stringResource(R.string.move_space),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * A row that takes spaces of its own host dropped on it; `content` gets
+ * whether one hovers. Without `drag` (not the manual order) just the row.
+ */
+@Composable
+private fun SpaceDropZone(drag: SpaceDrag?, key: String, content: @Composable (over: Boolean) -> Unit) {
+    if (drag == null) {
+        content(false)
+        return
+    }
+    var over by remember { mutableStateOf(false) }
+    val current by rememberUpdatedState(drag)
+    val target = remember(key) {
+        object : DragAndDropTarget {
+            override fun onDrop(event: DragAndDropEvent): Boolean {
+                over = false
+                val clip = event.toAndroidDragEvent().clipData ?: return false
+                val text = clip.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString() ?: return false
+                val prefix = "${current.hostId}\n"
+                if (!text.startsWith(prefix)) return false
+                val order = moveSpace(current.entries, text.removePrefix(prefix), key) ?: return false
+                current.save(order)
+                return true
+            }
+
+            override fun onEntered(event: DragAndDropEvent) {
+                over = true
+            }
+
+            override fun onExited(event: DragAndDropEvent) {
+                over = false
+            }
+
+            override fun onEnded(event: DragAndDropEvent) {
+                over = false
+            }
+        }
+    }
+    Box(
+        Modifier.dragAndDropTarget(
+            shouldStartDragAndDrop = { ClipDescription.MIMETYPE_TEXT_PLAIN in it.mimeTypes() },
+            target = target,
+        ),
+    ) {
+        content(over)
+    }
+}
+
+@Composable
+private fun GroupLabel(name: String, drag: SpaceDrag?) {
+    val key = GROUP_KEY_PREFIX + name
+    SpaceDropZone(drag, key) { over ->
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .clip(MaterialTheme.shapes.small)
+                .background(if (over) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                name,
+                Modifier.weight(1f).padding(start = 16.dp, top = 8.dp, bottom = 2.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            drag?.let { DragHandle(it, key) }
+        }
+    }
+}
+
+/**
+ * A space; a long press opens rename, new worktree and close. In the
+ * manual order a handle at the end moves it.
+ */
 @Composable
 private fun SpaceRow(
     entry: SpaceEntry,
@@ -325,6 +477,7 @@ private fun SpaceRow(
     writable: Boolean,
     selected: SpaceSelection?,
     grouped: Boolean,
+    drag: SpaceDrag?,
     open: (SpaceSelection) -> Unit,
     manage: (ManageDialog) -> Unit,
 ) {
@@ -334,20 +487,27 @@ private fun SpaceRow(
     val hasAgents = workspace.tabs.any { tab -> tab.panes.any { it.agent != null } }
     val details = listOfNotNull(workspace.branch) + workspace.tokens.map { it.value }
     var menu by remember { mutableStateOf(false) }
-    Box {
-        CompactRow(
-            selected = isSelected,
-            onClick = { open(SpaceSelection(hostId, workspace.workspaceId)) },
-            onLongClick = if (writable) ({ menu = true }) else null,
-            indent = indent,
-            leading = { AgentDot(workspace.agentState.takeIf { hasAgents }) },
-            title = workspace.worktreeName ?: workspace.name,
-            subtitle = details.joinToString(" · ").ifEmpty { null },
-        )
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            SpaceMenuItems(hostId, workspace, all) {
-                menu = false
-                manage(it)
+    SpaceDropZone(drag, workspace.workspaceId) { over ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                CompactRow(
+                    selected = isSelected || over,
+                    onClick = { open(SpaceSelection(hostId, workspace.workspaceId)) },
+                    onLongClick = if (writable) ({ menu = true }) else null,
+                    indent = indent,
+                    leading = { AgentDot(workspace.agentState.takeIf { hasAgents }) },
+                    title = workspace.worktreeName ?: workspace.name,
+                    subtitle = details.joinToString(" · ").ifEmpty { null },
+                )
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    SpaceMenuItems(hostId, workspace, all) {
+                        menu = false
+                        manage(it)
+                    }
+                }
+            }
+            drag?.let {
+                Box(Modifier.padding(end = 8.dp)) { DragHandle(it, workspace.workspaceId) }
             }
         }
     }

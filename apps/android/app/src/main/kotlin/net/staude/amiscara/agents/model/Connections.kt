@@ -180,6 +180,9 @@ class Connections(
             if (entry == null || host.connectsDifferentlyThan(entry.config)) {
                 start(host)
             } else {
+                if (host.spaceSort != entry.config.spaceSort || host.spaceOrder != entry.config.spaceOrder) {
+                    entry.session.setSpaceSort(host.spaceSorting)
+                }
                 running[host.id] = Running(host, entry.session)
             }
         }
@@ -198,7 +201,7 @@ class Connections(
         }
         try {
             val key = hosts.privateKey(host.id) ?: throw HostException(Texts.get(R.string.error_key_missing))
-            running[host.id] = Running(host, HostSession.start(host.endpoint(key), observer, host.groupSpacesByName))
+            running[host.id] = Running(host, HostSession.start(host.endpoint(key), observer, host.groupSpacesByName, host.spaceSorting))
             startErrorState.update { it - host.id }
         } catch (e: FfiException) {
             startErrorState.update { it + (host.id to (e.message ?: e.toString())) }
