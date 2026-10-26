@@ -70,11 +70,22 @@ enum Handoff {
         }
     }
 
+    /// The link's query; `+` is a space as in form encoding, which many
+    /// tools write (`URLSearchParams`, Python's `urlencode`).
+    private static func queryItems(_ url: URL) -> [URLQueryItem]? {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedQueryItems?.map { item in
+            URLQueryItem(
+                name: item.name,
+                value: item.value?.replacingOccurrences(of: "+", with: " ").removingPercentEncoding
+            )
+        }
+    }
+
     /// `amiscara-agents://prompt?text=…&host=…&pane=…`; `nil` for any other
     /// link and for one without text or with too much of it.
     static func parsePromptURL(_ url: URL) -> Request? {
         guard url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "prompt",
-              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+              let items = queryItems(url),
               let text = items.first(where: { $0.name == "text" })?.value,
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               text.count <= maxLength

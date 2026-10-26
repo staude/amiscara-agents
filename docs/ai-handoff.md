@@ -19,8 +19,10 @@ apps (not on the Apple TV, Watch, Android or desktop app).
   the sidebar's toolbar.
 - **Link:** `amiscara-agents://prompt?text=<text>` with optional
   `host=<name or id>` and `pane=<herdr pane id>` to preselect the agent.
-  The text is percent-encoded and at most 1,000,000 characters. A host or
-  pane that does not match leaves the choice to you; it is no error.
+  The text is percent-encoded (`+` counts as a space, a plus sign is
+  `%2B`) and at most 1,000,000 characters. A pane alone is looked for on
+  every host. A host or pane that does not match leaves the choice to you;
+  it is no error.
 
   ```sh
   open "amiscara-agents://prompt?text=Hello&host=work"
