@@ -45,6 +45,9 @@ struct InputBar: View {
     @State private var pasteMonitor: Any?
     #endif
 
+    #if os(iOS)
+    private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
+    #endif
     private var isAgent: Bool { pane.agent != nil }
     private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
     /// Never while the agent waits for approval: typed keys would answer
@@ -576,13 +579,28 @@ struct InputBar: View {
                 }
             }
             #if os(iOS)
+            // The iPad keeps the button above the keyboard. On the iPhone
+            // that toolbar is not counted by the keyboard avoidance and hid
+            // the text field (#256); there the button sits in the row.
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Tastatur ausblenden", systemImage: "keyboard.chevron.compact.down") {
-                        composerFocused = false
+                if !isPhone {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Tastatur ausblenden", systemImage: "keyboard.chevron.compact.down") {
+                            composerFocused = false
+                        }
                     }
                 }
+            }
+            #endif
+            #if os(iOS)
+            if isPhone && composerFocused {
+                Button("Tastatur ausblenden", systemImage: "keyboard.chevron.compact.down") {
+                    composerFocused = false
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .help(String(localized: "Tastatur ausblenden"))
             }
             #endif
             Button(isAgent ? "Senden" : "Ausführen", systemImage: "paperplane.fill", action: submit)

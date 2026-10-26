@@ -589,6 +589,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- iPhone Duo: the composer's text field no longer sits under the keyboard.
+  On the iPhone the "Tastatur ausblenden" button moved from the keyboard
+  toolbar, whose height the keyboard avoidance did not count, into the
+  composer row (#256).
 - Dictation no longer quits the app right after granting speech
   recognition access on first use; the access handler ran with main actor
   isolation on a background queue. The Watch app's replies to the iPhone
