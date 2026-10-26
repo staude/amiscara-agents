@@ -71,6 +71,19 @@ enum Platform {
         #endif
     }
 
+    /// Text on the clipboard, for a handoff (#236). On iOS reading it may
+    /// ask for permission.
+    @MainActor
+    static var clipboardText: String? {
+        #if os(macOS)
+        NSPasteboard.general.string(forType: .string)
+        #elseif os(tvOS)
+        nil
+        #else
+        UIPasteboard.general.string
+        #endif
+    }
+
     #if os(macOS)
     /// Whether ⌘V in the composer should attach images rather than insert
     /// text: the clipboard holds image files, or image data without plain

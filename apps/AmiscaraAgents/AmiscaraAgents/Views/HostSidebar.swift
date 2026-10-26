@@ -16,6 +16,8 @@ struct HostSidebar: View {
     @Binding var selection: SpaceRef?
     @Binding var editing: HostConfig?
     @Binding var switching: Bool
+    /// Text from the clipboard to an agent (#236).
+    let openHandoff: () -> Void
     @State private var newSpaceOn: HostConnection?
     @State private var showingQR: HostConfig?
     @State private var renaming: RenameTarget?
@@ -75,6 +77,12 @@ struct HostSidebar: View {
                     .disabled(store.connections.isEmpty)
             }
             #if os(iOS)
+            // The Mac has it in the "Gehe zu" menu (⌥⌘V).
+            ToolbarItem(placement: .primaryAction) {
+                Button("Übergabe aus Zwischenablage", systemImage: "doc.on.clipboard", action: openHandoff)
+                    .help(String(localized: "Text aus der Zwischenablage an einen Agent übergeben"))
+                    .disabled(store.connections.isEmpty)
+            }
             // The Mac has its settings window (⌘,) for this.
             ToolbarItem(placement: .secondaryAction) {
                 Menu("Erscheinungsbild", systemImage: "circle.lefthalf.filled") {
