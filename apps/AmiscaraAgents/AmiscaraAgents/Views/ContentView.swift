@@ -17,6 +17,10 @@ struct ContentView: View {
     /// An Apple TV's pairing code, scanned with the camera (#127).
     @State private var pairingTV: TVPairing.Link?
     #endif
+    #if !os(tvOS)
+    /// Text from the clipboard or a link, on its way to an agent (#236).
+    @State private var handoff: Handoff.Request?
+    #endif
 
     var body: some View {
         // Two columns like herdr: spaces and agents on the left, the space
@@ -26,7 +30,7 @@ struct ContentView: View {
             TVContentView(editing: $editing, open: $selection)
             #else
             NavigationSplitView {
-                HostSidebar(selection: $selection, editing: $editing, switching: $switching)
+                HostSidebar(selection: $selection, editing: $editing, switching: $switching, openHandoff: openHandoff)
                     .navigationSplitViewColumnWidth(min: foldWidth ?? 240, ideal: foldWidth ?? 280, max: foldWidth)
             } detail: {
                 WorkspaceDetailView(selection: $selection)
@@ -49,7 +53,8 @@ struct ContentView: View {
         .focusedSceneValue(\.navigator, Navigator(
             openSwitcher: { switching = true },
             spaceCount: currentSpaces.count,
-            selectSpace: selectSpace
+            selectSpace: selectSpace,
+            openHandoff: openHandoff
         ))
         .sheet(isPresented: $switching) {
             QuickSwitcher { selection = $0 }
@@ -66,6 +71,9 @@ struct ContentView: View {
             if pendingImport?.hostID != id { pendingImport = nil }
         }
         #if !os(tvOS)
+        .sheet(item: $handoff) { request in
+            HandoffSheet(request: request)
+        }
         // A pane handed off from another device (#231); without a matching
         // host entry the app just opens.
         .onContinueUserActivity(PaneHandoff.activityType) { activity in
@@ -79,6 +87,20 @@ struct ContentView: View {
             #if os(iOS)
             if let link = TVPairing.Link(url) {
                 pairingTV = link
+                return
+            }
+            #endif
+            #if !os(tvOS)
+            // amiscara-agents://prompt?text=... from another tool (#236).
+            if let request = Handoff.parsePromptURL(url) {
+                store.notifier.dictateRequest = nil
+                handoff = request
+                return
+            }
+            // The Mac's share extension saved a share and opens the app.
+            if url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "share" {
+                store.notifier.dictateRequest = nil
+                openPendingShare()
                 return
             }
             #endif
@@ -163,6 +185,26 @@ struct ContentView: View {
             try? await Task.sleep(for: .milliseconds(100))
         }
     }
+
+    /// The clipboard's text as a handoff (#236); nothing without text.
+    private func openHandoff() {
+        #if !os(tvOS)
+        guard let text = Platform.clipboardText, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        handoff = Handoff.Request(text: text)
+        #endif
+    }
+
+    #if !os(tvOS)
+    /// Brings the user to the agent of a share that is not opened yet; its
+    /// composer takes the share when it appears or, already on screen,
+    /// from the notification.
+    private func openPendingShare() {
+        guard let share = PendingShare.peek(), !share.opened else { return }
+        PendingShare.markOpened()
+        selection = SpaceRef(hostID: share.hostID, workspaceID: share.workspaceID, paneID: share.paneID)
+        NotificationCenter.default.post(name: PendingShare.arrived, object: nil)
+    }
+    #endif
 
     /// The spaces of the selected host in sidebar order; without a selection
     /// those of the first host that has any.

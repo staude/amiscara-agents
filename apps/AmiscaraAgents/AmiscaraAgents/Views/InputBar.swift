@@ -117,7 +117,8 @@ struct InputBar: View {
             catchImagePaste()
         }
         #endif
-        .onChange(of: pane.paneId) {
+        // The key, not only the pane: two hosts may use the same pane id.
+        .onChange(of: draftKey) {
             dictation.stop()
             text = ""
             error = nil
@@ -138,10 +139,11 @@ struct InputBar: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             takePendingShare()
         }
+        #endif
+        // On the Mac too: its share extension and the handoff sheet (#236).
         .onReceive(NotificationCenter.default.publisher(for: PendingShare.arrived)) { _ in
             takePendingShare()
         }
-        #endif
         .onChange(of: text) { keepDraft() }
         .onChange(of: attachments.map(\.id)) { keepDraft() }
         .onChange(of: pickedPhotos) { _, items in
@@ -196,13 +198,16 @@ struct InputBar: View {
 
     private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
 
-    /// Text and images shared to this pane from another app (#225): into
-    /// the composer, not sent.
+    /// Text and images shared to this pane from another app (#225), or a
+    /// handoff as a Markdown file (#236): into the composer, not sent.
     private func takePendingShare() {
-        #if os(iOS)
         guard let pending = PendingShare.take(hostID: connection.id, paneID: pane.paneId) else { return }
         let shared = pending.share.text
         let current = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let handoff = pending.share.handoff {
+            takeHandoff(handoff, prompt: shared, created: pending.share.created, current: current)
+            return
+        }
         text = current.isEmpty ? shared : current + "\n" + shared
         guard !pending.images.isEmpty else { return }
         guard connection.config.uploadAllowed else {
@@ -214,7 +219,25 @@ struct InputBar: View {
         if images.contains(where: { $0 == nil }) {
             error = String(localized: "Ein geteiltes Bild konnte nicht gelesen werden.")
         }
-        #endif
+    }
+
+    /// The handoff as `handoff-<date>.md`, the prompt in the composer; the
+    /// file's path follows the prompt on its own line when it is sent. With
+    /// upload off the text itself goes into the composer.
+    private func takeHandoff(_ handoff: String, prompt: String, created: Date, current: String) {
+        let attachment = connection.config.uploadAllowed
+            ? try? ImageAttachment.file(data: Data(handoff.utf8), name: Handoff.fileName(at: created))
+            : nil
+        guard let attachment else {
+            // The prompt speaks of a file; without one the text stands alone.
+            text = [current, handoff].filter { !$0.isEmpty }.joined(separator: "\n")
+            error = connection.config.uploadAllowed
+                ? String(localized: "Die Übergabe ist zu groß für eine Datei; der Text steht im Eingabefeld.")
+                : String(localized: "Hochladen ist für \(connection.config.name) aus; der Text steht im Eingabefeld.")
+            return
+        }
+        text = current.isEmpty ? prompt : current + "\n" + prompt
+        attachments.append(attachment)
     }
     private var historyKey: String { PromptHistory.key(host: connection.id, pane: pane.paneId) }
 

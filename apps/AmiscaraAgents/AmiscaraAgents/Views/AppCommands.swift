@@ -35,6 +35,9 @@ struct AppCommands: Commands {
             Button("Schnell wechseln …") { if !locked { navigator?.openSwitcher() } }
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(navigator == nil)
+            Button("Übergabe aus Zwischenablage …") { if !locked { navigator?.openHandoff() } }
+                .keyboardShortcut("v", modifiers: [.command, .option])
+                .disabled(navigator == nil)
             Divider()
             ForEach(1..<10) { number in
                 Button("Space \(number)") { navigator?.selectSpace(number) }
@@ -80,12 +83,15 @@ struct AppCommands: Commands {
 }
 #endif
 
-/// What the main window offers: the switcher and spaces by number.
+/// What the main window offers: the switcher, spaces by number and the
+/// handoff from the clipboard.
 struct Navigator {
     let openSwitcher: @MainActor () -> Void
     /// Number of spaces on the current host, for ⌘1 to ⌘9.
     let spaceCount: Int
     let selectSpace: @MainActor (Int) -> Void
+    /// The clipboard's text to an agent (#236).
+    let openHandoff: @MainActor () -> Void
 }
 
 /// Tabs of the open space.

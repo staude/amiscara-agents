@@ -189,6 +189,22 @@
         }
       }
     },
+    "%@ · %@ · %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@ · %3$@"
+          }
+        }
+      }
+    },
     "%@ · %@ · %@ · Tab %@" : {
       "localizations" : {
         "de" : {
@@ -530,6 +546,16 @@
         }
       }
     },
+    "%lld Zeichen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld characters"
+          }
+        }
+      }
+    },
     "%lld, %lld wartet" : {
       "localizations" : {
         "de" : {
@@ -716,6 +742,16 @@
         }
       }
     },
+    "Als Übergabe-Datei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As handoff file"
+          }
+        }
+      }
+    },
     "Amiscara Agents" : {
       "localizations" : {
         "en" : {
@@ -762,6 +798,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open Amiscara Agents"
+          }
+        }
+      }
+    },
+    "Amiscara Agents öffnet den Agent mit dem Prompt und der Datei im Eingabefeld; gesendet wird erst dort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Amiscara Agents opens the agent with the prompt and the file in the composer; it is sent only from there."
           }
         }
       }
@@ -942,6 +988,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No agent is running on the hosts right now."
+          }
+        }
+      }
+    },
+    "Aus einem Link. Prüfen Sie den Text, bevor Sie ihn an einen Agent geben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From a link. Check the text before you hand it to an agent."
           }
         }
       }
@@ -1252,6 +1308,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The field “%@” appears more than once in the code."
+          }
+        }
+      }
+    },
+    "Das Geteilte enthält keinen Text und kein Bild." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What was shared holds no text and no image."
           }
         }
       }
@@ -1576,6 +1642,16 @@
         }
       }
     },
+    "Der Text ist zu lang für eine Übergabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The text is too long for a handoff."
+          }
+        }
+      }
+    },
     "Die %lld Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben." : {
       "localizations" : {
         "de" : {
@@ -1656,6 +1732,22 @@
         }
       }
     },
+    "Die Vorschau zeigt die ersten %lld von %lld Zeichen; die Datei enthält alle." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Die Vorschau zeigt die ersten %1$lld von %2$lld Zeichen; die Datei enthält alle."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The preview shows the first %1$lld of %2$lld characters; the file holds all of them."
+          }
+        }
+      }
+    },
     "Die Zwischenablage enthält kein Bild." : {
       "localizations" : {
         "en" : {
@@ -1692,6 +1784,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The changes are too large and were cut off; files are missing."
+          }
+        }
+      }
+    },
+    "Die Übergabe ist zu groß für eine Datei; der Text steht im Eingabefeld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The handoff is too large for a file; the text is in the composer."
           }
         }
       }
@@ -2306,6 +2408,26 @@
         }
       }
     },
+    "Hochladen ist für %@ aus; der Text kommt statt einer Datei ins Eingabefeld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading is off for %@; the text goes into the composer instead of a file."
+          }
+        }
+      }
+    },
+    "Hochladen ist für %@ aus; der Text steht im Eingabefeld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uploading is off for %@; the text is in the composer."
+          }
+        }
+      }
+    },
     "Host" : {
       "localizations" : {
         "en" : {
@@ -2606,6 +2728,16 @@
         }
       }
     },
+    "Kein verbundener Agent. Sobald ein Host verbunden ist, erscheinen seine Agents hier." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connected agent. As soon as a host is connected, its agents appear here."
+          }
+        }
+      }
+    },
     "Kein Verlauf: Bei Vollbild-Programmen wie Claude Code speichert herdr keinen." : {
       "localizations" : {
         "en" : {
@@ -2872,6 +3004,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wrap long lines at the window width instead of scrolling sideways"
+          }
+        }
+      }
+    },
+    "Lies die Übergabe in dieser Datei und setze sie um:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read the handoff in this file and implement it:"
           }
         }
       }
@@ -4442,6 +4584,16 @@
         }
       }
     },
+    "Text aus der Zwischenablage an einen Agent übergeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hand the clipboard's text to an agent"
+          }
+        }
+      }
+    },
     "Text auswählen" : {
       "localizations" : {
         "en" : {
@@ -5528,6 +5680,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opens the agent the last prompt went to and starts dictation."
+          }
+        }
+      }
+    },
+    "Übergabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Handoff"
+          }
+        }
+      }
+    },
+    "Übergabe an Agent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hand over to agent"
+          }
+        }
+      }
+    },
+    "Übergabe aus Zwischenablage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Handoff from clipboard"
+          }
+        }
+      }
+    },
+    "Übergabe aus Zwischenablage …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Handoff from Clipboard …"
           }
         }
       }

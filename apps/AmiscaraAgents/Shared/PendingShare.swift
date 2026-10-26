@@ -5,7 +5,7 @@ import Foundation
 /// no keys) and iOS lets it not open the app, so it leaves the share in
 /// the App Group; the app opens that agent with the composer filled, and
 /// the user sends it from there. One share at a time; a newer one replaces
-/// it.
+/// it. The handoff sheet (#236) takes the same way from inside the app.
 struct PendingShare: Codable, Equatable {
     let hostID: UUID
     let workspaceID: String
@@ -14,6 +14,10 @@ struct PendingShare: Codable, Equatable {
     let text: String
     /// Image files next to the share, by name.
     let images: [String]
+    /// A handoff from another AI tool (#236): Markdown the composer
+    /// attaches as a file; `text` is then the prompt that goes with it.
+    /// Optional, so shares saved before it still decode.
+    var handoff: String? = nil
     let created: Date
     /// The app brought the user to the pane once; it does not again.
     var opened = false
