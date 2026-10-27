@@ -537,6 +537,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `Connection::list_dir`, `Connection::read_file_head`,
   `herdr_core::browse`, `Session::list_directory`,
   `Session::open_pane_directory`, `Session::file_preview`.
+- Last tab per space (#263): a space opened from its row (sidebar, ⌘1 to ⌘9,
+  quick switcher) comes back on the tab and pane shown last, also after a
+  restart (Mac, iPhone, iPad, Windows, Linux). A tab closed on the host
+  falls back to herdr's active tab; an agent row still opens its own tab.
 
 ### Changed
 

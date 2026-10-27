@@ -26,6 +26,9 @@ export type AgentOrder = "grouped" | "status";
 /** Light or dark look: as the system (default) or fixed. */
 export type Theme = "system" | "light" | "dark";
 
+/** The tab and pane shown last in a space (#263). */
+export type LastTab = { tab: string; pane: string | null };
+
 export const FONT_MIN = 8;
 export const FONT_MAX = 28;
 export const FONT_DEFAULT = 13;
@@ -45,6 +48,8 @@ class Prefs {
   fullscreenScroll = $state<boolean>(read("scrollFullscreenAgents", false));
   /** The language of the texts: as the system, or fixed (#207). */
   language = $state<LangSetting>(read("language", "system"));
+  /** Last shown tab per space, keyed "hostId/workspaceId" (#263). */
+  lastTabs = $state<Record<string, LastTab>>(read("lastTabs", {}));
   /** The system's look, for "system" in `theme`. */
   systemDark = $state(false);
 
@@ -75,6 +80,27 @@ class Prefs {
     this.language = language;
     write("language", language);
     i18n.lang = this.lang;
+  }
+
+  lastTab(hostId: string, workspaceId: string): LastTab | undefined {
+    return this.lastTabs[`${hostId}/${workspaceId}`];
+  }
+
+  rememberTab(hostId: string, workspaceId: string, tab: string, pane: string | null) {
+    const key = `${hostId}/${workspaceId}`;
+    const last = this.lastTabs[key];
+    if (last?.tab === tab && last.pane === pane) return;
+    this.lastTabs[key] = { tab, pane };
+    write("lastTabs", this.lastTabs);
+  }
+
+  /** Drops the memory of a removed host. */
+  forgetHost(hostId: string) {
+    const prefix = `${hostId}/`;
+    const keys = Object.keys(this.lastTabs).filter((key) => key.startsWith(prefix));
+    if (keys.length === 0) return;
+    for (const key of keys) delete this.lastTabs[key];
+    write("lastTabs", this.lastTabs);
   }
 
   isCollapsed(hostId: string, section: string): boolean {

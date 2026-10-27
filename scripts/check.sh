@@ -23,6 +23,7 @@ cargo test --workspace --locked
 (cd apps/desktop && npm run check)
 
 if $apple; then
+    scripts/last-tabs-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
         [[ "$scheme" == AmiscaraAgents-iOS ]] && destination="generic/platform=iOS"

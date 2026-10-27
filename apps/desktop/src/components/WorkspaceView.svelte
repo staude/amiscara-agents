@@ -5,6 +5,7 @@
   import { demo } from "../lib/demo.svelte";
   import { canWrite, closeSpace, openMenu, repositoryOf, ui, type MenuItem } from "../lib/manage.svelte";
   import { nav } from "../lib/nav.svelte";
+  import { prefs } from "../lib/prefs.svelte";
   import { model } from "../lib/state.svelte";
   import type { HostConfig, TabItem, WorkspaceItem } from "../lib/types";
   import Conversation from "./Conversation.svelte";
@@ -103,7 +104,8 @@
     ]);
   }
 
-  // An agent picks its own tab and pane; a space opens on herdr's active tab.
+  // An agent picks its own tab and pane; a space opened without one returns
+  // to the tab shown last, else herdr's active tab.
   // Only a new selection does this, not every update of the space.
   $effect(() => {
     const sel = model.selection;
@@ -119,9 +121,29 @@
       tabId = byPane.tabId;
       paneId = wanted;
     } else {
-      selectTab(tabs.find((item) => item.tabId === workspace.activeTabId) ?? tabs[0]);
+      const last = prefs.lastTab(host.id, workspace.workspaceId);
+      const remembered = last && tabs.find((item) => item.tabId === last.tab);
+      if (remembered && last) {
+        tabId = remembered.tabId;
+        paneId =
+          (last.pane && remembered.panes.some((p) => p.paneId === last.pane) ? last.pane : null) ??
+          (remembered.panes.find((p) => p.focused) ?? remembered.panes[0])?.paneId ??
+          null;
+      } else {
+        selectTab(tabs.find((item) => item.tabId === workspace.activeTabId) ?? tabs[0]);
+      }
     }
   }
+
+  // Keeps the shown tab and pane for the next time the space is opened.
+  // Only a tab the space has: right after creating one the update may not
+  // list it yet, and the effect runs again when it does.
+  $effect(() => {
+    const shown = workspace.tabs.find((item) => item.tabId === tabId);
+    if (!shown) return;
+    const pane = shown.panes.some((p) => p.paneId === paneId) ? paneId : null;
+    untrack(() => prefs.rememberTab(host.id, workspace.workspaceId, shown.tabId, pane));
+  });
 
   // The shown tab was closed: herdr's active tab instead.
   $effect(() => {
