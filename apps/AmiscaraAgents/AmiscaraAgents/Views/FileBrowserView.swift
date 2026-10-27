@@ -16,6 +16,8 @@ struct FileBrowserView: View {
     @State private var error: String?
     /// Counts loads; only the latest one's answer is shown.
     @State private var generation = 0
+    /// The last error came from the host's files, not from the connection.
+    @State private var filesError = false
 
     private var shown: [DirectoryEntry] {
         guard let directory else { return [] }
@@ -96,8 +98,10 @@ struct FileBrowserView: View {
                 Text(error)
             } actions: {
                 // E.g. the pane's directory was removed.
-                Button("Home-Verzeichnis öffnen") { open("") }
-                    .disabled(loading)
+                if filesError {
+                    Button("Home-Verzeichnis öffnen") { open("") }
+                        .disabled(loading)
+                }
             }
         } else {
             ProgressView("Ordner wird gelesen …")
@@ -157,6 +161,7 @@ struct FileBrowserView: View {
         } catch {
             guard current == generation else { return }
             self.error = inputErrorMessage(error)
+            if case FfiError.Files = error { filesError = true } else { filesError = false }
         }
         loading = false
     }
