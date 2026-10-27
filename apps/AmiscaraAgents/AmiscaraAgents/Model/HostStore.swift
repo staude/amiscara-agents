@@ -211,21 +211,23 @@ final class HostStore {
 
     /// Reconnects hosts that are not live right away, e.g. when the app
     /// returns to the foreground and the driver still waits out a backoff.
+    /// Sessions keep their state, so changes in the meantime notify (#264).
     func reconnectStale() {
         for connection in connections where !connection.isLive && !connection.needsHostKeyDecision {
-            connection.start()
+            connection.reconnect()
         }
     }
 
     /// Reconnects every remote host, live or not: after the device slept
     /// or long in the background its SSH link may be dead while it still
     /// counts as live until the keepalives give up a minute later (#258).
-    /// Panes follow the new session. Other hosts reconnect as in
-    /// `reconnectStale()`.
+    /// The session keeps its state and panes follow the new connection, so
+    /// agents that finished meanwhile still notify (#264). Other hosts
+    /// reconnect as in `reconnectStale()`.
     func reconnectRemote() {
         for connection in connections
         where (connection.config.kind == .ssh || !connection.isLive) && !connection.needsHostKeyDecision {
-            connection.start()
+            connection.reconnect()
         }
     }
 
