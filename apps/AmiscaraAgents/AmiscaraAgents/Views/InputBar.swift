@@ -46,6 +46,8 @@ struct InputBar: View {
     #endif
 
     #if os(iOS)
+    /// The on-screen keyboard is up; with a hardware keyboard it is not.
+    @State private var keyboardShown = false
     private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
     #endif
     private var isAgent: Bool { pane.agent != nil }
@@ -594,7 +596,7 @@ struct InputBar: View {
             }
             #endif
             #if os(iOS)
-            if isPhone && composerFocused {
+            if isPhone && composerFocused && keyboardShown {
                 Button("Tastatur ausblenden", systemImage: "keyboard.chevron.compact.down") {
                     composerFocused = false
                 }
@@ -609,6 +611,14 @@ struct InputBar: View {
                 .keyboardShortcut(.return, modifiers: .command)
                 #endif
         }
+        #if os(iOS)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardShown = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardShown = false
+        }
+        #endif
     }
 
     /// Uploads attached images first, then sends the prompt with their paths
