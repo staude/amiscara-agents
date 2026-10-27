@@ -167,7 +167,7 @@ class Connections(
     fun reconnectStale() {
         for ((id, entry) in running.toMap()) {
             when (updates.value[id]?.status) {
-                is HostStatus.Retrying -> reconnectKeeping(id, entry)
+                is HostStatus.Retrying -> reconnectKeeping(entry)
                 is HostStatus.Failed -> start(entry.config)
                 else -> {}
             }
@@ -185,14 +185,14 @@ class Connections(
         for ((id, entry) in running.toMap()) {
             when (updates.value[id]?.status) {
                 is HostStatus.HostKeyUnknown, is HostStatus.HostKeyChanged -> {}
-                else -> reconnectKeeping(id, entry)
+                else -> reconnectKeeping(entry)
             }
         }
     }
 
-    /** Connects again at once with the known state; a refused session starts over. */
-    private fun reconnectKeeping(id: String, entry: Running) {
-        if (updates.value[id]?.status is HostStatus.Failed) start(entry.config) else entry.session.reconnect()
+    /** Connects again at once with the known state; a stopped session starts over. */
+    private fun reconnectKeeping(entry: Running) {
+        if (!entry.session.reconnect()) start(entry.config)
     }
 
     private fun sync(list: List<HostConfig>) {

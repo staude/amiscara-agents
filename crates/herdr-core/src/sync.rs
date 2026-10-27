@@ -86,7 +86,8 @@ impl SyncState {
     /// Drops the current connection or connection attempt and connects
     /// again right away, without the pause between retries. `session` stays,
     /// so the first snapshot afterwards is compared with what was known
-    /// before. Does nothing once the driver has stopped.
+    /// before. Does nothing once the driver has stopped; see
+    /// [`watch::Receiver::has_changed`] for telling.
     pub fn request_reconnect(&self) {
         self.reconnect.notify_one();
     }

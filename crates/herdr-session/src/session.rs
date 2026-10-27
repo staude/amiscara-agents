@@ -346,12 +346,20 @@ impl Session {
     /// may have died while the device slept (#264). The known state and the
     /// pane followers stay; followers move to the new connection on their
     /// own, and the first update afterwards reports what changed in the
-    /// meantime. Does nothing after [`Session::stop`].
-    pub fn reconnect(&self) {
-        if let Ok(state) = self.state.lock()
-            && let Some(rx) = state.as_ref()
-        {
-            rx.borrow().request_reconnect();
+    /// meantime. Returns `false` when the session has stopped, after
+    /// [`Session::stop`] or with a status a retry cannot fix (host key,
+    /// refused login); start a new one then.
+    pub fn reconnect(&self) -> bool {
+        let Ok(state) = self.state.lock() else {
+            return false;
+        };
+        // The driver drops its sender when it stops.
+        match state.as_ref() {
+            Some(rx) if rx.has_changed().is_ok() => {
+                rx.borrow().request_reconnect();
+                true
+            }
+            _ => false,
         }
     }
 

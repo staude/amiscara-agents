@@ -54,13 +54,10 @@ final class HostConnection: Identifiable {
 
     /// Connects again at once and keeps the known state, so agents that
     /// finished meanwhile still notify (#264). A session that has stopped
-    /// (refused login, host key) starts over instead.
+    /// (refused login, host key) starts over instead, also when its last
+    /// update has not arrived yet.
     func reconnect() {
-        guard let session else { return start() }
-        switch update?.status {
-        case .failed, .hostKeyUnknown, .hostKeyChanged: start()
-        default: session.reconnect()
-        }
+        guard let session, session.reconnect() else { return start() }
     }
 
     func stop() {
