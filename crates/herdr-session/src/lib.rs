@@ -10,6 +10,7 @@ pub mod sessions;
 pub mod view;
 
 pub use access::authorized_keys_line;
+pub use herdr_core::browse::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
 pub use herdr_core::diff::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff,
 };

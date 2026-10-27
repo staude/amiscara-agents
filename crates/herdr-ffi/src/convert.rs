@@ -324,3 +324,59 @@ pub struct WorkingTreeDiff {
     pub files: Vec<DiffFile>,
     pub truncated: bool,
 }
+
+pub use herdr_session::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
+
+/// What an entry of the file browser is (#259).
+#[uniffi::remote(Enum)]
+pub enum EntryKind {
+    Directory,
+    File,
+    /// A broken link, a socket, a device and the like: not opened.
+    Other,
+}
+
+/// An entry of a directory in the file browser.
+#[uniffi::remote(Record)]
+pub struct DirectoryEntry {
+    pub name: String,
+    /// Absolute, in the listed directory.
+    pub path: String,
+    pub kind: EntryKind,
+    pub size: u64,
+    /// Seconds since 1970, 0 if unknown.
+    pub modified: u64,
+    /// A dot file, `node_modules` or `target`: folded away by default.
+    pub hidden: bool,
+}
+
+/// A directory on the host with real, absolute paths.
+#[uniffi::remote(Record)]
+pub struct Directory {
+    pub home: String,
+    pub path: String,
+    /// Directories first, then by name without regard to case.
+    pub entries: Vec<DirectoryEntry>,
+}
+
+#[uniffi::remote(Enum)]
+pub enum FileContent {
+    /// Up to 1 MB; `truncated` when the file is longer.
+    Text { text: String, truncated: bool },
+    /// The whole image file.
+    Image { data: Vec<u8> },
+    /// Neither: only size and type are shown.
+    Binary,
+}
+
+/// A file of the file browser to show on the device.
+#[uniffi::remote(Record)]
+pub struct FilePreview {
+    /// The real, absolute path.
+    pub path: String,
+    pub name: String,
+    pub size: u64,
+    /// Seconds since 1970, 0 if unknown.
+    pub modified: u64,
+    pub content: FileContent,
+}

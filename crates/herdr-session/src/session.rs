@@ -7,7 +7,7 @@ use std::time::Duration;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState};
-use herdr_core::{actions, claude, diff, fullscreen};
+use herdr_core::{actions, browse, claude, diff, fullscreen};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
 };
@@ -100,6 +100,13 @@ impl From<actions::ActionError> for SessionError {
             actions::ActionError::Rejected { .. } => Self::Rejected(err.to_string()),
             actions::ActionError::Transport(_) => Self::NotConnected(err.to_string()),
         }
+    }
+}
+
+fn files_error(err: TransportError) -> SessionError {
+    match err {
+        TransportError::Files(message) => SessionError::Files(message),
+        other => SessionError::NotConnected(other.to_string()),
     }
 }
 
@@ -664,20 +671,9 @@ impl Session {
         pane_id: &str,
     ) -> Result<diff::WorkingTreeDiff, SessionError> {
         let conn = self.connection()?;
-        let (workspace_id, cwd) = self
-            .state
-            .lock()
-            .ok()
-            .and_then(|state| {
-                let rx = state.as_ref()?;
-                let session = rx.borrow().session.clone()?;
-                let pane = session.pane(pane_id)?;
-                let cwd = pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())?;
-                Some((pane.workspace_id.clone(), cwd))
-            })
-            .ok_or_else(|| {
-                SessionError::Files(format!("no working directory known for pane {pane_id}"))
-            })?;
+        let (workspace_id, cwd) = self.pane_directory(pane_id).ok_or_else(|| {
+            SessionError::Files(format!("no working directory known for pane {pane_id}"))
+        })?;
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -738,6 +734,48 @@ impl Session {
             let _ = conn.remove_file(file).await;
         }
         result
+    }
+
+    /// The space and working directory of a pane: its foreground process's
+    /// directory, else the pane's.
+    fn pane_directory(&self, pane_id: &str) -> Option<(String, String)> {
+        let state = self.state.lock().ok()?;
+        let session = state.as_ref()?.borrow().session.clone()?;
+        let pane = session.pane(pane_id)?;
+        let cwd = pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())?;
+        Some((pane.workspace_id.clone(), cwd))
+    }
+
+    /// The directory at the absolute `path` on the host, empty for the
+    /// home directory (#259). Read only; paths outside the home directory
+    /// fail. Needs file access like uploads.
+    pub async fn list_directory(&self, path: &str) -> Result<browse::Directory, SessionError> {
+        let conn = self.connection()?;
+        browse::list(&conn, path).await.map_err(files_error)
+    }
+
+    /// The working directory of a pane for the file browser (#259); the
+    /// home directory when none is known or it lies outside the home.
+    pub async fn open_pane_directory(
+        &self,
+        pane_id: &str,
+    ) -> Result<browse::Directory, SessionError> {
+        let conn = self.connection()?;
+        if let Some((_, dir)) = self.pane_directory(pane_id) {
+            match browse::list(&conn, &dir).await {
+                Err(TransportError::Files(message))
+                    if message.ends_with(herdr_transport::OUTSIDE_HOME) => {}
+                result => return result.map_err(files_error),
+            }
+        }
+        browse::list(&conn, "").await.map_err(files_error)
+    }
+
+    /// The file at the absolute `path` on the host to show (#259): text up
+    /// to 1 MB, an image up to 10 MB, otherwise only size and name.
+    pub async fn file_preview(&self, path: &str) -> Result<browse::FilePreview, SessionError> {
+        let conn = self.connection()?;
+        browse::preview(&conn, path).await.map_err(files_error)
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
