@@ -2,6 +2,7 @@
 // sidebar selects.
 
 import * as core from "./core";
+import { prefs } from "./prefs.svelte";
 import type { AppInfo, HostConfig, SessionUpdate, SpaceSortMode, WorkspaceItem } from "./types";
 
 /** A host (its settings), a space, or a space with one of its panes. */
@@ -93,6 +94,7 @@ class AppModel {
     this.hosts = this.hosts.filter((host) => host.id !== hostId);
     delete this.updates[hostId];
     delete this.sessionNames[hostId];
+    prefs.forgetHost(hostId);
     if (this.selection?.hostId === hostId) {
       this.selection = this.hosts[0] ? { hostId: this.hosts[0].id, workspaceId: null, paneId: null } : null;
     }
