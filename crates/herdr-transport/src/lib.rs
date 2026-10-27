@@ -7,7 +7,7 @@
 pub mod keys;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -66,7 +66,8 @@ pub enum TransportError {
         fingerprint: String,
     },
     /// The SSH connection did not open a channel within
-    /// [`CHANNEL_OPEN_TIMEOUT`]; it is closed, the next attempt reconnects.
+    /// [`CHANNEL_OPEN_TIMEOUT`]; it is asked to close, so the session
+    /// reconnects.
     #[error("timed out opening a channel to herdr")]
     Timeout,
 }
@@ -225,7 +226,35 @@ enum Inner {
         /// running `amiscara-tcp <port>`, which the key's line answers with
         /// `nc localhost <port>` when it allows web forwarding.
         tcp_gated: std::sync::atomic::AtomicBool,
+        /// Uploads and port forwards running on this connection. While data
+        /// of theirs waits for the window, russh queues a channel open
+        /// behind it, so [`CHANNEL_OPEN_TIMEOUT`] does not apply then.
+        transfers: AtomicUsize,
     },
+}
+
+/// Counts a transfer in `Inner::Ssh::transfers` while it lives.
+struct Transfer<'a>(Option<&'a AtomicUsize>);
+
+impl<'a> Transfer<'a> {
+    fn start(inner: &'a Inner) -> Self {
+        match inner {
+            #[cfg(unix)]
+            Inner::Local(_) => Self(None),
+            Inner::Ssh { transfers, .. } => {
+                transfers.fetch_add(1, Ordering::Relaxed);
+                Self(Some(transfers))
+            }
+        }
+    }
+}
+
+impl Drop for Transfer<'_> {
+    fn drop(&mut self) {
+        if let Some(transfers) = self.0 {
+            transfers.fetch_sub(1, Ordering::Relaxed);
+        }
+    }
 }
 
 /// A connection to one herdr server.
@@ -292,6 +321,7 @@ impl Connection {
                 socket_path,
                 gated: std::sync::atomic::AtomicBool::new(false),
                 tcp_gated: std::sync::atomic::AtomicBool::new(false),
+                transfers: AtomicUsize::new(0),
             },
             next_id: AtomicU64::new(1),
         })
@@ -305,6 +335,7 @@ impl Connection {
                 handle,
                 socket_path,
                 gated,
+                transfers,
                 ..
             } => {
                 let open = async {
@@ -329,6 +360,9 @@ impl Connection {
                     channel.exec(true, "herdr").await?;
                     Ok(Box::new(channel.into_stream()))
                 };
+                if transfers.load(Ordering::Relaxed) > 0 {
+                    return open.await;
+                }
                 match tokio::time::timeout(CHANNEL_OPEN_TIMEOUT, open).await {
                     Ok(result) => result,
                     // A link that died while the device slept answers nothing
@@ -440,6 +474,7 @@ impl Connection {
         port: u16,
         mut local: tokio::net::TcpStream,
     ) -> Result<(), TransportError> {
+        let _transfer = Transfer::start(&self.inner);
         let mut remote = self.open_tcp(port).await?;
         tokio::io::copy_bidirectional(&mut local, &mut remote).await?;
         Ok(())
@@ -555,7 +590,10 @@ impl Connection {
                 file.flush().await?;
                 Ok(path.to_string_lossy().into_owned())
             }
-            Inner::Ssh { handle, .. } => sftp_upload(handle, dir, file_name, data).await,
+            Inner::Ssh { handle, .. } => {
+                let _transfer = Transfer::start(&self.inner);
+                sftp_upload(handle, dir, file_name, data).await
+            }
         }
     }
 
@@ -775,7 +813,8 @@ pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
 /// How long the gate may take to answer.
 const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long opening a channel for a herdr request may take over SSH.
-/// Uploads, port forwards and the requests themselves have no such limit.
+/// Uploads, port forwards and the requests themselves have no such limit,
+/// and none applies while one of the former runs.
 const CHANNEL_OPEN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Where herdr keeps its named sessions, below the home directory.
