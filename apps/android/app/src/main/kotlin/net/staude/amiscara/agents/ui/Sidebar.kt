@@ -390,9 +390,18 @@ private class SpaceDrag(
             return insertionLine(entries, dragged, over)
         }
 
-    fun enter(dragged: String?, over: String) {
-        hover.dragged = dragged
+    /** A drag of `key` starts; the drop targets cannot read the clip before the drop. */
+    fun begin(key: String) {
+        hover.dragged = key
+    }
+
+    fun enter(over: String) {
         hover.over = over
+    }
+
+    fun end() {
+        hover.dragged = null
+        hover.over = null
     }
 
     /** The row `over` is left or the drag ends; another row may have been entered already. */
@@ -417,7 +426,10 @@ private fun DragHandle(drag: SpaceDrag, key: String) {
     Box(
         Modifier
             .size(40.dp)
-            .dragAndDropSource { _ -> DragAndDropTransferData(ClipData.newPlainText("space", "${drag.hostId}\n$key")) },
+            .dragAndDropSource { _ ->
+                drag.begin(key)
+                DragAndDropTransferData(ClipData.newPlainText("space", "${drag.hostId}\n$key"))
+            },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -450,7 +462,7 @@ private fun SpaceDropZone(drag: SpaceDrag?, key: String, content: @Composable ()
             }
 
             override fun onEntered(event: DragAndDropEvent) {
-                current.enter(dragged(event, current.hostId), key)
+                current.enter(key)
             }
 
             override fun onExited(event: DragAndDropEvent) {
@@ -458,7 +470,7 @@ private fun SpaceDropZone(drag: SpaceDrag?, key: String, content: @Composable ()
             }
 
             override fun onEnded(event: DragAndDropEvent) {
-                current.leave(key)
+                current.end()
             }
         }
     }
