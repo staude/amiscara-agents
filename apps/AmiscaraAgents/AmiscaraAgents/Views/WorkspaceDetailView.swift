@@ -50,6 +50,7 @@ struct WorkspaceDetailView: View {
                 .onChange(of: workspace.tabs.map(\.tabId)) { _, tabs in
                     // The shown tab was closed: herdr's active tab instead.
                     if let tabID, !tabs.contains(tabID) { focus(on: selection) }
+                    remember()
                 }
                 .focusedSceneValue(\.tabNavigator, workspace.tabs.count > 1 ? TabNavigator(step: { step(by: $0, in: workspace) }) : nil)
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
@@ -89,7 +90,9 @@ struct WorkspaceDetailView: View {
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
         }
+        .onChange(of: tabID) { remember() }
         .onChange(of: paneID, initial: true) { _, pane in
+            remember()
             store.notifier.visiblePane = selection.flatMap { selection in
                 pane.map { (hostID: selection.hostID, paneID: $0) }
             }
@@ -264,7 +267,21 @@ struct WorkspaceDetailView: View {
         paneID = (tab.panes.first { $0.focused } ?? tab.panes.first)?.paneId
     }
 
-    /// An agent picks its own tab and pane; a space opens on herdr's active tab.
+    /// Keeps the shown tab and pane for the next time the space is opened
+    /// (#263). Only what the snapshot knows: right after creating a tab it
+    /// may not list it yet, and `workspace.tabs` changing calls this again.
+    private func remember() {
+        guard let selection, let tabID,
+              let tab = store.connection(for: selection.hostID)?.update?.workspaces
+                .first(where: { $0.workspaceId == selection.workspaceID })?.tabs
+                .first(where: { $0.tabId == tabID })
+        else { return }
+        let pane = paneID.flatMap { id in tab.panes.contains { $0.paneId == id } ? id : nil }
+        LastTabs.shared.record(tab: tabID, pane: pane, host: selection.hostID, workspace: selection.workspaceID)
+    }
+
+    /// An agent picks its own tab and pane; a space opened without one
+    /// returns to the tab shown last, else herdr's active tab.
     private func focus(on selection: SpaceRef?) {
         tabError = nil
         guard let selection,
@@ -281,6 +298,11 @@ struct WorkspaceDetailView: View {
            let tab = workspace.tabs.first(where: { $0.panes.contains { $0.paneId == pane } }) {
             tabID = tab.tabId
             paneID = pane
+        } else if let last = LastTabs.shared.entry(host: selection.hostID, workspace: selection.workspaceID),
+                  let tab = workspace.tabs.first(where: { $0.tabId == last.tab }) {
+            tabID = tab.tabId
+            paneID = last.pane.flatMap { id in tab.panes.contains { $0.paneId == id } ? id : nil }
+                ?? (tab.panes.first { $0.focused } ?? tab.panes.first)?.paneId
         } else if let tab = workspace.tabs.first(where: { $0.tabId == workspace.activeTabId }) ?? workspace.tabs.first {
             select(tab)
         }
