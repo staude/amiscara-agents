@@ -226,9 +226,10 @@ enum Inner {
         /// running `amiscara-tcp <port>`, which the key's line answers with
         /// `nc localhost <port>` when it allows web forwarding.
         tcp_gated: std::sync::atomic::AtomicBool,
-        /// Uploads and port forwards running on this connection. While data
-        /// of theirs waits for the window, russh queues a channel open
-        /// behind it, so [`CHANNEL_OPEN_TIMEOUT`] does not apply then.
+        /// Uploads running on this connection. While their data waits for
+        /// the window, russh queues a channel open behind it, so
+        /// [`CHANNEL_OPEN_TIMEOUT`] does not apply then. Port forwards are
+        /// not counted: an idle one would switch the limit off for hours.
         transfers: AtomicUsize,
     },
 }
@@ -474,7 +475,6 @@ impl Connection {
         port: u16,
         mut local: tokio::net::TcpStream,
     ) -> Result<(), TransportError> {
-        let _transfer = Transfer::start(&self.inner);
         let mut remote = self.open_tcp(port).await?;
         tokio::io::copy_bidirectional(&mut local, &mut remote).await?;
         Ok(())
@@ -814,7 +814,7 @@ pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
 const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long opening a channel for a herdr request may take over SSH.
 /// Uploads, port forwards and the requests themselves have no such limit,
-/// and none applies while one of the former runs.
+/// and none applies while an upload runs.
 const CHANNEL_OPEN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Where herdr keeps its named sessions, below the home directory.

@@ -826,12 +826,13 @@ async fn follow_loop(
                 stop.clone(),
                 &sink,
             );
-            // Only cancel for a replaced connection: a read dropped half way
-            // leaves a connection still in use unable to open channels (#107).
-            let is_current = |s: &SyncState| {
+            // Only cancel once another connection replaced this one, not while
+            // none is there: a read dropped half way leaves a connection still
+            // in use unable to open channels (#107).
+            let replaced_by_another = |s: &SyncState| {
                 s.connection
                     .as_ref()
-                    .is_some_and(|current| Arc::ptr_eq(current, &conn))
+                    .is_some_and(|current| !Arc::ptr_eq(current, &conn))
             };
             tokio::select! {
                 result = follow => {
@@ -839,8 +840,8 @@ async fn follow_loop(
                         sink.on_error(message);
                     }
                 }
-                changed = replaced.wait_for(|s| !is_current(s)) => {
-                    if changed.is_err() {
+                changed = replaced.wait_for(replaced_by_another) => {
+                    if changed.is_err() || *stop.borrow() {
                         return;
                     }
                     continue;
