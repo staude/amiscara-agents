@@ -562,6 +562,46 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    #[tokio::test]
+    async fn a_requested_reconnect_cuts_the_pause_short() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        // The first attempt fails and the driver waits a second; the second
+        // attempt hangs, so its state stays visible.
+        let calls = Arc::new(AtomicUsize::new(0));
+        let rx = spawn({
+            let calls = Arc::clone(&calls);
+            move || {
+                let first = calls.fetch_add(1, Ordering::SeqCst) == 0;
+                async move {
+                    if !first {
+                        std::future::pending::<()>().await;
+                    }
+                    Err(TransportError::Closed)
+                }
+            }
+        });
+        let mut watcher = rx.clone();
+        watcher
+            .wait_for(|state| matches!(state.status, SyncStatus::Retrying { .. }))
+            .await
+            .expect("driver runs");
+        let asked = Instant::now();
+        rx.borrow().request_reconnect();
+        watcher
+            .wait_for(|state| state.status == SyncStatus::Connecting)
+            .await
+            .expect("driver runs");
+        while calls.load(Ordering::SeqCst) < 2 && asked.elapsed() < Duration::from_secs(2) {
+            sleep(Duration::from_millis(5)).await;
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert!(
+            asked.elapsed() < backoff(1) / 2,
+            "second attempt without the pause"
+        );
+    }
+
     #[test]
     fn backoff_grows_and_caps() {
         let secs: Vec<u64> = (1..=8).map(|a| backoff(a).as_secs()).collect();
