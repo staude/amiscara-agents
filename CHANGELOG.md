@@ -613,6 +613,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
   after 10 s and closes the dead link, iPhone, iPad, Apple TV and Android
   (without standby) reconnect remote hosts after at least 30 s in the
   background, and the Mac after waking from sleep (#258).
+- Agents that finished or started waiting while the Mac slept or the
+  phone sat in the background notify again after the reconnect, locally
+  and through iCloud on the Watch and iPhone: the session now connects
+  again at once and keeps what it knew instead of starting over (#264).
 - Dictation no longer quits the app right after granting speech
   recognition access on first use; the access handler ran with main actor
   isolation on a background queue. The Watch app's replies to the iPhone
