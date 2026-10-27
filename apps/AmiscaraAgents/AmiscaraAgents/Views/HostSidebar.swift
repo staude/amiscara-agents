@@ -647,18 +647,18 @@ enum SpaceOrder {
     }
 }
 
-/// The row being dragged in the sidebar and the one it hovers; the drop
-/// destination alone does not know the dragged row before the drop.
+/// The row being dragged in the sidebar and the one it hovers, shared by
+/// the rows of all hosts. Set by the row the drag enters, from the drop
+/// session's dragged item ID: nothing is kept across drags, so a cancelled
+/// drag or a foreign one (text from another app) leaves no line behind.
 @Observable
 final class SpaceDragState {
-    var dragged: String?
-    var over: String?
-
-    /// The payload of a drag of `key`, called when the drag starts.
-    func begin(_ key: String, _ payload: String) -> String {
-        dragged = key
-        return payload
+    struct Hover: Equatable {
+        let dragged: String
+        let over: String
     }
+
+    var hover: Hover?
 }
 
 extension View {
@@ -692,7 +692,10 @@ extension View {
 
 #if !os(tvOS)
 /// Makes a row draggable, takes drops and draws the insertion line (#255)
-/// instead of tinting the row the drop goes onto.
+/// instead of tinting the row the drop goes onto. The payload doubles as
+/// the drag's item ID, which the drop session reports to the rows the drag
+/// enters; that is what the line is drawn from, not the payload closure,
+/// which SwiftUI evaluates once per row and keeps for later drags.
 private struct SpaceReordering: ViewModifier {
     let key: String
     let hostID: UUID
@@ -701,32 +704,53 @@ private struct SpaceReordering: ViewModifier {
     let foldedLast: String?
     let onDrop: ([SpaceOrder.Entry], String) -> Bool
 
+    private var host: String { "\(hostID.uuidString)\n" }
+
     private var line: SpaceOrder.InsertionLine? {
-        guard let dragged = drag.dragged, let over = drag.over else { return nil }
-        return SpaceOrder.insertionLine(entries, dragged: dragged, onto: over)
+        guard let hover = drag.hover else { return nil }
+        return SpaceOrder.insertionLine(entries, dragged: hover.dragged, onto: hover.over)
     }
 
     func body(content: Content) -> some View {
-        let host = "\(hostID.uuidString)\n"
         let line = line
         let top = line.map { !$0.below && $0.key == key } ?? false
         let bottom = line.map { $0.below && ($0.key == key || $0.key == foldedLast) } ?? false
         content
             .overlay(alignment: .top) { if top { InsertionBar() } }
             .overlay(alignment: .bottom) { if bottom { InsertionBar() } }
-            .draggable(drag.begin(key, "\(host)\(key)"))
+            .draggable(String.self, id: \.self, item: "\(host)\(key)")
             .dropDestination(for: String.self) { items, _ in
-                drag.over = nil
-                drag.dragged = nil
-                guard let item = items.first, item.hasPrefix(host) else { return false }
-                return onDrop(entries, String(item.dropFirst(host.count)))
-            } isTargeted: { targeted in
-                if targeted {
-                    drag.over = key
-                } else if drag.over == key {
-                    drag.over = nil
+                guard let dragged = items.first.flatMap(own) else { return }
+                _ = onDrop(entries, dragged)
+            }
+            .dropConfiguration { session in
+                let allowed = dragged(in: session).map { SpaceOrder.moved(entries, dragged: $0, onto: key) != nil } ?? false
+                return DropConfiguration(operation: allowed ? .move : .forbidden)
+            }
+            .onDropSessionUpdated { session in
+                switch session.phase {
+                case .entering, .active:
+                    let hover = dragged(in: session).map { SpaceDragState.Hover(dragged: $0, over: key) }
+                    if drag.hover != hover { drag.hover = hover }
+                case .exiting:
+                    if drag.hover?.over == key { drag.hover = nil }
+                case .ended, .dataTransferCompleted:
+                    drag.hover = nil
+                @unknown default:
+                    break
                 }
             }
+    }
+
+    /// The key of the row `session` drags when it is one of this host's;
+    /// `nil` for a drag from elsewhere.
+    private func dragged(in session: DropSession) -> String? {
+        session.localSession?.draggedItemIDs(for: String.self).first.flatMap(own)
+    }
+
+    /// `item` without the host prefix, `nil` when it is another host's.
+    private func own(_ item: String) -> String? {
+        item.hasPrefix(host) ? String(item.dropFirst(host.count)) : nil
     }
 }
 
