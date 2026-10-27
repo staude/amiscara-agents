@@ -499,6 +499,8 @@ mod tests {
         assert_eq!(branch_for(&worktrees, "/dev/other"), None);
     }
 
+    // The fake server listens on a Unix socket, which `Connection::local` needs.
+    #[cfg(unix)]
     #[tokio::test]
     async fn a_requested_reconnect_starts_over_at_once() {
         use std::sync::atomic::{AtomicUsize, Ordering};
