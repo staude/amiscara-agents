@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -96,13 +97,28 @@ class AmiscaraApp : Application() {
                 }
         }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            /** When the app went to the background, to reconnect after a long pause (#258). */
+            private var stoppedAt: Long? = null
+
             override fun onStart(owner: LifecycleOwner) {
                 // Coming back after a while: try failed hosts at once
-                // instead of waiting for the next attempt.
-                connections.reconnectStale()
+                // instead of waiting for the next attempt. After a long
+                // pause the links may be dead though they look live; with
+                // the standby on, its service kept them going.
+                val since = stoppedAt
+                stoppedAt = null
+                if (since != null && SystemClock.elapsedRealtime() - since >= RECONNECT_AFTER_BACKGROUND_MS && !settings.standby.value) {
+                    connections.reconnectRemote()
+                } else {
+                    connections.reconnectStale()
+                }
                 // In front, the app may start the service, e.g. after the
                 // system ended it.
                 StandbyService.apply(this@AmiscaraApp, settings.standby.value)
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                stoppedAt = SystemClock.elapsedRealtime()
             }
 
             override fun onResume(owner: LifecycleOwner) {
@@ -140,5 +156,8 @@ class AmiscaraApp : Application() {
         /** `Manifest.permission.ACCESS_LOCAL_NETWORK`, from Android 17 (API 37). */
         const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
         const val LOCAL_NETWORK_SDK = 37
+
+        /** How long the app must have been in the background before it reconnects every host on return. */
+        private const val RECONNECT_AFTER_BACKGROUND_MS = 30_000L
     }
 }

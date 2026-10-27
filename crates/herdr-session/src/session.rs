@@ -783,37 +783,11 @@ impl Session {
         let state = self.state.lock().ok().and_then(|state| state.clone());
         let (pacing_tx, pacing) = watch::channel(pacing_for(live));
         let (reading_tx, reading) = watch::channel(pane::Reading::default());
-        let (stop_tx, mut stop) = watch::channel(false);
-        self.runtime.spawn(async move {
-            let Some(mut state) = state else {
-                return;
-            };
-            loop {
-                let connection = state.borrow_and_update().connection.clone();
-                if let Some(conn) = connection
-                    && let Err(message) = follow_once(
-                        &conn,
-                        &pane_id,
-                        pacing.clone(),
-                        reading.clone(),
-                        stop.clone(),
-                        &sink,
-                    )
-                    .await
-                {
-                    sink.on_error(message);
-                }
-                if *stop.borrow() {
-                    return;
-                }
-                // Wait for a new connection, or retry after a pause on the same one.
-                tokio::select! {
-                    changed = state.changed() => if changed.is_err() { return },
-                    () = tokio::time::sleep(Duration::from_secs(2)) => {}
-                    _ = stop.wait_for(|stopped| *stopped) => return,
-                }
-            }
-        });
+        let (stop_tx, stop) = watch::channel(false);
+        if let Some(state) = state {
+            self.runtime
+                .spawn(follow_loop(state, pane_id, pacing, reading, stop, sink));
+        }
         PaneFollow {
             stop: stop_tx,
             pacing: pacing_tx,
@@ -825,6 +799,64 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         self.forward.abort();
+    }
+}
+
+/// Follows a pane across reconnects until stopped. A read on a connection
+/// the session has since replaced is given up without an error: after the
+/// device slept it can hang on the dead link for good, while the session
+/// already has a new one (#258).
+async fn follow_loop(
+    mut state: watch::Receiver<SyncState>,
+    pane_id: String,
+    pacing: watch::Receiver<Pacing>,
+    reading: watch::Receiver<pane::Reading>,
+    mut stop: watch::Receiver<bool>,
+    sink: impl PaneSink,
+) {
+    let mut replaced = state.clone();
+    loop {
+        let connection = state.borrow_and_update().connection.clone();
+        if let Some(conn) = connection {
+            let follow = follow_once(
+                &conn,
+                &pane_id,
+                pacing.clone(),
+                reading.clone(),
+                stop.clone(),
+                &sink,
+            );
+            // Only cancel once another connection replaced this one, not while
+            // none is there: a read dropped half way leaves a connection still
+            // in use unable to open channels (#107).
+            let replaced_by_another = |s: &SyncState| {
+                s.connection
+                    .as_ref()
+                    .is_some_and(|current| !Arc::ptr_eq(current, &conn))
+            };
+            tokio::select! {
+                result = follow => {
+                    if let Err(message) = result {
+                        sink.on_error(message);
+                    }
+                }
+                changed = replaced.wait_for(replaced_by_another) => {
+                    if changed.is_err() || *stop.borrow() {
+                        return;
+                    }
+                    continue;
+                }
+            }
+        }
+        if *stop.borrow() {
+            return;
+        }
+        // Wait for a new connection, or retry after a pause on the same one.
+        tokio::select! {
+            changed = state.changed() => if changed.is_err() { return },
+            () = tokio::time::sleep(Duration::from_secs(2)) => {}
+            _ = stop.wait_for(|stopped| *stopped) => return,
+        }
     }
 }
 
@@ -1121,5 +1153,110 @@ mod tests {
             name.ends_with(".textClipping") && name.len() < 160,
             "{name}"
         );
+    }
+
+    // The fake servers listen on Unix sockets, which `Connection::local` needs.
+    #[cfg(unix)]
+    mod follow {
+        use super::super::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        #[derive(Clone, Default)]
+        struct Counts {
+            contents: Arc<AtomicUsize>,
+            errors: Arc<AtomicUsize>,
+        }
+
+        impl PaneSink for Counts {
+            fn on_content(&self, _content: PaneContent) {
+                self.contents.fetch_add(1, Ordering::SeqCst);
+            }
+
+            fn on_error(&self, _message: String) {
+                self.errors.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        /// A herdr stand-in; `answer: false` takes requests and never
+        /// replies, like a link that died while the device slept.
+        fn fake_herdr(name: &str, answer: bool) -> std::path::PathBuf {
+            let path = std::env::temp_dir()
+                .join(format!("herdr-session-{name}-{}.sock", std::process::id()));
+            let _ = std::fs::remove_file(&path);
+            let listener = UnixListener::bind(&path).expect("bind fake socket");
+            tokio::spawn(async move {
+                let mut held = Vec::new();
+                while let Ok((stream, _)) = listener.accept().await {
+                    if !answer {
+                        held.push(stream);
+                        continue;
+                    }
+                    let (read, mut write) = stream.into_split();
+                    let mut line = String::new();
+                    if BufReader::new(read).read_line(&mut line).await.is_err() {
+                        continue;
+                    }
+                    let request: serde_json::Value = serde_json::from_str(&line).expect("json");
+                    let reply = serde_json::json!({
+                        "id": request["id"],
+                        "result": {"type": "pane_read", "read": {
+                            "pane_id": "w1:p1", "text": "screen\r\n", "truncated": false, "revision": 0
+                        }}
+                    });
+                    let _ = write.write_all(format!("{reply}\n").as_bytes()).await;
+                }
+            });
+            path
+        }
+
+        #[tokio::test]
+        async fn a_replaced_connection_ends_a_hanging_read() {
+            let dead = fake_herdr("dead", false);
+            let live = fake_herdr("live", true);
+            let (state_tx, state) = watch::channel(SyncState {
+                connection: Some(Arc::new(Connection::local(&dead))),
+                ..Default::default()
+            });
+            let (_pacing_tx, pacing) = watch::channel(Pacing::default());
+            let (_reading_tx, reading) = watch::channel(pane::Reading::default());
+            let (stop_tx, stop) = watch::channel(false);
+            let counts = Counts::default();
+            let follower = tokio::spawn(follow_loop(
+                state,
+                "w1:p1".to_owned(),
+                pacing,
+                reading,
+                stop,
+                counts.clone(),
+            ));
+
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            assert_eq!(counts.contents.load(Ordering::SeqCst), 0);
+            state_tx.send_modify(|state| {
+                state.connection = Some(Arc::new(Connection::local(&live)));
+            });
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+            while counts.contents.load(Ordering::SeqCst) == 0
+                && tokio::time::Instant::now() < deadline
+            {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            assert!(
+                counts.contents.load(Ordering::SeqCst) > 0,
+                "content from the new connection"
+            );
+            assert_eq!(
+                counts.errors.load(Ordering::SeqCst),
+                0,
+                "no error for the old one"
+            );
+
+            stop_tx.send_replace(true);
+            let _ = tokio::time::timeout(Duration::from_secs(5), follower).await;
+            let _ = std::fs::remove_file(&dead);
+            let _ = std::fs::remove_file(&live);
+        }
     }
 }

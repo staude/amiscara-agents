@@ -172,6 +172,21 @@ class Connections(
         }
     }
 
+    /**
+     * Back after a long pause: every session starts again, live or not. The
+     * SSH link may have died meanwhile while the session still counts as
+     * live until the keepalives give up a minute later (#258). Panes follow
+     * the new session.
+     */
+    fun reconnectRemote() {
+        for ((id, entry) in running.toMap()) {
+            when (updates.value[id]?.status) {
+                is HostStatus.HostKeyUnknown, is HostStatus.HostKeyChanged -> {}
+                else -> start(entry.config)
+            }
+        }
+    }
+
     private fun sync(list: List<HostConfig>) {
         val ids = list.map { it.id }.toSet()
         running.keys.filter { it !in ids }.forEach(::stop)

@@ -7,7 +7,7 @@
 pub mod keys;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -65,6 +65,11 @@ pub enum TransportError {
         key: String,
         fingerprint: String,
     },
+    /// The SSH connection did not open a channel within
+    /// [`CHANNEL_OPEN_TIMEOUT`]; it is asked to close, so the session
+    /// reconnects.
+    #[error("timed out opening a channel to herdr")]
+    Timeout,
 }
 
 impl TransportError {
@@ -221,7 +226,36 @@ enum Inner {
         /// running `amiscara-tcp <port>`, which the key's line answers with
         /// `nc localhost <port>` when it allows web forwarding.
         tcp_gated: std::sync::atomic::AtomicBool,
+        /// Uploads running on this connection. While their data waits for
+        /// the window, russh queues a channel open behind it, so
+        /// [`CHANNEL_OPEN_TIMEOUT`] does not apply then. Port forwards are
+        /// not counted: an idle one would switch the limit off for hours.
+        transfers: AtomicUsize,
     },
+}
+
+/// Counts a transfer in `Inner::Ssh::transfers` while it lives.
+struct Transfer<'a>(Option<&'a AtomicUsize>);
+
+impl<'a> Transfer<'a> {
+    fn start(inner: &'a Inner) -> Self {
+        match inner {
+            #[cfg(unix)]
+            Inner::Local(_) => Self(None),
+            Inner::Ssh { transfers, .. } => {
+                transfers.fetch_add(1, Ordering::Relaxed);
+                Self(Some(transfers))
+            }
+        }
+    }
+}
+
+impl Drop for Transfer<'_> {
+    fn drop(&mut self) {
+        if let Some(transfers) = self.0 {
+            transfers.fetch_sub(1, Ordering::Relaxed);
+        }
+    }
 }
 
 /// A connection to one herdr server.
@@ -288,6 +322,7 @@ impl Connection {
                 socket_path,
                 gated: std::sync::atomic::AtomicBool::new(false),
                 tcp_gated: std::sync::atomic::AtomicBool::new(false),
+                transfers: AtomicUsize::new(0),
             },
             next_id: AtomicU64::new(1),
         })
@@ -301,24 +336,52 @@ impl Connection {
                 handle,
                 socket_path,
                 gated,
+                transfers,
                 ..
             } => {
-                if !gated.load(Ordering::Relaxed) {
-                    match handle
-                        .channel_open_direct_streamlocal(socket_path.clone())
-                        .await
-                    {
-                        Ok(channel) => return Ok(Box::new(channel.into_stream())),
-                        // No port forwarding for this key: try the gate.
-                        Err(russh::Error::ChannelOpenFailure(_)) => {
-                            gated.store(true, Ordering::Relaxed)
+                let open = async {
+                    if !gated.load(Ordering::Relaxed) {
+                        match handle
+                            .channel_open_direct_streamlocal(socket_path.clone())
+                            .await
+                        {
+                            Ok(channel) => {
+                                return Ok::<Box<dyn Stream>, TransportError>(Box::new(
+                                    channel.into_stream(),
+                                ));
+                            }
+                            // No port forwarding for this key: try the gate.
+                            Err(russh::Error::ChannelOpenFailure(_)) => {
+                                gated.store(true, Ordering::Relaxed)
+                            }
+                            Err(err) => return Err(err.into()),
                         }
-                        Err(err) => return Err(err.into()),
+                    }
+                    let channel = handle.channel_open_session().await?;
+                    channel.exec(true, "herdr").await?;
+                    Ok(Box::new(channel.into_stream()))
+                };
+                if transfers.load(Ordering::Relaxed) > 0 {
+                    return open.await;
+                }
+                match tokio::time::timeout(CHANNEL_OPEN_TIMEOUT, open).await {
+                    Ok(result) => result,
+                    // A link that died while the device slept answers nothing
+                    // until the keepalives give up a minute later. Close it so
+                    // the session reconnects instead of every read hanging (#258).
+                    Err(_) => {
+                        let _ = tokio::time::timeout(
+                            Duration::from_secs(2),
+                            handle.disconnect(
+                                russh::Disconnect::ByApplication,
+                                "channel open timed out",
+                                "",
+                            ),
+                        )
+                        .await;
+                        Err(TransportError::Timeout)
                     }
                 }
-                let channel = handle.channel_open_session().await?;
-                channel.exec(true, "herdr").await?;
-                Ok(Box::new(channel.into_stream()))
             }
         }
     }
@@ -527,7 +590,10 @@ impl Connection {
                 file.flush().await?;
                 Ok(path.to_string_lossy().into_owned())
             }
-            Inner::Ssh { handle, .. } => sftp_upload(handle, dir, file_name, data).await,
+            Inner::Ssh { handle, .. } => {
+                let _transfer = Transfer::start(&self.inner);
+                sftp_upload(handle, dir, file_name, data).await
+            }
         }
     }
 
@@ -746,6 +812,10 @@ pub const TCP_GATE_READY: &str = "amiscara-tcp";
 pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
 /// How long the gate may take to answer.
 const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long opening a channel for a herdr request may take over SSH.
+/// Uploads, port forwards and the requests themselves have no such limit,
+/// and none applies while an upload runs.
+const CHANNEL_OPEN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Where herdr keeps its named sessions, below the home directory.
 pub const HERDR_SESSIONS_DIR: &str = ".config/herdr/sessions";
