@@ -342,6 +342,19 @@ impl Session {
         }
     }
 
+    /// Drops the connection and connects again at once, for a link that
+    /// may have died while the device slept (#264). The known state and the
+    /// pane followers stay; followers move to the new connection on their
+    /// own, and the first update afterwards reports what changed in the
+    /// meantime. Does nothing after [`Session::stop`].
+    pub fn reconnect(&self) {
+        if let Ok(state) = self.state.lock()
+            && let Some(rx) = state.as_ref()
+        {
+            rx.borrow().request_reconnect();
+        }
+    }
+
     fn connection(&self) -> Result<Arc<Connection>, SessionError> {
         self.state
             .lock()
