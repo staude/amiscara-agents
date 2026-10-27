@@ -14,6 +14,8 @@ struct FileBrowserView: View {
     @State private var directory: Directory?
     @State private var loading = false
     @State private var error: String?
+    /// Counts loads; only the latest one's answer is shown.
+    @State private var generation = 0
 
     private var shown: [DirectoryEntry] {
         guard let directory else { return [] }
@@ -79,6 +81,7 @@ struct FileBrowserView: View {
                     }
                 } header: {
                     PathBar(directory: directory, open: open)
+                        .disabled(loading)
                 } footer: {
                     footer(directory)
                 }
@@ -87,7 +90,15 @@ struct FileBrowserView: View {
             .listStyle(.inset)
             #endif
         } else if let error {
-            ContentUnavailableView("Dateien nicht lesbar", systemImage: "exclamationmark.triangle", description: Text(error))
+            ContentUnavailableView {
+                Label("Dateien nicht lesbar", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error)
+            } actions: {
+                // E.g. the pane's directory was removed.
+                Button("Home-Verzeichnis öffnen") { open("") }
+                    .disabled(loading)
+            }
         } else {
             ProgressView("Ordner wird gelesen …")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -135,14 +146,19 @@ struct FileBrowserView: View {
     }
 
     private func load(_ fetch: @escaping () async throws -> Directory) async {
+        generation += 1
+        let current = generation
         loading = true
-        defer { loading = false }
         do {
-            directory = try await fetch()
+            let next = try await fetch()
+            guard current == generation else { return }
+            directory = next
             error = nil
         } catch {
+            guard current == generation else { return }
             self.error = inputErrorMessage(error)
         }
+        loading = false
     }
 }
 
@@ -153,7 +169,8 @@ private struct PathBar: View {
 
     private var parts: [(name: String, path: String)] {
         let rest = directory.path.dropFirst(directory.home.count)
-        var path = directory.home
+        // No double slash below a home of `/`.
+        var path = directory.home == "/" ? "" : directory.home
         return rest.split(separator: "/").map { name in
             path += "/" + name
             return (String(name), path)

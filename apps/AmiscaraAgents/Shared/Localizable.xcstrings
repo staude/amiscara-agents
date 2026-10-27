@@ -2551,6 +2551,16 @@
         }
       }
     },
+    "Home-Verzeichnis öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Home Folder"
+          }
+        }
+      }
+    },
     "Host" : {
       "localizations" : {
         "en" : {
