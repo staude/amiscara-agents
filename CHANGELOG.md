@@ -527,6 +527,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   iPad); and links `amiscara-agents://prompt?text=…&host=…&pane=…`. The
   clipboard and links open a sheet with the agents of the connected hosts
   and a preview. Template and details in `docs/ai-handoff.md`.
+- File browser (#259): the folder button in the pane header (Mac, iPhone,
+  iPad) opens the pane's working directory read only, directories first
+  with size and date, a path bar up to `~`, hidden entries (dot files,
+  `node_modules`, `target`) behind a switch. Text files open with search
+  (the first MB), images up to 10 MB as images, other files show size and
+  type. The home directory is the limit, checked on the real path. Needs
+  the file access ("Bilder hochladen"), not input. Core:
+  `Connection::list_dir`, `Connection::read_file_head`,
+  `herdr_core::browse`, `Session::list_directory`,
+  `Session::open_pane_directory`, `Session::file_preview`.
 
 ### Changed
 

@@ -116,6 +116,10 @@ code), so a host is set up the same way everywhere.
   host, their paths are appended to the prompt; agents such as Claude Code
   read images from there. Needs SFTP for the key, see
   [Uploads](#uploads-and-the-claude-conversation).
+- **Files:** a read-only browser for the host's files, starting in the
+  pane's working directory and limited to the home directory; text with
+  search (the first MB), images, size and type of other files. Needs SFTP
+  like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane.
 - **Pages agents open:** when an agent on the host opens a browser (a
@@ -286,9 +290,9 @@ the host editor shows now. `permitlisten="none"` is not accepted in
 
 ### Uploads and the Claude conversation
 
-Uploads and the Claude Code conversation need SFTP. Turn on the per-host
-switch "Bilder hochladen (SFTP)" (Apple) or "Dateien hochladen (SFTP)"
-(desktop, Android) and use the key line with
+Uploads, the Claude Code conversation, the Git changes and the file browser
+need SFTP. Turn on the per-host switch "Bilder hochladen (SFTP)" (Apple) or
+"Dateien hochladen (SFTP)" (desktop, Android) and use the key line with
 `*sftp*) exec /usr/libexec/sftp-server ;;` instead of `*sftp*) exit 1 ;;`;
 the host editor shows the right one. On Linux hosts the path of
 `sftp-server` differs, e.g. `/usr/lib/openssh/sftp-server`.
