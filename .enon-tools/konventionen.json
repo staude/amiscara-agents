@@ -1,0 +1,27 @@
+{
+  "board": {
+    "nummer": 2,
+    "owner": "staude",
+    "projectId": "PVT_kwHOAA1KJ84Bo_R_",
+    "status": {
+      "feldId": "PVTSSF_lAHOAA1KJ84Bo_R_zhnc3VA",
+      "optionen": {
+        "Todo": "f75ad846",
+        "Awaiting Approval": "772fc02b",
+        "In Progress": "47fc9ee4",
+        "In Review": "affde1e1",
+        "Done": "98236657"
+      }
+    },
+    "needsFeedbackFrom": {
+      "feldId": "PVTSSF_lAHOAA1KJ84Bo_R_zhnc3Xk",
+      "optionen": {
+        "Christian": "e5e2e8f1",
+        "Sven": "6bbc11c2",
+        "Frank": "b2698d11",
+        "Simon": "e5ed57ae"
+      }
+    }
+  },
+  "typen": null
+}
