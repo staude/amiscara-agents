@@ -241,7 +241,10 @@ and a follower per visible pane that reads its screen.
   network, a VPN such as NetBird, Tailscale or WireGuard, or a port on the
   internet. The Apple TV is limited to the local network (see above).
 - **Reconnect:** sessions reconnect with backoff after network changes or
-  sleep; the mobile apps reconnect when they return to the foreground.
+  sleep; the mobile apps reconnect when they return to the foreground,
+  after at least 30 s in the background also hosts that still look live
+  (Android only without the standby), and the Mac app reconnects remote
+  hosts after waking from sleep.
 
 ### The restricted key line
 

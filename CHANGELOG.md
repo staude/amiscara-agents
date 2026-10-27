@@ -593,6 +593,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   On the iPhone the "Tastatur ausblenden" button moved from the keyboard
   toolbar, whose height the keyboard avoidance did not count, into the
   composer row (#256).
+- Panes no longer stay unreadable after the iPhone wakes up until the app
+  restarts: a pane follower moves on to the session's new connection
+  instead of hanging on the dead one, opening a channel over SSH gives up
+  after 10 s and closes the dead link, iPhone, iPad, Apple TV and Android
+  (without standby) reconnect remote hosts after at least 30 s in the
+  background, and the Mac after waking from sleep (#258).
 - Dictation no longer quits the app right after granting speech
   recognition access on first use; the access handler ran with main actor
   isolation on a background queue. The Watch app's replies to the iPhone
