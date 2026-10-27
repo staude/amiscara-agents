@@ -65,6 +65,10 @@ pub enum TransportError {
         key: String,
         fingerprint: String,
     },
+    /// The SSH connection did not open a channel within
+    /// [`CHANNEL_OPEN_TIMEOUT`]; it is closed, the next attempt reconnects.
+    #[error("timed out opening a channel to herdr")]
+    Timeout,
 }
 
 impl TransportError {
@@ -303,22 +307,46 @@ impl Connection {
                 gated,
                 ..
             } => {
-                if !gated.load(Ordering::Relaxed) {
-                    match handle
-                        .channel_open_direct_streamlocal(socket_path.clone())
-                        .await
-                    {
-                        Ok(channel) => return Ok(Box::new(channel.into_stream())),
-                        // No port forwarding for this key: try the gate.
-                        Err(russh::Error::ChannelOpenFailure(_)) => {
-                            gated.store(true, Ordering::Relaxed)
+                let open = async {
+                    if !gated.load(Ordering::Relaxed) {
+                        match handle
+                            .channel_open_direct_streamlocal(socket_path.clone())
+                            .await
+                        {
+                            Ok(channel) => {
+                                return Ok::<Box<dyn Stream>, TransportError>(Box::new(
+                                    channel.into_stream(),
+                                ));
+                            }
+                            // No port forwarding for this key: try the gate.
+                            Err(russh::Error::ChannelOpenFailure(_)) => {
+                                gated.store(true, Ordering::Relaxed)
+                            }
+                            Err(err) => return Err(err.into()),
                         }
-                        Err(err) => return Err(err.into()),
+                    }
+                    let channel = handle.channel_open_session().await?;
+                    channel.exec(true, "herdr").await?;
+                    Ok(Box::new(channel.into_stream()))
+                };
+                match tokio::time::timeout(CHANNEL_OPEN_TIMEOUT, open).await {
+                    Ok(result) => result,
+                    // A link that died while the device slept answers nothing
+                    // until the keepalives give up a minute later. Close it so
+                    // the session reconnects instead of every read hanging (#258).
+                    Err(_) => {
+                        let _ = tokio::time::timeout(
+                            Duration::from_secs(2),
+                            handle.disconnect(
+                                russh::Disconnect::ByApplication,
+                                "channel open timed out",
+                                "",
+                            ),
+                        )
+                        .await;
+                        Err(TransportError::Timeout)
                     }
                 }
-                let channel = handle.channel_open_session().await?;
-                channel.exec(true, "herdr").await?;
-                Ok(Box::new(channel.into_stream()))
             }
         }
     }
@@ -746,6 +774,9 @@ pub const TCP_GATE_READY: &str = "amiscara-tcp";
 pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
 /// How long the gate may take to answer.
 const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long opening a channel for a herdr request may take over SSH.
+/// Uploads, port forwards and the requests themselves have no such limit.
+const CHANNEL_OPEN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Where herdr keeps its named sessions, below the home directory.
 pub const HERDR_SESSIONS_DIR: &str = ".config/herdr/sessions";
