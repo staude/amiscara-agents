@@ -353,23 +353,13 @@ impl Session {
         let Ok(state) = self.state.lock() else {
             return false;
         };
-        let Some(rx) = state.as_ref() else {
-            return false;
-        };
-        // The driver drops its sender when it stops, right after setting
-        // the final status; either tells.
-        let current = rx.borrow();
-        let stopped = rx.has_changed().is_err()
-            || matches!(
-                current.status,
-                SyncStatus::HostKeyUnknown { .. }
-                    | SyncStatus::HostKeyChanged { .. }
-                    | SyncStatus::Failed { .. }
-            );
-        if !stopped {
-            current.request_reconnect();
+        match state.as_ref() {
+            Some(rx) if !driver_stopped(rx) => {
+                rx.borrow().request_reconnect();
+                true
+            }
+            _ => false,
         }
-        !stopped
     }
 
     fn connection(&self) -> Result<Arc<Connection>, SessionError> {
@@ -870,6 +860,18 @@ impl Drop for Session {
     }
 }
 
+/// Whether the sync driver behind `rx` has ended. It drops its sender when
+/// it stops, right after setting the final status; either tells.
+fn driver_stopped(rx: &watch::Receiver<SyncState>) -> bool {
+    rx.has_changed().is_err()
+        || matches!(
+            rx.borrow().status,
+            SyncStatus::HostKeyUnknown { .. }
+                | SyncStatus::HostKeyChanged { .. }
+                | SyncStatus::Failed { .. }
+        )
+}
+
 /// Follows a pane across reconnects until stopped. A read on a connection
 /// the session has since replaced is given up without an error: after the
 /// device slept it can hang on the dead link for good, while the session
@@ -1277,6 +1279,41 @@ mod tests {
                 }
             });
             path
+        }
+
+        #[tokio::test]
+        async fn reconnect_tells_whether_the_session_still_runs() {
+            let dead = fake_herdr("reconnect", false);
+            let session = Session::start(
+                Endpoint::Local {
+                    socket_path: Some(dead.to_string_lossy().into_owned()),
+                },
+                false,
+                SpaceSort::default(),
+                |_| {},
+            )
+            .expect("start");
+            assert!(session.reconnect(), "a running session reconnects");
+            session.stop();
+            assert!(!session.reconnect(), "a stopped session starts over");
+            let _ = std::fs::remove_file(&dead);
+        }
+
+        #[tokio::test]
+        async fn a_final_status_counts_as_stopped() {
+            // The final status arrives before the driver drops its sender.
+            let (tx, rx) = watch::channel(SyncState::default());
+            assert!(!driver_stopped(&rx));
+            tx.send_modify(|state| {
+                state.status = SyncStatus::Failed {
+                    error: "refused".into(),
+                };
+            });
+            assert!(driver_stopped(&rx));
+            tx.send_modify(|state| state.status = SyncStatus::Connecting);
+            assert!(!driver_stopped(&rx));
+            drop(tx);
+            assert!(driver_stopped(&rx), "no driver any more");
         }
 
         #[tokio::test]
