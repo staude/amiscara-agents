@@ -219,9 +219,11 @@ final class HostStore {
     /// Reconnects every remote host, live or not: after the device slept
     /// or long in the background its SSH link may be dead while it still
     /// counts as live until the keepalives give up a minute later (#258).
-    /// Panes follow the new session.
+    /// Panes follow the new session. Other hosts reconnect as in
+    /// `reconnectStale()`.
     func reconnectRemote() {
-        for connection in connections where connection.config.kind == .ssh && !connection.needsHostKeyDecision {
+        for connection in connections
+        where (connection.config.kind == .ssh || !connection.isLive) && !connection.needsHostKeyDecision {
             connection.start()
         }
     }
