@@ -733,6 +733,124 @@ impl Connection {
         }
     }
 
+    /// The directory at the absolute `path` with its subdirectories and
+    /// files (#259); empty for the home directory. The real path (links
+    /// resolved) has to lie below the real home directory, otherwise
+    /// [`TransportError::Files`] ends with [`OUTSIDE_HOME`]. Links in the
+    /// directory count as what they point to; broken ones as
+    /// [`EntryKind::Other`]. Over SSH this needs SFTP like
+    /// [`Connection::upload`].
+    pub async fn list_dir(&self, path: &str) -> Result<DirListing, TransportError> {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let (home, target) = local_real_path(path).await?;
+                let mut read = tokio::fs::read_dir(&target)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                let mut entries = Vec::new();
+                while let Some(entry) = read
+                    .next_entry()
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?
+                {
+                    // Follows a link; a broken one falls back to the link.
+                    let meta = match tokio::fs::metadata(entry.path()).await {
+                        Ok(meta) => Some(meta),
+                        Err(_) => entry.metadata().await.ok(),
+                    };
+                    let kind = match &meta {
+                        Some(meta) if meta.is_dir() => EntryKind::Dir,
+                        Some(meta) if meta.is_file() => EntryKind::File,
+                        _ => EntryKind::Other,
+                    };
+                    entries.push(DirEntry {
+                        name: entry.file_name().to_string_lossy().into_owned(),
+                        kind,
+                        size: meta.as_ref().map_or(0, std::fs::Metadata::len),
+                        modified: meta.as_ref().map_or(0, local_modified),
+                    });
+                }
+                Ok(DirListing {
+                    home,
+                    path: target,
+                    entries,
+                })
+            }
+            Inner::Ssh { handle, .. } => sftp_list_dir(handle, path).await,
+        }
+    }
+
+    /// The start of the file at the absolute `path` (#259): `len` gets its
+    /// size and returns how many bytes to read from its beginning. Same
+    /// rules for the path as [`Connection::list_dir`]; only regular files.
+    pub async fn read_file_head(
+        &self,
+        path: &str,
+        len: impl FnOnce(u64) -> u64,
+    ) -> Result<FileHead, TransportError> {
+        use tokio::io::AsyncReadExt;
+
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let (_, target) = local_real_path(path).await?;
+                let meta = tokio::fs::metadata(&target)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                if !meta.is_file() {
+                    return Err(TransportError::Files(format!("{target} is not a file")));
+                }
+                let file = tokio::fs::File::open(&target)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                let mut data = Vec::new();
+                file.take(len(meta.len()))
+                    .read_to_end(&mut data)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                Ok(FileHead {
+                    path: target,
+                    size: meta.len(),
+                    modified: local_modified(&meta),
+                    data,
+                })
+            }
+            Inner::Ssh { handle, .. } => {
+                let sftp = sftp_session(handle, TransportError::Files).await?;
+                let failed =
+                    |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+                let (_, target) = sftp_real_path(&sftp, path).await?;
+                let meta = sftp
+                    .metadata(target.as_str())
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                if !meta.file_type().is_file() {
+                    return Err(TransportError::Files(format!("{target} is not a file")));
+                }
+                let size = meta.size.unwrap_or(0);
+                let mut file = sftp
+                    .open_with_flags(target.as_str(), OpenFlags::READ)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                let mut data = Vec::new();
+                (&mut file)
+                    .take(len(size))
+                    .read_to_end(&mut data)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+                drop(file);
+                sftp.close().await.map_err(failed)?;
+                Ok(FileHead {
+                    path: target,
+                    size,
+                    modified: meta.mtime.map_or(0, u64::from),
+                    data,
+                })
+            }
+        }
+    }
+
     /// Deletes the file `path` below the home directory; a missing file is
     /// no error. Over SSH this needs SFTP like [`Connection::upload`].
     pub async fn remove_file(&self, path: &str) -> Result<(), TransportError> {
@@ -835,6 +953,167 @@ pub struct RemoteFile {
     pub size: u64,
     /// Seconds since 1970, 0 if unknown.
     pub modified: u64,
+}
+
+/// How the message of [`TransportError::Files`] ends when a path of
+/// [`Connection::list_dir`] or [`Connection::read_file_head`] leads out of
+/// the home directory.
+pub const OUTSIDE_HOME: &str = "is outside the home directory";
+
+/// A directory from [`Connection::list_dir`]; paths are real and absolute.
+#[derive(Debug, Clone)]
+pub struct DirListing {
+    pub home: String,
+    pub path: String,
+    /// In the order the server lists them.
+    pub entries: Vec<DirEntry>,
+}
+
+/// An entry of a [`DirListing`].
+#[derive(Debug, Clone)]
+pub struct DirEntry {
+    pub name: String,
+    pub kind: EntryKind,
+    pub size: u64,
+    /// Seconds since 1970, 0 if unknown.
+    pub modified: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntryKind {
+    File,
+    Dir,
+    /// A broken link, a socket, a device and the like.
+    Other,
+}
+
+/// The start of a file from [`Connection::read_file_head`].
+#[derive(Debug, Clone)]
+pub struct FileHead {
+    /// The real, absolute path.
+    pub path: String,
+    /// The whole file's size.
+    pub size: u64,
+    /// Seconds since 1970, 0 if unknown.
+    pub modified: u64,
+    pub data: Vec<u8>,
+}
+
+/// Whether the absolute `path` is `home` or lies below it, compared per
+/// component. Both are real paths; `..` counts as outside.
+fn inside_home(home: &str, path: &str) -> bool {
+    let mut parts = path.split('/').filter(|part| !part.is_empty());
+    if path.split('/').any(|part| part == "..") {
+        return false;
+    }
+    home.split('/')
+        .filter(|part| !part.is_empty())
+        .all(|part| parts.next() == Some(part))
+}
+
+/// `dir` and `name` joined with one `/`.
+fn join_path(dir: &str, name: &str) -> String {
+    format!("{}/{name}", dir.trim_end_matches('/'))
+}
+
+/// The real home directory and the real `path` (the home when empty),
+/// checked to lie below it.
+#[cfg(unix)]
+async fn local_real_path(path: &str) -> Result<(String, String), TransportError> {
+    let home = dirs::home_dir().ok_or_else(|| TransportError::Files("no home directory".into()))?;
+    let home = tokio::fs::canonicalize(&home)
+        .await
+        .map_err(|err| TransportError::Files(format!("{}: {err}", home.display())))?
+        .to_string_lossy()
+        .into_owned();
+    let target = if path.is_empty() {
+        home.clone()
+    } else {
+        tokio::fs::canonicalize(path)
+            .await
+            .map_err(|err| TransportError::Files(format!("{path}: {err}")))?
+            .to_string_lossy()
+            .into_owned()
+    };
+    if !inside_home(&home, &target) {
+        return Err(TransportError::Files(format!("{path} {OUTSIDE_HOME}")));
+    }
+    Ok((home, target))
+}
+
+#[cfg(unix)]
+fn local_modified(meta: &std::fs::Metadata) -> u64 {
+    meta.modified()
+        .ok()
+        .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |at| at.as_secs())
+}
+
+/// Like [`local_real_path`], on the server.
+async fn sftp_real_path(
+    sftp: &SftpSession,
+    path: &str,
+) -> Result<(String, String), TransportError> {
+    let home = sftp
+        .canonicalize(".")
+        .await
+        .map_err(|err| TransportError::Files(err.to_string()))?;
+    let target = if path.is_empty() {
+        home.clone()
+    } else {
+        sftp.canonicalize(path)
+            .await
+            .map_err(|err| TransportError::Files(format!("{path}: {err}")))?
+    };
+    if !inside_home(&home, &target) {
+        return Err(TransportError::Files(format!("{path} {OUTSIDE_HOME}")));
+    }
+    Ok((home, target))
+}
+
+async fn sftp_list_dir(
+    handle: &Handle<HostKeyCheck>,
+    path: &str,
+) -> Result<DirListing, TransportError> {
+    let sftp = sftp_session(handle, TransportError::Files).await?;
+    let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+    let (home, target) = sftp_real_path(&sftp, path).await?;
+    let read = sftp
+        .read_dir(target.as_str())
+        .await
+        .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+    let mut entries = Vec::new();
+    for entry in read {
+        let name = entry.file_name();
+        if name == "." || name == ".." {
+            continue;
+        }
+        // `sftp-server` lists with lstat: a link needs a stat of its own.
+        let mut meta = Some(entry.metadata());
+        if entry.file_type().is_symlink() {
+            meta = sftp.metadata(join_path(&target, &name)).await.ok();
+        }
+        let kind = match &meta {
+            Some(meta) if meta.file_type().is_dir() => EntryKind::Dir,
+            Some(meta) if meta.file_type().is_file() => EntryKind::File,
+            _ => EntryKind::Other,
+        };
+        entries.push(DirEntry {
+            name,
+            kind,
+            size: meta.as_ref().and_then(|meta| meta.size).unwrap_or(0),
+            modified: meta
+                .as_ref()
+                .and_then(|meta| meta.mtime)
+                .map_or(0, u64::from),
+        });
+    }
+    sftp.close().await.map_err(failed)?;
+    Ok(DirListing {
+        home,
+        path: target,
+        entries,
+    })
 }
 
 /// `path` below the local home directory.
@@ -1145,5 +1424,21 @@ mod authorized_keys_tests {
         );
         // A blob that is only part of another key does not count.
         assert!(with_authorized_key("ssh-ed25519 AAAAkeyLONGER a\n", line, "AAAAkey").is_some());
+    }
+}
+
+#[cfg(test)]
+mod browse_tests {
+    use super::inside_home;
+
+    #[test]
+    fn home_bounds_paths_per_component() {
+        assert!(inside_home("/home/a", "/home/a"));
+        assert!(inside_home("/home/a", "/home/a/"));
+        assert!(inside_home("/home/a", "/home/a/src/x"));
+        assert!(!inside_home("/home/a", "/home/ab"));
+        assert!(!inside_home("/home/a", "/home"));
+        assert!(!inside_home("/home/a", "/etc"));
+        assert!(!inside_home("/home/a", "/home/a/../b"));
     }
 }

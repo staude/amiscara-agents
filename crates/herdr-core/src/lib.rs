@@ -6,9 +6,10 @@
 //! [`terminal`] turns pane content into styled lines, [`pane`] keeps one
 //! open pane current, [`fullscreen`] looks back in a full-screen agent.
 //! [`spaces`] orders the sidebar and groups spaces by
-//! name.
+//! name, [`browse`] reads files below the home directory.
 
 pub mod actions;
+pub mod browse;
 pub mod claude;
 pub mod diff;
 pub mod fullscreen;

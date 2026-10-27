@@ -269,6 +269,9 @@
         }
       }
     },
+    "%@, %@" : {
+      "shouldTranslate" : false
+    },
     "%@, %@, %@, Tab %@" : {
       "localizations" : {
         "de" : {
@@ -460,6 +463,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld working"
+          }
+        }
+      }
+    },
+    "%lld versteckte Einträge" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versteckter Eintrag"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld versteckte Einträge"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld hidden entry"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld hidden entries"
+                }
+              }
+            }
           }
         }
       }
@@ -1342,6 +1385,16 @@
         }
       }
     },
+    "Datei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File"
+          }
+        }
+      }
+    },
     "Datei entfernen" : {
       "localizations" : {
         "en" : {
@@ -1352,12 +1405,62 @@
         }
       }
     },
+    "Datei nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File not readable"
+          }
+        }
+      }
+    },
+    "Datei wird geladen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading file …"
+          }
+        }
+      }
+    },
+    "Dateien" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files"
+          }
+        }
+      }
+    },
     "Dateien auf dem Host nicht lesbar: %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cannot read files on the host: %@"
+          }
+        }
+      }
+    },
+    "Dateien im Arbeitsverzeichnis der Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files in the pane's working directory"
+          }
+        }
+      }
+    },
+    "Dateien nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files not readable"
           }
         }
       }
@@ -1492,6 +1595,16 @@
         }
       }
     },
+    "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file browser reads through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
     "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
@@ -1578,6 +1691,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The name in the code is invalid."
+          }
+        }
+      }
+    },
+    "Der Ordner ist leer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The folder is empty."
           }
         }
       }
@@ -2424,6 +2547,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Uploading is off for %@; the text is in the composer."
+          }
+        }
+      }
+    },
+    "Home-Verzeichnis öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Home Folder"
           }
         }
       }
@@ -3448,6 +3581,16 @@
         }
       }
     },
+    "Nur das erste MB wird gezeigt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the first MB is shown."
+          }
+        }
+      }
+    },
     "Nur Kleinbuchstaben, Ziffern, - und _ sind erlaubt, am Anfang ein Buchstabe." : {
       "localizations" : {
         "en" : {
@@ -3540,6 +3683,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose option %1$@ (⌥⌘%2$@)"
+          }
+        }
+      }
+    },
+    "Ordner wird gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading folder …"
           }
         }
       }
@@ -4644,6 +4797,16 @@
         }
       }
     },
+    "Übergeordneter Ordner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enclosing Folder"
+          }
+        }
+      }
+    },
     "Umbenennen …" : {
       "localizations" : {
         "en" : {
@@ -4880,6 +5043,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version %@"
+          }
+        }
+      }
+    },
+    "Versteckte zeigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Hidden"
           }
         }
       }
@@ -5603,6 +5776,9 @@
           }
         }
       }
+    },
+    "~" : {
+      "shouldTranslate" : false
     },
     "~/dev/projekt" : {
       "localizations" : {

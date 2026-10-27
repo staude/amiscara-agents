@@ -8,6 +8,7 @@ struct PaneDetailView: View {
     @State private var search = PaneSearchState()
     @State private var showingConversation = false
     @State private var showingDiff = false
+    @State private var showingFiles = false
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
     /// The pane's buttons sit in the vertical bar of an iPhone Duo (#215).
     @State private var verticalBar = false
@@ -70,6 +71,11 @@ struct PaneDetailView: View {
                 DiffView(connection: connection, paneID: selection.paneID)
             }
         }
+        .sheet(isPresented: $showingFiles) {
+            if let selection, let connection = store.connection(for: selection.hostID) {
+                FileBrowserView(connection: connection, paneID: selection.paneID)
+            }
+        }
         #endif
         .tracksVerticalBar($verticalBar)
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
@@ -126,8 +132,8 @@ struct PaneDetailView: View {
         .padding(.vertical, 8)
     }
 
-    /// Conversation, text selection, search and font size: in the header,
-    /// or in the vertical bar where there is one.
+    /// Conversation, changes, files, text selection, search and font size:
+    /// in the header, or in the vertical bar where there is one.
     @ViewBuilder
     private func actions(connection: HostConnection, paneID: String) -> some View {
         let pane = pane(connection, paneID)
@@ -146,6 +152,12 @@ struct PaneDetailView: View {
             .labelStyle(.iconOnly)
             .help(String(localized: "Git-Änderungen im Arbeitsverzeichnis der Pane"))
         }
+        // Read only: also for hosts without input.
+        Button("Dateien", systemImage: "folder") {
+            showingFiles = true
+        }
+        .labelStyle(.iconOnly)
+        .help(String(localized: "Dateien im Arbeitsverzeichnis der Pane"))
         #endif
         SelectTextButton(title: pane?.title.isEmpty == false ? pane!.title : paneID) {
             model.content?.plainText ?? ""

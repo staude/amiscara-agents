@@ -87,8 +87,12 @@ extension PaneContent {
 }
 
 #if os(macOS)
-private struct NativeTextView: NSViewRepresentable {
+/// Read-only monospace text in the system's text view, with its find bar.
+struct NativeTextView: NSViewRepresentable {
     let text: String
+    var scrollsToEnd = true
+    /// Each change opens the find bar.
+    var findRequest = 0
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
@@ -96,32 +100,70 @@ private struct NativeTextView: NSViewRepresentable {
         view.isEditable = false
         view.isSelectable = true
         view.isRichText = false
+        view.usesFindBar = true
+        view.isIncrementalSearchingEnabled = true
         view.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         view.textContainerInset = NSSize(width: 8, height: 8)
         view.string = text
-        DispatchQueue.main.async { view.scrollToEndOfDocument(nil) }
+        if scrollsToEnd {
+            DispatchQueue.main.async { view.scrollToEndOfDocument(nil) }
+        }
+        context.coordinator.findRequest = findRequest
         return scroll
     }
 
-    func updateNSView(_ scroll: NSScrollView, context: Context) {}
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard findRequest != context.coordinator.findRequest,
+              let view = scroll.documentView as? NSTextView
+        else { return }
+        context.coordinator.findRequest = findRequest
+        view.window?.makeFirstResponder(view)
+        // The text view reads the action from the sender's tag.
+        let item = NSMenuItem()
+        item.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
+        view.performFindPanelAction(item)
+    }
+
+    func makeCoordinator() -> FindRequestState { FindRequestState() }
 }
 #elseif os(iOS)
-private struct NativeTextView: UIViewRepresentable {
+/// Read-only monospace text in the system's text view, with its find bar.
+struct NativeTextView: UIViewRepresentable {
     let text: String
+    var scrollsToEnd = true
+    /// Each change opens the find navigator.
+    var findRequest = 0
 
     func makeUIView(context: Context) -> UITextView {
         let view = UITextView()
         view.isEditable = false
         view.isSelectable = true
+        view.isFindInteractionEnabled = true
         view.font = .monospacedSystemFont(ofSize: UIFont.systemFontSize, weight: .regular)
         view.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         view.text = text
-        DispatchQueue.main.async {
-            view.scrollRangeToVisible(NSRange(location: (text as NSString).length, length: 0))
+        if scrollsToEnd {
+            DispatchQueue.main.async {
+                view.scrollRangeToVisible(NSRange(location: (text as NSString).length, length: 0))
+            }
         }
+        context.coordinator.findRequest = findRequest
         return view
     }
 
-    func updateUIView(_ view: UITextView, context: Context) {}
+    func updateUIView(_ view: UITextView, context: Context) {
+        guard findRequest != context.coordinator.findRequest else { return }
+        context.coordinator.findRequest = findRequest
+        view.findInteraction?.presentFindNavigator(showingReplace: false)
+    }
+
+    func makeCoordinator() -> FindRequestState { FindRequestState() }
+}
+#endif
+
+#if !os(tvOS)
+/// The last find request a `NativeTextView` answered.
+final class FindRequestState {
+    var findRequest = 0
 }
 #endif

@@ -25,7 +25,10 @@ pub use convert::{
     SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
     TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
-pub use convert::{DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff};
+pub use convert::{
+    DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
+    EntryKind, FileContent, FilePreview, WorkingTreeDiff,
+};
 pub use herdr_session::UPLOAD_DIR;
 
 uniffi::setup_scaffolding!();
@@ -495,6 +498,27 @@ impl HostSession {
     /// off the main thread.
     pub fn working_tree_diff(&self, pane_id: String) -> Result<WorkingTreeDiff, FfiError> {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
+    }
+
+    /// The directory at the absolute `path` on the host, empty for the home
+    /// directory (#259). Read only; paths outside the home directory fail.
+    /// Needs file access like uploads. Blocks; call it off the main thread.
+    pub fn list_directory(&self, path: String) -> Result<Directory, FfiError> {
+        Ok(runtime().block_on(self.session.list_directory(&path))?)
+    }
+
+    /// The working directory of a pane for the file browser (#259), the
+    /// home directory when none is known or it lies outside the home.
+    /// Blocks; call it off the main thread.
+    pub fn open_pane_directory(&self, pane_id: String) -> Result<Directory, FfiError> {
+        Ok(runtime().block_on(self.session.open_pane_directory(&pane_id))?)
+    }
+
+    /// The file at the absolute `path` on the host to show (#259): text up
+    /// to 1 MB, an image up to 10 MB, otherwise only size and name. Blocks;
+    /// call it off the main thread.
+    pub fn file_preview(&self, path: String) -> Result<FilePreview, FfiError> {
+        Ok(runtime().block_on(self.session.file_preview(&path))?)
     }
 
     /// The transcript of a full-screen agent such as Claude Code as plain
