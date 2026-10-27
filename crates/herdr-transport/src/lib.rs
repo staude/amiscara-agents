@@ -1021,7 +1021,13 @@ fn join_path(dir: &str, name: &str) -> String {
 #[cfg(unix)]
 async fn local_real_path(path: &str) -> Result<(String, String), TransportError> {
     let home = dirs::home_dir().ok_or_else(|| TransportError::Files("no home directory".into()))?;
-    let home = tokio::fs::canonicalize(&home)
+    real_path_below(&home, path).await
+}
+
+/// [`local_real_path`] with `home` given, for tests.
+#[cfg(unix)]
+async fn real_path_below(home: &Path, path: &str) -> Result<(String, String), TransportError> {
+    let home = tokio::fs::canonicalize(home)
         .await
         .map_err(|err| TransportError::Files(format!("{}: {err}", home.display())))?
         .to_string_lossy()
@@ -1430,6 +1436,46 @@ mod authorized_keys_tests {
 #[cfg(test)]
 mod browse_tests {
     use super::inside_home;
+    #[cfg(unix)]
+    use super::{OUTSIDE_HOME, TransportError, real_path_below};
+
+    /// A link out of the home directory is refused on its real path, a
+    /// link inside stays allowed.
+    #[cfg(unix)]
+    #[test]
+    fn links_out_of_home_are_refused() {
+        let base = std::env::temp_dir().join(format!("amiscara-browse-{}", std::process::id()));
+        let home = base.join("home");
+        let outside = base.join("outside");
+        std::fs::create_dir_all(home.join("src")).expect("home");
+        std::fs::create_dir_all(&outside).expect("outside");
+        std::os::unix::fs::symlink(&outside, home.join("out")).expect("link out");
+        std::os::unix::fs::symlink(home.join("src"), home.join("in")).expect("link in");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let resolve = |path: std::path::PathBuf| {
+            runtime.block_on(real_path_below(&home, &path.to_string_lossy()))
+        };
+
+        let (real_home, inside) = resolve(home.join("in")).expect("link inside");
+        assert!(inside.ends_with("/home/src"), "{inside}");
+        assert!(inside.starts_with(&real_home));
+        for path in [home.join("out"), home.join("src/../../outside")] {
+            match resolve(path.clone()) {
+                Err(TransportError::Files(message)) => {
+                    assert!(message.ends_with(OUTSIDE_HOME), "{message}");
+                }
+                other => panic!("{} was not refused: {other:?}", path.display()),
+            }
+        }
+        let (_, empty) = runtime
+            .block_on(real_path_below(&home, ""))
+            .expect("home itself");
+        assert_eq!(empty, real_home);
+        std::fs::remove_dir_all(&base).expect("clean up");
+    }
 
     #[test]
     fn home_bounds_paths_per_component() {
