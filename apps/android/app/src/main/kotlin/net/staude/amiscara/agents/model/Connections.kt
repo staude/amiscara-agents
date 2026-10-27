@@ -162,29 +162,37 @@ class Connections(
     /**
      * Back in the foreground: sessions that wait for their next attempt or
      * were refused try again now (the key may have been added meanwhile).
+     * Waiting sessions keep their state, so changes meanwhile notify (#264).
      */
     fun reconnectStale() {
         for ((id, entry) in running.toMap()) {
             when (updates.value[id]?.status) {
-                is HostStatus.Retrying, is HostStatus.Failed -> start(entry.config)
+                is HostStatus.Retrying -> reconnectKeeping(entry)
+                is HostStatus.Failed -> start(entry.config)
                 else -> {}
             }
         }
     }
 
     /**
-     * Back after a long pause: every session starts again, live or not. The
-     * SSH link may have died meanwhile while the session still counts as
-     * live until the keepalives give up a minute later (#258). Panes follow
-     * the new session.
+     * Back after a long pause: every session connects again, live or not.
+     * The SSH link may have died meanwhile while the session still counts
+     * as live until the keepalives give up a minute later (#258). Sessions
+     * keep their state and panes follow the new connection, so agents that
+     * finished meanwhile still notify (#264).
      */
     fun reconnectRemote() {
         for ((id, entry) in running.toMap()) {
             when (updates.value[id]?.status) {
                 is HostStatus.HostKeyUnknown, is HostStatus.HostKeyChanged -> {}
-                else -> start(entry.config)
+                else -> reconnectKeeping(entry)
             }
         }
+    }
+
+    /** Connects again at once with the known state; a stopped session starts over. */
+    private fun reconnectKeeping(entry: Running) {
+        if (!entry.session.reconnect()) start(entry.config)
     }
 
     private fun sync(list: List<HostConfig>) {

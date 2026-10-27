@@ -248,7 +248,8 @@ and a follower per visible pane that reads its screen.
   sleep; the mobile apps reconnect when they return to the foreground,
   after at least 30 s in the background also hosts that still look live
   (Android only without the standby), and the Mac app reconnects remote
-  hosts after waking from sleep.
+  hosts after waking from sleep. The session keeps its state while it
+  reconnects, so agents that changed in the meantime are reported.
 
 ### The restricted key line
 

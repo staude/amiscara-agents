@@ -7,7 +7,8 @@
 //! short moment and answered with one fresh snapshot. When the connection
 //! breaks, the driver reconnects with growing pauses. Errors only the user
 //! can resolve (unknown or changed host key, refused login) end the driver
-//! with a status that says so.
+//! with a status that says so. On request the driver drops the connection
+//! and connects again at once, keeping the last state (#264).
 //!
 //! Only read-only methods are used: `session.snapshot` and `events.subscribe`.
 
@@ -72,12 +73,23 @@ pub struct SyncState {
     /// Asks the driver for a fresh snapshot, for changes herdr announces
     /// without the data (an agent's new name). Shared by all clones.
     pub refresh: Arc<Notify>,
+    /// Asks the driver to connect again at once. Shared by all clones.
+    pub reconnect: Arc<Notify>,
 }
 
 impl SyncState {
     /// Takes a fresh snapshot soon; harmless while not connected.
     pub fn request_snapshot(&self) {
         self.refresh.notify_one();
+    }
+
+    /// Drops the current connection or connection attempt and connects
+    /// again right away, without the pause between retries. `session` stays,
+    /// so the first snapshot afterwards is compared with what was known
+    /// before. Does nothing once the driver has stopped; see
+    /// [`watch::Receiver::has_changed`] for telling.
+    pub fn request_reconnect(&self) {
+        self.reconnect.notify_one();
     }
 }
 
@@ -98,6 +110,7 @@ impl Default for SyncState {
             session: None,
             connection: None,
             refresh: Arc::new(Notify::new()),
+            reconnect: Arc::new(Notify::new()),
         }
     }
 }
@@ -133,15 +146,29 @@ where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<Connection, TransportError>>,
 {
+    let reconnect = Arc::clone(&tx.borrow().reconnect);
     let mut attempt = 0u32;
     loop {
-        let error = match connect().await {
-            Ok(conn) => {
-                let conn = Arc::new(conn);
-                tx.send_modify(|state| state.connection = Some(Arc::clone(&conn)));
-                follow(&conn, &tx, &mut attempt).await
-            }
-            Err(err) => SyncError::from(err),
+        // A requested reconnect cancels the attempt, even a connect that
+        // hangs on a link that died while the device slept.
+        let connecting = connect();
+        let outcome = tokio::select! {
+            error = async {
+                match connecting.await {
+                    Ok(conn) => {
+                        let conn = Arc::new(conn);
+                        tx.send_modify(|state| state.connection = Some(Arc::clone(&conn)));
+                        follow(&conn, &tx, &mut attempt).await
+                    }
+                    Err(err) => SyncError::from(err),
+                }
+            } => Some(error),
+            () = reconnect.notified() => None,
+        };
+        let Some(error) = outcome else {
+            attempt = 0;
+            restart(&tx);
+            continue;
         };
         if matches!(error, SyncError::Unobserved) || tx.is_closed() {
             return;
@@ -163,9 +190,21 @@ where
         });
         tokio::select! {
             () = sleep(backoff(attempt)) => {}
+            () = reconnect.notified() => {
+                attempt = 0;
+                restart(&tx);
+            }
             () = tx.closed() => return,
         }
     }
+}
+
+/// Marks a reconnect on request: connecting again, the state kept.
+fn restart(tx: &watch::Sender<SyncState>) {
+    tx.send_modify(|state| {
+        state.status = SyncStatus::Connecting;
+        state.connection = None;
+    });
 }
 
 /// The final status for errors a retry cannot fix.
@@ -458,6 +497,111 @@ mod tests {
             Some("feature/2375")
         );
         assert_eq!(branch_for(&worktrees, "/dev/other"), None);
+    }
+
+    // The fake server listens on a Unix socket, which `Connection::local` needs.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_requested_reconnect_starts_over_at_once() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tokio::net::UnixListener;
+
+        // Takes connections and never answers, like a link that died while
+        // the device slept.
+        let path =
+            std::env::temp_dir().join(format!("herdr-core-reconnect-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path).expect("bind fake socket");
+        tokio::spawn(async move {
+            let mut held = Vec::new();
+            while let Ok((stream, _)) = listener.accept().await {
+                held.push(stream);
+            }
+        });
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let rx = spawn({
+            let calls = Arc::clone(&calls);
+            let path = path.clone();
+            move || {
+                // The second attempt hangs, so the state in between stays
+                // visible.
+                let first = calls.fetch_add(1, Ordering::SeqCst) == 0;
+                let conn = Connection::local(&path);
+                async move {
+                    if !first {
+                        std::future::pending::<()>().await;
+                    }
+                    Ok(conn)
+                }
+            }
+        });
+        let wait_for_calls = |n: usize| {
+            let calls = Arc::clone(&calls);
+            async move {
+                let deadline = Instant::now() + Duration::from_secs(1);
+                while calls.load(Ordering::SeqCst) < n && Instant::now() < deadline {
+                    sleep(Duration::from_millis(5)).await;
+                }
+                calls.load(Ordering::SeqCst)
+            }
+        };
+        assert_eq!(wait_for_calls(1).await, 1);
+        let mut watcher = rx.clone();
+        watcher
+            .wait_for(|state| state.connection.is_some())
+            .await
+            .expect("driver runs");
+
+        rx.borrow().request_reconnect();
+        let state = watcher
+            .wait_for(|state| state.connection.is_none())
+            .await
+            .expect("driver runs")
+            .clone();
+        assert_eq!(state.status, SyncStatus::Connecting);
+        assert_eq!(wait_for_calls(2).await, 2, "second attempt within 1 s");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn a_requested_reconnect_cuts_the_pause_short() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        // The first attempt fails and the driver waits a second; the second
+        // attempt hangs, so its state stays visible.
+        let calls = Arc::new(AtomicUsize::new(0));
+        let rx = spawn({
+            let calls = Arc::clone(&calls);
+            move || {
+                let first = calls.fetch_add(1, Ordering::SeqCst) == 0;
+                async move {
+                    if !first {
+                        std::future::pending::<()>().await;
+                    }
+                    Err(TransportError::Closed)
+                }
+            }
+        });
+        let mut watcher = rx.clone();
+        watcher
+            .wait_for(|state| matches!(state.status, SyncStatus::Retrying { .. }))
+            .await
+            .expect("driver runs");
+        let asked = Instant::now();
+        rx.borrow().request_reconnect();
+        watcher
+            .wait_for(|state| state.status == SyncStatus::Connecting)
+            .await
+            .expect("driver runs");
+        while calls.load(Ordering::SeqCst) < 2 && asked.elapsed() < Duration::from_secs(2) {
+            sleep(Duration::from_millis(5)).await;
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert!(
+            asked.elapsed() < backoff(1) / 2,
+            "second attempt without the pause"
+        );
     }
 
     #[test]

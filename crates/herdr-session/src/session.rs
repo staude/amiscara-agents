@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
-use herdr_core::sync::{self, SyncState};
+use herdr_core::sync::{self, SyncState, SyncStatus};
 use herdr_core::{actions, browse, claude, diff, fullscreen};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
@@ -339,6 +339,26 @@ impl Session {
         self.forwards.stop();
         if let Ok(mut state) = self.state.lock() {
             state.take();
+        }
+    }
+
+    /// Drops the connection and connects again at once, for a link that
+    /// may have died while the device slept (#264). The known state and the
+    /// pane followers stay; followers move to the new connection on their
+    /// own, and the first update afterwards reports what changed in the
+    /// meantime. Returns `false` when the session has stopped, after
+    /// [`Session::stop`] or with a status a retry cannot fix (host key,
+    /// refused login); start a new one then.
+    pub fn reconnect(&self) -> bool {
+        let Ok(state) = self.state.lock() else {
+            return false;
+        };
+        match state.as_ref() {
+            Some(rx) if !driver_stopped(rx) => {
+                rx.borrow().request_reconnect();
+                true
+            }
+            _ => false,
         }
     }
 
@@ -840,6 +860,18 @@ impl Drop for Session {
     }
 }
 
+/// Whether the sync driver behind `rx` has ended. It drops its sender when
+/// it stops, right after setting the final status; either tells.
+fn driver_stopped(rx: &watch::Receiver<SyncState>) -> bool {
+    rx.has_changed().is_err()
+        || matches!(
+            rx.borrow().status,
+            SyncStatus::HostKeyUnknown { .. }
+                | SyncStatus::HostKeyChanged { .. }
+                | SyncStatus::Failed { .. }
+        )
+}
+
 /// Follows a pane across reconnects until stopped. A read on a connection
 /// the session has since replaced is given up without an error: after the
 /// device slept it can hang on the dead link for good, while the session
@@ -1247,6 +1279,41 @@ mod tests {
                 }
             });
             path
+        }
+
+        #[tokio::test]
+        async fn reconnect_tells_whether_the_session_still_runs() {
+            let dead = fake_herdr("reconnect", false);
+            let session = Session::start(
+                Endpoint::Local {
+                    socket_path: Some(dead.to_string_lossy().into_owned()),
+                },
+                false,
+                SpaceSort::default(),
+                |_| {},
+            )
+            .expect("start");
+            assert!(session.reconnect(), "a running session reconnects");
+            session.stop();
+            assert!(!session.reconnect(), "a stopped session starts over");
+            let _ = std::fs::remove_file(&dead);
+        }
+
+        #[tokio::test]
+        async fn a_final_status_counts_as_stopped() {
+            // The final status arrives before the driver drops its sender.
+            let (tx, rx) = watch::channel(SyncState::default());
+            assert!(!driver_stopped(&rx));
+            tx.send_modify(|state| {
+                state.status = SyncStatus::Failed {
+                    error: "refused".into(),
+                };
+            });
+            assert!(driver_stopped(&rx));
+            tx.send_modify(|state| state.status = SyncStatus::Connecting);
+            assert!(!driver_stopped(&rx));
+            drop(tx);
+            assert!(driver_stopped(&rx), "no driver any more");
         }
 
         #[tokio::test]

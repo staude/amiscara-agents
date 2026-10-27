@@ -378,6 +378,15 @@ impl HostSession {
         self.session.stop();
     }
 
+    /// Drops the connection and connects again at once, after the device
+    /// slept or sat in the background (#264). The known state and the pane
+    /// followers stay, so agents that changed meanwhile are reported with
+    /// the next update. Returns false when the session has stopped (after
+    /// `stop`, or for a host key or refused login); start a new one then.
+    pub fn reconnect(&self) -> bool {
+        self.session.reconnect()
+    }
+
     /// The address to open for a page an agent asked for (#247): a page on
     /// the host's `localhost` is forwarded through the connection to a port
     /// on this device, other URLs come back unchanged. Fails with `Forward`
