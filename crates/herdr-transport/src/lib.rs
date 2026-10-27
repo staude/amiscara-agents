@@ -683,7 +683,11 @@ impl Connection {
                     .await
                     .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
                 let mut entries = Vec::new();
-                while let Some(entry) = read.next_entry().await? {
+                while let Some(entry) = read
+                    .next_entry()
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?
+                {
                     // Follows a link; a broken one falls back to the link.
                     let meta = match tokio::fs::metadata(entry.path()).await {
                         Ok(meta) => Some(meta),
@@ -735,7 +739,10 @@ impl Connection {
                     .await
                     .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
                 let mut data = Vec::new();
-                file.take(len(meta.len())).read_to_end(&mut data).await?;
+                file.take(len(meta.len()))
+                    .read_to_end(&mut data)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
                 Ok(FileHead {
                     path: target,
                     size: meta.len(),
@@ -761,7 +768,11 @@ impl Connection {
                     .await
                     .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
                 let mut data = Vec::new();
-                (&mut file).take(len(size)).read_to_end(&mut data).await?;
+                (&mut file)
+                    .take(len(size))
+                    .read_to_end(&mut data)
+                    .await
+                    .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
                 drop(file);
                 sftp.close().await.map_err(failed)?;
                 Ok(FileHead {

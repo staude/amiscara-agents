@@ -112,9 +112,12 @@ pub async fn preview(conn: &Connection, path: &str) -> Result<FilePreview, Trans
             }
         })
         .await?;
+    // By the requested name, as the read above: a link `shot` to
+    // `photo.png` was read as text.
+    let content = classify(&name, head.size, head.data);
     let name = head.path.rsplit('/').next().unwrap_or(&name).to_owned();
     Ok(FilePreview {
-        content: classify(&name, head.size, head.data),
+        content,
         path: head.path,
         name,
         size: head.size,
