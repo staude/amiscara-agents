@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
-use herdr_core::sync::{self, SyncState};
+use herdr_core::sync::{self, SyncState, SyncStatus};
 use herdr_core::{actions, browse, claude, diff, fullscreen};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
@@ -353,14 +353,23 @@ impl Session {
         let Ok(state) = self.state.lock() else {
             return false;
         };
-        // The driver drops its sender when it stops.
-        match state.as_ref() {
-            Some(rx) if rx.has_changed().is_ok() => {
-                rx.borrow().request_reconnect();
-                true
-            }
-            _ => false,
+        let Some(rx) = state.as_ref() else {
+            return false;
+        };
+        // The driver drops its sender when it stops, right after setting
+        // the final status; either tells.
+        let current = rx.borrow();
+        let stopped = rx.has_changed().is_err()
+            || matches!(
+                current.status,
+                SyncStatus::HostKeyUnknown { .. }
+                    | SyncStatus::HostKeyChanged { .. }
+                    | SyncStatus::Failed { .. }
+            );
+        if !stopped {
+            current.request_reconnect();
         }
+        !stopped
     }
 
     fn connection(&self) -> Result<Arc<Connection>, SessionError> {
