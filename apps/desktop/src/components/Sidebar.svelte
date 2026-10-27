@@ -4,7 +4,7 @@
   import { canWrite, openMenu, spaceMenu, ui, type MenuItem } from "../lib/manage.svelte";
   import { nav } from "../lib/nav.svelte";
   import { prefs } from "../lib/prefs.svelte";
-  import { arrange, blocks, moveSpace, sortedAgents, stateLabel, type SpaceEntry } from "../lib/spaces";
+  import { arrange, blocks, insertionLine, moveSpace, sortedAgents, stateLabel, type SpaceEntry } from "../lib/spaces";
   import { model } from "../lib/state.svelte";
   import type { HostConfig, HostStatus, SessionUpdate, SpaceSortMode, WorkspaceItem } from "../lib/types";
   import StatusDot from "./StatusDot.svelte";
@@ -76,17 +76,32 @@
   // Drag and drop of spaces and groups, only in the manual order. The key
   // is a workspace ID or `group/<Name>`, behind the host: herdr numbers the
   // IDs per server and group names repeat, so a row from another host is no drop.
+  // The row being dragged and the one it hovers: dragover cannot read the data.
+  let drag = $state<{ hostId: string; key: string; over: string | null } | null>(null);
+
   function onDragStart(event: DragEvent, hostId: string, key: string) {
     event.dataTransfer?.setData("text/plain", `${hostId}\n${key}`);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+    drag = { hostId, key, over: null };
   }
 
-  function allowDrop(event: DragEvent) {
+  function allowDrop(event: DragEvent, key: string) {
     event.preventDefault();
+    if (drag && drag.over !== key) drag.over = key;
+  }
+
+  function leaveDrop(event: DragEvent, key: string) {
+    if (drag?.over === key && !(event.currentTarget as Node).contains(event.relatedTarget as Node | null)) drag.over = null;
+  }
+
+  /** Where the insertion line goes on `hostId`'s rows (#255). */
+  function lineIn(hostId: string, entries: SpaceEntry[]) {
+    return drag?.hostId === hostId && drag.over ? insertionLine(entries, drag.key, drag.over) : null;
   }
 
   function onDrop(event: DragEvent, hostId: string, entries: SpaceEntry[], target: string) {
     event.preventDefault();
+    drag = null;
     const data = event.dataTransfer?.getData("text/plain") ?? "";
     const host = `${hostId}\n`;
     const order = data.startsWith(host) ? moveSpace(entries, data.slice(host.length), target) : null;
@@ -158,6 +173,7 @@
         {#if !spacesFolded}
           {@const arranged = arrange(update)}
           {@const manual = host.spaceSort === "manual"}
+          {@const line = lineIn(host.id, arranged)}
           {#each blocks(arranged) as block (block.kind === "space" ? block.entry.workspace.workspaceId : `group/${block.name}`)}
             {#if block.kind === "group"}
               {@const key = `group/${block.name}`}
@@ -165,10 +181,14 @@
               {@const waiting = waitingIn(update, block.entries.map((e) => e.workspace.workspaceId))}
               <button
                 class="row group"
+                class:line-above={line && !line.below && line.key === key}
+                class:line-below={line?.below && (line.key === key || (folded && line.key === block.entries[block.entries.length - 1].workspace.workspaceId))}
                 draggable={manual}
                 onclick={() => prefs.toggle(host.id, key)}
                 ondragstart={manual ? (e) => onDragStart(e, host.id, key) : undefined}
-                ondragover={manual ? allowDrop : undefined}
+                ondragend={manual ? () => (drag = null) : undefined}
+                ondragover={manual ? (e) => allowDrop(e, key) : undefined}
+                ondragleave={manual ? (e) => leaveDrop(e, key) : undefined}
                 ondrop={manual ? (e) => onDrop(e, host.id, arranged, key) : undefined}
               >
                 <span class="chevron" class:open={!folded}>›</span>
@@ -182,11 +202,15 @@
                 class="row space"
                 class:grouped={block.kind === "group"}
                 class:selected={isSpace(host.id, entry.workspace.workspaceId)}
+                class:line-above={line && !line.below && line.key === entry.workspace.workspaceId}
+                class:line-below={line?.below && line.key === entry.workspace.workspaceId}
                 draggable={manual}
                 onclick={() => model.select(host.id, entry.workspace.workspaceId)}
                 oncontextmenu={(e) => openMenu(e, spaceMenu(host.id, entry.workspace))}
                 ondragstart={manual ? (e) => onDragStart(e, host.id, entry.workspace.workspaceId) : undefined}
-                ondragover={manual ? allowDrop : undefined}
+                ondragend={manual ? () => (drag = null) : undefined}
+                ondragover={manual ? (e) => allowDrop(e, entry.workspace.workspaceId) : undefined}
+                ondragleave={manual ? (e) => leaveDrop(e, entry.workspace.workspaceId) : undefined}
                 ondrop={manual ? (e) => onDrop(e, host.id, arranged, entry.workspace.workspaceId) : undefined}
               >
                 {#if entry.nested}<span class="nest">└</span>{/if}
@@ -361,6 +385,7 @@
     transform: rotate(90deg);
   }
   .row {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 6px;
@@ -371,6 +396,23 @@
     border-radius: 6px;
     padding: 4px 6px;
     color: var(--text);
+  }
+  .row.line-above::before,
+  .row.line-below::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--accent);
+    pointer-events: none;
+  }
+  .row.line-above::before {
+    top: -1px;
+  }
+  .row.line-below::after {
+    bottom: -1px;
   }
   .row :global(.dot) {
     margin-top: 5px;
