@@ -94,6 +94,22 @@ fun moveSpace(entries: List<SpaceEntry>, dragged: String, target: String): List<
     return ids
 }
 
+/** Where the insertion line goes: at the top of row `key`, or at the bottom when `below`. */
+data class InsertionLine(val key: String, val below: Boolean)
+
+/**
+ * The row at whose edge a drop of `dragged` on `target` would land (#255),
+ * as [moveSpace] orders it: behind the last row of the target when it came
+ * from above, otherwise in front of it. `null` where [moveSpace] refuses.
+ */
+fun insertionLine(entries: List<SpaceEntry>, dragged: String, target: String): InsertionLine? {
+    if (dragged == target) return null
+    val from = segment(dragged, entries) ?: return null
+    val to = segment(target, entries) ?: return null
+    if (from.level != to.level) return null
+    return if (from.start < to.start) InsertionLine(entries[to.end - 1].workspace.workspaceId, below = true) else InsertionLine(target, below = false)
+}
+
 /** "reviewer · claude" or "claude". */
 val BoardItem.title: String get() = name?.let { "$it · $agent" } ?: agent
 

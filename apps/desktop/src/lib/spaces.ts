@@ -91,6 +91,19 @@ export function moveSpace(entries: SpaceEntry[], dragged: string, target: string
   return ids;
 }
 
+/**
+ * The row at whose edge a drop of `dragged` on `target` would land (#255), as
+ * `moveSpace` orders it: behind the last row of the target when it came from
+ * above (`below`), otherwise in front of it. `null` where `moveSpace` refuses.
+ */
+export function insertionLine(entries: SpaceEntry[], dragged: string, target: string): { key: string; below: boolean } | null {
+  if (dragged === target) return null;
+  const from = segment(dragged, entries);
+  const to = segment(target, entries);
+  if (!from || !to || !sameLevel(from.level, to.level)) return null;
+  return from.start < to.start ? { key: entries[to.end - 1].workspace.workspaceId, below: true } : { key: target, below: false };
+}
+
 export const urgency: Record<AgentState, number> = {
   blocked: 0,
   working: 1,

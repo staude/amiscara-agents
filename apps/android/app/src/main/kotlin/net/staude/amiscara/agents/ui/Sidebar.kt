@@ -57,6 +57,9 @@ import androidx.compose.ui.draganddrop.mimeTypes
 import androidx.compose.ui.draganddrop.toAndroidDragEvent
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -77,6 +80,8 @@ import net.staude.amiscara.agents.core.sessionNameOfSocket
 import net.staude.amiscara.agents.model.HostConfig
 import net.staude.amiscara.agents.model.closingState
 import net.staude.amiscara.agents.model.linkedWorktrees
+import net.staude.amiscara.agents.model.InsertionLine
+import net.staude.amiscara.agents.model.insertionLine
 import net.staude.amiscara.agents.model.moveSpace
 import net.staude.amiscara.agents.model.place
 import net.staude.amiscara.agents.model.repositoryOf
@@ -112,6 +117,7 @@ fun Sidebar(
     var menu by remember { mutableStateOf(false) }
     var pasting by remember { mutableStateOf(false) }
     var sessionsOf by remember { mutableStateOf<HostConfig?>(null) }
+    val hover = remember { DropHover() }
 
     Scaffold(
         modifier = modifier,
@@ -219,7 +225,7 @@ fun Sidebar(
                         }
                     }
                     val drag = if (sort == SpaceSortMode.MANUAL) {
-                        SpaceDrag(host.id, entries) { app.hosts.setSpaceSort(host.id, SpaceSortMode.MANUAL, it) }
+                        SpaceDrag(host.id, entries, hover) { app.hosts.setSpaceSort(host.id, SpaceSortMode.MANUAL, it) }
                     } else {
                         null
                     }
@@ -370,7 +376,45 @@ private val SORT_LABELS = listOf(
 )
 
 /** Moving a host's spaces by their handle in the manual order (#245). */
-private class SpaceDrag(val hostId: String, val entries: List<SpaceEntry>, val save: (List<String>) -> Unit)
+private class SpaceDrag(
+    val hostId: String,
+    val entries: List<SpaceEntry>,
+    private val hover: DropHover,
+    val save: (List<String>) -> Unit,
+) {
+    /** Where the dragged row would land, `null` while none hovers a row it may go to. */
+    val line: InsertionLine?
+        get() {
+            val dragged = hover.dragged ?: return null
+            val over = hover.over ?: return null
+            return insertionLine(entries, dragged, over)
+        }
+
+    /** A drag of `key` starts; the drop targets cannot read the clip before the drop. */
+    fun begin(key: String) {
+        hover.dragged = key
+    }
+
+    fun enter(over: String) {
+        hover.over = over
+    }
+
+    fun end() {
+        hover.dragged = null
+        hover.over = null
+    }
+
+    /** The row `over` is left or the drag ends; another row may have been entered already. */
+    fun leave(over: String) {
+        if (hover.over == over) hover.over = null
+    }
+}
+
+/** The dragged row and the row it hovers, shared by all rows of the sidebar. */
+private class DropHover {
+    var dragged by mutableStateOf<String?>(null)
+    var over by mutableStateOf<String?>(null)
+}
 
 /**
  * The handle that drags the row of `key` (a workspace ID or a group's
@@ -382,7 +426,10 @@ private fun DragHandle(drag: SpaceDrag, key: String) {
     Box(
         Modifier
             .size(40.dp)
-            .dragAndDropSource { _ -> DragAndDropTransferData(ClipData.newPlainText("space", "${drag.hostId}\n$key")) },
+            .dragAndDropSource { _ ->
+                drag.begin(key)
+                DragAndDropTransferData(ClipData.newPlainText("space", "${drag.hostId}\n$key"))
+            },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -394,63 +441,76 @@ private fun DragHandle(drag: SpaceDrag, key: String) {
 }
 
 /**
- * A row that takes spaces of its own host dropped on it; `content` gets
- * whether one hovers. Without `drag` (not the manual order) just the row.
+ * A row that takes spaces of its own host dropped on it and draws the
+ * insertion line (#255) when it is the row the line belongs to. Without
+ * `drag` (not the manual order) just the row.
  */
 @Composable
-private fun SpaceDropZone(drag: SpaceDrag?, key: String, content: @Composable (over: Boolean) -> Unit) {
+private fun SpaceDropZone(drag: SpaceDrag?, key: String, content: @Composable () -> Unit) {
     if (drag == null) {
-        content(false)
+        content()
         return
     }
-    var over by remember { mutableStateOf(false) }
     val current by rememberUpdatedState(drag)
     val target = remember(key) {
         object : DragAndDropTarget {
             override fun onDrop(event: DragAndDropEvent): Boolean {
-                over = false
-                val clip = event.toAndroidDragEvent().clipData ?: return false
-                val text = clip.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString() ?: return false
-                val prefix = "${current.hostId}\n"
-                if (!text.startsWith(prefix)) return false
-                val order = moveSpace(current.entries, text.removePrefix(prefix), key) ?: return false
+                current.leave(key)
+                val order = dragged(event, current.hostId)?.let { moveSpace(current.entries, it, key) } ?: return false
                 current.save(order)
                 return true
             }
 
             override fun onEntered(event: DragAndDropEvent) {
-                over = true
+                current.enter(key)
             }
 
             override fun onExited(event: DragAndDropEvent) {
-                over = false
+                current.leave(key)
             }
 
             override fun onEnded(event: DragAndDropEvent) {
-                over = false
+                current.end()
             }
         }
     }
+    val color = MaterialTheme.colorScheme.primary
+    val line = drag.line
+    val top = line != null && !line.below && line.key == key
+    val bottom = line != null && line.below && line.key == key
     Box(
-        Modifier.dragAndDropTarget(
-            shouldStartDragAndDrop = { ClipDescription.MIMETYPE_TEXT_PLAIN in it.mimeTypes() },
-            target = target,
-        ),
+        Modifier
+            .dragAndDropTarget(
+                shouldStartDragAndDrop = { ClipDescription.MIMETYPE_TEXT_PLAIN in it.mimeTypes() },
+                target = target,
+            )
+            .drawWithContent {
+                drawContent()
+                val height = 2.dp.toPx()
+                if (top) drawRect(color, Offset.Zero, Size(size.width, height))
+                if (bottom) drawRect(color, Offset(0f, size.height - height), Size(size.width, height))
+            },
     ) {
-        content(over)
+        content()
     }
+}
+
+/** The key of the row dragged in `event`, `null` when it comes from another host. */
+private fun dragged(event: DragAndDropEvent, hostId: String): String? {
+    val clip = event.toAndroidDragEvent().clipData ?: return null
+    val text = clip.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString() ?: return null
+    return text.takeIf { it.startsWith("$hostId\n") }?.removePrefix("$hostId\n")
 }
 
 @Composable
 private fun GroupLabel(name: String, drag: SpaceDrag?) {
     val key = GROUP_KEY_PREFIX + name
-    SpaceDropZone(drag, key) { over ->
+    SpaceDropZone(drag, key) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .clip(MaterialTheme.shapes.small)
-                .background(if (over) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent),
+                .clip(MaterialTheme.shapes.small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -486,11 +546,11 @@ private fun SpaceRow(
     val hasAgents = workspace.tabs.any { tab -> tab.panes.any { it.agent != null } }
     val details = listOfNotNull(workspace.branch) + workspace.tokens.map { it.value }
     var menu by remember { mutableStateOf(false) }
-    SpaceDropZone(drag, workspace.workspaceId) { over ->
+    SpaceDropZone(drag, workspace.workspaceId) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
                 CompactRow(
-                    selected = isSelected || over,
+                    selected = isSelected,
                     onClick = { open(SpaceSelection(hostId, workspace.workspaceId)) },
                     onLongClick = if (writable) ({ menu = true }) else null,
                     indent = indent,
