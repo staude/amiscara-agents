@@ -247,6 +247,33 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The directory at the absolute `path` on the host, `""` for the home
+    /// directory (#259). Read only, so no input needed, but over SSH it
+    /// needs the same SFTP access as uploads.
+    func listDirectory(_ path: String) async throws -> Directory {
+        let session = try browseSession()
+        return try await Task.detached {
+            try session.listDirectory(path: path)
+        }.value
+    }
+
+    /// The working directory of a pane for the file browser (#259), the
+    /// home directory when it is unknown or outside the home.
+    func openPaneDirectory(paneID: String) async throws -> Directory {
+        let session = try browseSession()
+        return try await Task.detached {
+            try session.openPaneDirectory(paneId: paneID)
+        }.value
+    }
+
+    /// The file at the absolute `path` to show in the file browser (#259).
+    func filePreview(_ path: String) async throws -> FilePreview {
+        let session = try browseSession()
+        return try await Task.detached {
+            try session.filePreview(path: path)
+        }.value
+    }
+
     /// The named herdr sessions on the host, running or stopped (#213).
     /// Read only, but over SSH it needs the same SFTP access as uploads.
     func herdrSessions() async throws -> [HerdrSession] {
@@ -335,6 +362,13 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The session for the file browser (#259): file access, no input.
+    private func browseSession() throws -> HostSession {
+        guard config.uploadAllowed else { throw ConnectionFailure.browseFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return session
+    }
+
     private func writableSession() throws -> HostSession {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard let session, isLive else { throw ConnectionFailure.notConnected }
@@ -371,6 +405,7 @@ enum ConnectionFailure: LocalizedError {
     case uploadOff
     case filesOff
     case diffFilesOff
+    case browseFilesOff
 
     var errorDescription: String? {
         switch self {
@@ -384,6 +419,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .browseFilesOff:
+            String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .filesOff:
             String(localized: "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         }
