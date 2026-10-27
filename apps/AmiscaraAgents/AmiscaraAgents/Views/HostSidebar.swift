@@ -30,6 +30,7 @@ struct HostSidebar: View {
     @State private var swipeSent = 0
     /// The entry chosen there, opened in the editor once the list is gone.
     @State private var chosenSession: HostConfig?
+    @State private var spaceDrag = SpaceDragState()
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
     /// Folded sections as "hostID/spaces", "hostID/agents" or
@@ -253,7 +254,7 @@ struct HostSidebar: View {
                         waiting: update.board.filter { $0.agentState == .blocked && ids.contains($0.workspaceId) }.count,
                         collapsed: folded
                     ) { toggle(connection.id, key) }
-                    .spaceReordering(key, on: connection.id, among: reorderable) { reorder(connection, $0, dragged: $1, onto: key) }
+                    .spaceReordering(key, on: connection.id, among: reorderable, drag: spaceDrag, foldedLast: folded ? entries.last?.workspace.workspaceId : nil) { reorder(connection, $0, dragged: $1, onto: key) }
                     if !folded {
                         ForEach(entries, id: \.workspace.workspaceId) { entry in
                             spaceRow(connection, update, entry, grouped: true, reorder: reorderable)
@@ -325,7 +326,7 @@ struct HostSidebar: View {
         let key = entry.workspace.workspaceId
         return SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
             .tag(SpaceRef(hostID: connection.id, workspaceID: key))
-            .spaceReordering(key, on: connection.id, among: entries) { reorder(connection, $0, dragged: $1, onto: key) }
+            .spaceReordering(key, on: connection.id, among: entries, drag: spaceDrag) { reorder(connection, $0, dragged: $1, onto: key) }
             .renameAction(available: RenameTarget.available(on: connection)) {
                 renaming = RenameTarget(
                     connection: connection,
@@ -624,6 +625,40 @@ enum SpaceOrder {
         ids.insert(contentsOf: moving, at: index)
         return ids
     }
+
+    /// Where `moved` puts the dragged row: at the top edge of `key`, or at
+    /// its bottom edge when `below`.
+    struct InsertionLine: Equatable {
+        let key: String
+        let below: Bool
+    }
+
+    /// The row at whose edge a drop of `dragged` on `target` lands (#255):
+    /// behind the last row of the target when it came from above, otherwise
+    /// in front of it. `nil` where `moved` refuses.
+    static func insertionLine(_ entries: [Entry], dragged: String, onto target: String) -> InsertionLine? {
+        guard dragged != target,
+              let from = segment(dragged, in: entries),
+              let to = segment(target, in: entries),
+              from.level == to.level else { return nil }
+        return from.range.lowerBound < to.range.lowerBound
+            ? InsertionLine(key: entries[to.range.upperBound - 1].workspace.workspaceId, below: true)
+            : InsertionLine(key: target, below: false)
+    }
+}
+
+/// The row being dragged in the sidebar and the one it hovers; the drop
+/// destination alone does not know the dragged row before the drop.
+@Observable
+final class SpaceDragState {
+    var dragged: String?
+    var over: String?
+
+    /// The payload of a drag of `key`, called when the drag starts.
+    func begin(_ key: String, _ payload: String) -> String {
+        dragged = key
+        return payload
+    }
 }
 
 extension View {
@@ -632,30 +667,79 @@ extension View {
     /// `nil` outside the manual order. `onDrop` gets it with the dragged key.
     /// The dragged text carries the host, because herdr numbers the IDs per
     /// server and group names repeat: a row from another host is no drop.
+    /// `foldedLast` is the last space of a folded group, whose rows are not
+    /// shown: its header carries the line that belongs below them.
     @ViewBuilder
     fileprivate func spaceReordering(
         _ key: String,
         on hostID: UUID,
         among entries: [SpaceOrder.Entry]?,
+        drag: SpaceDragState,
+        foldedLast: String? = nil,
         onDrop: @escaping ([SpaceOrder.Entry], String) -> Bool
     ) -> some View {
         #if os(tvOS)
         self
         #else
         if let entries {
-            self
-                .draggable("\(hostID.uuidString)\n\(key)")
-                .dropDestination(for: String.self) { items, _ in
-                    let host = "\(hostID.uuidString)\n"
-                    guard let item = items.first, item.hasPrefix(host) else { return false }
-                    return onDrop(entries, String(item.dropFirst(host.count)))
-                }
+            modifier(SpaceReordering(key: key, hostID: hostID, entries: entries, drag: drag, foldedLast: foldedLast, onDrop: onDrop))
         } else {
             self
         }
         #endif
     }
 }
+
+#if !os(tvOS)
+/// Makes a row draggable, takes drops and draws the insertion line (#255)
+/// instead of tinting the row the drop goes onto.
+private struct SpaceReordering: ViewModifier {
+    let key: String
+    let hostID: UUID
+    let entries: [SpaceOrder.Entry]
+    let drag: SpaceDragState
+    let foldedLast: String?
+    let onDrop: ([SpaceOrder.Entry], String) -> Bool
+
+    private var line: SpaceOrder.InsertionLine? {
+        guard let dragged = drag.dragged, let over = drag.over else { return nil }
+        return SpaceOrder.insertionLine(entries, dragged: dragged, onto: over)
+    }
+
+    func body(content: Content) -> some View {
+        let host = "\(hostID.uuidString)\n"
+        let line = line
+        let top = line.map { !$0.below && $0.key == key } ?? false
+        let bottom = line.map { $0.below && ($0.key == key || $0.key == foldedLast) } ?? false
+        content
+            .overlay(alignment: .top) { if top { InsertionBar() } }
+            .overlay(alignment: .bottom) { if bottom { InsertionBar() } }
+            .draggable(drag.begin(key, "\(host)\(key)"))
+            .dropDestination(for: String.self) { items, _ in
+                drag.over = nil
+                drag.dragged = nil
+                guard let item = items.first, item.hasPrefix(host) else { return false }
+                return onDrop(entries, String(item.dropFirst(host.count)))
+            } isTargeted: { targeted in
+                if targeted {
+                    drag.over = key
+                } else if drag.over == key {
+                    drag.over = nil
+                }
+            }
+    }
+}
+
+private struct InsertionBar: View {
+    var body: some View {
+        Capsule()
+            .fill(Color.accentColor)
+            .frame(height: 2)
+            .padding(.horizontal, 6)
+            .allowsHitTesting(false)
+    }
+}
+#endif
 
 /// "spaces" / "agents" header that folds its section. Folded, it shows a
 /// short summary such as the number of entries.
