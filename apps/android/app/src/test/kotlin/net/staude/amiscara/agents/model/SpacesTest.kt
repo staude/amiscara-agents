@@ -97,4 +97,24 @@ class SpacesTest {
         assertNull(moveSpace(entries, "a", "x"))
         assertNull(moveSpace(entries, "${GROUP_KEY_PREFIX}Nope", "a"))
     }
+
+    @Test
+    fun linesUpAtTopWhenMovingUp() {
+        assertEquals(InsertionLine("a", below = false), insertionLine(entries, "b", "a"))
+        assertEquals(InsertionLine("${GROUP_KEY_PREFIX}Privat", below = false), insertionLine(entries, "b", "${GROUP_KEY_PREFIX}Privat"))
+    }
+
+    @Test
+    fun linesDownBelowLastRowOfTarget() {
+        assertEquals(InsertionLine("b", below = true), insertionLine(entries, "a", "b"))
+        assertEquals(InsertionLine("r2", below = true), insertionLine(entries, "a", "r"))
+        assertEquals(InsertionLine("p2", below = true), insertionLine(entries, "a", "${GROUP_KEY_PREFIX}Privat"))
+    }
+
+    @Test
+    fun noLineWhereMoveIsRefused() {
+        assertNull(insertionLine(entries, "a", "a"))
+        assertNull(insertionLine(entries, "p1", "a"))
+        assertNull(insertionLine(entries, "x", "a"))
+    }
 }
