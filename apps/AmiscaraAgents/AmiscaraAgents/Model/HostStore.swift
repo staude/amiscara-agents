@@ -235,7 +235,7 @@ final class HostStore {
         config.spaceSort = connection.config.spaceSort
         config.spaceOrder = connection.config.spaceOrder
         // Learned for the old name only.
-        if config.host == connection.config.host { config.netBirdLearned = connection.config.netBirdLearned }
+        config.netBirdLearned = config.host == connection.config.host ? connection.config.netBirdLearned : nil
         connection.apply(config)
         save()
         learnNetBird()
