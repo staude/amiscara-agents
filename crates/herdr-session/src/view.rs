@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 
 use herdr_core::SessionState;
+use herdr_core::chains;
 use herdr_core::pane::PaneScreen;
 use herdr_core::question;
 use herdr_core::spaces::{self, SpaceSort};
@@ -65,6 +66,83 @@ pub struct SessionUpdate {
     /// ones as for `open_requests`; always empty for a local host, where
     /// the `code` stand-in opens VS Code itself.
     pub editor_requests: Vec<EditorRequest>,
+    /// What chains this device ran since the previous update (#300); empty
+    /// unless the session runs chains, see `Session::set_chain_runner`.
+    pub chain_results: Vec<ChainResult>,
+}
+
+/// When a chain sends its prompt (#300).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ChainTrigger {
+    /// The agent finished.
+    Done,
+    /// The agent waits for an answer.
+    Blocked,
+}
+
+impl From<chains::ChainTrigger> for ChainTrigger {
+    fn from(trigger: chains::ChainTrigger) -> Self {
+        match trigger {
+            chains::ChainTrigger::Done => Self::Done,
+            chains::ChainTrigger::Blocked => Self::Blocked,
+        }
+    }
+}
+
+impl From<ChainTrigger> for chains::ChainTrigger {
+    fn from(trigger: ChainTrigger) -> Self {
+        match trigger {
+            ChainTrigger::Done => Self::Done,
+            ChainTrigger::Blocked => Self::Blocked,
+        }
+    }
+}
+
+/// A chain of an agent, see [`BoardItem::chains`].
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainItem {
+    /// Pass it back to `remove_chain`.
+    pub id: String,
+    pub trigger: ChainTrigger,
+    /// Runs on every matching change; otherwise it is removed once sent.
+    pub repeat: bool,
+    /// The target was gone or refused the prompt; it never runs again.
+    pub failed: bool,
+    pub target_pane_id: String,
+    /// The target agent's name, else its kind and tab; empty when the
+    /// pane is gone.
+    pub target_label: String,
+    pub text: String,
+}
+
+/// What became of a chain when its agent changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ChainOutcome {
+    Sent,
+    /// Nothing sent; the chain is marked failed and stays so.
+    Failed,
+    /// Nothing sent, e.g. the agent changed again in the meantime; the
+    /// chain stays as it was.
+    Skipped,
+}
+
+/// One run of a chain on this device, for the app's log.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainResult {
+    pub chain_id: String,
+    pub trigger_pane_id: String,
+    /// Name of the agent whose change fired it, as for [`ChainItem::target_label`].
+    pub trigger_label: String,
+    pub target_label: String,
+    pub text: String,
+    pub outcome: ChainOutcome,
+    pub reason: Option<String>,
+    /// Unix milliseconds.
+    pub at_ms: u64,
 }
 
 /// A folder an agent on the host wants opened in VS Code, see
@@ -213,6 +291,8 @@ pub struct BoardItem {
     /// session saw it change; `None` for agents already in that state when
     /// the session started. herdr does not report this time itself.
     pub state_since_ms: Option<u64>,
+    /// Prompts that follow this agent's change (#300), stored on the host.
+    pub chains: Vec<ChainItem>,
 }
 
 /// Remembers since when each agent pane is in its state, across updates of
@@ -375,6 +455,7 @@ pub fn session_update(
             attention: Vec::new(),
             open_requests: Vec::new(),
             editor_requests: Vec::new(),
+            chain_results: Vec::new(),
         };
     };
 
@@ -491,6 +572,10 @@ pub fn session_update(
             title: title(entry.pane),
             cwd: entry.pane.cwd.clone(),
             state_since_ms: None,
+            chains: chains::chains_of(entry.pane)
+                .into_iter()
+                .map(|chain| chain_item(session, chain))
+                .collect(),
         })
         .collect();
 
@@ -556,12 +641,46 @@ pub fn session_update(
         attention,
         open_requests,
         editor_requests,
+        chain_results: Vec::new(),
         server_version: Some(session.version.clone()),
         protocol_supported: session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
         focused_pane_id: session.focused_pane_id.clone(),
         workspaces,
         space_order,
         board,
+    }
+}
+
+/// A chain as the apps show it.
+pub fn chain_item(session: &SessionState, chain: chains::Chain) -> ChainItem {
+    ChainItem {
+        target_label: pane_label(session, &chain.target_pane_id),
+        id: chain.id,
+        trigger: chain.trigger.into(),
+        repeat: chain.repeat,
+        failed: chain.failed,
+        target_pane_id: chain.target_pane_id,
+        text: chain.text,
+    }
+}
+
+/// What to call an agent pane in a chain: its name, else its kind and
+/// tab, e.g. `claude · Tab 2`; empty when the pane is gone.
+pub fn pane_label(session: &SessionState, pane_id: &str) -> String {
+    if let Some(name) = session.agent_names.get(pane_id) {
+        return name.clone();
+    }
+    let Some(pane) = session.pane(pane_id) else {
+        return String::new();
+    };
+    let kind = pane
+        .display_agent
+        .clone()
+        .or_else(|| pane.agent.clone())
+        .unwrap_or_else(|| title(pane));
+    match session.tab(&pane.tab_id) {
+        Some(tab) => format!("{kind} · Tab {}", tab.label),
+        None => kind,
     }
 }
 
@@ -731,6 +850,7 @@ mod tests {
             title: String::new(),
             cwd: None,
             state_since_ms: None,
+            chains: Vec::new(),
         }
     }
 

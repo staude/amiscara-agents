@@ -1,24 +1,29 @@
 //! One live host: connection with reconnects, updates for the view, pane
 //! followers, actions, uploads and the Claude Code history.
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use herdr_core::chains::{self, Chain};
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
 use herdr_core::{actions, browse, claude, diff, fullscreen};
+use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
 };
 use tokio::runtime::Handle;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
 use crate::secrets;
-use crate::view::{self, ChoiceQuestion, PaneContent, SessionUpdate};
+use crate::view::{
+    self, ChainOutcome, ChainResult, ChainTrigger, ChoiceQuestion, PaneContent, SessionUpdate,
+};
 
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
@@ -33,6 +38,9 @@ const OPEN_TTL_MS: u64 = 120_000;
 /// once the request ran out unmarked.
 const EDITOR_DONE_SOURCE: &str = "amiscara-agents-editor-done";
 const EDITOR_TTL_MS: u64 = 30_000;
+/// How long a device's claim on one run of a chain stays (#300): herdr's
+/// longest time to live, so a late device still finds it.
+const CHAIN_CLAIM_TTL_MS: u64 = 86_400_000;
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -265,6 +273,9 @@ pub struct Session {
     group_by_name: watch::Sender<bool>,
     /// How spaces are sorted in the sidebar; a change rebuilds the same way.
     space_sort: watch::Sender<SpaceSort>,
+    /// This device's id when it runs chains (#300), see
+    /// [`Session::set_chain_runner`].
+    chain_runner: watch::Sender<Option<String>>,
     forward: JoinHandle<()>,
     /// Over SSH: pages on the host's `localhost` need forwarding, and open
     /// requests are reported (a local host opens them itself).
@@ -296,24 +307,45 @@ impl Session {
         let mut updates = rx.clone();
         let (group_by_name, mut grouping) = watch::channel(group_spaces_by_name);
         let (space_sort, mut sorting) = watch::channel(space_sort);
+        let (chain_runner, runner) = watch::channel(None);
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
             let mut previous: Option<Arc<herdr_core::SessionState>> = None;
             // Since when each agent is in its state; kept across reconnects.
             let mut clock = view::StateClock::default();
+            let (results_tx, mut results) = mpsc::unbounded_channel();
+            // Chain runs finished since the last update.
+            let mut ran = Vec::new();
+            let claimed = Arc::new(Mutex::new(HashSet::new()));
             loop {
                 let state = updates.borrow_and_update().clone();
                 let by_name = *grouping.borrow_and_update();
                 let sort = sorting.borrow_and_update().clone();
                 let mut update =
                     view::session_update(&state, previous.as_deref(), by_name, &sort, remote);
-                if state.session.is_some() {
+                if let Some(now) = &state.session {
                     clock.stamp(&mut update.board, &mut update.attention, unix_ms());
+                    let device = runner.borrow().clone();
+                    if let (Some(device), Some(before), Some(conn)) =
+                        (device, &previous, &state.connection)
+                        && !Arc::ptr_eq(before, now)
+                    {
+                        let runs = ChainRuns {
+                            conn: conn.clone(),
+                            device,
+                            state: now.clone(),
+                            claimed: claimed.clone(),
+                            results: results_tx.clone(),
+                        };
+                        runs.start(before);
+                    }
                     previous = state.session.clone();
                 }
+                update.chain_results = std::mem::take(&mut ran);
                 on_update(update);
                 // A changed setting alone rebuilds the same state; its
                 // attention is then empty, so nothing is notified twice.
+                // A finished chain run does the same to report its result.
                 tokio::select! {
                     changed = updates.changed() => {
                         if changed.is_err() {
@@ -322,6 +354,12 @@ impl Session {
                     }
                     Ok(()) = grouping.changed() => {}
                     Ok(()) = sorting.changed() => {}
+                    Some(result) = results.recv() => {
+                        ran.push(result);
+                        while let Ok(result) = results.try_recv() {
+                            ran.push(result);
+                        }
+                    }
                 }
             }
         });
@@ -329,6 +367,7 @@ impl Session {
             state: Mutex::new(Some(rx)),
             group_by_name,
             space_sort,
+            chain_runner,
             forward,
             remote,
             forwards: Forwards::default(),
@@ -354,6 +393,99 @@ impl Session {
             *current = sort;
             changed
         });
+    }
+
+    /// Lets this session run chains (#300) as the device `device_id`, or
+    /// stops it with `None` (the default). Only one device sends per state
+    /// change: the first to claim it on the host. A device that cannot
+    /// send input to the host must not run them.
+    pub fn set_chain_runner(&self, device_id: Option<String>) {
+        let device_id = device_id.filter(|id| !id.trim().is_empty());
+        self.chain_runner.send_if_modified(|current| {
+            let changed = *current != device_id;
+            *current = device_id;
+            changed
+        });
+    }
+
+    /// Adds a chain to the agent in `pane_id` (#300): when it reaches
+    /// `trigger`, `text` goes as a prompt to the agent in `target_pane_id`,
+    /// once or with `repeat` every time. Stored on the host, so every
+    /// device shows it; returns its id. At most
+    /// [`chains::MAX_CHAINS_PER_PANE`] per pane, the text one line of at most
+    /// [`chains::MAX_CHAIN_TEXT`] characters, and a repeating chain must not
+    /// prompt its own agent, which would keep it busy for good.
+    pub async fn set_chain(
+        &self,
+        pane_id: &str,
+        trigger: ChainTrigger,
+        repeat: bool,
+        target_pane_id: &str,
+        text: &str,
+    ) -> Result<String, SessionError> {
+        let text = chains::normalize_text(text).ok_or_else(|| {
+            SessionError::Rejected(format!(
+                "a chain's prompt needs 1 to {} characters without control characters",
+                chains::MAX_CHAIN_TEXT
+            ))
+        })?;
+        if repeat && target_pane_id == pane_id {
+            return Err(SessionError::Rejected(
+                "a repeating chain cannot prompt its own agent".into(),
+            ));
+        }
+        let session = self
+            .session_state()
+            .ok_or_else(|| SessionError::NotConnected("not connected to herdr".into()))?;
+        let pane = session
+            .pane(pane_id)
+            .ok_or_else(|| SessionError::Rejected(format!("no pane {pane_id}")))?;
+        if session.pane(target_pane_id).is_none() {
+            return Err(SessionError::Rejected(format!(
+                "no pane {target_pane_id} to prompt"
+            )));
+        }
+        let existing = chains::chains_of(pane);
+        if existing.len() >= chains::MAX_CHAINS_PER_PANE {
+            return Err(SessionError::Rejected(format!(
+                "an agent has at most {} chains",
+                chains::MAX_CHAINS_PER_PANE
+            )));
+        }
+        let chain = Chain {
+            id: chains::new_chain_id(&existing),
+            trigger: trigger.into(),
+            repeat,
+            failed: false,
+            target_pane_id: target_pane_id.to_owned(),
+            text,
+        };
+        let conn = self.connection()?;
+        write_chain_tokens(&conn, pane_id, chains::chain_tokens(&chain))
+            .await
+            .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        Ok(chain.id)
+    }
+
+    /// Removes a chain of the agent in `pane_id`; an unknown one is no
+    /// error.
+    pub async fn remove_chain(&self, pane_id: &str, chain_id: &str) -> Result<(), SessionError> {
+        if !chains::is_chain_id(chain_id) {
+            return Err(SessionError::Rejected(format!("no chain {chain_id:?}")));
+        }
+        let conn = self.connection()?;
+        write_chain_tokens(&conn, pane_id, chains::clear_tokens(chain_id))
+            .await
+            .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        Ok(())
+    }
+
+    /// The last known state of the server, if any.
+    fn session_state(&self) -> Option<Arc<herdr_core::SessionState>> {
+        self.state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref()?.borrow().session.clone())
     }
 
     /// Ends the session and closes the connection. Pane followers stop too.
@@ -1038,6 +1170,204 @@ impl Drop for Session {
     }
 }
 
+/// Writes tokens of [`chains::CHAINS_SOURCE`] to a pane; `None` removes one.
+async fn write_chain_tokens(
+    conn: &Connection,
+    pane_id: &str,
+    tokens: std::collections::BTreeMap<String, Option<String>>,
+) -> Result<(), TransportError> {
+    conn.request(
+        "pane.report_metadata",
+        serde_json::json!({
+            "pane_id": pane_id,
+            "source": chains::CHAINS_SOURCE,
+            "tokens": tokens,
+        }),
+    )
+    .await
+    .map(|_| ())
+}
+
+/// The chains to run after a state change (#300), with what they share.
+struct ChainRuns {
+    conn: Arc<Connection>,
+    device: String,
+    /// The state the change was seen in: chains, targets and names.
+    state: Arc<herdr_core::SessionState>,
+    /// Chain id and state change each run on this device already handled,
+    /// so seeing a change again (e.g. around a reconnect) sends nothing.
+    claimed: Arc<Mutex<HashSet<(String, u64)>>>,
+    results: mpsc::UnboundedSender<ChainResult>,
+}
+
+impl ChainRuns {
+    /// Starts a task per chain whose agent changed to its trigger since
+    /// `before`; each reports its result unless another device ran it.
+    fn start(&self, before: &herdr_core::SessionState) {
+        for (pane_id, trigger) in chains::fired(before, &self.state) {
+            let Some(pane) = self.state.pane(&pane_id) else {
+                continue;
+            };
+            for chain in chains::chains_of(pane) {
+                if chain.trigger != trigger || chain.failed {
+                    continue;
+                }
+                let trigger_label = view::pane_label(&self.state, &pane_id);
+                let target_label = view::pane_label(&self.state, &chain.target_pane_id);
+                let run = ChainRun {
+                    conn: self.conn.clone(),
+                    device: self.device.clone(),
+                    pane_id: pane_id.clone(),
+                    target_present: self.state.pane(&chain.target_pane_id).is_some(),
+                    claimed: self.claimed.clone(),
+                    chain,
+                };
+                let results = self.results.clone();
+                tokio::spawn(async move {
+                    let (chain_id, text) = (run.chain.id.clone(), run.chain.text.clone());
+                    let trigger_pane_id = run.pane_id.clone();
+                    if let Some((outcome, reason)) = run.run().await {
+                        let _ = results.send(ChainResult {
+                            chain_id,
+                            trigger_pane_id,
+                            trigger_label,
+                            target_label,
+                            text,
+                            outcome,
+                            reason,
+                            at_ms: unix_ms(),
+                        });
+                    }
+                });
+            }
+        }
+    }
+}
+
+/// One chain after its agent changed.
+struct ChainRun {
+    conn: Arc<Connection>,
+    device: String,
+    pane_id: String,
+    chain: Chain,
+    target_present: bool,
+    claimed: Arc<Mutex<HashSet<(String, u64)>>>,
+}
+
+impl ChainRun {
+    /// Checks the change, claims it, sends. `None` when another device
+    /// claimed it or this one handled it already.
+    async fn run(self) -> Option<(ChainOutcome, Option<String>)> {
+        let skipped = |reason: String| Some((ChainOutcome::Skipped, Some(reason)));
+        let agent = match self.agent().await {
+            Ok(agent) => agent,
+            Err(reason) => return skipped(reason),
+        };
+        let holds = match self.chain.trigger {
+            chains::ChainTrigger::Blocked => agent.agent_status == AgentStatus::Blocked,
+            // herdr 0.9.5 sets `completion_seq` after an Esc as well, so an
+            // interrupted turn counts as done.
+            chains::ChainTrigger::Done => {
+                matches!(agent.agent_status, AgentStatus::Done | AgentStatus::Idle)
+                    && agent.completion_seq == Some(agent.state_change_seq)
+            }
+        };
+        if !holds {
+            return skipped("the agent changed again before the chain ran".into());
+        }
+        let seq = agent.state_change_seq;
+        if seq == 0 {
+            return skipped("this herdr version does not count state changes".into());
+        }
+        let first_here = self
+            .claimed
+            .lock()
+            .is_ok_and(|mut claimed| claimed.insert((self.chain.id.clone(), seq)));
+        if !first_here {
+            return None;
+        }
+        // herdr ignores a report whose `seq` is not newer than the last one
+        // of its source and has no compare-and-set: every device writes its
+        // claim with the change's number, only the first one sticks.
+        let claim = chains::claim_token(&self.chain.id);
+        let mark = format!("{}:{seq}", self.device);
+        let claimed = self
+            .conn
+            .request(
+                "pane.report_metadata",
+                serde_json::json!({
+                    "pane_id": self.pane_id,
+                    "source": chains::claim_source(&self.chain.id),
+                    "tokens": { &claim: &mark },
+                    "seq": seq,
+                    "ttl_ms": CHAIN_CLAIM_TTL_MS,
+                }),
+            )
+            .await;
+        if let Err(err) = claimed {
+            return skipped(err.to_string());
+        }
+        let holder = match self.claim_holder(&claim).await {
+            Ok(holder) => holder,
+            Err(reason) => return skipped(reason),
+        };
+        if holder.as_deref() != Some(mark.as_str()) {
+            return None;
+        }
+        if !self.target_present {
+            self.mark_failed().await;
+            return Some((ChainOutcome::Failed, Some("the target pane is gone".into())));
+        }
+        if let Err(err) =
+            actions::send_prompt(&self.conn, &self.chain.target_pane_id, &self.chain.text).await
+        {
+            self.mark_failed().await;
+            return Some((ChainOutcome::Failed, Some(err.to_string())));
+        }
+        if !self.chain.repeat {
+            // Best effort: left behind, its next run finds the claim taken.
+            let _ = write_chain_tokens(
+                &self.conn,
+                &self.pane_id,
+                chains::clear_tokens(&self.chain.id),
+            )
+            .await;
+        }
+        Some((ChainOutcome::Sent, None))
+    }
+
+    async fn agent(&self) -> Result<herdr_proto::AgentInfo, String> {
+        let value = self
+            .conn
+            .request("agent.get", serde_json::json!({ "target": self.pane_id }))
+            .await
+            .map_err(|err| err.to_string())?;
+        serde_json::from_value::<AgentGetResult>(value)
+            .map(|got| got.agent)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn claim_holder(&self, claim: &str) -> Result<Option<String>, String> {
+        let value = self
+            .conn
+            .request("pane.get", serde_json::json!({ "pane_id": self.pane_id }))
+            .await
+            .map_err(|err| err.to_string())?;
+        let got: PaneGetResult = serde_json::from_value(value).map_err(|err| err.to_string())?;
+        Ok(got.pane.tokens.get(claim).cloned())
+    }
+
+    /// Keeps the chain, marked failed, so it shows and never runs again.
+    /// Best effort: on a dropped connection it stays active.
+    async fn mark_failed(&self) {
+        let failed = Chain {
+            failed: true,
+            ..self.chain.clone()
+        };
+        let _ = write_chain_tokens(&self.conn, &self.pane_id, chains::chain_tokens(&failed)).await;
+    }
+}
+
 /// Whether the sync driver behind `rx` has ended. It drops its sender when
 /// it stops, right after setting the final status; either tells.
 fn driver_stopped(rx: &watch::Receiver<SyncState>) -> bool {
@@ -1433,6 +1763,266 @@ mod tests {
             name.ends_with(".textClipping") && name.len() < 160,
             "{name}"
         );
+    }
+
+    // A herdr stand-in for chains (#300): one agent pane `w1:p1` with a
+    // chain to `w1:p2`, metadata with herdr's `seq` rule, prompts counted.
+    #[cfg(unix)]
+    mod chain_runs {
+        use super::super::*;
+        use std::collections::BTreeMap;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        #[derive(Default)]
+        struct Fake {
+            status: &'static str,
+            seq: u64,
+            /// Source to its tokens and the last `seq` it took.
+            sources: BTreeMap<String, (BTreeMap<String, String>, Option<u64>)>,
+            panes: Vec<&'static str>,
+            prompts: Vec<(String, String)>,
+        }
+
+        impl Fake {
+            fn tokens(&self) -> BTreeMap<String, String> {
+                self.sources
+                    .values()
+                    .flat_map(|(tokens, _)| tokens.clone())
+                    .collect()
+            }
+
+            fn answer(&mut self, method: &str, params: &serde_json::Value) -> serde_json::Value {
+                use serde_json::json;
+                match method {
+                    "agent.get" => json!({"result": {"type": "agent_info", "agent": {
+                        "pane_id": "w1:p1", "agent_status": self.status,
+                        "state_change_seq": self.seq, "completion_seq": self.seq
+                    }}}),
+                    "pane.get" => json!({"result": {"type": "pane_info", "pane": {
+                        "pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                        "tokens": self.tokens()
+                    }}}),
+                    "pane.report_metadata" => {
+                        let source = params["source"].as_str().unwrap_or_default().to_owned();
+                        let entry = self.sources.entry(source).or_default();
+                        let seq = params["seq"].as_u64();
+                        if let (Some(seq), Some(last)) = (seq, entry.1)
+                            && seq <= last
+                        {
+                            return json!({"result": {"type": "ok"}});
+                        }
+                        if seq.is_some() {
+                            entry.1 = seq;
+                        }
+                        for (key, value) in params["tokens"].as_object().into_iter().flatten() {
+                            match value.as_str() {
+                                Some(value) => entry.0.insert(key.clone(), value.to_owned()),
+                                None => entry.0.remove(key),
+                            };
+                        }
+                        json!({"result": {"type": "ok"}})
+                    }
+                    "agent.prompt" => {
+                        let target = params["target"].as_str().unwrap_or_default();
+                        if !self.panes.contains(&target) {
+                            return json!({"error": {"code": "agent_not_found", "message": "gone"}});
+                        }
+                        self.prompts.push((
+                            target.to_owned(),
+                            params["text"].as_str().unwrap_or_default().to_owned(),
+                        ));
+                        json!({"result": {"type": "agent_prompted"}})
+                    }
+                    _ => json!({"error": {"code": "unknown_method", "message": method}}),
+                }
+            }
+        }
+
+        fn fake_herdr(name: &str, fake: Arc<Mutex<Fake>>) -> std::path::PathBuf {
+            let path = std::env::temp_dir()
+                .join(format!("herdr-chains-{name}-{}.sock", std::process::id()));
+            let _ = std::fs::remove_file(&path);
+            let listener = UnixListener::bind(&path).expect("bind fake socket");
+            tokio::spawn(async move {
+                while let Ok((stream, _)) = listener.accept().await {
+                    let fake = fake.clone();
+                    tokio::spawn(async move {
+                        let (read, mut write) = stream.into_split();
+                        let mut lines = BufReader::new(read).lines();
+                        while let Ok(Some(line)) = lines.next_line().await {
+                            let request: serde_json::Value =
+                                serde_json::from_str(&line).expect("json");
+                            let mut reply = fake.lock().expect("fake").answer(
+                                request["method"].as_str().unwrap_or_default(),
+                                &request["params"],
+                            );
+                            reply["id"] = request["id"].clone();
+                            let _ = write.write_all(format!("{reply}\n").as_bytes()).await;
+                        }
+                    });
+                }
+            });
+            path
+        }
+
+        fn state(status: &str, tokens: &BTreeMap<String, String>) -> Arc<herdr_core::SessionState> {
+            Arc::new(herdr_core::SessionState::from_snapshot(
+                serde_json::from_value(serde_json::json!({
+                    "version": "0.9.5", "protocol": 22,
+                    "workspaces": [{"workspace_id": "w1", "number": 1, "label": "space"}],
+                    "tabs": [{"tab_id": "w1:t1", "workspace_id": "w1", "number": 1, "label": "1"}],
+                    "panes": [
+                        {"pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                         "agent": "claude", "agent_status": status, "tokens": tokens},
+                        {"pane_id": "w1:p2", "workspace_id": "w1", "tab_id": "w1:t1",
+                         "agent": "codex", "agent_status": "idle"}
+                    ],
+                    "agents": [{"pane_id": "w1:p2", "name": "reviewer"}]
+                }))
+                .expect("snapshot"),
+            ))
+        }
+
+        fn chain_tokens(fake: &Arc<Mutex<Fake>>) -> BTreeMap<String, String> {
+            let chain = Chain {
+                id: "0a1b2c".into(),
+                trigger: chains::ChainTrigger::Done,
+                repeat: false,
+                failed: false,
+                target_pane_id: "w1:p2".into(),
+                text: "/issue-approve 1".into(),
+            };
+            let tokens: BTreeMap<String, String> = chains::chain_tokens(&chain)
+                .into_iter()
+                .filter_map(|(key, value)| Some((key, value?)))
+                .collect();
+            fake.lock()
+                .expect("fake")
+                .sources
+                .insert(chains::CHAINS_SOURCE.into(), (tokens.clone(), None));
+            tokens
+        }
+
+        /// Runs the chains `before` → `now` on the devices and collects
+        /// what they report within a second.
+        async fn run(
+            path: &std::path::Path,
+            devices: &[&str],
+            before: &herdr_core::SessionState,
+            now: &Arc<herdr_core::SessionState>,
+        ) -> Vec<ChainResult> {
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            for device in devices {
+                ChainRuns {
+                    conn: Arc::new(Connection::local(path)),
+                    device: (*device).to_owned(),
+                    state: now.clone(),
+                    claimed: Arc::new(Mutex::new(HashSet::new())),
+                    results: tx.clone(),
+                }
+                .start(before);
+            }
+            drop(tx);
+            let mut results = Vec::new();
+            while let Ok(Some(result)) =
+                tokio::time::timeout(Duration::from_secs(1), rx.recv()).await
+            {
+                results.push(result);
+            }
+            results
+        }
+
+        #[tokio::test]
+        async fn two_devices_send_once_and_a_one_shot_chain_ends() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1", "w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("once", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac", "iphone"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Sent);
+            assert_eq!(results[0].target_label, "reviewer");
+            assert_eq!(results[0].trigger_label, "claude · Tab 1");
+            let fake = fake.lock().expect("fake");
+            assert_eq!(
+                fake.prompts,
+                [("w1:p2".to_owned(), "/issue-approve 1".to_owned())]
+            );
+            assert!(
+                chains::chains_of(&state("done", &fake.tokens()).panes[0]).is_empty(),
+                "a one-shot chain is gone once sent"
+            );
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_missing_target_fails_for_good() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("gone", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let mut now = (*state("done", &tokens)).clone();
+            now.panes.retain(|pane| pane.pane_id != "w1:p2");
+            let now = Arc::new(now);
+            let results = run(&path, &["mac"], &state("working", &tokens), &now).await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Failed);
+            assert!(fake.lock().expect("fake").prompts.is_empty());
+
+            // The next change finds the chain marked failed and sends nothing.
+            let tokens = fake.lock().expect("fake").tokens();
+            let chains = chains::chains_of(&state("done", &tokens).panes[0]);
+            assert!(chains.len() == 1 && chains[0].failed, "{chains:?}");
+            fake.lock().expect("fake").seq = 12;
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert!(results.is_empty(), "{results:?}");
+            assert!(fake.lock().expect("fake").prompts.is_empty());
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_change_gone_by_is_skipped() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "working",
+                seq: 11,
+                panes: vec!["w1:p1", "w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("skip", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Skipped);
+            assert!(fake.lock().expect("fake").prompts.is_empty());
+            let _ = std::fs::remove_file(&path);
+        }
     }
 
     // The fake servers listen on Unix sockets, which `Connection::local` needs.
