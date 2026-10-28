@@ -91,6 +91,13 @@ struct ImageAttachment: Identifiable, Sendable {
         return attachment
     }
 
+    /// Whether a host path can go into a prompt as it is: a newline would
+    /// send the prompt early, other control characters act as keys in the
+    /// pane.
+    static func isPlainPath(_ path: String) -> Bool {
+        !path.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+    }
+
     /// A file's content: an image prepared like a picked photo, the text of
     /// a text clipping, anything else as it is.
     static func content(data: Data, name: String) throws -> Content {

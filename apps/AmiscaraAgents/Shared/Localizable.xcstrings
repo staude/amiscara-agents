@@ -1625,6 +1625,16 @@
         }
       }
     },
+    "Der Dateiname enthält Steuerzeichen und kann nicht in einen Prompt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file name contains control characters and cannot go into a prompt."
+          }
+        }
+      }
+    },
     "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {

@@ -223,10 +223,12 @@ final class HostConnection: Identifiable {
         guard config.uploadAllowed else { throw ConnectionFailure.uploadOff }
         let session = try writableSession()
         return try await Task.detached {
-            try attachments.map { attachment in
+            try attachments.map { attachment -> String in
                 if let path = attachment.hostPath {
-                    path
-                } else if let name = attachment.fileName {
+                    guard ImageAttachment.isPlainPath(path) else { throw ConnectionFailure.unsafePath }
+                    return path
+                }
+                return if let name = attachment.fileName {
                     try session.uploadNamedFile(data: attachment.data, fileName: name)
                 } else {
                     try session.uploadFile(data: attachment.data, fileExtension: attachment.fileExtension)
@@ -429,6 +431,7 @@ enum ConnectionFailure: LocalizedError {
     case filesOff
     case diffFilesOff
     case browseFilesOff
+    case unsafePath
 
     var errorDescription: String? {
         switch self {
@@ -444,6 +447,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .unsafePath:
+            String(localized: "Der Dateiname enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:
             String(localized: "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         }

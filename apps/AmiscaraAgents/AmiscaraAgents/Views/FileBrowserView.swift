@@ -129,7 +129,7 @@ struct FileBrowserView: View {
                 EntryRow(entry: entry)
             }
             .contextMenu {
-                if canAct {
+                if canAct, ImageAttachment.isPlainPath(entry.path) {
                     Button("An Agent senden", systemImage: "paperplane") { send(entry.path) }
                 }
             }
@@ -324,8 +324,10 @@ private struct FilePreviewView: View {
             }
         }
         if canAct {
-            ToolbarItem(placement: .primaryAction) {
-                Button("An Agent senden", systemImage: "paperplane") { send(preview?.path ?? path) }
+            if ImageAttachment.isPlainPath(preview?.path ?? path) {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("An Agent senden", systemImage: "paperplane") { send(preview?.path ?? path) }
+                }
             }
             if let preview, preview.editable, let originalText {
                 ToolbarItem(placement: .primaryAction) {
