@@ -235,6 +235,31 @@ pub struct TranscriptPage {
     pub start: u64,
 }
 
+/// A Claude Code session of a folder (#304), newest first in
+/// [`Session::claude_sessions`].
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeSessionItem {
+    /// What `claude --resume` takes.
+    pub id: String,
+    pub title: String,
+    /// Last activity, seconds since 1970; 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file, in place of a message count.
+    pub size: u64,
+}
+
+impl From<claude::SessionSummary> for ClaudeSessionItem {
+    fn from(summary: claude::SessionSummary) -> Self {
+        Self {
+            id: summary.id,
+            title: summary.title,
+            modified: summary.modified,
+            size: summary.size,
+        }
+    }
+}
+
 impl From<claude::Entry> for TranscriptEntry {
     fn from(entry: claude::Entry) -> Self {
         Self {
@@ -608,7 +633,9 @@ impl Session {
         name: Option<&str>,
     ) -> Result<String, SessionError> {
         let conn = self.connection()?;
-        Ok(actions::start_agent(&conn, pane_id, kind, name).await?.name)
+        Ok(actions::start_agent(&conn, pane_id, kind, name, &[])
+            .await?
+            .name)
     }
 
     /// Agent kinds the server can start, the usual ones first. Never fails:
@@ -653,6 +680,46 @@ impl Session {
             entries: page.entries.into_iter().map(Into::into).collect(),
             start: page.start,
         })
+    }
+
+    /// The Claude Code sessions of `folder` on the host, newest first and
+    /// at most 30, read from their files (SFTP over SSH). A folder Claude
+    /// Code never ran in has none. Read only.
+    pub async fn claude_sessions(
+        &self,
+        folder: &str,
+    ) -> Result<Vec<ClaudeSessionItem>, SessionError> {
+        let conn = self.connection()?;
+        Ok(claude::list_sessions(&conn, folder)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    /// Continues the Claude Code session `session_id` in a pane at its
+    /// shell prompt (`claude --resume <id>`) and returns the agent's name.
+    /// herdr starts it like [`Session::start_agent`], so it knows the agent.
+    /// The pane must be in the session's folder.
+    pub async fn resume_claude(
+        &self,
+        pane_id: &str,
+        session_id: &str,
+    ) -> Result<String, SessionError> {
+        if session_id.is_empty()
+            || !session_id
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+        {
+            return Err(SessionError::Rejected(format!(
+                "not a Claude Code session id: {session_id}"
+            )));
+        }
+        let conn = self.connection()?;
+        let args = ["--resume".to_owned(), session_id.to_owned()];
+        Ok(actions::start_agent(&conn, pane_id, "claude", None, &args)
+            .await?
+            .name)
     }
 
     /// The transcript of a full-screen agent such as Claude Code, which
