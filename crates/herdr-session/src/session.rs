@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
-use crate::view::{self, PaneContent, SessionUpdate};
+use crate::view::{self, ChoiceQuestion, PaneContent, SessionUpdate};
 
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
@@ -471,6 +471,17 @@ impl Session {
         let conn = self.connection()?;
         let read = pane::read_screen(&conn, pane_id).await?;
         Ok(read.screen.excerpt(max_lines as usize))
+    }
+
+    /// The choice question an agent asks at the bottom of a pane's visible
+    /// screen, for a notification's actions (#272). Read only.
+    pub async fn choice_question(
+        &self,
+        pane_id: &str,
+    ) -> Result<Option<ChoiceQuestion>, SessionError> {
+        let conn = self.connection()?;
+        let read = pane::read_screen(&conn, pane_id).await?;
+        Ok(view::choice_question(&read.screen))
     }
 
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.

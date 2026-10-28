@@ -2,9 +2,9 @@
 //! types: same names and fields, so the Swift side is unchanged.
 
 pub use herdr_session::view::{
-    AgentState, BoardItem, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
-    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
-    WorkspaceItem,
+    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, HostStatus, OpenRequest, PaneContent,
+    PaneFrame, PaneItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem,
+    TermColor, TokenItem, WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -175,6 +175,20 @@ pub struct PaneContent {
     pub truncated: bool,
     /// History rows asked for, 0 when `lines` is the visible screen only.
     pub history_lines: u32,
+    /// The agent's choice question at the bottom, if any (#272).
+    pub question: Option<ChoiceQuestion>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ChoiceQuestion {
+    pub options: Vec<ChoiceOption>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ChoiceOption {
+    /// The logical key that selects it, e.g. `2`.
+    pub key: String,
+    pub label: String,
 }
 
 #[uniffi::remote(Record)]

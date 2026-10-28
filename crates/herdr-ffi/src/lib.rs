@@ -21,9 +21,10 @@ pub use add_host::{
     encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem, ScrollStep,
-    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
-    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
+    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, HostStatus, OpenRequest, PaneContent,
+    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
+    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage, WorkspaceItem,
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
@@ -426,6 +427,13 @@ impl HostSession {
     /// round trip; call it off the main thread.
     pub fn screen_excerpt(&self, pane_id: String, max_lines: u32) -> Result<String, FfiError> {
         Ok(runtime().block_on(self.session.screen_excerpt(&pane_id, max_lines))?)
+    }
+
+    /// The choice question an agent asks at the bottom of a pane's visible
+    /// screen, for a notification's actions (#272). Read only. Blocks for
+    /// one round trip; call it off the main thread.
+    pub fn choice_question(&self, pane_id: String) -> Result<Option<ChoiceQuestion>, FfiError> {
+        Ok(runtime().block_on(self.session.choice_question(&pane_id))?)
     }
 
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.

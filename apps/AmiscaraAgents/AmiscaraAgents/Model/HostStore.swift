@@ -68,7 +68,9 @@ final class HostStore {
         let connection = HostConnection(config: config)
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
-            self.notifier.notify(update.attention, on: connection.config)
+            self.notifier.notify(update.attention, on: connection.config) { [weak connection] paneID in
+                await connection?.choiceQuestion(paneID: paneID)
+            }
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
                 .count)

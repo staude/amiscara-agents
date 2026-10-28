@@ -556,6 +556,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `FilePreview::editable`, `Session::save_file`,
   `SessionError::FileChanged`, `browse::SAVED_NOT_READ`,
   `SessionError::SavedNotRead`.
+- Agent choice questions as buttons (#272): when Claude Code asks for a
+  permission or with AskUserQuestion, the pane shows one button per option
+  with its text above the composer (Mac, iPhone, iPad); a tap sends the
+  option's digit. Local notifications for a waiting agent offer the same
+  options as actions (up to three, plus Abbrechen). Free text, several
+  answers and pushes through iCloud keep the fixed answers. Core:
+  `herdr_core::question`, `PaneContent.question`, `Session::choice_question`.
 
 ### Changed
 
