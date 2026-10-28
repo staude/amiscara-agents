@@ -102,12 +102,14 @@ enum PromptPlaceholders {
 
     /// The text with each placeholder replaced; one without a value stays.
     static func fill(_ text: String, values: [String: String]) -> String {
-        var result = text
-        for match in matches(in: text).reversed() {
-            guard let value = values[match.name] else { continue }
-            result.replaceSubrange(match.range, with: value)
+        var result = ""
+        var rest = text.startIndex
+        for match in matches(in: text) {
+            result += text[rest..<match.range.lowerBound]
+            result += values[match.name] ?? String(text[match.range])
+            rest = match.range.upperBound
         }
-        return result
+        return result + text[rest...]
     }
 
     /// The issue number of a branch like `feature/123-slug`.

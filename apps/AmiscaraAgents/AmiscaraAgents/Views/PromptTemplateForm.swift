@@ -31,7 +31,7 @@ struct PromptTemplateForm: View {
                     }
                 }
                 Section("Vorschau") {
-                    Text(PromptPlaceholders.fill(template.text, values: trimmedValues))
+                    Text(PromptPlaceholders.fill(template.trimmedText, values: trimmedValues))
                         .font(.callout.monospaced())
                         .textSelection(.enabled)
                 }
@@ -47,7 +47,7 @@ struct PromptTemplateForm: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("In Eingabe übernehmen") {
-                        onInsert(PromptPlaceholders.fill(template.text, values: trimmedValues))
+                        onInsert(PromptPlaceholders.fill(template.trimmedText, values: trimmedValues))
                         dismiss()
                     }
                     .disabled(!complete)
