@@ -5,17 +5,31 @@ import SwiftUI
 /// working ones below, a row per agent and how current it is. While the
 /// host reconnects its last agents stay; without a connection the Mac's
 /// board in iCloud stands in by the overview's rule (#274). A tap opens
-/// the agent.
+/// the agent; in the selection mode it picks the agent for one prompt to
+/// several (#299).
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+
+    @State private var selecting = false
+    @State private var selected: Set<String> = []
 
     var body: some View {
         let shown = Shown(connection, boards: store.cloudBoards)
         let snapshot = WidgetSnapshot(updated: shown.updated ?? .distantPast, hosts: [
             WidgetSnapshot.Host(id: connection.id, name: connection.config.name, live: connection.isLive, agents: shown.agents),
         ])
+        let rows = snapshot.agents.map { _, agent in
+            (agent: agent, target: MultiSend.Target(
+                hostID: connection.id,
+                hostName: connection.config.name,
+                agent: agent,
+                live: connection.isLive,
+                inputAllowed: connection.config.inputAllowed
+            ))
+        }
+        let targets = rows.map(\.target)
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -27,12 +41,22 @@ struct HostDashboardView: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(snapshot.agents, id: \.agent.id) { _, agent in
+                    ForEach(rows, id: \.target.id) { agent, target in
                         Button {
-                            open(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceID, paneID: agent.paneID))
+                            if selecting {
+                                selected.toggle(target)
+                            } else {
+                                open(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceID, paneID: agent.paneID))
+                            }
                         } label: {
-                            AgentSummaryRow(agent: agent, host: nil)
-                                .contentShape(.rect)
+                            if selecting {
+                                MultiSendRow(target: target, selected: selected.contains(target.id)) {
+                                    AgentSummaryRow(agent: agent, host: nil)
+                                }
+                            } else {
+                                AgentSummaryRow(agent: agent, host: nil)
+                                    .contentShape(.rect)
+                            }
                         }
                         .buttonStyle(.plain)
                     }
@@ -48,6 +72,40 @@ struct HostDashboardView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            ToolbarItemGroup {
+                if selecting {
+                    Menu("Auswahl", systemImage: "checklist") {
+                        ForEach(MultiSend.Preset.allCases, id: \.self) { preset in
+                            Button(preset.title) { selected = MultiSend.select(preset, in: targets) }
+                        }
+                        Button("Keine") { selected = [] }
+                    }
+                }
+                Button(selecting ? "Fertig" : "Auswählen") {
+                    selecting.toggle()
+                    selected = []
+                }
+                .disabled(!selecting && !(connection.isLive && connection.config.inputAllowed))
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if selecting {
+                MultiSendBar(targets: targets.filter { selected.contains($0.id) }) {
+                    selecting = false
+                    selected = []
+                }
+            }
+        }
+        // An agent that starts waiting or loses its host leaves the selection.
+        .onChange(of: targets) { _, targets in
+            selected.formIntersection(targets.filter(\.isSelectable).map(\.id))
+        }
+        // The page stays when another host is chosen.
+        .onChange(of: connection.id) {
+            selecting = false
+            selected = []
+        }
     }
 
     /// The agents shown, how old they are and whether they came from
