@@ -54,7 +54,9 @@ struct InputBar: View {
     private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
     #endif
     private var isAgent: Bool { pane.agent != nil }
-    private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
+    /// Waits for an answer: herdr says so, or a choice question is on the
+    /// screen, which herdr may report late (#272).
+    private var isBlocked: Bool { isAgent && (pane.agentState == .blocked || question != nil) }
     /// Never while the agent waits for approval: typed keys would answer
     /// its dialog.
     private var isLive: Bool {
@@ -64,7 +66,7 @@ struct InputBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if isBlocked || (isAgent && question != nil) {
+            if isBlocked {
                 answerRow
             }
             quickReplyRow
