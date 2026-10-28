@@ -71,7 +71,7 @@ struct AmiscaraAgentsApp: App {
             // reconnect at once instead of waiting out the retry pause.
             store.notifier.appActive = phase == .active
             // The last screens go to disk before the app may be ended (#276).
-            if phase != .active { PaneCache.shared.flush() }
+            if phase != .active { PaneCache.shared.flush() } else { PaneCache.shared.retryMisses() }
             #if os(iOS)
             // Something shared from another app (#225): to its agent.
             // Once: a pane that does not come up must not pull the user back.
