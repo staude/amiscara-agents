@@ -32,6 +32,10 @@ struct HostSidebar: View {
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
     @State private var addingSessionTo: HostConnection?
+    #if !os(tvOS)
+    /// The host whose secrets are shown (#291).
+    @State private var secretsFor: HostConnection?
+    #endif
     /// Why a swipe action on an agent row could not be sent.
     @State private var swipeError: String?
     /// Bumped after a swipe action went out, for the haptic.
@@ -144,6 +148,11 @@ struct HostSidebar: View {
         }) { connection in
             AddSessionView(connection: connection) { chosenSession = $0 }
         }
+        #if !os(tvOS)
+        .sheet(item: $secretsFor) { connection in
+            SecretsView(connection: connection)
+        }
+        #endif
         .sheet(item: $renaming) { target in
             RenameView(target: target)
         }
@@ -179,6 +188,12 @@ struct HostSidebar: View {
         Button("Weitere Session hinzufügen …", systemImage: "plus.rectangle.on.rectangle") {
             addingSessionTo = connection
         }
+        #if !os(tvOS)
+        // Written over SFTP, so only with file access and input allowed.
+        if connection.config.uploadAllowed && connection.config.inputAllowed {
+            Button("Geheimnisse …", systemImage: "key") { secretsFor = connection }
+        }
+        #endif
         Divider()
         Button("Entfernen", systemImage: "trash", role: .destructive) {
             store.remove(connection.id)

@@ -242,6 +242,9 @@ final class HostStore {
         #endif
         connection.stop()
         KeyStore.delete(for: id)
+        #if !os(tvOS)
+        SecretStore.deleteAll(for: id)
+        #endif
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)
         PaneVisits.shared.forget(host: id)
