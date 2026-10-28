@@ -13,6 +13,12 @@ final class Dictation {
     /// What has been recognized since `start`, updated while speaking.
     private(set) var transcript = ""
     private(set) var error: String?
+    /// Called once per recording that started, from `stop`: with the
+    /// transcript when a pause ended it (`endingAfterPause`), else `nil`.
+    @ObservationIgnored var onFinish: (@MainActor (String?) -> Void)?
+    /// Whether any composer or the voice mode is recording (#297).
+    static var isAnyRunning: Bool { running > 0 }
+    private static var running = 0
 
     @ObservationIgnored private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "de-DE"))
     /// Created per recording, after the audio session is set to record, and
@@ -27,9 +33,19 @@ final class Dictation {
     /// recognizer attaches metadata to an utterance's last result).
     @ObservationIgnored private var current = ""
     @ObservationIgnored private var currentEnded = false
+    /// Silence after speech that ends the recording, `nil` to keep going.
+    @ObservationIgnored private var pause: Duration?
+    @ObservationIgnored private var endedByPause = false
+    /// Counts transcript changes, so a pause timer sees newer speech.
+    @ObservationIgnored private var heard = 0
 
-    func start() async {
+    /// `endingAfterPause` stops the recording once that long nothing new
+    /// was recognized after some speech. `preferBuiltInMic: false` keeps the
+    /// microphone of the route in use (AirPods, CarPlay) on iOS.
+    func start(endingAfterPause pause: Duration? = nil, preferBuiltInMic: Bool = true) async {
         guard !isRunning else { return }
+        self.pause = pause
+        endedByPause = false
         error = nil
         transcript = ""
         finished = ""
@@ -48,8 +64,9 @@ final class Dictation {
             return
         }
         do {
-            try begin(with: recognizer)
+            try begin(with: recognizer, preferBuiltInMic: preferBuiltInMic)
             isRunning = true
+            Self.running += 1
         } catch {
             stop()
             self.error = String(localized: "Diktat konnte nicht starten: \(error.localizedDescription)")
@@ -57,6 +74,7 @@ final class Dictation {
     }
 
     func stop() {
+        let wasRunning = isRunning
         if let engine {
             if engine.isRunning { engine.stop() }
             engine.inputNode.removeTap(onBus: 0)
@@ -70,15 +88,18 @@ final class Dictation {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
+        guard wasRunning else { return }
+        Self.running -= 1
+        onFinish?(endedByPause ? transcript : nil)
     }
 
-    private func begin(with recognizer: SFSpeechRecognizer) throws {
+    private func begin(with recognizer: SFSpeechRecognizer, preferBuiltInMic: Bool) throws {
         #if os(iOS)
         // Non-mixable (no `.duckOthers`), default mode (not `.measurement`),
         // built-in microphone preferred. Tested on the iPad Pro M5.
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
-        if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+        if preferBuiltInMic, let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
             try session.setPreferredInput(builtIn)
         }
         try session.setActive(true, options: .notifyOthersOnDeactivation)
@@ -126,7 +147,22 @@ final class Dictation {
         }
         current = text
         currentEnded = ended
-        transcript = Self.join(finished, current)
+        let joined = Self.join(finished, current)
+        guard joined != transcript else { return }
+        transcript = joined
+        if let pause, !joined.isEmpty { endAfter(pause) }
+    }
+
+    /// Stops after `pause` unless something new was recognized meanwhile.
+    private func endAfter(_ pause: Duration) {
+        heard += 1
+        let mark = heard
+        Task { [weak self] in
+            try? await Task.sleep(for: pause)
+            guard let self, self.isRunning, self.heard == mark else { return }
+            self.endedByPause = true
+            self.stop()
+        }
     }
 
     private static func join(_ first: String, _ second: String) -> String {
@@ -145,8 +181,9 @@ final class Dictation {
         Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(1500))
             guard let self, self.isRunning, self.feed === feed, feed.peak == 0 else { return }
-            self.stop()
+            // Before `stop`, so `onFinish` sees it.
             self.error = String(localized: "Kein Mikrofon: Solange das iPad per Bildschirmfreigabe vom Mac aus gesteuert wird, schaltet iPadOS das Mikrofon für Apps stumm. Freigabe beenden oder das Diktat der Tastatur nutzen.")
+            self.stop()
         }
     }
 
