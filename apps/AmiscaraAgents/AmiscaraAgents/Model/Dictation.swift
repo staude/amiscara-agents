@@ -35,7 +35,10 @@ final class Dictation {
     @ObservationIgnored private var currentEnded = false
     /// Silence after speech that ends the recording, `nil` to keep going.
     @ObservationIgnored private var pause: Duration?
+    /// A pause or the recognizer's final result ended the recording.
     @ObservationIgnored private var endedByPause = false
+    /// Between `start` and the recording, while asking for permissions.
+    @ObservationIgnored private var starting = false
     /// Counts transcript changes, so a pause timer sees newer speech.
     @ObservationIgnored private var heard = 0
 
@@ -43,7 +46,9 @@ final class Dictation {
     /// was recognized after some speech. `preferBuiltInMic: false` keeps the
     /// microphone of the route in use (AirPods, CarPlay) on iOS.
     func start(endingAfterPause pause: Duration? = nil, preferBuiltInMic: Bool = true) async {
-        guard !isRunning else { return }
+        guard !isRunning, !starting else { return }
+        starting = true
+        defer { starting = false }
         self.pause = pause
         endedByPause = false
         error = nil
@@ -101,6 +106,9 @@ final class Dictation {
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
         if preferBuiltInMic, let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
             try session.setPreferredInput(builtIn)
+        } else if !preferBuiltInMic {
+            // The preference outlives the recording that set it.
+            try session.setPreferredInput(nil)
         }
         try session.setActive(true, options: .notifyOthersOnDeactivation)
         #endif
@@ -133,8 +141,13 @@ final class Dictation {
             Task { @MainActor in
                 guard let self else { return }
                 if let text { self.receive(text, ended: ended) }
-                if let message, self.transcript.isEmpty { self.error = message }
-                if done && self.isRunning { self.stop() }
+                // With a pause the text is sent, so an error must show.
+                if let message, self.transcript.isEmpty || self.pause != nil { self.error = message }
+                if done && self.isRunning {
+                    // A final result counts like the pause.
+                    if message == nil, self.pause != nil, !self.transcript.isEmpty { self.endedByPause = true }
+                    self.stop()
+                }
             }
         }
     }
