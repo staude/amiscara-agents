@@ -112,17 +112,8 @@ struct AgentsWidgetView: View {
 
     private var small: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(waiting, format: .number)
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-                .foregroundStyle(waiting > 0 ? Color.orange : Color.secondary)
-                .contentTransition(.numericText())
-            Text(waiting == 1 ? "wartet" : "warten")
-                .font(.headline)
-            Spacer(minLength: 0)
-            if working > 0 {
-                Label("\(working) arbeiten", systemImage: "circle.fill")
-                    .labelStyle(DotLabelStyle(color: .blue))
-                    .font(.caption)
+            WaitingHeadline(waiting: waiting, working: working) {
+                Spacer(minLength: 0)
             }
             footer
         }
@@ -157,7 +148,7 @@ struct AgentsWidgetView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(shown.dropFirst(column * perColumn).prefix(perColumn), id: \.agent.id) { host, agent in
                                 Link(destination: WidgetSnapshot.openURL(host: host.id, workspaceID: agent.workspaceID, paneID: agent.paneID)) {
-                                    row(agent, host: snapshot.hosts.count > 1 ? host.name : nil)
+                                    AgentSummaryRow(agent: agent, host: snapshot.hosts.count > 1 ? host.name : nil)
                                 }
                             }
                         }
@@ -169,23 +160,6 @@ struct AgentsWidgetView: View {
             footer
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private func row(_ agent: WidgetSnapshot.Agent, host: String?) -> some View {
-        HStack(spacing: 6) {
-            Circle().fill(agent.state.color).frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(agent.place).font(.caption.weight(.medium)).lineLimit(1)
-                Text([agent.name, host].compactMap { $0 }.joined(separator: " · "))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            Text(agent.state.label)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(agent.state.color)
-        }
     }
 
     /// How old the data is: on iOS it only changes while the app runs.
@@ -233,17 +207,6 @@ struct AgentsWidgetView: View {
         Text(waiting > 0 ? "\(waiting) Agents warten" : "Keine Agents warten")
     }
     #endif
-}
-
-private struct DotLabelStyle: LabelStyle {
-    let color: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            configuration.title
-        }
-    }
 }
 
 #Preview(as: .systemMedium) {
