@@ -915,6 +915,16 @@
         }
       }
     },
+    "An diesem Tag gab es keine Aufträge an Claude und keine Commits." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks for Claude and no commits on this day."
+          }
+        }
+      }
+    },
     "An Host senden" : {
       "localizations" : {
         "en" : {
@@ -1131,6 +1141,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No agent is running on the hosts right now."
+          }
+        }
+      }
+    },
+    "Auftrag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
           }
         }
       }
@@ -1405,6 +1425,16 @@
         }
       }
     },
+    "Commit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit"
+          }
+        }
+      }
+    },
     "Commit und PR erstellen" : {
       "localizations" : {
         "en" : {
@@ -1641,6 +1671,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The code has no version."
+          }
+        }
+      }
+    },
+    "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the day through file access, like “Upload images” (Edit host)."
           }
         }
       }
@@ -1921,6 +1961,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The socket path in the code is invalid. An absolute path is expected."
+          }
+        }
+      }
+    },
+    "Der Tag wird gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the day …"
           }
         }
       }
@@ -2721,6 +2771,16 @@
         }
       }
     },
+    "Gestern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yesterday"
+          }
+        }
+      }
+    },
     "Git wird gefragt …" : {
       "localizations" : {
         "en" : {
@@ -2787,6 +2847,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Brightens or darkens text colors with too little contrast"
+          }
+        }
+      }
+    },
+    "Heute" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
           }
         }
       }
@@ -3257,6 +3327,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No data"
+          }
+        }
+      }
+    },
+    "Keine Einträge." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries."
           }
         }
       }
@@ -3877,6 +3957,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New Secret"
+          }
+        }
+      }
+    },
+    "Nicht alle Claude-Verläufe wurden bis zum Tagesbeginn gelesen; frühe Einträge können fehlen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not every Claude conversation was read back to the start of the day; early entries may be missing."
           }
         }
       }
@@ -5137,6 +5227,26 @@
         }
       }
     },
+    "Tag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day"
+          }
+        }
+      }
+    },
+    "Tag nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day not readable"
+          }
+        }
+      }
+    },
     "Tastatur ausblenden" : {
       "localizations" : {
         "en" : {
@@ -5303,6 +5413,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "VS Code is not installed."
+          }
+        }
+      }
+    },
+    "Was heute auf dem Host passiert ist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What happened on the host today"
           }
         }
       }

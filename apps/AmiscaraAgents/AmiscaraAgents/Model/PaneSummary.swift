@@ -91,9 +91,14 @@ final class PaneSummary {
         }
     }
 
-    private static func respond(to text: String) async throws -> String {
+    /// The app's language in English, for the model's instructions.
+    static var answerLanguage: String {
         let code = Bundle.main.preferredLocalizations.first ?? "de"
-        let language = Locale(identifier: "en").localizedString(forLanguageCode: code) ?? "German"
+        return Locale(identifier: "en").localizedString(forLanguageCode: code) ?? "German"
+    }
+
+    private static func respond(to text: String) async throws -> String {
+        let language = answerLanguage
         let session = LanguageModelSession(instructions: """
             You summarise new output of a terminal pane, often a coding agent at work. \
             Answer in \(language) with exactly two sentences: first whether it finished, \

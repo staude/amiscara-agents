@@ -5,11 +5,12 @@ import SwiftUI
 /// working ones below, a row per agent and how current it is. While the
 /// host reconnects its last agents stay; without a connection the Mac's
 /// board in iCloud stands in by the overview's rule (#274). A tap opens
-/// the agent.
+/// the agent. "Heute" shows what happened on the host today (#301).
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+    @State private var showsDay = false
 
     var body: some View {
         let shown = Shown(connection, boards: store.cloudBoards)
@@ -48,6 +49,17 @@ struct HostDashboardView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            if connection.isLive {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Heute", systemImage: "calendar") { showsDay = true }
+                        .help(String(localized: "Was heute auf dem Host passiert ist"))
+                }
+            }
+        }
+        .sheet(isPresented: $showsDay) {
+            DailyLogView(connection: connection)
+        }
     }
 
     /// The agents shown, how old they are and whether they came from
