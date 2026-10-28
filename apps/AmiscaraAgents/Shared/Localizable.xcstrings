@@ -1405,6 +1405,26 @@
         }
       }
     },
+    "Dashboard" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dashboard"
+          }
+        }
+      }
+    },
+    "Dashboard öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Dashboard"
+          }
+        }
+      }
+    },
     "Datei" : {
       "localizations" : {
         "en" : {
@@ -3261,6 +3281,16 @@
         }
       }
     },
+    "Live" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        }
+      }
+    },
     "Live an %@: ↑↓ wählen, Tab übernimmt, Enter führt aus" : {
       "localizations" : {
         "en" : {
@@ -4623,6 +4653,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "As of %@"
+          }
+        }
+      }
+    },
+    "Stand %@ · über iCloud" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@ · via iCloud"
           }
         }
       }

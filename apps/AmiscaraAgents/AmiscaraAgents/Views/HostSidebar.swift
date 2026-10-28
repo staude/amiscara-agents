@@ -8,10 +8,11 @@ struct SpaceRef: Hashable, Sendable {
     var paneID: String?
 }
 
-/// What the sidebar can select: the overview of all hosts (#274) or a
-/// space with its agent.
+/// What the sidebar can select: the overview of all hosts (#274), the
+/// dashboard of one host (#278) or a space with its agent.
 enum SidebarItem: Hashable {
     case overview
+    case host(UUID)
     case space(SpaceRef)
 }
 
@@ -68,11 +69,18 @@ struct HostSidebar: View {
             #endif
             ForEach(store.connections) { connection in
                 Section {
+                    #if !os(tvOS)
+                    Label("Dashboard", systemImage: "gauge.with.dots.needle.33percent")
+                        .badge(connection.update?.board.filter { $0.agentState == .blocked }.count ?? 0)
+                        .tag(SidebarItem.host(connection.id))
+                    #endif
                     if let update = connection.update {
                         hostContent(connection, update)
                     }
                 } header: {
                     HostHeader(connection: connection) {
+                        selection = .host(connection.id)
+                    } actions: {
                         hostActions(connection)
                     }
                     .contextMenu { hostActions(connection) }
@@ -1044,12 +1052,19 @@ enum AgentOrder: String {
 /// context menu is hard to find on iPad.
 private struct HostHeader<Actions: View>: View {
     let connection: HostConnection
+    /// Opens the host's dashboard (#278).
+    let open: () -> Void
     @ViewBuilder let actions: () -> Actions
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: connection.config.kind == .local ? "desktopcomputer" : "network")
-            Text(connection.config.name)
+            #if os(tvOS)
+            title
+            #else
+            Button(action: open) { title }
+                .buttonStyle(.plain)
+                .help(String(localized: "Dashboard öffnen"))
+            #endif
             if let session = sessionNameOfSocket(socketPath: connection.config.socketPath) {
                 Text("Session \(session)")
                     .font(.caption)
@@ -1067,6 +1082,13 @@ private struct HostHeader<Actions: View>: View {
             .fixedSize()
             .buttonStyle(.borderless)
             .accessibilityLabel("Host-Aktionen")
+        }
+    }
+
+    private var title: some View {
+        HStack(spacing: 6) {
+            Image(systemName: connection.config.kind == .local ? "desktopcomputer" : "network")
+            Text(connection.config.name)
         }
     }
 }
