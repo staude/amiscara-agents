@@ -93,6 +93,14 @@ final class PaneVisits {
         return lines
     }
 
+    /// What is new in `text` since a visit that ended with `tail`: the lines
+    /// after the anchor, or none when that is only the old bottom line,
+    /// a prompt or status line that changed in place.
+    nonisolated static func newOutput(in text: String, after tail: [String]) -> [String] {
+        let lines = newLines(in: text, after: tail)
+        return lines.count(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) > 1 ? lines : []
+    }
+
     /// Lines with text, trimmed, with their index in `text`.
     private nonisolated static func textLines(_ text: String) -> [(index: Int, text: String)] {
         text.components(separatedBy: "\n").enumerated().compactMap { index, line in

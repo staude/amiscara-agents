@@ -30,6 +30,12 @@ var failures = 0
     let atPrompt = PaneVisits.tail(of: "built\n% ")
     check(PaneVisits.newLines(in: "built\n% make\nok", after: atPrompt) == ["% make", "ok"], "a prompt line typed into since")
 
+    // New output
+    check(PaneVisits.newOutput(in: "$ make\nbuilt", after: tail).isEmpty, "unchanged screen has no new output")
+    check(PaneVisits.newOutput(in: "$ make\nbuilt 12:05", after: tail).isEmpty, "a changed bottom line alone is no new output")
+    check(PaneVisits.newOutput(in: "$ make\nbuilt\n$ test\nok", after: tail) == ["built", "$ test", "ok"], "new lines after the anchor")
+    check(PaneVisits.newOutput(in: "x\ny", after: tail) == ["x", "y"], "no anchor gives everything")
+
     // Memory
     let file = FileManager.default.temporaryDirectory.appending(path: "pane-visits-\(UUID().uuidString).json")
     defer { try? FileManager.default.removeItem(at: file) }
