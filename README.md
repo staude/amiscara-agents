@@ -105,7 +105,9 @@ code), so a host is set up the same way everywhere.
   over SFTP.
 - **Input:** prompts to agents (`agent.prompt`), text to shells, a key bar
   (Esc, Tab, Ctrl-C, arrows, Enter) and quick replies. When an agent waits
-  for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen. A
+  for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen; when
+  Claude Code asks for a permission or with AskUserQuestion, one button per
+  option with its text instead of 1, 2, 3. A
   prompt starting with `/` goes live into the agent's own input line, so
   Claude Code shows its commands and skills in the pane (↑↓ pick, Tab takes,
   Enter runs).
@@ -121,7 +123,8 @@ code), so a host is set up the same way everywhere.
   search (the first MB), images, size and type of other files. Needs SFTP
   like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
-  buttons, one per pane.
+  buttons, one per pane; local ones carry the options of Claude Code's
+  question as titles.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the
