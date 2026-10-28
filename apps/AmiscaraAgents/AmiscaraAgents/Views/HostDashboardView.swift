@@ -4,15 +4,18 @@ import SwiftUI
 /// One host in the widget's look (#278): the waiting count large, the
 /// working ones below, a row per agent and how current it is. While the
 /// host reconnects its last agents stay; without a connection the Mac's
-/// board in iCloud stands in, as in the widget. A tap opens the agent.
+/// board in iCloud stands in by the overview's rule (#274). A tap opens
+/// the agent.
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
 
     var body: some View {
-        let local = localSnapshot
-        let snapshot = local.merging(store.cloudBoards)
+        let shown = shown
+        let snapshot = WidgetSnapshot(updated: shown.updated ?? .distantPast, hosts: [
+            WidgetSnapshot.Host(id: connection.id, name: connection.config.name, live: connection.isLive, agents: shown.agents),
+        ])
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -34,7 +37,7 @@ struct HostDashboardView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                footer(local: local, shown: snapshot)
+                footer(shown)
                     .padding(.top, 8)
             }
             .frame(maxWidth: 520, alignment: .leading)
@@ -47,41 +50,44 @@ struct HostDashboardView: View {
         #endif
     }
 
-    private var hostKey: String? {
-        CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
+    /// The agents shown, how old they are and whether they came from iCloud.
+    private struct Shown {
+        let agents: [WidgetSnapshot.Agent]
+        let updated: Date?
+        let fromCloud: Bool
     }
 
-    /// What this device knows: the live board, else the last one it saw
-    /// while live, dated when the host was last connected.
-    private var localSnapshot: WidgetSnapshot {
-        let live = connection.isLive
-        let board = live ? connection.update?.board ?? [] : connection.lastBoard
-        return WidgetSnapshot(updated: live ? .now : connection.liveAt ?? .distantPast, hosts: [
-            WidgetSnapshot.Host(
-                id: connection.id,
-                name: connection.config.name,
-                live: live,
-                agents: board.map(WidgetSnapshot.Agent.init),
-                hostKey: hostKey
-            ),
-        ])
+    /// The live board; without a connection the newer of the last board
+    /// seen here and the Mac's board in iCloud. As in the overview, only a
+    /// connected board counts as newer: a Mac without a connection
+    /// rewrites its last state with a new date, and its own boards come
+    /// back from iCloud a few minutes late.
+    private var shown: Shown {
+        if connection.isLive {
+            return Shown(agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init), updated: nil, fromCloud: false)
+        }
+        let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
+        let board = store.cloudBoards.filter { $0.hostKey == key }.max { $0.updated < $1.updated }
+        if let board, connection.liveAt.map({ board.live && board.updated > $0 }) ?? true {
+            return Shown(agents: board.agents, updated: board.updated, fromCloud: true)
+        }
+        return Shown(agents: connection.lastBoard.map(WidgetSnapshot.Agent.init), updated: connection.liveAt, fromCloud: false)
     }
 
-    /// "Live" while connected; otherwise the age of the shown agents, from
-    /// the Mac's board when that stood in. Updates come only on changes, so
-    /// a connected host gets no age.
-    @ViewBuilder
-    private func footer(local: WidgetSnapshot, shown: WidgetSnapshot) -> some View {
+    /// "Live" while connected; otherwise the age of the shown agents.
+    /// Updates come only on changes, so a connected host gets no age.
+    private func footer(_ shown: Shown) -> some View {
         Group {
             if connection.isLive {
                 Text("Live")
-            } else if shown.hosts != local.hosts {
-                let board = store.cloudBoards.filter { $0.hostKey == hostKey }.max { $0.updated < $1.updated }
-                Text("Stand \(board?.updated ?? shown.updated, style: .relative) · über iCloud")
-            } else if local.updated == .distantPast {
-                Text("Keine Daten")
+            } else if let updated = shown.updated {
+                if shown.fromCloud {
+                    Text("Stand \(updated, style: .relative) · über iCloud")
+                } else {
+                    Text("Stand \(updated, style: .relative)")
+                }
             } else {
-                Text("Stand \(local.updated, style: .relative)")
+                Text("Keine Daten")
             }
         }
         .font(.caption2)
