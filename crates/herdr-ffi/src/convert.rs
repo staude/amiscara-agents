@@ -247,7 +247,8 @@ pub enum TermColor {
 }
 
 pub use herdr_session::{
-    ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage,
+    ConversationHit, ScrollStep, SearchEnd, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage, TranscriptSpan,
 };
 
 /// A step through a full-screen agent's own view.
@@ -292,6 +293,59 @@ pub struct TranscriptPage {
     pub entries: Vec<TranscriptEntry>,
     /// Byte offset this page starts at; 0 means the conversation's start.
     pub start: u64,
+}
+
+/// Part of a Claude Code conversation around a search hit (#303), oldest
+/// entry first; continues backwards like a [`TranscriptPage`] and forwards
+/// from `end`.
+#[uniffi::remote(Record)]
+pub struct TranscriptSpan {
+    /// The session file below the host's home directory.
+    pub session_path: String,
+    pub entries: Vec<TranscriptEntry>,
+    /// Byte offset the span starts at; 0 means the conversation's start.
+    pub start: u64,
+    /// Where newer entries continue.
+    pub end: u64,
+    /// Whether the file has no newer entries for now.
+    pub at_end: bool,
+    /// Index in `entries` of the hit's first entry.
+    pub highlight: Option<u32>,
+}
+
+/// An entry of a Claude Code conversation that contains the search text.
+#[uniffi::remote(Record)]
+pub struct ConversationHit {
+    /// The session file below the host's home directory.
+    pub session_path: String,
+    /// Where the entry's line starts in the file; pass both to
+    /// `claude_history_at`.
+    pub offset: u64,
+    /// The open space whose pane works in the conversation's directory or
+    /// above it; `None` when no space does.
+    pub workspace_id: Option<String>,
+    /// The directory Claude Code ran in.
+    pub cwd: Option<String>,
+    /// The session's last AI title.
+    pub session_title: Option<String>,
+    pub kind: TranscriptKind,
+    /// The text around the first match; line breaks became spaces, `…`
+    /// marks a cut.
+    pub snippet: String,
+    /// ISO 8601, as Claude Code wrote it.
+    pub timestamp: Option<String>,
+}
+
+/// How a search ended.
+#[uniffi::remote(Record)]
+pub struct SearchEnd {
+    pub error: Option<String>,
+    pub cancelled: bool,
+    /// More hits than reported.
+    pub truncated: bool,
+    /// Older or more conversations than the search read were left out
+    /// (no grep on the host).
+    pub older_skipped: bool,
 }
 
 pub use herdr_session::{

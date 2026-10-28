@@ -24,8 +24,9 @@ pub use convert::{
     AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
     PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout,
     StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry,
-    TranscriptKind, TranscriptPage, WorkspaceItem,
+    TranscriptKind, TranscriptPage, TranscriptSpan, WorkspaceItem,
 };
+pub use convert::{ConversationHit, SearchEnd};
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
     EntryKind, FileContent, FilePreview, WorkingTreeDiff,
@@ -373,6 +374,17 @@ pub trait PaneObserver: Send + Sync {
     fn on_error(&self, message: String);
 }
 
+/// Receives what a conversation search finds, on a background thread.
+#[uniffi::export(callback_interface)]
+pub trait ConversationSearchObserver: Send + Sync {
+    /// `done` of `total` steps (bytes or files, depending on the route).
+    fn on_progress(&self, done: u64, total: u64);
+    /// Hits found since the last call.
+    fn on_hits(&self, hits: Vec<ConversationHit>);
+    /// Always the last call, once; after `cancel` the only one.
+    fn on_finished(&self, end: SearchEnd);
+}
+
 /// One live host: keeps the session state current until stopped or dropped.
 #[derive(uniffi::Object)]
 pub struct HostSession {
@@ -585,6 +597,47 @@ impl HostSession {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
     }
 
+    /// The conversation in the session file `session_path` around the line
+    /// at byte `offset`, from a search hit (#303); older entries continue
+    /// with `claude_history` and a cursor at `start`, newer ones with
+    /// `claude_history_after` at `end`. Read only. Blocks; call it off the
+    /// main thread.
+    pub fn claude_history_at(
+        &self,
+        session_path: String,
+        offset: u64,
+    ) -> Result<TranscriptSpan, FfiError> {
+        Ok(runtime().block_on(self.session.claude_history_at(&session_path, offset))?)
+    }
+
+    /// The entries after byte `from` of the session file `session_path`:
+    /// a span's `end`. Read only. Blocks; call it off the main thread.
+    pub fn claude_history_after(
+        &self,
+        session_path: String,
+        from: u64,
+    ) -> Result<TranscriptSpan, FfiError> {
+        Ok(runtime().block_on(self.session.claude_history_after(&session_path, from))?)
+    }
+
+    /// Searches all Claude Code conversations of the host for `query`
+    /// (#303), ignoring case, until the returned handle is cancelled or
+    /// dropped. `allow_command` lets it run grep on the host in a
+    /// short-lived tab, over SSH the fast way; without it only the newest
+    /// conversations are read. Needs file access like uploads. Fails right
+    /// away for a query under two characters or on several lines.
+    pub fn search_conversations(
+        &self,
+        query: String,
+        allow_command: bool,
+        observer: Box<dyn ConversationSearchObserver>,
+    ) -> Result<Arc<ConversationSearchHandle>, FfiError> {
+        let search =
+            self.session
+                .search_conversations(&query, allow_command, SearchSink(observer))?;
+        Ok(Arc::new(ConversationSearchHandle { search }))
+    }
+
     /// What changed in the working directory of a pane (#228): `git diff`
     /// against `HEAD` plus untracked files, read only. Runs a small script
     /// in a short-lived, unfocused tab and reads its output through SFTP,
@@ -758,6 +811,37 @@ impl herdr_session::PaneSink for Sink {
 
     fn on_error(&self, message: String) {
         self.0.on_error(message);
+    }
+}
+
+/// Hands what a search finds to the app's observer.
+struct SearchSink(Box<dyn ConversationSearchObserver>);
+
+impl herdr_session::SearchSink for SearchSink {
+    fn on_progress(&self, done: u64, total: u64) {
+        self.0.on_progress(done, total);
+    }
+
+    fn on_hits(&self, hits: Vec<ConversationHit>) {
+        self.0.on_hits(hits);
+    }
+
+    fn on_finished(&self, end: SearchEnd) {
+        self.0.on_finished(end);
+    }
+}
+
+/// Handle for [`HostSession::search_conversations`]; dropping it cancels.
+#[derive(uniffi::Object)]
+pub struct ConversationSearchHandle {
+    search: herdr_session::ConversationSearch,
+}
+
+#[uniffi::export]
+impl ConversationSearchHandle {
+    /// Ends the search; the observer then only gets `on_finished`.
+    pub fn cancel(&self) {
+        self.search.cancel();
     }
 }
 
