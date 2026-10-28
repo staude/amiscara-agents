@@ -789,7 +789,8 @@ struct InputBar: View {
     /// Plain arrow keys in an empty composer go to the pane, to move through
     /// an agent's question or a shell's history; with text they move the
     /// cursor. On the Mac the answer-key monitor takes over while the agent
-    /// waits (`catchAnswerKeys`). In live mode up and down pick from the agent's suggestions.
+    /// waits (`catchAnswerKeys`). In live mode up and down pick from the
+    /// agent's suggestions.
     private func arrow(_ press: KeyPress) -> KeyPress.Result {
         guard press.modifiers.isEmpty, let key = Self.arrowKeys[press.key] else { return .ignored }
         if isLive { return key == "up" || key == "down" ? liveArrow(key) : .ignored }
