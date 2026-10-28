@@ -56,6 +56,44 @@ pub const OPEN_URL_TOKEN_PREFIX: &str = "open_url_";
 /// How many URL pieces the stand-in writes at most (15 × 80 characters).
 pub const OPEN_URL_PARTS: usize = 15;
 
+/// A folder the host's `code` stand-in (`scripts/host/code`) wants opened
+/// in VS Code on a client (#288), from a pane's `editor_id` and
+/// `editor_path_0`, `editor_path_1`, ... tokens.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EditorRequest {
+    pub pane_id: String,
+    /// Distinguishes requests of one pane; dismissing names it.
+    pub editor_id: String,
+    /// Absolute path on the host.
+    pub path: String,
+}
+
+/// Token names of an [`EditorRequest`]; a client that opened one sets
+/// `editor_done` to its id, which also stops the stand-in's fallback to
+/// the host's own VS Code. Pieces as for [`OPEN_URL_PARTS`].
+pub const EDITOR_ID_TOKEN: &str = "editor_id";
+pub const EDITOR_DONE_TOKEN: &str = "editor_done";
+pub const EDITOR_PATH_TOKEN_PREFIX: &str = "editor_path_";
+
+/// The VS Code address that opens the folder `path` (#288): over
+/// Remote-SSH to `target` (an SSH config alias or `user@host`), or as a
+/// local folder without one. The path is percent-encoded except for
+/// unreserved characters and `/`.
+pub fn vscode_url(target: Option<&str>, path: &str) -> String {
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~/".contains(&byte) {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    match target.map(str::trim).filter(|target| !target.is_empty()) {
+        Some(target) => format!("vscode://vscode-remote/ssh-remote+{target}{encoded}"),
+        None => format!("vscode://file{encoded}"),
+    }
+}
+
 /// One agent on the board.
 #[derive(Debug, Clone, Copy)]
 pub struct BoardEntry<'a> {
@@ -183,6 +221,34 @@ impl SessionState {
                     open_id: open_id.clone(),
                     url,
                 })
+            })
+            .collect()
+    }
+
+    /// Folders the panes ask to open in VS Code right now, in pane order;
+    /// like [`Self::open_requests`]. Only absolute paths of printable ASCII
+    /// count; the path ends at the first missing piece.
+    pub fn editor_requests(&self) -> Vec<EditorRequest> {
+        self.panes
+            .iter()
+            .filter_map(|pane| {
+                let editor_id = pane
+                    .tokens
+                    .get(EDITOR_ID_TOKEN)
+                    .filter(|id| !id.is_empty())?;
+                if pane.tokens.get(EDITOR_DONE_TOKEN) == Some(editor_id) {
+                    return None;
+                }
+                let path: String = (0..OPEN_URL_PARTS)
+                    .map_while(|i| pane.tokens.get(&format!("{EDITOR_PATH_TOKEN_PREFIX}{i}")))
+                    .map(String::as_str)
+                    .collect();
+                (path.starts_with('/') && path.bytes().all(|byte| (b'!'..=b'~').contains(&byte)))
+                    .then(|| EditorRequest {
+                        pane_id: pane.pane_id.clone(),
+                        editor_id: editor_id.clone(),
+                        path,
+                    })
             })
             .collect()
     }
@@ -761,5 +827,76 @@ mod tests {
         }
         let upper = with_tokens(&[("open_id", "1-1"), ("open_url_0", "HTTPS://example.com")]);
         assert_eq!(upper.open_requests().len(), 1);
+    }
+
+    #[test]
+    fn editor_requests_join_the_path_pieces() {
+        let state = with_tokens(&[
+            ("editor_id", "1700000000-42"),
+            ("editor_path_0", "/Users/frank/dev/"),
+            ("editor_path_1", "amiscara"),
+            ("editor_path_3", "ignored after a gap"),
+            ("open_id", "kept apart"),
+        ]);
+        assert_eq!(
+            state.editor_requests(),
+            vec![EditorRequest {
+                pane_id: "w1:p2".into(),
+                editor_id: "1700000000-42".into(),
+                path: "/Users/frank/dev/amiscara".into(),
+            }]
+        );
+        assert!(state.open_requests().is_empty());
+        assert!(snapshot().editor_requests().is_empty());
+    }
+
+    #[test]
+    fn editor_requests_marked_done_vanish_but_newer_ones_stay() {
+        let done = with_tokens(&[
+            ("editor_id", "1-1"),
+            ("editor_path_0", "/srv"),
+            ("editor_done", "1-1"),
+        ]);
+        assert!(done.editor_requests().is_empty());
+        let newer = with_tokens(&[
+            ("editor_id", "2-2"),
+            ("editor_path_0", "/srv"),
+            ("editor_done", "1-1"),
+        ]);
+        assert_eq!(newer.editor_requests().len(), 1);
+    }
+
+    #[test]
+    fn editor_requests_need_an_id_and_an_absolute_path() {
+        for tokens in [
+            &[("editor_path_0", "/srv")][..],
+            &[("editor_id", ""), ("editor_path_0", "/srv")],
+            &[("editor_id", "1-1"), ("editor_path_0", "srv")],
+            &[("editor_id", "1-1"), ("editor_path_0", "/a b")],
+            &[("editor_id", "1-1"), ("editor_path_0", "/Übung")],
+            &[("editor_id", "1-1")],
+        ] {
+            assert!(
+                with_tokens(tokens).editor_requests().is_empty(),
+                "{tokens:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn vscode_urls_go_over_ssh_or_open_a_local_folder() {
+        assert_eq!(
+            vscode_url(Some("work"), "/Users/frank/dev/a.b_c~d-e"),
+            "vscode://vscode-remote/ssh-remote+work/Users/frank/dev/a.b_c~d-e"
+        );
+        assert_eq!(
+            vscode_url(Some(" frank@10.0.0.2 "), "/srv/x"),
+            "vscode://vscode-remote/ssh-remote+frank@10.0.0.2/srv/x"
+        );
+        assert_eq!(
+            vscode_url(None, "/a b/#?%Ü"),
+            "vscode://file/a%20b/%23%3F%25%C3%9C"
+        );
+        assert_eq!(vscode_url(Some("  "), "/srv"), "vscode://file/srv");
     }
 }

@@ -27,6 +27,11 @@ pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
 const OPEN_DONE_SOURCE: &str = "amiscara-agents-done";
 /// How long a request lives, as in `scripts/host/amiscara-open`.
 const OPEN_TTL_MS: u64 = 120_000;
+/// The same for folders the host's `code` stand-in offers (#288), which
+/// reports them as `amiscara-agents-editor` and opens VS Code on the host
+/// once the request ran out unmarked.
+const EDITOR_DONE_SOURCE: &str = "amiscara-agents-editor-done";
+const EDITOR_TTL_MS: u64 = 30_000;
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -458,6 +463,41 @@ impl Session {
         Ok(())
     }
 
+    /// Takes an editor request back on the host (#288) like
+    /// [`Self::dismiss_open_request`]: marks it done (`editor_done`), so no
+    /// other client offers it and the stand-in does not open VS Code on the
+    /// host as well.
+    pub async fn dismiss_editor_request(
+        &self,
+        pane_id: &str,
+        request_id: &str,
+    ) -> Result<(), SessionError> {
+        let current = self.state.lock().ok().and_then(|state| {
+            let session = state.as_ref()?.borrow().session.clone()?;
+            session
+                .pane(pane_id)?
+                .tokens
+                .get(herdr_core::EDITOR_ID_TOKEN)
+                .cloned()
+        });
+        if current.as_deref() != Some(request_id) {
+            return Ok(());
+        }
+        let conn = self.connection()?;
+        conn.request(
+            "pane.report_metadata",
+            serde_json::json!({
+                "pane_id": pane_id,
+                "source": EDITOR_DONE_SOURCE,
+                "tokens": { herdr_core::EDITOR_DONE_TOKEN: request_id },
+                "ttl_ms": EDITOR_TTL_MS,
+            }),
+        )
+        .await
+        .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        Ok(())
+    }
+
     /// Sends a prompt to the agent in a pane, followed by Enter.
     pub async fn send_prompt(&self, pane_id: &str, text: &str) -> Result<(), SessionError> {
         let conn = self.connection()?;
@@ -816,6 +856,34 @@ impl Session {
         let pane = session.pane(pane_id)?;
         let cwd = pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())?;
         Some((pane.workspace_id.clone(), cwd))
+    }
+
+    /// The folder to open a pane in VS Code with (#288): its working
+    /// directory as for the file browser. `None` when herdr reports none.
+    pub fn pane_folder(&self, pane_id: &str) -> Option<String> {
+        self.pane_directory(pane_id).map(|(_, dir)| dir)
+    }
+
+    /// The folder to open a space in VS Code with (#288): that of the
+    /// focused pane in its active tab, else of the tab's first pane.
+    pub fn space_folder(&self, workspace_id: &str) -> Option<String> {
+        let pane_id = {
+            let state = self.state.lock().ok()?;
+            let session = state.as_ref()?.borrow().session.clone()?;
+            let tab_id = session.workspace(workspace_id)?.active_tab_id.clone();
+            let panes: Vec<_> = session
+                .panes
+                .iter()
+                .filter(|pane| pane.tab_id == tab_id)
+                .collect();
+            let focused = session
+                .layout(&tab_id)
+                .map(|layout| layout.focused_pane_id.as_str())
+                .and_then(|id| panes.iter().find(|pane| pane.pane_id == id))
+                .or_else(|| panes.iter().find(|pane| pane.focused));
+            focused.or(panes.first())?.pane_id.clone()
+        };
+        self.pane_folder(&pane_id)
     }
 
     /// The directory at the absolute `path` on the host, empty for the
