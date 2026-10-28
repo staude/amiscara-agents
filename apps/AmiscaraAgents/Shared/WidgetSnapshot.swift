@@ -29,6 +29,9 @@ struct WidgetSnapshot: Codable, Equatable {
         var cost: Double = 0
         /// Some tokens came from a model without a price.
         var unpriced = false
+        /// Start of the day the tokens are of, for "Heute"; `nil` for a sum
+        /// over several days.
+        var day: Date? = nil
 
         /// "1,2 Mio. Tokens, ~3,40 $".
         var summary: String {

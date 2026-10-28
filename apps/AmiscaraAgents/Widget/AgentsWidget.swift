@@ -173,7 +173,8 @@ struct AgentsWidgetView: View {
                 Text("Stand \(snapshot.updated, style: .relative)")
             }
             if family == .systemMedium {
-                let hosts = snapshot.hosts.filter { $0.usageToday != nil }
+                // Written on an earlier day, e.g. before the night.
+                let hosts = snapshot.hosts.filter { $0.usageToday?.day.map(Calendar.current.isDateInToday) == true }
                 ForEach(hosts) { host in
                     if let usage = host.usageToday {
                         Text(hosts.count > 1 || snapshot.hosts.count > 1 ? "\(host.name): \(usage.todayText)" : usage.todayText)
