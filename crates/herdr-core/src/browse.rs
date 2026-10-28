@@ -146,12 +146,18 @@ pub async fn save(
     if text.len() as u64 > MAX_EDIT_BYTES {
         return Err(TransportError::Files("file too large to edit".into()));
     }
+    // As for `editable`: no Windows line endings, e.g. from a paste.
+    if text.contains('\r') {
+        return Err(TransportError::Files(
+            "text has Windows line endings".into(),
+        ));
+    }
     conn.write_file(path, text.as_bytes(), size, modified)
         .await?;
     // Saving again from the old base would report a change on the host.
-    preview(conn, path)
-        .await
-        .map_err(|err| TransportError::Files(format!("saved, but not read back: {err}")))
+    preview(conn, path).await.map_err(|err| {
+        TransportError::Files(format!("saved, but not read back ({err}); reload the file"))
+    })
 }
 
 /// Whether `data`, the start of the file `name` of `size` bytes, is all of
