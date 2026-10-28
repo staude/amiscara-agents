@@ -10,6 +10,7 @@ struct OverviewView: View {
 
     @State private var selecting = false
     @State private var selected: Set<String> = []
+    @State private var sending = false
 
     var body: some View {
         let overview = store.overview
@@ -64,20 +65,22 @@ struct OverviewView: View {
                     selecting.toggle()
                     selected = []
                 }
-                .disabled(!selecting && overview.isEmpty)
+                // Leaving the selection while sending would stop it.
+                .disabled(sending || !selecting && overview.isEmpty)
             }
         }
         .safeAreaInset(edge: .bottom) {
             if selecting {
-                MultiSendBar(targets: targets.filter { selected.contains($0.id) }) {
+                MultiSendBar(targets: targets.filter { selected.contains($0.id) }, sending: $sending) {
                     selecting = false
                     selected = []
                 }
             }
         }
-        // An agent that starts waiting or loses its host leaves the selection.
+        // A picked agent that starts waiting or loses its host stays picked,
+        // dimmed with the reason, so the result names it; a gone one leaves.
         .onChange(of: targets) { _, targets in
-            selected.formIntersection(targets.filter(\.isSelectable).map(\.id))
+            selected.formIntersection(targets.map(\.id))
         }
     }
 

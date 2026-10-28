@@ -13,9 +13,19 @@ extension HostStore {
         progress: @MainActor (MultiSend.Result) -> Void
     ) async -> [MultiSend.Result] {
         var results: [MultiSend.Result] = []
+        // A host found out of reach is not waited for again.
+        var unreachable: [UUID: String] = [:]
         for target in targets {
             if Task.isCancelled { break }
-            let outcome = await sendOne(prompt, to: target)
+            let outcome: MultiSend.Outcome
+            if let reason = unreachable[target.hostID] {
+                outcome = .failed(reason)
+            } else {
+                outcome = await sendOne(prompt, to: target)
+                if case .failed(let reason) = outcome, connection(for: target.hostID)?.isLive != true {
+                    unreachable[target.hostID] = reason
+                }
+            }
             let result = MultiSend.Result(target: target, outcome: outcome)
             results.append(result)
             progress(result)

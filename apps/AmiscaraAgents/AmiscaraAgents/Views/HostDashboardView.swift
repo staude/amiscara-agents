@@ -14,6 +14,7 @@ struct HostDashboardView: View {
 
     @State private var selecting = false
     @State private var selected: Set<String> = []
+    @State private var sending = false
 
     var body: some View {
         let shown = Shown(connection, boards: store.cloudBoards)
@@ -86,20 +87,22 @@ struct HostDashboardView: View {
                     selecting.toggle()
                     selected = []
                 }
-                .disabled(!selecting && !(connection.isLive && connection.config.inputAllowed))
+                // Leaving the selection while sending would stop it.
+                .disabled(sending || !selecting && !(connection.isLive && connection.config.inputAllowed))
             }
         }
         .safeAreaInset(edge: .bottom) {
             if selecting {
-                MultiSendBar(targets: targets.filter { selected.contains($0.id) }) {
+                MultiSendBar(targets: targets.filter { selected.contains($0.id) }, sending: $sending) {
                     selecting = false
                     selected = []
                 }
             }
         }
-        // An agent that starts waiting or loses its host leaves the selection.
+        // A picked agent that starts waiting or loses its host stays picked,
+        // dimmed with the reason, so the result names it; a gone one leaves.
         .onChange(of: targets) { _, targets in
-            selected.formIntersection(targets.filter(\.isSelectable).map(\.id))
+            selected.formIntersection(targets.map(\.id))
         }
         // The page stays when another host is chosen.
         .onChange(of: connection.id) {

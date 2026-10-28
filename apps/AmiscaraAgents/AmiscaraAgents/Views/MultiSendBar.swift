@@ -9,6 +9,8 @@ struct MultiSendBar: View {
     @Environment(HostStore.self) private var store
     /// The picked agents in list order.
     let targets: [MultiSend.Target]
+    /// A send is running; the page keeps the selection mode meanwhile.
+    @Binding var sending: Bool
     /// Clears the selection and ends the selection mode.
     let close: () -> Void
 
@@ -18,7 +20,6 @@ struct MultiSendBar: View {
     @State private var total = 0
     @State private var results: [MultiSend.Result] = []
 
-    private var sending: Bool { sendTask != nil }
     private var canSend: Bool {
         !sending && !targets.isEmpty && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -79,10 +80,13 @@ struct MultiSendBar: View {
         let targets = targets
         total = targets.count
         results = []
+        sending = true
         sendTask = Task {
             let done = await store.sendToMany(prompt, to: targets) { results.append($0) }
-            if done.contains(where: { $0.outcome == .sent }) { text = "" }
+            // Text typed meanwhile is kept.
+            if done.contains(where: { $0.outcome == .sent }), text == prompt { text = "" }
             sendTask = nil
+            sending = false
         }
     }
 }
@@ -160,10 +164,13 @@ struct MultiSendRow<Content: View>: View {
 }
 
 extension Set where Element == String {
-    /// Picks or unpicks an agent, only one that can be picked.
+    /// Picks an agent that can be picked, or unpicks one.
     mutating func toggle(_ target: MultiSend.Target) {
-        guard target.isSelectable else { return }
-        if contains(target.id) { remove(target.id) } else { insert(target.id) }
+        if contains(target.id) {
+            remove(target.id)
+        } else if target.isSelectable {
+            insert(target.id)
+        }
     }
 }
 #endif
