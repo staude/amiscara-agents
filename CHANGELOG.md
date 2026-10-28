@@ -571,6 +571,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
   hosts out of reach answer from the Mac's board, with screen lines only
   for waiting agents, and the agent picker of all agent intents also lists
   their agents. Siri also understands an agent by its space name.
+- Folders in VS Code (#288): `scripts/host/code` stands in for `code` in
+  herdr panes; `code <folder>` reports the folder as pane metadata
+  (`editor_id`, `editor_path_0` to `editor_path_14`, 30 seconds) and returns
+  at once. The Mac app (remote hosts) and the desktop app offer it ("Agent
+  möchte einen Ordner in VS Code öffnen") and open
+  `vscode://vscode-remote/ssh-remote+<target><path>`; opening marks it done
+  (`editor_done`), otherwise the stand-in opens the real `code` on the host
+  after 30 seconds. "In VS Code öffnen" in a space's context menu and in the
+  pane header opens the pane's working directory the same way. New optional
+  per-host "SSH-Ziel für VS Code", default `user@host`. Core:
+  `SessionState::editor_requests`, `vscode_url`,
+  `SessionUpdate::editor_requests`, `Session::dismiss_editor_request`,
+  `pane_folder`, `space_folder`.
 
 ### Changed
 
