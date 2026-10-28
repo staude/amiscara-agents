@@ -600,6 +600,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Conversation search (#303): a search field in the host dashboard (Mac,
+  iPhone, iPad) searches all Claude Code conversations of the host on
+  Return, ignoring case, at least two characters. Hits are grouped by space
+  (the pane's directory or the deepest one above it, else "Ohne Space" with
+  the directory), then by session with its title, each with a snippet and
+  date, newest first, at most 200. A tap opens the conversation at the hit,
+  marked, with "Neuere Einträge laden" below. Index-free: a local host's
+  files are read directly; over SSH with input allowed a script runs grep
+  in a short-lived, unfocused tab (prompts and answers only, 20 lines per
+  file, 300 in all), otherwise the app reads the files of the last 30 days,
+  newest first, up to 300 MB, and says so. Progress with "Abbrechen"; a
+  cancel closes the tab. Needs file access. Core: `Connection::is_local`,
+  `claude::Query`, `hits_in_line`, `snippet`, `search_script`,
+  `read_hit_line`, `read_forward`, `Session::search_conversations`,
+  `claude_history_at`, `claude_history_after`, `TranscriptSpan`.
 - Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
   Z–A) or manually; manual starts from the order shown and changes by drag
   and drop in the sidebar, within a group and only on the same host. Stored
