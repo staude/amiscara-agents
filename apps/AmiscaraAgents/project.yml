@@ -30,6 +30,11 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: "2.9.2"
+  # The global shortcut of the quick composer and its recorder in the
+  # settings (#307).
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "1.10.0"
 targets:
   AmiscaraAgents:
     type: application
@@ -56,6 +61,8 @@ targets:
       - target: AmiscaraAgentsShare
       - package: Sparkle
         product: Sparkle
+      - package: KeyboardShortcuts
+        product: KeyboardShortcuts
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
