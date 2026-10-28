@@ -149,19 +149,20 @@ final class HostStore {
         for _ in 0..<20 where connection.update?.board.contains(where: { $0.paneId == paneID }) != true {
             try? await Task.sleep(for: .milliseconds(250))
         }
+        guard connection.isLive else { return .failed(inputErrorMessage(ConnectionFailure.notConnected)) }
         guard let item = connection.update?.board.first(where: { $0.paneId == paneID }),
               item.agentState == .blocked
         else { return .failed(String(localized: "Der Agent wartet nicht mehr.")) }
         if let shown {
-            let now = await connection.choiceQuestion(paneID: paneID)?.binding
+            let asked = await connection.choiceQuestion(paneID: paneID)
+            let now = asked?.binding
             guard QuestionBinding.stillAsked(shown: shown, now: now) else {
                 // No question read (none detected, or a read error): only
                 // the pane opens. A new notification would carry the fixed
                 // answers, unbound.
-                if now != nil {
-                    notifier.notify([item], on: connection.config) { [weak connection] paneID in
-                        await connection?.choiceQuestion(paneID: paneID)
-                    }
+                if let asked {
+                    // The question just read, not a second read that may fail.
+                    notifier.notify([item], on: connection.config) { _ in asked }
                 }
                 return .questionChanged
             }
