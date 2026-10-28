@@ -345,6 +345,14 @@ Enter to select · ↑/↓ to navigate · n to add notes · Esc to cancel
     }
 
     #[test]
+    fn queued_message_stands_above_the_dialog() {
+        // Live: a message sent while the agent works waits above its dialog,
+        // the dialog keeps the bottom.
+        let text = PERMISSION.replacen("\n────", "\n❯ queued follow-up note\n\n────", 1);
+        assert_eq!(detect_text(&text).map(|choices| choices.len()), Some(4));
+    }
+
+    #[test]
     fn numbered_prompt_echo_is_no_question() {
         let text = "\
 ❯ Reply with just OK:
