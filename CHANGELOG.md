@@ -644,7 +644,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - README and screenshots cover the features since 22 October; the
   screenshot run adds the overview, host dashboard, file browser and an
   offline pane for Mac, iPhone and iPad, from the new `-demoView` values
-  `overview`, `dashboard`, `files` and `offline` (#290).
+  `overview`, `dashboard`, `files` and `offline` (#290). The new
+  `-demoHome` sets `HOME` at launch, because the simulators ignore
+  `SIMCTL_CHILD_HOME`; the iPhone and iPad conversation and file browser
+  shots read the demo home again instead of the app container.
 - iPhone Duo: the dictation microphone sits in the vertical bar instead
   of the key row while the bar is shown (#222).
 - The magnifier in a pane header and in the iPhone Duo's side bar closes
