@@ -539,15 +539,17 @@ extension HostStore {
     /// What a waiting agent asks, from its "wartet" record in iCloud; not
     /// from a record older than the waiting that began at `since`, which
     /// would be an earlier question. The Mac writes the record a moment
-    /// after it sees the state; without `since` it did not see the waiting
-    /// begin and may have written no record for it.
+    /// after it sees the state, so only clock differences are allowed for:
+    /// it skips a repeated question for a minute and keeps the old record.
+    /// Without `since` it did not see the waiting begin and may have
+    /// written no record for it.
     private static func waitingExcerpt(hostKey: String, paneID: String, since: Date?) async -> String? {
         guard let since else { return nil }
         let id = CKRecord.ID(recordName: CloudPush.recordName(CloudPush.waitingType, hostKey, paneID))
         guard let record = try? await CloudPush.container.privateCloudDatabase.record(for: id),
               let text = record[CloudPush.Field.excerpt] as? String, !text.isEmpty
         else { return nil }
-        guard let written = record.modificationDate, written >= since.addingTimeInterval(-60) else { return nil }
+        guard let written = record.modificationDate, written >= since.addingTimeInterval(-5) else { return nil }
         return text
     }
     #endif
