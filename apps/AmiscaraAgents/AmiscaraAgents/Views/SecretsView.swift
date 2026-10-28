@@ -141,14 +141,14 @@ struct SecretsView: View {
             loadError = nil
         } catch {
             hostNames = nil
-            loadError = String(localized: "Geheimnisse auf dem Host nicht lesbar: \(inputErrorMessage(error))")
+            loadError = String(localized: "Geheimnisse auf dem Host nicht lesbar: \(Self.reason(error))")
         }
     }
 
     private func sendNew() {
         let name = trimmedName
         let value = newValue
-        run {
+        run(failed: { String(localized: "Senden fehlgeschlagen: \($0)") }) {
             try await connection.sendSecret(name: name, value: value)
             try SecretStore.save(value: value, name: name, host: hostID)
             newName = ""
@@ -157,7 +157,7 @@ struct SecretsView: View {
     }
 
     private func resend(_ name: String) {
-        run {
+        run(failed: { String(localized: "Senden fehlgeschlagen: \($0)") }) {
             guard let value = try SecretStore.load(name: name, host: hostID) else { return }
             try await connection.sendSecret(name: name, value: value)
         }
@@ -166,20 +166,34 @@ struct SecretsView: View {
     /// On the host first, so a value whose file could not be deleted stays
     /// here to try again.
     private func remove(_ name: String) {
-        run {
+        run(failed: { String(localized: "Entfernen fehlgeschlagen: \($0)") }) {
             try await connection.removeSecret(name: name)
             SecretStore.delete(name: name, host: hostID)
         }
     }
 
-    private func run(_ action: @escaping @MainActor () async throws -> Void) {
+    /// The core's own message for file errors, which `inputErrorMessage`
+    /// words for uploads and reading.
+    private static func reason(_ error: Error) -> String {
+        switch error {
+        case FfiError.Upload(let message), FfiError.Files(let message):
+            message
+        default:
+            inputErrorMessage(error)
+        }
+    }
+
+    private func run(
+        failed: @escaping (String) -> String,
+        _ action: @escaping @MainActor () async throws -> Void
+    ) {
         busy = true
         actionError = nil
         Task {
             do {
                 try await action()
             } catch {
-                actionError = inputErrorMessage(error)
+                actionError = failed(Self.reason(error))
             }
             await reload()
             busy = false

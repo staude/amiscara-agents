@@ -2361,6 +2361,16 @@
         }
       }
     },
+    "Entfernen fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing failed: %@"
+          }
+        }
+      }
+    },
     "Entsperren" : {
       "localizations" : {
         "en" : {
