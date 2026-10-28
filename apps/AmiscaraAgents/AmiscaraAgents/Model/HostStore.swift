@@ -80,7 +80,7 @@ final class HostStore {
                 self.cloudPush.send(update.attention, hostKey: key, hostName: name) { [weak connection] paneID in
                     await connection?.screenExcerpt(paneID: paneID, lines: CloudPush.excerptLines)
                 }
-                self.cloudPush.sendBoard(update.board, live: connection.isLive, hostKey: key, hostName: name)
+                self.cloudPush.sendBoard(connection.snapshotAgents, live: connection.isLive, hostKey: key, hostName: name)
             }
             #endif
         }

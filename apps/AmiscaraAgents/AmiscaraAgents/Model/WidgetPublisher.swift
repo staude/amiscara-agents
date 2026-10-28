@@ -60,7 +60,7 @@ final class WidgetPublisher {
                 id: connection.id,
                 name: connection.config.name,
                 live: connection.isLive,
-                agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init),
+                agents: connection.snapshotAgents,
                 hostKey: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
             )
         }
@@ -94,14 +94,27 @@ final class WidgetPublisher {
 }
 
 extension WidgetSnapshot.Agent {
-    init(_ item: BoardItem) {
+    init(_ item: BoardItem, since: Date? = nil) {
         self.init(
             paneID: item.paneId,
             workspaceID: item.workspaceId,
             place: [item.workspaceName, item.tabLabel].filter { !$0.isEmpty }.joined(separator: " · "),
             name: item.name ?? item.agent,
-            state: WidgetSnapshot.State(item.agentState)
+            state: WidgetSnapshot.State(item.agentState),
+            since: since
         )
+    }
+}
+
+extension HostConnection {
+    /// The board for the widgets and the Mac's iCloud boards, with the
+    /// time each state began where this app saw it begin (#275).
+    var snapshotAgents: [WidgetSnapshot.Agent] {
+        (update?.board ?? []).map { item in
+            let state = WidgetSnapshot.State(item.agentState)
+            let entry = clock.entry(item.paneId).flatMap { $0.state == state && $0.exact ? $0 : nil }
+            return WidgetSnapshot.Agent(item, since: entry?.since)
+        }
     }
 }
 
