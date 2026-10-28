@@ -2015,6 +2015,16 @@
         }
       }
     },
+    "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the Claude sessions through file access like “Upload images” (Edit Host)."
+          }
+        }
+      }
+    },
     "Die Datei" : {
       "localizations" : {
         "en" : {
@@ -2811,12 +2821,12 @@
         }
       }
     },
-    "herdr kennt den Ordner dieses Space nicht." : {
+    "herdr kennt den Ordner dieser Pane nicht." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "herdr does not know this space's folder."
+            "value" : "herdr does not know this pane's folder."
           }
         }
       }

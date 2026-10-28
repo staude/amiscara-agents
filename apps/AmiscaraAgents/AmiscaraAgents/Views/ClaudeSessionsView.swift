@@ -1,14 +1,14 @@
 import SwiftUI
 
-/// The Claude Code sessions of a space's folder (#304), newest first, to
-/// continue one with `claude --resume` in a new tab of the space or in the
-/// shown shell pane. A new shell has the current environment, which a pane
+/// The Claude Code sessions of the shown pane's folder, else the space's
+/// (#304), newest first, to continue one with `claude --resume` in a new
+/// tab of the space or in the shown shell pane. A new shell has the current environment, which a pane
 /// started before a change to the shell's startup files lacks.
 struct ClaudeSessionsView: View {
     let target: ClaudeSessionsTarget
     let onCreated: (Created) -> Void
     @Environment(\.dismiss) private var dismiss
-    /// `nil` while loading; also when the space reports no folder.
+    /// `nil` while loading; also when herdr reports no folder.
     @State private var folder: String?
     @State private var folderLoaded = false
     @State private var paneFolder: String?
@@ -29,7 +29,7 @@ struct ClaudeSessionsView: View {
                     Text(loadError)
                         .foregroundStyle(.secondary)
                 } else if folderLoaded && folder == nil {
-                    Text("herdr kennt den Ordner dieses Space nicht.")
+                    Text("herdr kennt den Ordner dieser Pane nicht.")
                         .foregroundStyle(.secondary)
                 } else if let sessions, sessions.isEmpty {
                     ContentUnavailableView("Keine Sitzungen in diesem Ordner", systemImage: "clock.arrow.circlepath")
@@ -72,7 +72,8 @@ struct ClaudeSessionsView: View {
                     Button("Schließen") { dismiss() }
                 }
             }
-            .task { await load() }
+            // Again once a reconnecting host is back.
+            .task(id: connection.isLive) { await load() }
         }
         #if os(macOS)
         .frame(minWidth: 480, minHeight: 400)
@@ -124,6 +125,7 @@ struct ClaudeSessionsView: View {
     }
 
     private func load() async {
+        loadError = nil
         guard connection.isLive else {
             loadError = String(localized: "Keine Verbindung zum Host.")
             return

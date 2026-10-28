@@ -288,7 +288,7 @@ final class HostConnection: Identifiable {
     /// The Claude Code sessions of a folder on the host, newest first
     /// (#304). Read only, with the same SFTP access as `claudeHistory`.
     func claudeSessions(folder: String) async throws -> [ClaudeSessionItem] {
-        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard config.uploadAllowed else { throw ConnectionFailure.sessionsFilesOff }
         guard let session, isLive else { throw ConnectionFailure.notConnected }
         return try await Task.detached {
             try session.claudeSessions(folder: folder)
@@ -572,6 +572,7 @@ enum ConnectionFailure: LocalizedError {
     case diffFilesOff
     case browseFilesOff
     case secretsFilesOff
+    case sessionsFilesOff
     case unsafePath
 
     var errorDescription: String? {
@@ -590,6 +591,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:
             String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .sessionsFilesOff:
+            String(localized: "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
             String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:
