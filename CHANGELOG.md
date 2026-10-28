@@ -541,6 +541,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   quick switcher) comes back on the tab and pane shown last, also after a
   restart (Mac, iPhone, iPad, Windows, Linux). A tab closed on the host
   falls back to herdr's active tab; an agent row still opens its own tab.
+- Siri and Shortcuts: "Was macht der Agent?" (#275) answers for one agent
+  with its status, how long it has been in it and the last three lines of
+  its screen without input box and footer, also as text for further steps
+  ("Was macht <Agent> in Amiscara Agents?"). The app measures the duration
+  itself; the Mac carries it in its iCloud boards. On the iPhone and iPad,
+  hosts out of reach answer from the Mac's board, with screen lines only
+  for waiting agents, and the agent picker of all agent intents also lists
+  their agents. Siri also understands an agent by its space name.
 
 ### Changed
 
