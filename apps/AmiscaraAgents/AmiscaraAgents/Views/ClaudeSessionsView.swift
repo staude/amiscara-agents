@@ -25,7 +25,10 @@ struct ClaudeSessionsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if folderLoaded && folder == nil {
+                if let loadError, sessions == nil && !folderLoaded {
+                    Text(loadError)
+                        .foregroundStyle(.secondary)
+                } else if folderLoaded && folder == nil {
                     Text("herdr kennt den Ordner dieses Space nicht.")
                         .foregroundStyle(.secondary)
                 } else if let sessions, sessions.isEmpty {
@@ -121,9 +124,18 @@ struct ClaudeSessionsView: View {
     }
 
     private func load() async {
-        folder = await connection.spaceFolder(workspaceID)
+        guard connection.isLive else {
+            loadError = String(localized: "Keine Verbindung zum Host.")
+            return
+        }
+        // The shown pane's folder: the app shows its own tab, which need
+        // not be herdr's active one that `spaceFolder` goes by.
         if let paneID {
             paneFolder = await connection.paneFolder(paneID)
+        }
+        folder = paneFolder
+        if folder == nil {
+            folder = await connection.spaceFolder(workspaceID)
         }
         folderLoaded = true
         guard let folder else { return }
