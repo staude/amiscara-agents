@@ -106,6 +106,13 @@ struct WorkspaceDetailView: View {
             // space created a moment ago): its tab.
             if known, tabID == nil { focus(on: selection) }
         }
+        .onChange(of: isGone) { _, gone in
+            // The space shown last was closed on the host: not again on launch.
+            guard gone, let selection, let last = PaneCache.shared.lastOpen,
+                  last.host == selection.hostID, last.workspace == selection.workspaceID
+            else { return }
+            PaneCache.shared.lastOpen = nil
+        }
         .onChange(of: tabID) { remember() }
         .onChange(of: paneID, initial: true) { _, pane in
             remember()
@@ -120,6 +127,14 @@ struct WorkspaceDetailView: View {
         guard let selection else { return false }
         return store.connection(for: selection.hostID)?.update?.workspaces
             .contains { $0.workspaceId == selection.workspaceID } ?? false
+    }
+
+    /// Whether the live host no longer lists the selected space.
+    private var isGone: Bool {
+        guard let selection, let connection = store.connection(for: selection.hostID),
+              connection.isLive, connection.update != nil
+        else { return false }
+        return !isKnown
     }
 
     /// The pane to show for a space the host does not list, if its last

@@ -168,7 +168,10 @@ struct ContentView: View {
         Self.reopenedLastPane = true
         guard selection == nil, store.notifier.openRequest == nil,
               let last = PaneCache.shared.lastOpen,
-              store.connection(for: last.host) != nil
+              store.connection(for: last.host) != nil,
+              // Without its screen, e.g. after iOS emptied the cache, the
+              // pane may not open while offline: the start screen instead.
+              let pane = last.pane, PaneCache.shared.entry(host: last.host, pane: pane) != nil
         else { return }
         selection = SpaceRef(hostID: last.host, workspaceID: last.workspace, paneID: last.pane)
     }
