@@ -430,19 +430,29 @@ extension HostStore {
     /// At most once a minute: Siri then asks for the agents, and that
     /// reconnects hosts that are not live.
     func updateShortcutAgents(_ snapshot: WidgetSnapshot) {
+        // Name and space are what Siri understands; tabs do not count.
         shortcutAgentsSeen = Set(snapshot.hosts.flatMap { host in
-            host.agents.map { "\(host.id)/\($0.paneID)|\($0.name)|\($0.place)" }
+            host.agents.map { agent in
+                let space = agent.place.components(separatedBy: " · ").first ?? agent.place
+                return "\(host.id)/\(agent.paneID)|\(agent.name)|\(space)"
+            }
         })
-        guard shortcutPause == nil, shortcutAgentsSeen != shortcutAgentsSent else { return }
+        guard shortcutPause == nil else { return }
+        sendShortcutAgents()
+    }
+
+    /// Sends the agents seen when they changed, then pauses a minute and
+    /// sends what changed meanwhile.
+    private func sendShortcutAgents() {
+        guard shortcutAgentsSeen != shortcutAgentsSent else {
+            shortcutPause = nil
+            return
+        }
         shortcutAgentsSent = shortcutAgentsSeen
         HerdrShortcuts.updateAppShortcutParameters()
         shortcutPause = Task { [weak self] in
             try? await Task.sleep(for: .seconds(60))
-            guard let self else { return }
-            shortcutPause = nil
-            guard shortcutAgentsSeen != shortcutAgentsSent else { return }
-            shortcutAgentsSent = shortcutAgentsSeen
-            HerdrShortcuts.updateAppShortcutParameters()
+            self?.sendShortcutAgents()
         }
     }
 
@@ -529,15 +539,15 @@ extension HostStore {
     /// What a waiting agent asks, from its "wartet" record in iCloud; not
     /// from a record older than the waiting that began at `since`, which
     /// would be an earlier question. The Mac writes the record a moment
-    /// after it sees the state.
+    /// after it sees the state; without `since` it did not see the waiting
+    /// begin and may have written no record for it.
     private static func waitingExcerpt(hostKey: String, paneID: String, since: Date?) async -> String? {
+        guard let since else { return nil }
         let id = CKRecord.ID(recordName: CloudPush.recordName(CloudPush.waitingType, hostKey, paneID))
         guard let record = try? await CloudPush.container.privateCloudDatabase.record(for: id),
               let text = record[CloudPush.Field.excerpt] as? String, !text.isEmpty
         else { return nil }
-        if let since, let written = record.modificationDate, written < since.addingTimeInterval(-60) {
-            return nil
-        }
+        guard let written = record.modificationDate, written >= since.addingTimeInterval(-60) else { return nil }
         return text
     }
     #endif
