@@ -7,10 +7,12 @@
 //! open pane current, [`fullscreen`] looks back in a full-screen agent.
 //! [`spaces`] orders the sidebar and groups spaces by
 //! name, [`browse`] reads files below the home directory. [`question`]
-//! finds an agent's choice question on the screen.
+//! finds an agent's choice question on the screen. [`chains`] stores and
+//! fires prompts that follow an agent's change (#300).
 
 pub mod actions;
 pub mod browse;
+pub mod chains;
 pub mod claude;
 pub mod diff;
 pub mod fullscreen;
