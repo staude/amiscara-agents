@@ -66,6 +66,10 @@ struct HostEditorView: View {
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
                             .technicalInput()
                         sessionField
+                        #if os(macOS)
+                        TextField("SSH-Ziel für VS Code", text: sshTarget, prompt: Text(verbatim: sshTargetPlaceholder))
+                            .technicalInput()
+                        #endif
                     }
                     importedKeySection
                     hostKeySection
@@ -349,6 +353,23 @@ struct HostEditorView: View {
             knownSessions = []
         }
     }
+
+    #if os(macOS)
+    /// The SSH target for VS Code (#288); empty stores nil, so the default
+    /// follows user and host.
+    private var sshTarget: Binding<String> {
+        Binding {
+            config.sshTarget ?? ""
+        } set: {
+            let target = $0.trimmingCharacters(in: .whitespaces)
+            config.sshTarget = target.isEmpty ? nil : target
+        }
+    }
+
+    private var sshTargetPlaceholder: String {
+        config.user.isEmpty || config.host.isEmpty ? "user@host" : "\(config.user)@\(config.host)"
+    }
+    #endif
 
     private var socketPlaceholder: String {
         config.user.isEmpty ? String(localized: "/Users/<benutzer>/.config/herdr/herdr.sock") : defaultRemoteSocket(user: config.user)

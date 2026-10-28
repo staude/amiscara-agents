@@ -196,6 +196,15 @@ final class HostStore {
         .filter { !ignoredOpenRequests.contains($0.key) }
     }
 
+    /// Folders agents on the hosts want opened in VS Code (#288), like
+    /// `openRequests`; hidden with the same "Ignorieren".
+    var editorRequests: [PendingEditor] {
+        connections.flatMap { connection in
+            (connection.update?.editorRequests ?? []).map { PendingEditor(connection: connection, request: $0) }
+        }
+        .filter { !ignoredOpenRequests.contains($0.key) }
+    }
+
     func connection(for id: UUID?) -> HostConnection? {
         connections.first { $0.id == id }
     }
@@ -329,6 +338,16 @@ final class HostStore {
         // Added, removed or renamed hosts show in the widgets at once.
         widgets.publish(self)
     }
+}
+
+/// A folder an agent on a host wants opened in VS Code, with its host.
+struct PendingEditor: Identifiable {
+    let connection: HostConnection
+    let request: EditorRequest
+
+    /// As `PendingOpen.key`, apart from page requests of the same pane.
+    var key: String { "editor|\(connection.id)|\(request.paneId)|\(request.requestId)" }
+    var id: String { key }
 }
 
 /// A page an agent on a host wants opened, with its host.

@@ -39,6 +39,10 @@ struct HostSidebar: View {
     /// The entry chosen there, opened in the editor once the list is gone.
     @State private var chosenSession: HostConfig?
     @State private var spaceDrag = SpaceDragState()
+    #if os(macOS)
+    /// Why "In VS Code öffnen" failed (#288).
+    @State private var editorError: String?
+    #endif
     /// herdr's own switch under "agents": by space ("grouped") or by state.
     @AppStorage("agentOrder") private var agentOrder = AgentOrder.grouped
     /// Folded sections as "hostID/spaces", "hostID/agents" or
@@ -149,6 +153,9 @@ struct HostSidebar: View {
         } message: {
             Text(swipeError ?? "")
         }
+        #if os(macOS)
+        .editorErrorAlert($editorError)
+        #endif
         #if !os(tvOS)
         .sensoryFeedback(.success, trigger: swipeSent)
         #endif
@@ -347,16 +354,26 @@ struct HostSidebar: View {
 
     private func spaceRow(_ connection: HostConnection, _ update: SessionUpdate, _ entry: SpaceOrder.Entry, grouped: Bool, reorder entries: [SpaceOrder.Entry]?) -> some View {
         let key = entry.workspace.workspaceId
+        let renamable = RenameTarget.available(on: connection)
         return SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
             .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: key)))
             .spaceReordering(key, on: connection.id, among: entries, drag: spaceDrag) { reorder(connection, $0, dragged: $1, onto: key) }
-            .renameAction(available: RenameTarget.available(on: connection)) {
+            #if os(macOS)
+            // Without renaming the row has no menu of its own yet.
+            .contextMenu(when: !renamable) {
+                OpenInVSCodeButton(connection: connection, target: .space(key), error: $editorError)
+            }
+            #endif
+            .renameAction(available: renamable) {
                 renaming = RenameTarget(
                     connection: connection,
                     kind: .space(workspaceID: entry.workspace.workspaceId),
                     current: entry.workspace.label
                 )
             } more: {
+                #if os(macOS)
+                OpenInVSCodeButton(connection: connection, target: .space(key), error: $editorError)
+                #endif
                 if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
                     Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
                         newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
@@ -967,6 +984,16 @@ extension View {
         action: @escaping () -> Void
     ) -> some View {
         renameAction(available: available, label: label, action: action) { EmptyView() }
+    }
+
+    /// A context menu only when `condition` holds.
+    @ViewBuilder
+    func contextMenu<Menu: View>(when condition: Bool, @ViewBuilder _ menu: () -> Menu) -> some View {
+        if condition {
+            contextMenu { menu() }
+        } else {
+            self
+        }
     }
 
     /// Same, with further entries in the context menu: a view has only one.

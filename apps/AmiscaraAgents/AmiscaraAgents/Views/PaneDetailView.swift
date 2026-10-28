@@ -10,6 +10,10 @@ struct PaneDetailView: View {
     @State private var showingConversation = false
     @State private var showingDiff = false
     @State private var showingFiles = false
+    #if os(macOS)
+    /// Why "In VS Code öffnen" failed (#288).
+    @State private var editorError: String?
+    #endif
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
     /// The pane's buttons sit in the vertical bar of an iPhone Duo (#215).
     @State private var verticalBar = false
@@ -88,6 +92,9 @@ struct PaneDetailView: View {
                 ConversationView(connection: connection, paneID: selection.paneID)
             }
         }
+        #if os(macOS)
+        .editorErrorAlert($editorError)
+        #endif
         #if !os(tvOS)
         .sheet(isPresented: $showingDiff) {
             if let selection, let connection = store.connection(for: selection.hostID) {
@@ -193,6 +200,11 @@ struct PaneDetailView: View {
         }
         .labelStyle(.iconOnly)
         .help(String(localized: "Dateien im Arbeitsverzeichnis der Pane"))
+        #endif
+        #if os(macOS)
+        OpenInVSCodeButton(connection: connection, target: .pane(paneID), error: $editorError)
+            .labelStyle(.iconOnly)
+            .help(String(localized: "Arbeitsverzeichnis der Pane in VS Code öffnen"))
         #endif
         SelectTextButton(title: pane?.title.isEmpty == false ? pane!.title : paneID) {
             model.content?.plainText ?? ""

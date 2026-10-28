@@ -407,6 +407,36 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Takes an editor request back on the host (#288), so other devices
+    /// stop offering it and the host does not open VS Code itself. Best
+    /// effort like `dismiss(_:)`.
+    func dismiss(editor request: EditorRequest) async {
+        guard config.inputAllowed, let session else { return }
+        let (paneID, requestID) = (request.paneId, request.requestId)
+        try? await Task.detached {
+            try session.dismissEditorRequest(paneId: paneID, requestId: requestID)
+        }.value
+    }
+
+    /// The VS Code address of a folder on this host (#288): over
+    /// Remote-SSH to `config.editorTarget`, directly on this Mac.
+    func editorURL(path: String) -> URL? {
+        URL(string: vscodeUrl(target: config.editorTarget, path: path))
+    }
+
+    /// A pane's working directory, for "In VS Code öffnen" (#288).
+    func paneFolder(_ paneID: String) async -> String? {
+        guard let session else { return nil }
+        return await Task.detached { session.paneFolder(paneId: paneID) }.value
+    }
+
+    /// The working directory of a space's focused pane, for "In VS Code
+    /// öffnen" (#288).
+    func spaceFolder(_ workspaceID: String) async -> String? {
+        guard let session else { return nil }
+        return await Task.detached { session.spaceFolder(workspaceId: workspaceID) }.value
+    }
+
     /// Types text into a pane without Enter.
     func send(text: String, to paneID: String) async throws {
         let session = try writableSession()

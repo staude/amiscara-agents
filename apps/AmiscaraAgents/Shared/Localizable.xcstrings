@@ -755,6 +755,16 @@
         }
       }
     },
+    "Agent in %@ möchte einen Ordner in VS Code öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An agent in %@ wants to open a folder in VS Code"
+          }
+        }
+      }
+    },
     "Agent starten" : {
       "localizations" : {
         "en" : {
@@ -1031,6 +1041,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Working"
+          }
+        }
+      }
+    },
+    "Arbeitsverzeichnis der Pane in VS Code öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the pane's working directory in VS Code"
           }
         }
       }
@@ -2511,6 +2531,16 @@
         }
       }
     },
+    "Für diese Pane ist kein Ordner bekannt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No folder is known for this pane."
+          }
+        }
+      }
+    },
     "Für diesen Host liegt kein Schlüssel in der Keychain." : {
       "localizations" : {
         "en" : {
@@ -2917,6 +2947,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "In the clipboard"
+          }
+        }
+      }
+    },
+    "In VS Code öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in VS Code"
+          }
+        }
+      }
+    },
+    "In VS Code öffnen fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opening in VS Code failed"
           }
         }
       }
@@ -4727,6 +4777,16 @@
         }
       }
     },
+    "SSH-Ziel für VS Code" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH target for VS Code"
+          }
+        }
+      }
+    },
     "Stand %@" : {
       "localizations" : {
         "en" : {
@@ -5073,6 +5133,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discard"
+          }
+        }
+      }
+    },
+    "VS Code ist nicht installiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VS Code is not installed."
           }
         }
       }

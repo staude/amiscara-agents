@@ -83,6 +83,20 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
         set { allowWebForward = newValue }
     }
 
+    /// SSH target VS Code connects to for "In VS Code öffnen" (#288), e.g.
+    /// an alias from the client's `~/.ssh/config`. Missing means
+    /// `user@host` of this connection.
+    var sshTarget: String?
+
+    /// The Remote-SSH target for VS Code; nil for this Mac, whose folders
+    /// open directly.
+    var editorTarget: String? {
+        guard kind == .ssh else { return nil }
+        let target = (sshTarget ?? "").trimmingCharacters(in: .whitespaces)
+        if !target.isEmpty { return target }
+        return user.isEmpty ? host : "\(user)@\(host)"
+    }
+
     static func local() -> HostConfig {
         HostConfig(name: String(localized: "Dieser Mac"), kind: .local)
     }
