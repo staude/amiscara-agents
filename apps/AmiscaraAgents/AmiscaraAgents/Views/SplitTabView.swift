@@ -100,6 +100,11 @@ private struct PaneTile: View {
             if isSelected { question = model.question }
         }
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
+        // For the header while the host does not know the pane (#276).
+        .onChange(of: pane?.title, initial: true) { _, title in
+            guard let title, !title.isEmpty else { return }
+            PaneCache.shared.setTitle(title, host: connection.id, pane: paneID)
+        }
     }
 
     private var header: some View {
@@ -138,11 +143,12 @@ private struct PaneTile: View {
     private func screen(search: SearchHighlight) -> some View {
         if let content = model.content {
             TerminalScreenView(content: content, history: isSelected ? model : nil, fitColumns: columns, search: search)
+                .opacity(connection.isLive ? 1 : 0.5)
                 .overlay(alignment: .top) {
-                    if let error = model.error {
+                    if !connection.isLive {
+                        StaleBanner(connection: connection, updatedAt: model.updatedAt)
+                    } else if let error = model.error {
                         Banner(text: error, systemImage: "exclamationmark.triangle")
-                    } else if !connection.isLive {
-                        Banner(text: String(localized: "Verbindung unterbrochen, Inhalt veraltet"), systemImage: "wifi.slash")
                     }
                 }
         } else if let error = model.error {

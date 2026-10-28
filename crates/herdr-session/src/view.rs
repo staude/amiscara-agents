@@ -234,7 +234,7 @@ impl StateClock {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaneContent {
     pub pane_id: String,
@@ -249,13 +249,13 @@ pub struct PaneContent {
 
 /// A question an agent asks with numbered options, such as Claude Code's
 /// permission prompt; answered by sending one option's key.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChoiceQuestion {
     pub options: Vec<ChoiceOption>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChoiceOption {
     /// The logical key that selects it, e.g. `2`.
@@ -263,13 +263,13 @@ pub struct ChoiceOption {
     pub label: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StyledLine {
     pub spans: Vec<StyledSpan>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StyledSpan {
     pub text: String,
@@ -288,7 +288,7 @@ pub struct StyledSpan {
     pub link: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TermColor {
     Default,
@@ -301,6 +301,18 @@ pub enum TermColor {
         g: u8,
         b: u8,
     },
+}
+
+/// A pane's screen as JSON, for the app to keep the last one on the
+/// device (#276).
+pub fn pane_content_to_json(content: &PaneContent) -> String {
+    serde_json::to_string(content).expect("pane content serializes")
+}
+
+/// The screen from [`pane_content_to_json`]; `None` for anything else,
+/// e.g. a file written by another version.
+pub fn pane_content_from_json(json: &str) -> Option<PaneContent> {
+    serde_json::from_str(json).ok()
 }
 
 /// `group_by_name` is the host's setting for the "Bereich/Name" convention:
@@ -746,5 +758,73 @@ mod tests {
             "docs-herdr-remote"
         );
         assert_eq!(worktree_name("/srv/repo/"), "repo");
+    }
+    #[test]
+    fn pane_content_survives_json() {
+        let span = |text: &str, fg, bg, link: Option<&str>| StyledSpan {
+            text: text.to_owned(),
+            width: text.chars().count() as u32,
+            fg,
+            bg,
+            bold: true,
+            dim: false,
+            italic: true,
+            underline: false,
+            inverse: true,
+            hidden: false,
+            strikethrough: true,
+            link: link.map(str::to_owned),
+        };
+        let content = PaneContent {
+            pane_id: "w1:p2".into(),
+            lines: vec![
+                StyledLine {
+                    spans: vec![
+                        span(
+                            "plain",
+                            TermColor::Default,
+                            TermColor::Indexed { index: 12 },
+                            None,
+                        ),
+                        span(
+                            "link",
+                            TermColor::Rgb { r: 1, g: 2, b: 3 },
+                            TermColor::Default,
+                            Some("https://example.com"),
+                        ),
+                    ],
+                },
+                StyledLine { spans: Vec::new() },
+            ],
+            truncated: true,
+            history_lines: 200,
+            question: Some(ChoiceQuestion {
+                options: vec![ChoiceOption {
+                    key: "1".into(),
+                    label: "Yes".into(),
+                }],
+            }),
+        };
+        let back = pane_content_from_json(&pane_content_to_json(&content)).expect("round trip");
+        assert_eq!(back.pane_id, "w1:p2");
+        assert_eq!((back.truncated, back.history_lines), (true, 200));
+        assert_eq!(back.lines.len(), 2);
+        assert_eq!(back.question, content.question);
+        assert!(back.lines[1].spans.is_empty());
+        let spans = &back.lines[0].spans;
+        assert_eq!(spans[0].fg, TermColor::Default);
+        assert_eq!(spans[0].bg, TermColor::Indexed { index: 12 });
+        assert_eq!(spans[1].fg, TermColor::Rgb { r: 1, g: 2, b: 3 });
+        assert_eq!(spans[1].link.as_deref(), Some("https://example.com"));
+        assert_eq!(spans[0].link, None);
+        assert!(spans[1].bold && spans[1].italic && spans[1].inverse && spans[1].strikethrough);
+        assert!(!spans[1].dim && !spans[1].underline && !spans[1].hidden);
+        assert_eq!((spans[0].text.as_str(), spans[0].width), ("plain", 5));
+    }
+
+    #[test]
+    fn broken_pane_json_is_none() {
+        assert!(pane_content_from_json("").is_none());
+        assert!(pane_content_from_json("{\"paneId\": 3}").is_none());
     }
 }

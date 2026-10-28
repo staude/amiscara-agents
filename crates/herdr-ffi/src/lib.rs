@@ -316,6 +316,18 @@ pub fn local_herdr_sessions() -> Result<Vec<HerdrSession>, FfiError> {
     Ok(Vec::new())
 }
 
+/// A pane's screen as JSON, for the app's cache of the last screen (#276).
+#[uniffi::export]
+pub fn pane_content_json(content: PaneContent) -> String {
+    herdr_session::view::pane_content_to_json(&content)
+}
+
+/// The screen from [`pane_content_json`]; `None` for broken JSON.
+#[uniffi::export]
+pub fn pane_content_from_json(json: String) -> Option<PaneContent> {
+    herdr_session::view::pane_content_from_json(&json)
+}
+
 #[uniffi::export]
 pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL

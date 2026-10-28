@@ -3081,6 +3081,16 @@
         }
       }
     },
+    "Keine Verbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection"
+          }
+        }
+      }
+    },
     "Keine Verbindung zum Host." : {
       "localizations" : {
         "en" : {
@@ -4617,6 +4627,26 @@
         }
       }
     },
+    "Stand von %@, Verbindung wird aufgebaut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@, connecting"
+          }
+        }
+      }
+    },
+    "Stand von %@, keine Verbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@, no connection"
+          }
+        }
+      }
+    },
     "Standard" : {
       "localizations" : {
         "en" : {
@@ -5087,12 +5117,12 @@
         }
       }
     },
-    "Verbindung unterbrochen, Inhalt veraltet" : {
+    "Verbindung wird aufgebaut" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connection lost, content out of date"
+            "value" : "Connecting"
           }
         }
       }

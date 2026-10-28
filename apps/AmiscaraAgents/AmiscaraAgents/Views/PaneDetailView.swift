@@ -77,6 +77,11 @@ struct PaneDetailView: View {
             model.leave()
         }
         #endif
+        // For the header while the host does not know the pane (#276).
+        .onChange(of: currentTitle, initial: true) { _, title in
+            guard let selection, let title, !title.isEmpty else { return }
+            PaneCache.shared.setTitle(title, host: selection.hostID, pane: selection.paneID)
+        }
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         .sheet(isPresented: $showingConversation) {
             if let selection, let connection = store.connection(for: selection.hostID) {
@@ -116,6 +121,18 @@ struct PaneDetailView: View {
         let generation: Int?
     }
 
+    private var currentTitle: String? {
+        guard let selection, let connection = store.connection(for: selection.hostID) else { return nil }
+        return pane(connection, selection.paneID)?.title
+    }
+
+    /// The pane's title, the one kept from before while the host does not
+    /// know the pane, else its ID.
+    private func title(_ pane: PaneItem?, connection: HostConnection, paneID: String) -> String {
+        if let pane { return pane.title.isEmpty ? paneID : pane.title }
+        return PaneCache.shared.entry(host: connection.id, pane: paneID)?.title ?? paneID
+    }
+
     private func pane(_ connection: HostConnection, _ paneID: String) -> PaneItem? {
         connection.update?.workspaces
             .flatMap(\.tabs).flatMap(\.panes)
@@ -126,7 +143,7 @@ struct PaneDetailView: View {
         let pane = pane(connection, paneID)
         return HStack(spacing: 8) {
             StatusDot(state: pane?.agent == nil ? nil : pane?.agentState)
-            Text(pane?.title.isEmpty == false ? pane!.title : paneID)
+            Text(title(pane, connection: connection, paneID: paneID))
                 .font(.headline)
                 .lineLimit(1)
             if let agent = pane?.agent {
@@ -211,11 +228,12 @@ struct PaneDetailView: View {
         if let content = model.content {
             TerminalScreenView(content: content, history: model, search: search)
                 .terminalZoomGesture()
+                .opacity(connection.isLive ? 1 : 0.5)
                 .overlay(alignment: .top) {
-                    if let error = model.error {
+                    if !connection.isLive {
+                        StaleBanner(connection: connection, updatedAt: model.updatedAt)
+                    } else if let error = model.error {
                         Banner(text: error, systemImage: "exclamationmark.triangle")
-                    } else if !connection.isLive {
-                        Banner(text: String(localized: "Verbindung unterbrochen, Inhalt veraltet"), systemImage: "wifi.slash")
                     }
                 }
         } else if let error = model.error {
@@ -223,6 +241,36 @@ struct PaneDetailView: View {
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+/// Over the last screen while the host is not live (#276): since when the
+/// screen is unchanged, and whether the app is still trying to connect.
+struct StaleBanner: View {
+    let connection: HostConnection
+    let updatedAt: Date?
+
+    var body: some View {
+        Banner(text: text, systemImage: "wifi.slash")
+    }
+
+    /// A stopped session (refused login, host key) does not try again.
+    private var gaveUp: Bool {
+        if connection.startError != nil || connection.needsHostKeyDecision { return true }
+        if case .failed = connection.status { return true }
+        return false
+    }
+
+    private var text: String {
+        guard let updatedAt else {
+            return gaveUp ? String(localized: "Keine Verbindung") : String(localized: "Verbindung wird aufgebaut")
+        }
+        let time = Calendar.current.isDateInToday(updatedAt)
+            ? updatedAt.formatted(date: .omitted, time: .shortened)
+            : updatedAt.formatted(date: .abbreviated, time: .shortened)
+        return gaveUp
+            ? String(localized: "Stand von \(time), keine Verbindung")
+            : String(localized: "Stand von \(time), Verbindung wird aufgebaut")
     }
 }
 

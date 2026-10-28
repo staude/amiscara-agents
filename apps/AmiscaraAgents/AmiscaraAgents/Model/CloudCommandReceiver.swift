@@ -162,6 +162,11 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.registerForRemoteNotifications()
     }
 
+    /// Quitting the Mac app need not change the scene phase (#276).
+    func applicationWillTerminate(_ notification: Notification) {
+        PaneCache.shared.flush()
+    }
+
     func application(_ application: NSApplication, didReceiveRemoteNotification userInfo: [String: Any]) {
         // Push payloads are property lists; they are not `Sendable`.
         nonisolated(unsafe) let userInfo = userInfo
