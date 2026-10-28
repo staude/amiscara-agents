@@ -136,8 +136,11 @@ final class PaneModel {
         isLive = live
         follow?.stop()
         follow = nil
-        // The last screen kept, until the pane reads a new one (#276).
-        let kept = paneID.flatMap { paneID in connection.flatMap { PaneCache.shared.entry(host: $0.id, pane: paneID) } }
+        // The last screen kept, until the pane reads a new one (#276); not
+        // for a live host, where it would pass for the current screen.
+        let kept = connection?.isLive == false
+            ? paneID.flatMap { paneID in connection.flatMap { PaneCache.shared.entry(host: $0.id, pane: paneID) } }
+            : nil
         followed = kept?.content
         updatedAt = kept?.date
         error = nil
