@@ -5,11 +5,22 @@ import SwiftUI
 /// working ones below, a row per agent and how current it is. While the
 /// host reconnects its last agents stay; without a connection the Mac's
 /// board in iCloud stands in by the overview's rule (#274). A tap opens
-/// the agent.
+/// the agent. The search field searches all Claude conversations of the
+/// host (#303); its results replace the agents until the field is empty.
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+    @State private var searchText = ""
+    @State private var search = ConversationSearch()
+    /// The hit whose conversation is open.
+    @State private var opened: OpenedHit?
+
+    private struct OpenedHit: Identifiable {
+        let sessionPath: String
+        let offset: UInt64
+        var id: String { "\(sessionPath)#\(offset)" }
+    }
 
     var body: some View {
         let shown = Shown(connection, boards: store.cloudBoards)
@@ -22,7 +33,11 @@ struct HostDashboardView: View {
                     WaitingHeadline(waiting: snapshot.count(.blocked), working: snapshot.count(.working))
                 }
                 .padding(.bottom, 8)
-                if snapshot.agents.isEmpty {
+                if search.started, !searchText.isEmpty {
+                    SearchResults(search: search, connection: connection) { hit in
+                        opened = OpenedHit(sessionPath: hit.sessionPath, offset: hit.offset)
+                    }
+                } else if snapshot.agents.isEmpty {
                     Text("Keine Agents.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -48,6 +63,22 @@ struct HostDashboardView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .searchable(text: $searchText, prompt: Text("Gespräche durchsuchen"))
+        // Each search scans the host's files, so only on Return.
+        .onSubmit(of: .search) {
+            search.start(searchText, on: connection)
+        }
+        .onChange(of: searchText) {
+            if searchText.isEmpty { search.clear() }
+        }
+        .onChange(of: connection.id) {
+            searchText = ""
+            search.clear()
+        }
+        .onDisappear { search.cancel() }
+        .sheet(item: $opened) { hit in
+            ConversationView(connection: connection, source: .match(sessionPath: hit.sessionPath, offset: hit.offset))
+        }
     }
 
     /// The agents shown, how old they are and whether they came from
@@ -104,6 +135,155 @@ struct HostDashboardView: View {
         .font(.caption2)
         .foregroundStyle(.tertiary)
         .lineLimit(1)
+    }
+}
+
+/// The hits of a conversation search by space and session, with its
+/// progress and how it ended.
+private struct SearchResults: View {
+    let search: ConversationSearch
+    let connection: HostConnection
+    let open: (ConversationHit) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if search.running {
+                HStack(spacing: 10) {
+                    if let progress = search.progress, progress.total > 0 {
+                        ProgressView(value: Double(min(progress.done, progress.total)), total: Double(progress.total))
+                    } else {
+                        ProgressView().controlSize(.small)
+                    }
+                    Button("Abbrechen") { search.cancel() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+                Text("Durchsucht die Gespräche auf dem Host …")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            notes
+            ForEach(search.groups) { space in
+                VStack(alignment: .leading, spacing: 6) {
+                    spaceHeader(space)
+                    ForEach(space.sessions) { session in
+                        sessionHeader(session)
+                        ForEach(session.hits) { found in
+                            Button { open(found.hit) } label: {
+                                HitRow(found: found, query: search.query)
+                                    .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.top, 6)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var notes: some View {
+        Group {
+            if let error = search.error {
+                Label(error, systemImage: "exclamationmark.triangle")
+            } else if let end = search.end {
+                if end.cancelled {
+                    Text("Suche abgebrochen.")
+                } else if search.hits.isEmpty {
+                    Text("Keine Treffer für „\(search.query)“.")
+                }
+                if end.truncated {
+                    Text("Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft.")
+                }
+                if end.olderSkipped {
+                    Text("Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Mit Eingaben für diesen Host sucht die App auf dem Host selbst.")
+                }
+            }
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+    }
+
+    private func spaceHeader(_ space: ConversationSearch.SpaceGroup) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            if let id = space.workspaceID,
+               let label = connection.update?.workspaces.first(where: { $0.workspaceId == id })?.label {
+                Text(label)
+            } else {
+                Text("Ohne Space")
+                if let cwd = space.cwd {
+                    Text(cwd)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+            }
+        }
+        .font(.headline)
+    }
+
+    private func sessionHeader(_ session: ConversationSearch.SessionGroup) -> some View {
+        Group {
+            if let title = session.title, !title.isEmpty {
+                Text(title)
+            } else if let date = session.newest {
+                Text("Sitzung vom \(date.formatted(date: .abbreviated, time: .shortened))")
+            } else {
+                Text("Sitzung")
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .padding(.top, 2)
+    }
+}
+
+/// A hit: who wrote it, the text around the match with the search word in
+/// bold, and when.
+private struct HitRow: View {
+    let found: ConversationSearch.Found
+    let query: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(snippet)
+                    .font(.callout)
+                    .lineLimit(3)
+                if let date = found.date {
+                    Text(date.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var icon: String {
+        switch found.hit.kind {
+        case .user: "person"
+        case .assistant: "sparkles"
+        case .tool: "wrench.and.screwdriver"
+        }
+    }
+
+    private var snippet: AttributedString {
+        var text = AttributedString(found.hit.snippet)
+        guard !query.isEmpty else { return text }
+        var rest = text.startIndex..<text.endIndex
+        while let match = text[rest].range(of: query, options: .caseInsensitive) {
+            text[match].inlinePresentationIntent = .stronglyEmphasized
+            rest = match.upperBound..<text.endIndex
+        }
+        return text
     }
 }
 #endif

@@ -285,6 +285,48 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The conversation before a page or span of `claudeHistory`, without
+    /// a pane: its cursor names the session file.
+    func claudeHistory(before cursor: TranscriptCursor) async throws -> TranscriptPage {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistory(paneId: "", before: cursor)
+        }.value
+    }
+
+    /// The conversation in a session file around the line at `offset`,
+    /// from a search hit (#303). Read only, with file access like
+    /// `claudeHistory`.
+    func claudeHistory(at sessionPath: String, offset: UInt64) async throws -> TranscriptSpan {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistoryAt(sessionPath: sessionPath, offset: offset)
+        }.value
+    }
+
+    /// The entries after `from` in a session file: a span's `end`.
+    func claudeHistory(after sessionPath: String, from: UInt64) async throws -> TranscriptSpan {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistoryAfter(sessionPath: sessionPath, from: from)
+        }.value
+    }
+
+    #if !os(tvOS)
+    /// Searches all Claude conversations of the host (#303) until the
+    /// handle is cancelled. Read only, with file access like the
+    /// conversation; with input allowed, grep runs in a short-lived tab on
+    /// the host, otherwise the app reads only the last 30 days.
+    func searchConversations(query: String, observer: ConversationSearchObserver) throws -> ConversationSearchHandle {
+        guard config.uploadAllowed else { throw ConnectionFailure.searchFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try session.searchConversations(query: query, allowCommand: config.inputAllowed, observer: observer)
+    }
+    #endif
+
     /// The last `lines` rows of a pane including scrollback as plain text,
     /// joined where the terminal wrapped them with `unwrap` (#273). Read
     /// only, a plain terminal read without file access.
@@ -553,6 +595,7 @@ enum ConnectionFailure: LocalizedError {
     case diffFilesOff
     case browseFilesOff
     case secretsFilesOff
+    case searchFilesOff
     case unsafePath
 
     var errorDescription: String? {
@@ -571,6 +614,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:
             String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .searchFilesOff:
+            String(localized: "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
             String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:

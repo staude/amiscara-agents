@@ -2025,6 +2025,16 @@
         }
       }
     },
+    "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search reads the session files on the host and needs file access for that, like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
     "Die Versionsangabe im Code ist ungültig." : {
       "localizations" : {
         "en" : {
@@ -2271,6 +2281,16 @@
         }
       }
     },
+    "Durchsucht die Gespräche auf dem Host …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching the conversations on the host …"
+          }
+        }
+      }
+    },
     "Ein Agent wartet: %@." : {
       "localizations" : {
         "en" : {
@@ -2357,6 +2377,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Input is turned off for this host."
+          }
+        }
+      }
+    },
+    "Ende der Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End of the session"
           }
         }
       }
@@ -2697,6 +2727,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Saved, but not read back. Reload the file before saving again."
+          }
+        }
+      }
+    },
+    "Gespräche durchsuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search conversations"
           }
         }
       }
@@ -3311,6 +3351,16 @@
         }
       }
     },
+    "Keine Treffer für „%@“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results for “%@”."
+          }
+        }
+      }
+    },
     "Keine Verbindung" : {
       "localizations" : {
         "en" : {
@@ -3577,6 +3627,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "herdr delivers no more than %u lines."
+          }
+        }
+      }
+    },
+    "Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More results than the search shows. A more specific word helps."
           }
         }
       }
@@ -3871,6 +3931,16 @@
         }
       }
     },
+    "Neuere Einträge laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load newer entries"
+          }
+        }
+      }
+    },
     "Neues Geheimnis" : {
       "localizations" : {
         "en" : {
@@ -4021,6 +4091,16 @@
         }
       }
     },
+    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Mit Eingaben für diesen Host sucht die App auf dem Host selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. With input allowed for this host, the app searches on the host itself."
+          }
+        }
+      }
+    },
     "Nur Kleinbuchstaben, Ziffern, - und _ sind erlaubt, am Anfang ein Buchstabe." : {
       "localizations" : {
         "en" : {
@@ -4047,6 +4127,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next Match"
+          }
+        }
+      }
+    },
+    "Ohne Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No space"
           }
         }
       }
@@ -4383,6 +4473,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file changed on the host since it was opened. “Reload” discards the changes made in the app; copy them first to keep them."
+          }
+        }
+      }
+    },
+    "Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "Sitzung vom %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session from %@"
           }
         }
       }
@@ -5033,6 +5143,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Is this device's key line in ~/.ssh/authorized_keys on the computer?"
+          }
+        }
+      }
+    },
+    "Suche abgebrochen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search cancelled."
+          }
+        }
+      }
+    },
+    "Suche fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search failed: %@"
           }
         }
       }
