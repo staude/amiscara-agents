@@ -642,6 +642,22 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
+- Chains (#300): "Kette anlegen …" in an agent's context menu (Mac, iPhone,
+  iPad) sends a saved prompt of up to 160 characters to an agent of the same
+  host, itself included, when this one finishes or starts waiting; once or
+  every time, but every time only to another agent. A chain is kept on the
+  host as metadata of its pane (up to 3 per agent), so every device shows it
+  as "Kette: → <Ziel>" under the agent and it ends with the pane. It runs on
+  a device that is connected with input allowed; with several, the first to
+  claim the state change on the host sends, so the prompt goes out once. A
+  target that is gone or refuses the prompt marks the chain failed ("Kette
+  fehlgeschlagen") and it never runs again. The host's dashboard lists the
+  chains with delete and this device's log of the last 50 runs (gesendet,
+  fehlgeschlagen, übersprungen). herdr 0.9.5 reports a turn interrupted with
+  Esc as done too, so it fires a "fertig" chain. Core:
+  `herdr_core::chains`, `BoardItem::chains`, `SessionUpdate::chain_results`,
+  `Session::set_chain_runner`, `set_chain`, `remove_chain`; `AgentInfo` reads
+  `state_change_seq` and `completion_seq`.
 
 ### Changed
 
