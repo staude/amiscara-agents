@@ -1,13 +1,16 @@
 import AppIntents
 import Foundation
 #if os(iOS)
+import CloudKit
 import UIKit
 import WidgetKit
 #endif
 
 // Shortcuts and Siri. The intents run in the app process and read the live
-// HostStore the app registers with AppDependencyManager; only the prompt
-// intents (#226) send to herdr, with the composer's checks. Agent names,
+// HostStore the app registers with AppDependencyManager; on iOS, agents of
+// hosts out of reach come from the widgets' snapshot and the Mac's boards
+// (#275). Only the prompt intents (#226) send to herdr, with the composer's
+// checks. Agent names,
 // titles and hosts are private, so every intent needs an unlocked device
 // and the query answers nothing while locked.
 
@@ -21,6 +24,9 @@ struct AgentEntity: AppEntity {
     let hostID: UUID
     let workspaceID: String
     let paneID: String
+    /// The space's name alone, which Siri also takes for the agent: many
+    /// agents share a name such as "claude" (#275).
+    let spaceName: String
 
     @Property(title: "Name")
     var name: String
@@ -38,7 +44,8 @@ struct AgentEntity: AppEntity {
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(
             title: "\(name)",
-            subtitle: "\(status) · \(host) · \(space) · Tab \(tab)"
+            subtitle: tab.isEmpty ? "\(status) · \(host) · \(space)" : "\(status) · \(host) · \(space) · Tab \(tab)",
+            synonyms: spaceName.isEmpty ? [] : ["\(spaceName)"]
         )
     }
 
@@ -47,6 +54,7 @@ struct AgentEntity: AppEntity {
         hostID = connection.id
         workspaceID = item.workspaceId
         paneID = item.paneId
+        spaceName = item.workspaceName
         id = "\(connection.id.uuidString)/\(item.paneId)"
         name = item.agent.isEmpty ? String(localized: "Agent") : item.agent
         host = connection.config.name
@@ -55,6 +63,23 @@ struct AgentEntity: AppEntity {
         status = item.agentState.label
         isWaiting = item.agentState == .blocked
     }
+
+    /// An agent of a host this device cannot reach, as the widgets last
+    /// saw it, often from the Mac's board (#275). Its place already holds
+    /// the tab.
+    init(host: WidgetSnapshot.Host, agent: WidgetSnapshot.Agent) {
+        hostID = host.id
+        workspaceID = agent.workspaceID
+        paneID = agent.paneID
+        spaceName = agent.place.components(separatedBy: " · ").first ?? agent.place
+        id = "\(host.id.uuidString)/\(agent.paneID)"
+        name = agent.name.isEmpty ? String(localized: "Agent") : agent.name
+        self.host = host.name
+        space = agent.place
+        tab = ""
+        status = agent.state.label
+        isWaiting = agent.state == .blocked
+    }
 }
 
 struct AgentQuery: EntityStringQuery {
@@ -62,19 +87,19 @@ struct AgentQuery: EntityStringQuery {
 
     @MainActor
     func entities(for identifiers: [String]) async throws -> [AgentEntity] {
-        await store.agents().filter { identifiers.contains($0.id) }
+        await store.knownAgents().filter { identifiers.contains($0.id) }
     }
 
     @MainActor
     func entities(matching string: String) async throws -> [AgentEntity] {
-        await store.agents().filter { agent in
+        await store.knownAgents().filter { agent in
             [agent.name, agent.space, agent.host].contains { $0.localizedStandardContains(string) }
         }
     }
 
     @MainActor
     func suggestedEntities() async throws -> [AgentEntity] {
-        await store.agents()
+        await store.knownAgents()
     }
 }
 
@@ -159,6 +184,29 @@ struct SendPromptIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try await store.sendPrompt(prompt, toHost: target.hostID, pane: target.paneID)
         return .result(dialog: "Gesendet an \(target.name).")
+    }
+}
+
+/// "Was macht Claude in Amiscara Agents?" (#275): status, since when and
+/// the last screen lines of one agent, also as text for further steps.
+struct AgentStatusIntent: AppIntent {
+    static let title: LocalizedStringResource = "Was macht der Agent?"
+    static let description = IntentDescription("Nennt Status, Dauer und die letzten Bildschirmzeilen eines Agents.")
+    static let authenticationPolicy = IntentAuthenticationPolicy.requiresAuthentication
+
+    @Parameter(title: "Agent", requestValueDialog: "Welcher Agent?")
+    var target: AgentEntity
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Was macht \(\.$target)?")
+    }
+
+    @Dependency private var store: HostStore
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        let text = await store.statusText(for: target)
+        return .result(value: text, dialog: IntentDialog(stringLiteral: text))
     }
 }
 
@@ -280,6 +328,15 @@ struct HerdrShortcuts: AppShortcutsProvider {
             systemImageName: "terminal"
         )
         AppShortcut(
+            intent: AgentStatusIntent(),
+            phrases: [
+                "Was macht \(\.$target) in \(.applicationName)?",
+                "Was macht ein Agent in \(.applicationName)?",
+            ],
+            shortTitle: "Was macht der Agent?",
+            systemImageName: "text.bubble"
+        )
+        AppShortcut(
             intent: SendPromptIntent(),
             phrases: [
                 "Prompt an Agent in \(.applicationName) senden",
@@ -348,6 +405,117 @@ extension HostStore {
             .sorted { $0.item.agentState.urgency < $1.item.agentState.urgency }
             .map { AgentEntity($0.item, on: $0.connection) }
     }
+
+    /// `agents()`, and on iOS also the agents of hosts that are not live,
+    /// as the widgets last saw them (#275), so Siri and Shortcuts can name
+    /// them. Locked, there are none, as in `agents()`.
+    func knownAgents() async -> [AgentEntity] {
+        guard Platform.isUnlocked else { return [] }
+        let live = await agents()
+        #if os(iOS)
+        let liveHosts = Set(connections.filter(\.isLive).map(\.id))
+        let configured = Set(connections.map(\.id))
+        let others = WidgetSnapshot.load().agents
+            .filter { configured.contains($0.host.id) && !liveHosts.contains($0.host.id) }
+            .map { AgentEntity(host: $0.host, agent: $0.agent) }
+        return live + others
+        #else
+        return live
+        #endif
+    }
+
+    /// The answer to "Was macht der Agent?" (#275): from the live
+    /// connection, else (iOS) from the Mac's board in iCloud, else a
+    /// message that there is nothing to say. Never fails.
+    func statusText(for agent: AgentEntity) async -> String {
+        let noData = AgentStatusText.noData(name: agent.name)
+        guard let connection = connection(for: agent.hostID) else { return noData }
+        reconnectStale()
+        let deadline = ContinuousClock.now + .seconds(6)
+        while connection.isSettling, ContinuousClock.now < deadline, !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        #if os(iOS)
+        let hostKey = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
+        #endif
+        if connection.isLive {
+            guard let item = connection.update?.board.first(where: { $0.paneId == agent.paneID }) else { return noData }
+            let state = WidgetSnapshot.State(item.agentState)
+            // Since when, as the session saw it change (#274).
+            var since = item.stateSinceMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000) }
+            #if os(iOS)
+            // The Mac may have seen the state begin when this device did not.
+            if since == nil, let hostKey, let board = await Self.macBoard(hostKey: hostKey),
+               let seen = board.agents.first(where: { $0.paneID == item.paneId }), seen.state == state {
+                since = seen.since
+            }
+            #endif
+            let screen = await connection.screenExcerpt(paneID: item.paneId, lines: 30) ?? ""
+            return AgentStatusText.text(
+                name: agent.name,
+                space: item.spacePlace,
+                status: state.label,
+                since: since,
+                now: .now,
+                lines: ScreenLines.last(3, of: screen),
+                source: .live,
+                linesMissingOffline: false
+            )
+        }
+        #if os(iOS)
+        guard let hostKey, let board = await Self.macBoard(hostKey: hostKey),
+              let seen = board.agents.first(where: { $0.paneID == agent.paneID })
+        else { return noData }
+        // Lines only for a waiting agent: the Mac leaves them in its
+        // "wartet" record for the Watch (#156); the record stays after.
+        var lines: [String] = []
+        if seen.state == .blocked,
+           let excerpt = await Self.waitingExcerpt(hostKey: hostKey, paneID: seen.paneID, since: seen.since) {
+            lines = ScreenLines.last(3, of: excerpt)
+        }
+        return AgentStatusText.text(
+            name: agent.name,
+            space: seen.place,
+            status: seen.state.label,
+            since: seen.since,
+            now: .now,
+            lines: lines,
+            source: .mac(updated: board.updated),
+            linesMissingOffline: seen.state != .blocked
+        )
+        #else
+        // The Mac app is the one writing the boards; it never reads them.
+        return noData
+        #endif
+    }
+
+    #if os(iOS)
+    /// The Mac's board of a host, when it is recent and the Mac was
+    /// connected to the host; `nil` otherwise or when iCloud fails.
+    private static func macBoard(hostKey: String) async -> CloudBoard? {
+        guard let board = try? await CloudBoard.fetch(hostKeys: [hostKey]).first,
+              board.live, Date.now.timeIntervalSince(board.updated) < CloudBoard.maxAge
+        else { return nil }
+        return board
+    }
+
+    /// What a waiting agent asks, from its "wartet" record in iCloud; not
+    /// from a record older than the waiting that began at `since`, which
+    /// would be an earlier question. The Mac writes the record a moment
+    /// after it sees the state, so only clock differences are allowed for:
+    /// it skips a repeated question for a minute and keeps the old record.
+    /// Without `since` it did not see the waiting begin and may have
+    /// written no record for it.
+    private static func waitingExcerpt(hostKey: String, paneID: String, since: Date?) async -> String? {
+        guard let since else { return nil }
+        let id = CKRecord.ID(recordName: CloudPush.recordName(CloudPush.waitingType, hostKey, paneID))
+        guard let record = try? await CloudPush.container.privateCloudDatabase.record(for: id),
+              let text = record[CloudPush.Field.excerpt] as? String, !text.isEmpty
+        else { return nil }
+        guard let written = record.modificationDate, written >= since.addingTimeInterval(-5) else { return nil }
+        return text
+    }
+    #endif
 
     /// Hosts whose agents an answer cannot include.
     var unreachableHostNames: [String] {

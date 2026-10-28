@@ -288,6 +288,36 @@
         }
       }
     },
+    "%@: %@, gerade eben gewechselt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@, changed just now."
+          }
+        }
+      }
+    },
+    "%@: %@, schon %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@ for %3$@."
+          }
+        }
+      }
+    },
+    "%@: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$@."
+          }
+        }
+      }
+    },
     "%lld" : {
       "shouldTranslate" : false
     },
@@ -1025,6 +1055,16 @@
         }
       }
     },
+    "Auf dem Bildschirm: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On screen: %@"
+          }
+        }
+      }
+    },
     "Auf dem Mac in Amiscara Agents im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen." : {
       "localizations" : {
         "en" : {
@@ -1251,6 +1291,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Image uploads are off for this host."
+          }
+        }
+      }
+    },
+    "Bildschirmzeilen gibt es ohne Verbindung nur für wartende Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without a connection, screen lines are only available for waiting agents."
           }
         }
       }
@@ -3261,6 +3311,26 @@
         }
       }
     },
+    "Laut Mac (Stand gerade eben):" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "According to the Mac (just now):"
+          }
+        }
+      }
+    },
+    "Laut Mac (Stand vor %@):" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "According to the Mac (as of %@ ago):"
+          }
+        }
+      }
+    },
     "Lies die Übergabe in dieser Datei und setze sie um:" : {
       "localizations" : {
         "en" : {
@@ -3517,6 +3587,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lists the agents waiting for an answer on all hosts."
+          }
+        }
+      }
+    },
+    "Nennt Status, Dauer und die letzten Bildschirmzeilen eines Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tells an agent's status, for how long, and the last lines of its screen."
           }
         }
       }
@@ -4997,12 +5077,52 @@
         }
       }
     },
+    "Was macht ${target}?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What is ${target} doing?"
+          }
+        }
+      }
+    },
+    "Was macht der Agent?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What is the agent doing?"
+          }
+        }
+      }
+    },
     "Weiter bearbeiten" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keep editing"
+          }
+        }
+      }
+    },
+    "Welcher Agent?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which agent?"
+          }
+        }
+      }
+    },
+    "Zu %@ liegen gerade keine Daten vor. Der Host ist nicht erreichbar oder der Agent läuft nicht mehr." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is no data on %@ right now. The host cannot be reached or the agent is no longer running."
           }
         }
       }

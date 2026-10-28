@@ -152,12 +152,13 @@ code), so a host is set up the same way everywhere.
 - Local notifications. The Mac app also writes one record per pane and
   state to the user's private iCloud database, which drives the push to
   iPhone and iPad and the boards on the Apple Watch (see below).
-- Widgets, Siri and Shortcuts ("Welche Agents warten?", "Agent öffnen"),
-  dictation, and the "Tasten" menu with shortcuts for the pane (⌘. Esc,
-  ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an agent waits for an
-  answer, plain arrows, Enter and Esc go to its pane from anywhere in the
-  window (not from other text fields such as the pane search; in the
-  composer arrows and Enter only while it is empty, Esc always).
+- Widgets, Siri and Shortcuts ("Welche Agents warten?", "Was macht der
+  Agent?", "Agent öffnen"), dictation, and the "Tasten" menu with shortcuts
+  for the pane (⌘. Esc, ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an
+  agent waits for an answer, plain arrows, Enter and Esc go to its pane from
+  anywhere in the window (not from other text fields such as the pane
+  search; in the composer arrows and Enter only while it is empty, Esc
+  always).
 - Publishes its Bonjour name in iCloud so the Apple TV finds it.
 - Distributed outside the App Store, signed with Developer ID and
   notarized; the App Sandbox would block the socket and SSH to arbitrary
