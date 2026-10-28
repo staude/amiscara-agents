@@ -357,6 +357,15 @@ pub struct WorkingTreeDiff {
     pub truncated: bool,
 }
 
+pub use herdr_session::GitHubRepo;
+
+/// A repository on github.com, from a space's `origin` remote (#309).
+#[uniffi::remote(Record)]
+pub struct GitHubRepo {
+    pub owner: String,
+    pub name: String,
+}
+
 pub use herdr_session::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
 
 /// What an entry of the file browser is (#259).

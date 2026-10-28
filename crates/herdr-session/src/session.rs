@@ -7,7 +7,7 @@ use std::time::Duration;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, diff, fullscreen};
+use herdr_core::{actions, browse, claude, diff, fullscreen, github};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
 };
@@ -849,6 +849,19 @@ impl Session {
         result
     }
 
+    /// The Git directory shared by the worktrees of a space's repository.
+    fn repo_key(&self, workspace_id: &str) -> Option<String> {
+        let state = self.state.lock().ok()?;
+        let session = state.as_ref()?.borrow().session.clone()?;
+        let key = session
+            .workspace(workspace_id)?
+            .worktree
+            .as_ref()?
+            .repo_key
+            .clone();
+        (!key.is_empty()).then_some(key)
+    }
+
     /// The space and working directory of a pane: its foreground process's
     /// directory, else the pane's.
     fn pane_directory(&self, pane_id: &str) -> Option<(String, String)> {
@@ -917,6 +930,35 @@ impl Session {
     pub async fn file_preview(&self, path: &str) -> Result<browse::FilePreview, SessionError> {
         let conn = self.connection()?;
         browse::preview(&conn, path).await.map_err(files_error)
+    }
+
+    /// The GitHub repository of a space (#309): the `origin` remote in the
+    /// Git configuration of its repository, read like a file without a
+    /// tab. `None` outside a repository, without a GitHub `origin` or when
+    /// the configuration lies outside the home directory. Needs file
+    /// access like uploads.
+    pub async fn github_repository(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Option<github::GitHubRepo>, SessionError> {
+        let Some(repo_key) = self.repo_key(workspace_id) else {
+            return Ok(None);
+        };
+        let conn = self.connection()?;
+        let path = format!("{}/config", repo_key.trim_end_matches('/'));
+        match browse::preview(&conn, &path).await {
+            Ok(browse::FilePreview {
+                content: browse::FileContent::Text { text, .. },
+                ..
+            }) => Ok(github::origin_repository(&text)),
+            Ok(_) => Ok(None),
+            Err(TransportError::Files(message))
+                if message.ends_with(herdr_transport::OUTSIDE_HOME) =>
+            {
+                Ok(None)
+            }
+            Err(err) => Err(files_error(err)),
+        }
     }
 
     /// Writes `text` to the file at the absolute `path` on the host (#271)

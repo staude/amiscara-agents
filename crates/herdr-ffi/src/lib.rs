@@ -28,7 +28,7 @@ pub use convert::{
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
-    EntryKind, FileContent, FilePreview, WorkingTreeDiff,
+    EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -349,6 +349,13 @@ pub fn vscode_url(target: Option<String>, path: String) -> String {
     herdr_core::vscode_url(target.as_deref(), &path)
 }
 
+/// The files and hunks of a unified diff (#309), as for the working tree
+/// diff; used for the diff of a pull request.
+#[uniffi::export]
+pub fn parse_diff(text: String) -> Vec<DiffFile> {
+    herdr_core::diff::parse(&text)
+}
+
 #[uniffi::export]
 pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL
@@ -592,6 +599,14 @@ impl HostSession {
     /// off the main thread.
     pub fn working_tree_diff(&self, pane_id: String) -> Result<WorkingTreeDiff, FfiError> {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
+    }
+
+    /// The GitHub repository of a space (#309), from the `origin` remote in
+    /// its repository's Git configuration; `None` outside a repository or
+    /// without a GitHub `origin`. Needs file access like uploads. Blocks;
+    /// call it off the main thread.
+    pub fn github_repository(&self, workspace_id: String) -> Result<Option<GitHubRepo>, FfiError> {
+        Ok(runtime().block_on(self.session.github_repository(&workspace_id))?)
     }
 
     /// The directory at the absolute `path` on the host, empty for the home
