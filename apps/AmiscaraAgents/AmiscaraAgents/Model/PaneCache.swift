@@ -38,8 +38,12 @@ final class PaneCache {
     private var entries: [Key: Entry] = [:]
     /// Titles seen, also before the pane's first screen.
     private var titles: [Key: String] = [:]
-    /// Panes looked up on disk already, found or not.
+    /// Panes looked up on disk already. A pane not found is looked up
+    /// again after `retryMisses()`: a locked device cannot read the files.
     private var loaded: Set<Key> = []
+    private var missed: Set<Key> = []
+    /// Removed hosts: a screen still on its way is not kept.
+    private var forgotten: Set<UUID> = []
     /// Panes with a write planned.
     private var pending: Set<Key> = []
     private let files: PaneCacheFiles
@@ -66,7 +70,10 @@ final class PaneCache {
 
     /// Keeps a new screen of the pane, the last `maxLines` rows of it.
     func record(_ content: PaneContent, host: UUID, pane: String) {
+        guard !forgotten.contains(host) else { return }
         let key = Key(host: host, pane: pane)
+        // The title kept on disk, which this write would drop otherwise.
+        _ = entry(host: host, pane: pane)
         let kept = PaneContent(
             paneId: content.paneId,
             lines: Array(content.lines.suffix(Self.maxLines)),
@@ -74,7 +81,7 @@ final class PaneCache {
             historyLines: 0
         )
         entries[key] = Entry(content: kept, title: titles[key] ?? entries[key]?.title, date: .now)
-        loaded.insert(key)
+        missed.remove(key)
         scheduleWrite(key)
     }
 
@@ -96,9 +103,18 @@ final class PaneCache {
             if let file = files.read(host: host, pane: pane),
                let content = paneContentFromJson(json: file.json) {
                 entries[key] = Entry(content: content, title: titles[key] ?? file.title, date: file.date)
+            } else {
+                missed.insert(key)
             }
         }
         return entries[key]
+    }
+
+    /// Looks up the panes not found on disk again, e.g. once the device
+    /// is unlocked.
+    func retryMisses() {
+        loaded.subtract(missed)
+        missed = []
     }
 
     /// Writes the planned screens now, e.g. before the app is suspended.
@@ -111,6 +127,8 @@ final class PaneCache {
         entries = entries.filter { $0.key.host != host }
         titles = titles.filter { $0.key.host != host }
         loaded = loaded.filter { $0.host != host }
+        missed = missed.filter { $0.host != host }
+        forgotten.insert(host)
         pending = pending.filter { $0.host != host }
         files.forget(host: host)
         if lastOpen?.host == host { lastOpen = nil }

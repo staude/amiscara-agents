@@ -91,6 +91,11 @@ private struct PaneTile: View {
             if !selected { search.close() }
         }
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
+        // For the header while the host does not know the pane (#276).
+        .onChange(of: pane?.title, initial: true) { _, title in
+            guard let title, !title.isEmpty else { return }
+            PaneCache.shared.setTitle(title, host: connection.id, pane: paneID)
+        }
     }
 
     private var header: some View {
