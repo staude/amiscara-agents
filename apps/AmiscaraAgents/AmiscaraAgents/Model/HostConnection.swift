@@ -9,6 +9,9 @@ final class HostConnection: Identifiable {
     private(set) var config: HostConfig
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
+    /// When the last update arrived while connected, so the overview can
+    /// tell how old the agents it still shows are (#274).
+    private(set) var liveAt: Date?
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
     /// pane view follows its pane again when this changes.
@@ -37,6 +40,7 @@ final class HostConnection: Identifiable {
                 Task { @MainActor in
                     guard let self else { return }
                     self.update = update
+                    if case .live = update.status { self.liveAt = .now }
                     self.onUpdate?(self, update)
                 }
             }
