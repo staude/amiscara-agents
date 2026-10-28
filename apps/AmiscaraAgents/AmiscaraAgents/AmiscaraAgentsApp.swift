@@ -1,4 +1,7 @@
 import AppIntents
+#if os(macOS)
+import KeyboardShortcuts
+#endif
 import SwiftUI
 
 @main
@@ -40,6 +43,12 @@ struct AmiscaraAgentsApp: App {
             Task { @MainActor in
                 guard !DemoMode.isOn else { return }
                 store.reconnectRemote()
+            }
+        }
+        // The quick composer from any app (#307); not in the screenshot demo.
+        if !DemoMode.isOn {
+            KeyboardShortcuts.onKeyUp(for: .quickComposer) {
+                QuickComposer.shared.toggle(store: store)
             }
         }
         #endif

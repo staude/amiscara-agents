@@ -202,7 +202,7 @@ struct QuickSwitcher: View {
     }
 }
 
-private struct SwitcherRow: View {
+struct SwitcherRow: View {
     let entry: SwitcherEntry
     let showHost: Bool
 
