@@ -95,7 +95,7 @@ final class Notifier: NSObject {
         let identifier = "\(AgentNotification.blockedCategory).\(hostID.uuidString).\(paneID)"
         let actions = question.options.prefix(Self.maxQuestionActions).map { option in
             UNNotificationAction(identifier: "key.\(option.key)", title: option.label, options: [.authenticationRequired])
-        } + [UNNotificationAction(identifier: "key.esc", title: String(localized: "Abbrechen"), options: [])]
+        } + [UNNotificationAction(identifier: "key.esc", title: String(localized: "Abbrechen"), options: [.authenticationRequired])]
         questionCategories.removeAll { $0.identifier == identifier }
         questionCategories.append(UNNotificationCategory(identifier: identifier, actions: actions, intentIdentifiers: []))
         if questionCategories.count > Self.maxQuestionCategories {
