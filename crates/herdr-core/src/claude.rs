@@ -189,6 +189,12 @@ pub async fn list_sessions(
     Ok(sessions)
 }
 
+/// Whether `id` can be a Claude Code session id (a UUID): only ASCII
+/// letters, digits and `-`, so it is safe as an argument of `claude`.
+pub fn is_session_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+}
+
 /// The page that ends at byte `end` of `session` (its size for the newest).
 pub async fn read_page(
     conn: &Connection,
@@ -522,5 +528,13 @@ mod tests {
         let exact = "a".repeat(PROMPT_TITLE);
         let data = lines(&[json!({"type": "user", "message": {"content": exact.clone()}})]);
         assert_eq!(first_prompt(&data), Some(exact));
+    }
+
+    #[test]
+    fn session_ids_are_checked() {
+        assert!(is_session_id("1a809806-9573-40d1-a97b-f3362b079eb7"));
+        for id in ["", "a b", "x;rm -rf ~", "$(id)", "../x", "a\nb", "ä"] {
+            assert!(!is_session_id(id), "{id:?}");
+        }
     }
 }

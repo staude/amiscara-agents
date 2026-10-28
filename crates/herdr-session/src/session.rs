@@ -706,11 +706,7 @@ impl Session {
         pane_id: &str,
         session_id: &str,
     ) -> Result<String, SessionError> {
-        if session_id.is_empty()
-            || !session_id
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
-        {
+        if !claude::is_session_id(session_id) {
             return Err(SessionError::Rejected(format!(
                 "not a Claude Code session id: {session_id}"
             )));
