@@ -62,6 +62,12 @@
     }
   }
 
+  /** Also takes it back on the host, so the host does not open VS Code itself. */
+  function ignoreEditorRequest(host: HostConfig, request: EditorRequest, key: string) {
+    hiddenRequests[key] = true;
+    core.dismissEditorRequest(host.id, request.paneId, request.requestId).catch(() => {});
+  }
+
   async function openRequest(host: HostConfig, request: OpenRequest, key: string) {
     if (openingRequests[key]) return;
     openingRequests[key] = true;
@@ -195,7 +201,7 @@
           {#if requestErrors[key]}<span class="update-error">{requestErrors[key]}</span>{/if}
         </div>
         <button class="primary" onclick={() => openEditorRequest(host, request, key)}>{t("openRequestOpen")}</button>
-        <button onclick={() => (hiddenRequests[key] = true)}>{t("openRequestIgnore")}</button>
+        <button onclick={() => ignoreEditorRequest(host, request, key)}>{t("openRequestIgnore")}</button>
       </div>
     {/each}
     {#if model.selectedHost && model.selectedWorkspace}

@@ -577,7 +577,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   at once. The Mac app (remote hosts) and the desktop app offer it ("Agent
   möchte einen Ordner in VS Code öffnen") and open
   `vscode://vscode-remote/ssh-remote+<target><path>`; opening marks it done
-  (`editor_done`, needs input allowed), otherwise the stand-in opens the
+  (`editor_done`, needs input allowed), as does "Ignorieren"; otherwise the stand-in opens the
   real `code` on the host after 30 seconds, also at the host itself; a newer
   `code` in the same pane replaces the request. "In VS Code öffnen" in a space's context menu and in the
   pane header opens the pane's working directory the same way. New optional

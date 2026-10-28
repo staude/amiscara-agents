@@ -90,7 +90,9 @@ struct OpenRequestBanner: View {
             HStack {
                 Spacer()
                 Button("Ignorieren") {
+                    // Also on the host, so it does not open VS Code itself.
                     store.ignoredOpenRequests.insert(pending.key)
+                    Task { await pending.connection.dismiss(editor: pending.request) }
                 }
                 Button("Öffnen") {
                     Task { await open(pending) }
