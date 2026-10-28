@@ -1625,12 +1625,12 @@
         }
       }
     },
-    "Der Dateiname enthält Steuerzeichen und kann nicht in einen Prompt." : {
+    "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The file name contains control characters and cannot go into a prompt."
+            "value" : "The path contains control characters and cannot go into a prompt."
           }
         }
       }
@@ -3547,6 +3547,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not reachable: %@."
+          }
+        }
+      }
+    },
+    "Nicht gesichert: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved: %@"
           }
         }
       }

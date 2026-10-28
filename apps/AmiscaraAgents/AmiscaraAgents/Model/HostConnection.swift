@@ -222,13 +222,15 @@ final class HostConnection: Identifiable {
     func upload(_ attachments: [ImageAttachment]) async throws -> [String] {
         guard config.uploadAllowed else { throw ConnectionFailure.uploadOff }
         let session = try writableSession()
+        // Before any upload, so a refused path leaves nothing behind.
+        guard attachments.allSatisfy({ $0.hostPath.map(ImageAttachment.isPlainPath) ?? true }) else {
+            throw ConnectionFailure.unsafePath
+        }
         return try await Task.detached {
-            try attachments.map { attachment -> String in
+            try attachments.map { attachment in
                 if let path = attachment.hostPath {
-                    guard ImageAttachment.isPlainPath(path) else { throw ConnectionFailure.unsafePath }
-                    return path
-                }
-                return if let name = attachment.fileName {
+                    path
+                } else if let name = attachment.fileName {
                     try session.uploadNamedFile(data: attachment.data, fileName: name)
                 } else {
                     try session.uploadFile(data: attachment.data, fileExtension: attachment.fileExtension)
@@ -448,7 +450,7 @@ enum ConnectionFailure: LocalizedError {
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
-            String(localized: "Der Dateiname enthält Steuerzeichen und kann nicht in einen Prompt.")
+            String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:
             String(localized: "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         }

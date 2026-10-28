@@ -384,6 +384,9 @@ private struct FilePreviewView: View {
                 if self.draft == draft { stopEditing() }
             } catch FfiError.FileChanged {
                 conflict = true
+            } catch FfiError.Files(let message) {
+                // Not "not readable" as for viewing.
+                saveError = String(localized: "Nicht gesichert: \(message)")
             } catch {
                 saveError = inputErrorMessage(error)
             }

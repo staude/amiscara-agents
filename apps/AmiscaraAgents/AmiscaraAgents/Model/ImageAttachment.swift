@@ -93,9 +93,11 @@ struct ImageAttachment: Identifiable, Sendable {
 
     /// Whether a host path can go into a prompt as it is: a newline would
     /// send the prompt early, other control characters act as keys in the
-    /// pane.
+    /// pane. Format characters such as the joiner in emoji are fine.
     static func isPlainPath(_ path: String) -> Bool {
-        !path.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+        !path.unicodeScalars.contains { scalar in
+            scalar.properties.generalCategory == .control || scalar == "\u{2028}" || scalar == "\u{2029}"
+        }
     }
 
     /// A file's content: an image prepared like a picked photo, the text of
