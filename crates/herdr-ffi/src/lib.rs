@@ -419,6 +419,18 @@ impl HostSession {
         Ok(runtime().block_on(self.session.screen_excerpt(&pane_id, max_lines))?)
     }
 
+    /// The last `max_lines` rows of a pane including scrollback as plain
+    /// text, joined where the terminal wrapped them with `unwrap` (#273).
+    /// Read only. Blocks for one round trip; call it off the main thread.
+    pub fn recent_text(
+        &self,
+        pane_id: String,
+        max_lines: u32,
+        unwrap: bool,
+    ) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.recent_text(&pane_id, max_lines, unwrap))?)
+    }
+
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.
     /// Blocks for one round trip; call it off the main thread.
     pub fn send_keys(&self, pane_id: String, keys: Vec<String>) -> Result<(), FfiError> {

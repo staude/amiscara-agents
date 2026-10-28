@@ -136,6 +136,22 @@ pub async fn read_screen(conn: &Connection, pane_id: &str) -> Result<PaneScreen,
     Ok(pane_screen(read_raw(conn, pane_id, 0, false).await?, 0))
 }
 
+/// Reads the last `rows` rows of a pane once, scrollback included and
+/// joined where the terminal wrapped them with `unwrap`. `rows` is capped at
+/// [`MAX_HISTORY_LINES`]; 0 reads the visible screen.
+pub async fn read_recent(
+    conn: &Connection,
+    pane_id: &str,
+    rows: u32,
+    unwrap: bool,
+) -> Result<PaneScreen, PaneError> {
+    let history_lines = rows.min(MAX_HISTORY_LINES);
+    Ok(pane_screen(
+        read_raw(conn, pane_id, history_lines, unwrap).await?,
+        history_lines,
+    ))
+}
+
 /// Publishes the pane's visible screen into `tx` and keeps it current.
 /// Returns on the first error (for example a closed pane or a lost
 /// connection) or when nobody watches any more. Reconnecting is up to the
@@ -338,6 +354,32 @@ mod tests {
 
         follower.abort();
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn read_recent_reads_history_once() {
+        let (path, seen) = fake_herdr("recent-once");
+        let conn = Connection::local(&path);
+
+        let plain = read_recent(&conn, "w1:p1", 5000, false)
+            .await
+            .expect("recent");
+        assert_eq!(plain.history_lines, MAX_HISTORY_LINES);
+        assert_eq!(plain.screen.text_lines(), ["old 1", "old 2", "screen"]);
+        let joined = read_recent(&conn, "w1:p1", 200, true)
+            .await
+            .expect("unwrapped");
+        assert_eq!(joined.screen.text_lines(), ["old 1 old 2", "screen"]);
+
+        let _ = std::fs::remove_file(&path);
+        let seen = seen.lock().expect("lock");
+        assert_eq!(
+            *seen,
+            [
+                ("recent".to_owned(), Some(u64::from(MAX_HISTORY_LINES))),
+                ("recent_unwrapped".to_owned(), Some(200)),
+            ]
+        );
     }
 
     #[tokio::test]
