@@ -17,24 +17,30 @@ final class DailyLogSummary {
     }
 
     private(set) var state = State.offered
+    /// Counts resets; a summary started before one is dropped.
+    private var generation = 0
 
     /// The model's context is small; the day's start is kept, the rest cut.
     private static let maxCharacters = 6000
 
-    /// Back to the offer, e.g. for another day.
+    /// Back to the offer, for another day or a reloaded list.
     func reset() {
+        generation += 1
         state = .offered
     }
 
     func summarize(_ items: [DailyItem]) async {
         guard state != .loading else { return }
+        let started = generation
         state = .loading
+        let result: State
         do {
             let text = String(Self.timeline(items).prefix(Self.maxCharacters))
-            state = .done(try await Self.summary(of: text))
+            result = .done(try await Self.summary(of: text))
         } catch {
-            state = .failed(error.localizedDescription)
+            result = .failed(error.localizedDescription)
         }
+        if generation == started { state = result }
     }
 
     /// One line per entry: `HH:mm place – kind: text`.

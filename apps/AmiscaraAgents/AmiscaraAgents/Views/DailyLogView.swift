@@ -156,6 +156,10 @@ struct DailyLogView: View {
         do {
             logs[offset] = try await connection.dailyLog(since: since, until: until)
             errors[offset] = nil
+            #if canImport(FoundationModels)
+            // A summary of the old list no longer fits.
+            if force, offset == day { summary.reset() }
+            #endif
         } catch {
             errors[offset] = inputErrorMessage(error)
         }
