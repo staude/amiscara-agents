@@ -1220,7 +1220,26 @@ fn upload_name(ext: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::named_upload;
+    use super::{SessionError, TransportError, files_error, named_upload};
+
+    #[test]
+    fn a_file_changed_on_the_host_gets_its_own_error() {
+        let changed = format!("/home/a/x.txt {}", herdr_transport::CHANGED_ON_HOST);
+        assert!(matches!(
+            files_error(TransportError::Files(changed)),
+            SessionError::FileChanged(_)
+        ));
+        assert!(matches!(
+            files_error(TransportError::Files(
+                "/home/a/x.txt: Permission denied".into()
+            )),
+            SessionError::Files(_)
+        ));
+        assert!(matches!(
+            files_error(TransportError::Timeout),
+            SessionError::NotConnected(_)
+        ));
+    }
 
     #[test]
     fn named_uploads_are_safe_and_keep_the_name() {

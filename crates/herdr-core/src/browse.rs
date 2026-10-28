@@ -308,6 +308,23 @@ mod tests {
         assert!(!is_editable("shot.png", size, 1, ok));
     }
 
+    /// Refused before anything reaches the host: the connection's socket
+    /// does not even exist.
+    #[tokio::test]
+    async fn save_refuses_large_text_and_windows_line_endings() {
+        let conn = Connection::local("/nonexistent/herdr.sock");
+        let large = "a".repeat(MAX_EDIT_BYTES as usize + 1);
+        for (text, expected) in [
+            (large.as_str(), "file too large to edit"),
+            ("a\r\nb\n", "text has Windows line endings"),
+        ] {
+            match save(&conn, "/nonexistent/file.txt", text, 1, 1).await {
+                Err(TransportError::Files(message)) => assert_eq!(message, expected),
+                other => panic!("not refused: {other:?}"),
+            }
+        }
+    }
+
     #[test]
     fn images_open_up_to_their_limit() {
         assert_eq!(
