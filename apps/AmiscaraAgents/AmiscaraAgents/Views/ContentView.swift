@@ -50,8 +50,13 @@ struct ContentView: View {
             #endif
         }
         .onChange(of: selection) { _, selection in
-            // A space opened from anywhere leaves the overview.
-            if selection != nil { showingOverview = false }
+            // A space opened from anywhere leaves the overview. Without a
+            // space no pane is on screen, so its agent notifies again.
+            if selection != nil {
+                showingOverview = false
+            } else {
+                store.notifier.visiblePane = nil
+            }
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in
             // A tapped notification, menu bar entry or shortcut opens its
