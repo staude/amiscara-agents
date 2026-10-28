@@ -37,6 +37,8 @@ final class AgentVoice {
     @ObservationIgnored private var lastRead: Read?
     /// Bumped by `stop`, so work started before it does nothing.
     @ObservationIgnored private var run = 0
+    /// Bumped on each agent state change, so an older retry loop stops.
+    @ObservationIgnored private var stateChange = 0
 
     private struct Read: Equatable {
         let sessionPath: String
@@ -85,10 +87,13 @@ final class AgentVoice {
     /// Call when the pane's agent state changes. Only the end of Claude's
     /// work counts, not each text between two tool calls.
     func agentStateChanged(from old: AgentState?, to new: AgentState?, connection: HostConnection, paneID: String) {
+        stateChange += 1
         guard let new, new != .working, state != .listening else { return }
         // A decision declined on the screen goes from blocked to idle.
         let declined = voiceMode && old == .blocked && state == .waitingForDecision
         guard old == .working || declined else { return }
+        // Answered on the screen: wait for the reply as after a prompt.
+        if declined, new != .blocked { state = .waiting }
         if new == .blocked {
             if voiceMode { speakDecision() }
             return
@@ -97,16 +102,19 @@ final class AgentVoice {
             || (Self.readsReplies(host: connection.id, pane: paneID) && !Dictation.isAnyRunning)
         guard reads else { return }
         let run = run
+        let change = stateChange
         Task {
-            // The session file may lag behind the state: try again a few times.
+            // The session file may lag behind the state: try again a few
+            // times, unless the state changed again (e.g. to a decision).
             for attempt in 0 ..< 4 {
                 if attempt > 0 { try? await Task.sleep(for: .seconds(1)) }
-                guard run == self.run else { return }
+                guard run == self.run, change == stateChange else { return }
                 let outcome = await read(connection: connection, paneID: paneID, automatic: !voiceMode, onlyNew: true, run: run)
                 if outcome != .same { return }
             }
             // Nothing new: in voice mode take the next prompt instead of hanging.
-            if run == self.run, voiceMode, state != .speaking { listen() }
+            // Never while Claude waits for a decision (only `.waiting` here).
+            if run == self.run, change == stateChange, voiceMode, state == .waiting { listen() }
         }
     }
 
