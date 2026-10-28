@@ -12,6 +12,8 @@ struct SplitTabView: View {
     let tab: TabItem
     let layout: SplitLayout
     @Binding var selection: String?
+    /// The choice question in the selected pane, for the input bar (#272).
+    @Binding var question: ChoiceQuestion?
 
     var body: some View {
         GeometryReader { geometry in
@@ -24,7 +26,8 @@ struct SplitTabView: View {
                         paneID: frame.paneId,
                         pane: tab.panes.first { $0.paneId == frame.paneId },
                         columns: frame.width,
-                        isSelected: selection == frame.paneId
+                        isSelected: selection == frame.paneId,
+                        question: $question
                     ) {
                         selection = frame.paneId
                     }
@@ -49,6 +52,8 @@ private struct PaneTile: View {
     let pane: PaneItem?
     let columns: UInt32
     let isSelected: Bool
+    /// Written only by the selected tile.
+    @Binding var question: ChoiceQuestion?
     let select: () -> Void
     @State private var model = PaneModel()
     /// Only the selected tile searches, like only it loads history; ⌘F and
@@ -89,6 +94,10 @@ private struct PaneTile: View {
         .onChange(of: isSelected) { _, selected in
             model.setLive(selected)
             if !selected { search.close() }
+            if selected { question = model.question }
+        }
+        .onChange(of: model.question, initial: true) {
+            if isSelected { question = model.question }
         }
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
     }

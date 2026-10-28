@@ -322,6 +322,16 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The choice question an agent asks in a pane, for a notification's
+    /// actions (#272); `nil` when there is none, when not connected or the
+    /// pane cannot be read. Read only.
+    func choiceQuestion(paneID: String) async -> ChoiceQuestion? {
+        guard let session, isLive else { return nil }
+        return try? await Task.detached {
+            try session.choiceQuestion(paneId: paneID)
+        }.value ?? nil
+    }
+
     /// Lets another device's key in on this host (#127); false when it was
     /// there already. Needs SFTP like uploads.
     func authorizeDeviceKey(_ publicKey: String, comment: String) async throws -> Bool {

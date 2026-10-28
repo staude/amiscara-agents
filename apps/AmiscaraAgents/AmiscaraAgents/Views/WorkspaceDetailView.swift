@@ -15,6 +15,8 @@ struct WorkspaceDetailView: View {
     @State private var newWorktreeFrom: WorktreeSource?
     @State private var tabID: String?
     @State private var paneID: String?
+    /// The choice question in the selected pane of a split tab (#272).
+    @State private var question: ChoiceQuestion?
     @State private var tabError: String?
     /// Kinds for "new tab with agent", from the host's herdr.
     @State private var agentKinds: [String] = []
@@ -34,10 +36,10 @@ struct WorkspaceDetailView: View {
                     }
                     if let tab = currentTab(workspace), let layout = sideBySide(tab) {
                         Divider()
-                        SplitTabView(connection: connection, tab: tab, layout: layout, selection: $paneID)
+                        SplitTabView(connection: connection, tab: tab, layout: layout, selection: $paneID, question: $question)
                         if connection.config.inputAllowed, let pane = tab.panes.first(where: { $0.paneId == paneID }) {
                             Divider()
-                            InputBar(connection: connection, pane: pane)
+                            InputBar(connection: connection, pane: pane, question: question)
                         }
                     } else {
                         if let tab = currentTab(workspace), tab.panes.count > 1 {

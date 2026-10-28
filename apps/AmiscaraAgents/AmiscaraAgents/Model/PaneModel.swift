@@ -12,6 +12,9 @@ final class PaneModel {
     var content: PaneContent? { agentHistory ?? followed }
     /// The followed screen, with scrollback when asked for.
     private var followed: PaneContent?
+    /// The choice question the agent asks on the live screen (#272); never
+    /// from the transcript, which may show an answered one.
+    var question: ChoiceQuestion? { followed?.question }
     private(set) var error: String?
     /// The transcript of a full-screen agent such as Claude Code, which
     /// herdr keeps no scrollback for (#187): read once on request and shown

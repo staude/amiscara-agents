@@ -11,6 +11,9 @@ import UIKit
 struct InputBar: View {
     let connection: HostConnection
     let pane: PaneItem
+    /// The choice question the agent asks on the screen (#272): its options
+    /// replace the buttons 1, 2, 3.
+    var question: ChoiceQuestion?
 
     @State private var text = ""
     @State private var sending = false
@@ -61,7 +64,7 @@ struct InputBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if isBlocked {
+            if isBlocked || (isAgent && question != nil) {
                 answerRow
             }
             quickReplyRow
@@ -472,7 +475,15 @@ struct InputBar: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 waitingLabel
-                HStack(spacing: 6) { answerButtons }
+                if question != nil {
+                    // Option texts can be long; on a phone the row scrolls.
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 6) { answerButtons }
+                    }
+                    .scrollIndicators(.hidden)
+                } else {
+                    HStack(spacing: 6) { answerButtons }
+                }
             }
         }
         .controlSize(.large)
@@ -486,9 +497,22 @@ struct InputBar: View {
 
     @ViewBuilder
     private var answerButtons: some View {
-        ForEach(["1", "2", "3"], id: \.self) { key in
-            Button(key) { send(keys: [key]) }
-                .help("Option \(key) wählen (⌥⌘\(key))")
+        if let question {
+            // Claude Code takes the digit as the answer, no Enter needed.
+            ForEach(question.options, id: \.key) { option in
+                Button { send(keys: [option.key]) } label: {
+                    Text(option.label)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 240)
+                }
+                .help(option.label)
+            }
+        } else {
+            ForEach(["1", "2", "3"], id: \.self) { key in
+                Button(key) { send(keys: [key]) }
+                    .help("Option \(key) wählen (⌥⌘\(key))")
+            }
         }
         Button("Bestätigen", systemImage: "return") { send(keys: ["enter"]) }
             .buttonStyle(.borderedProminent)
