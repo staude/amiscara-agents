@@ -52,6 +52,9 @@ final class PaneModel {
     /// The first screen after `arm()` still has to be compared with the
     /// last visit; later ones would be the user's own doing.
     @ObservationIgnored private var armedAt: Date?
+    /// The pane is being looked at since `arm()`; only such a visit is
+    /// recorded, not a follower that kept running behind the list.
+    @ObservationIgnored private var visitOpen = false
 
     /// How long a pane has to be away before a summary is offered.
     static let summaryPause: TimeInterval = 15 * 60
@@ -167,10 +170,12 @@ final class PaneModel {
         generation = connection?.generation
         if !samePane { arm() }
         guard let paneID, let connection else { return }
+        let host = connection.id
         let bridge = PaneBridge(
             content: { [weak self] content in
                 Task { @MainActor in
-                    guard let self, self.paneID == content.paneId else { return }
+                    // Pane IDs repeat across hosts.
+                    guard let self, self.paneID == content.paneId, self.connection?.id == host else { return }
                     if content.historyLines == 0 { self.screenRows = content.lines.count }
                     self.followed = content
                     self.error = nil
@@ -193,6 +198,8 @@ final class PaneModel {
     func leave() {
         // An offer was for the visit before this one.
         summaryOffer = nil
+        guard visitOpen else { return }
+        visitOpen = false
         guard recordsVisits, let paneID, let connection, let followed else { return }
         PaneVisits.shared.record(host: connection.id, pane: paneID, tail: PaneVisits.tail(of: followed.plainText))
     }
@@ -203,10 +210,15 @@ final class PaneModel {
         guard recordsVisits, let paneID, let connection else {
             lastVisit = nil
             armedAt = nil
+            visitOpen = false
             return
         }
         lastVisit = PaneVisits.shared.entry(host: connection.id, pane: paneID)
         armedAt = .now
+        visitOpen = true
+        // A follower that kept running publishes nothing new while the pane
+        // stays quiet, so its current screen counts too.
+        if let followed, offer(for: followed) { armedAt = nil }
     }
 
     func dismissSummary() {
@@ -218,11 +230,17 @@ final class PaneModel {
     private func checkVisit(_ content: PaneContent) {
         guard let armedAt else { return }
         self.armedAt = nil
-        guard let visit = lastVisit, Date.now.timeIntervalSince(armedAt) < Self.armWindow,
+        guard Date.now.timeIntervalSince(armedAt) < Self.armWindow else { return }
+        _ = offer(for: content)
+    }
+
+    private func offer(for content: PaneContent) -> Bool {
+        guard let visit = lastVisit,
               Date.now.timeIntervalSince(visit.seen) >= Self.summaryPause,
               PaneVisits.tail(of: content.plainText) != visit.tail
-        else { return }
+        else { return false }
         summaryOffer = visit
+        return true
     }
 
     /// Joins the rows the terminal wrapped at the pane width, for a view
