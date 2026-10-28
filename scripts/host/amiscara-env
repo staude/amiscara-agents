@@ -1,0 +1,60 @@
+#!/bin/sh
+# Secrets from the Amiscara Agents apps on a host (#291). The apps write each
+# secret as a file `~/.amiscara-agents/env/<NAME>` (mode 0600) over SFTP;
+# this script reads them without the value ever passing through a pane.
+#
+#   amiscara-env <NAME>    prints the value of one secret, without a newline
+#   amiscara-env --names   prints the names of all secrets, one per line
+#
+# New shells in herdr panes export all of them, e.g. in ~/.zshrc or
+# ~/.bashrc:
+#
+#   [ -n "$HERDR_PANE_ID" ] && for n in $("$HOME/.amiscara-agents/bin/amiscara-env" --names); do export "$n=$("$HOME/.amiscara-agents/bin/amiscara-env" "$n")"; done
+#
+# An agent that was already running asks for a single value instead:
+#
+#   NB_TOKEN=$(amiscara-env NB_TOKEN) netbird …
+#
+# Names are `[A-Z_][A-Z0-9_]*`, up to 128 characters, as in the apps. An
+# invalid name or a missing secret fails with exit 1; no folder means no
+# secrets.
+
+LC_ALL=C
+export LC_ALL
+dir=$HOME/.amiscara-agents/env
+
+valid_name() {
+    case $1 in
+        '' | [!ABCDEFGHIJKLMNOPQRSTUVWXYZ_]* | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_]*)
+            return 1 ;;
+    esac
+    [ "${#1}" -le 128 ]
+}
+
+usage() {
+    echo "usage: amiscara-env <NAME> | --names" >&2
+    exit 2
+}
+
+[ "$#" -eq 1 ] || usage
+
+if [ "$1" = --names ]; then
+    [ -d "$dir" ] || exit 0
+    for file in "$dir"/*; do
+        [ -f "$file" ] || continue
+        name=${file##*/}
+        valid_name "$name" && printf '%s\n' "$name"
+    done
+    exit 0
+fi
+
+case $1 in -*) usage ;; esac
+if ! valid_name "$1"; then
+    echo "amiscara-env: invalid name: $1" >&2
+    exit 1
+fi
+if [ ! -f "$dir/$1" ]; then
+    echo "amiscara-env: no secret $1 in $dir" >&2
+    exit 1
+fi
+exec cat "$dir/$1"
