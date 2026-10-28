@@ -854,8 +854,12 @@ impl Session {
         for file in files.iter().take(MAX_DAY_SESSIONS) {
             let (entries, cwd, cut) = match read_day(&conn, file, since_ms).await {
                 Ok(read) => read,
-                // Gone or unreadable since the script listed it.
-                Err(TransportError::Files(_) | TransportError::Io(_)) => continue,
+                // Gone or unreadable since the script listed it: the day
+                // may miss entries.
+                Err(TransportError::Files(_) | TransportError::Io(_)) => {
+                    truncated = true;
+                    continue;
+                }
                 Err(err) => return Err(SessionError::NotConnected(err.to_string())),
             };
             truncated |= cut;
