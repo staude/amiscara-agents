@@ -67,6 +67,9 @@ final class WidgetPublisher {
         #else
         let snapshot = WidgetSnapshot(updated: .now, hosts: hosts).merging(store.cloudBoards)
         #endif
+        #if !os(tvOS)
+        store.updateShortcutAgents(snapshot)
+        #endif
         #if os(iOS)
         AgentLiveActivity.shared.update(snapshot, store: store)
         #endif

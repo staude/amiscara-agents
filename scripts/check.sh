@@ -27,6 +27,7 @@ if $apple; then
     scripts/pane-visits-test.sh
     scripts/pane-cache-test.sh
     scripts/agent-overview-test.sh
+    scripts/agent-status-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
         [[ "$scheme" == AmiscaraAgents-iOS ]] && destination="generic/platform=iOS"

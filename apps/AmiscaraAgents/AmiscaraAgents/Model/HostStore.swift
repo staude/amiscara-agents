@@ -12,6 +12,13 @@ final class HostStore {
     /// Events of the local host for pushes through iCloud (#119).
     let cloudPush = CloudPushSender()
     #endif
+    #if !os(tvOS)
+    /// The agents as last seen and as Siri last learned them by name
+    /// (#275), and the pause between two updates; see `updateShortcutAgents(_:)`.
+    @ObservationIgnored private var shortcutAgentsSeen: Set<String> = []
+    @ObservationIgnored private var shortcutAgentsSent: Set<String> = []
+    @ObservationIgnored private var shortcutPause: Task<Void, Never>?
+    #endif
     var loadError: String?
     /// The boards the Mac apps leave in iCloud for this device's hosts
     /// (#156), as last fetched by `widgets`.
@@ -261,6 +268,40 @@ final class HostStore {
         config.pinnedHostKey = key
         update(config)
     }
+
+    #if !os(tvOS)
+    /// Tells Siri the agents again when one came, went or was renamed, so
+    /// it understands their names in the phrases (#275). Takes the widgets'
+    /// snapshot, which also holds the Mac's boards and loses removed hosts.
+    /// At most once a minute: Siri then asks for the agents, and that
+    /// reconnects hosts that are not live.
+    func updateShortcutAgents(_ snapshot: WidgetSnapshot) {
+        // Name and space are what Siri understands; tabs do not count.
+        shortcutAgentsSeen = Set(snapshot.hosts.flatMap { host in
+            host.agents.map { agent in
+                let space = agent.place.components(separatedBy: " · ").first ?? agent.place
+                return "\(host.id)/\(agent.paneID)|\(agent.name)|\(space)"
+            }
+        })
+        guard shortcutPause == nil else { return }
+        sendShortcutAgents()
+    }
+
+    /// Sends the agents seen when they changed, then pauses a minute and
+    /// sends what changed meanwhile.
+    private func sendShortcutAgents() {
+        guard shortcutAgentsSeen != shortcutAgentsSent else {
+            shortcutPause = nil
+            return
+        }
+        shortcutAgentsSent = shortcutAgentsSeen
+        HerdrShortcuts.updateAppShortcutParameters()
+        shortcutPause = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            self?.sendShortcutAgents()
+        }
+    }
+    #endif
 
     private func load() {
         guard let data = try? Data(contentsOf: fileURL) else { return }
