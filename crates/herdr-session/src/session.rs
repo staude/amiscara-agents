@@ -7,7 +7,7 @@ use std::time::Duration;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, diff, fullscreen};
+use herdr_core::{actions, browse, claude, diff, fullscreen, github};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
 };
@@ -991,6 +991,55 @@ impl Session {
         Ok(names)
     }
 
+    /// The GitHub repositories of the spaces on the host (#296), sorted,
+    /// each with its spaces: the `origin` in the `config` of each Git
+    /// repository the spaces show. Repositories elsewhere and unreadable
+    /// configs are left out; it fails only without a connection. Needs
+    /// file access like uploads.
+    pub async fn github_repos(&self) -> Result<Vec<github::GitHubRepo>, SessionError> {
+        let conn = self.connection()?;
+        // `.git` path -> spaces, from the current state.
+        let mut by_key: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+        {
+            let state = self.state.lock().ok();
+            let session = state
+                .as_ref()
+                .and_then(|state| state.as_ref())
+                .and_then(|rx| rx.borrow().session.clone());
+            for ws in session.iter().flat_map(|session| &session.workspaces) {
+                if let Some(wt) = ws.worktree.as_ref().filter(|wt| !wt.repo_key.is_empty()) {
+                    by_key
+                        .entry(wt.repo_key.clone())
+                        .or_default()
+                        .push(ws.workspace_id.clone());
+                }
+            }
+        }
+        let mut repos: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+        for (key, workspace_ids) in by_key {
+            // The key is absolute, so `read_file_head` and not
+            // `read_file_range`, which reads relative to the home.
+            let Ok(head) = conn
+                .read_file_head(&format!("{key}/config"), |size| {
+                    size.min(MAX_GIT_CONFIG_BYTES)
+                })
+                .await
+            else {
+                continue;
+            };
+            if let Some(repo) = github::origin_repo(&String::from_utf8_lossy(&head.data)) {
+                repos.entry(repo).or_default().extend(workspace_ids);
+            }
+        }
+        Ok(repos
+            .into_iter()
+            .map(|(repo, workspace_ids)| github::GitHubRepo {
+                repo,
+                workspace_ids,
+            })
+            .collect())
+    }
+
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path.
     pub async fn upload_file(
@@ -1316,6 +1365,8 @@ fn named_upload(file_name: &str) -> String {
 /// listing of the upload folder says what is what.
 /// The most of a diff the apps read; a bigger one is cut off.
 const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+/// The most of a Git `config` read for its `origin` (#296).
+const MAX_GIT_CONFIG_BYTES: u64 = 64 * 1024;
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
 /// returns the tab's id.
