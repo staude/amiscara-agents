@@ -64,7 +64,8 @@ fn detect_lines(lines: &[String]) -> Option<Vec<Choice>> {
     let mut found = vec![last];
     while found.last()?.number > 1 {
         let line = rows.next()?;
-        if let Some(option) = Row::option(line) {
+        // A description may start with a number such as `10. Mai`.
+        if let Some(option) = Row::option(line).filter(|option| option.number <= 9) {
             let expected = found.last()?.number - 1;
             if option.number != expected || option.indent != indent {
                 return None;
@@ -75,6 +76,11 @@ fn detect_lines(lines: &[String]) -> Option<Vec<Choice>> {
         }
     }
     found.reverse();
+    // Options right under a rule are a numbered prompt typed into the
+    // agent's input box, not sent yet; a dialog has its question above.
+    if rows.next().is_some_and(|line| Row::is_rule(line)) {
+        return None;
+    }
 
     if found.len() < 2
         || found.iter().filter(|option| option.selected).count() != 1
@@ -143,6 +149,10 @@ impl Row {
             .chars()
             .next()
             .is_none_or(|c| ('\u{2500}'..='\u{257f}').contains(&c))
+    }
+
+    fn is_rule(line: &str) -> bool {
+        line.trim().starts_with('─')
     }
 
     fn indent(line: &str) -> usize {
@@ -353,6 +363,34 @@ Enter to select · ↑/↓ to navigate · n to add notes · Esc to cancel
   ⏸ manual mode on
 ";
         assert_eq!(detect_text(text), None);
+    }
+
+    #[test]
+    fn numbered_prompt_in_the_input_box_is_no_question() {
+        let text = "\
+⏺ Done.
+
+────────────────────────────────────────────────────────────────────────
+❯ 1. Build
+  2. Test
+────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on
+";
+        assert_eq!(detect_text(text), None);
+    }
+
+    #[test]
+    fn description_starting_with_a_number() {
+        let text = "\
+Which day?
+
+❯ 1. Monday
+     10. Mai, the first slot.
+  2. Tuesday
+
+Enter to select · Esc to cancel
+";
+        assert_eq!(labels(text), ["Monday", "Tuesday"]);
     }
 
     #[test]
