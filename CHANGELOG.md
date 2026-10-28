@@ -541,6 +541,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   quick switcher) comes back on the tab and pane shown last, also after a
   restart (Mac, iPhone, iPad, Windows, Linux). A tab closed on the host
   falls back to herdr's active tab; an agent row still opens its own tab.
+- Agent choice questions as buttons (#272): when Claude Code asks for a
+  permission or with AskUserQuestion, the pane shows one button per option
+  with its text above the composer (Mac, iPhone, iPad); a tap sends the
+  option's digit. Local notifications for a waiting agent offer the same
+  options as actions (at most four). Free text, several answers and pushes
+  through iCloud keep the fixed answers. Core: `herdr_core::question`,
+  `PaneContent.question`, `Session::choice_question`.
 
 ### Changed
 
