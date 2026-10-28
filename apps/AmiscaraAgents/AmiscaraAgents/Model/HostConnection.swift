@@ -12,6 +12,10 @@ final class HostConnection: Identifiable {
     /// When the host was last seen connected, for the overview (#274).
     private var liveClock = LiveClock()
     var liveAt: Date? { liveClock.liveAt }
+    /// The agents of the last update while live, for the host dashboard
+    /// (#278): a new session starts with an empty board, so they stay
+    /// after "Neu verbinden" and editing. Only in memory.
+    private(set) var lastBoard: [BoardItem] = []
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
     /// pane view follows its pane again when this changes.
@@ -42,6 +46,7 @@ final class HostConnection: Identifiable {
                     let wasLive = self.isLive
                     self.update = update
                     self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
+                    if self.isLive { self.lastBoard = update.board }
                     self.onUpdate?(self, update)
                 }
             }
