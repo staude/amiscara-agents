@@ -8,7 +8,7 @@
 use crate::claude::{Entry, EntryKind};
 
 /// Starts a repository's commits in the script's output: the mark, a
-/// space, the repository's top directory.
+/// space, the folder it was found in.
 pub const REPO_MARK: &str = "#amiscara-repo";
 /// Starts the Claude Code session files: `<bytes> <path below home>`,
 /// newest first.
@@ -52,7 +52,7 @@ pub struct Commit {
     pub author: String,
     pub time_secs: u64,
     pub subject: String,
-    /// The top directory of the repository it was listed for.
+    /// The folder its repository was found in.
     pub repo: String,
 }
 
@@ -89,7 +89,7 @@ out="$(dirname "$0")/{out}"
     common=$(cd "$common" && pwd -P) || continue
     case "$seen" in *"|$common|"*) continue ;; esac
     seen="$seen$common|"
-    printf '%s %s\n' '{repo}' "$(git rev-parse --show-toplevel)"
+    printf '%s %s\n' '{repo}' "$d"
     git log --branches --since=@{since} --until=@{until} --format='%H%x1f%an%x1f%ct%x1f%s'
   done
   echo '{claude}'
