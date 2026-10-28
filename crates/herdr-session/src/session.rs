@@ -84,6 +84,7 @@ impl From<claude::ClaudeError> for SessionError {
         match err {
             claude::ClaudeError::Transport(TransportError::Files(message)) => Self::Files(message),
             claude::ClaudeError::Transport(other) => Self::NotConnected(other.to_string()),
+            claude::ClaudeError::Query(message) => Self::Rejected(message),
             other => Self::Files(other.to_string()),
         }
     }
@@ -117,7 +118,7 @@ impl From<actions::ActionError> for SessionError {
     }
 }
 
-fn files_error(err: TransportError) -> SessionError {
+pub(crate) fn files_error(err: TransportError) -> SessionError {
     match err {
         TransportError::Files(message) if message.ends_with(herdr_transport::CHANGED_ON_HOST) => {
             SessionError::FileChanged(message)
@@ -235,6 +236,25 @@ pub struct TranscriptPage {
     pub start: u64,
 }
 
+/// Part of a Claude Code conversation around a search hit (#303), oldest
+/// entry first; continues backwards like a [`TranscriptPage`] and forwards
+/// from `end`.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptSpan {
+    /// The session file below the host's home directory.
+    pub session_path: String,
+    pub entries: Vec<TranscriptEntry>,
+    /// Byte offset the span starts at; 0 means the conversation's start.
+    pub start: u64,
+    /// Where newer entries continue.
+    pub end: u64,
+    /// Whether the file has no newer entries for now.
+    pub at_end: bool,
+    /// Index in `entries` of the hit's first entry.
+    pub highlight: Option<u32>,
+}
+
 impl From<claude::Entry> for TranscriptEntry {
     fn from(entry: claude::Entry) -> Self {
         Self {
@@ -259,7 +279,7 @@ pub trait PaneSink: Send + Sync + 'static {
 
 /// One live host: keeps the session state current until stopped or dropped.
 pub struct Session {
-    state: Mutex<Option<watch::Receiver<SyncState>>>,
+    pub(crate) state: Mutex<Option<watch::Receiver<SyncState>>>,
     /// Whether spaces are grouped by their "Bereich/Name" labels. A change
     /// rebuilds the last update, so the app needs no reconnect.
     group_by_name: watch::Sender<bool>,
@@ -271,7 +291,7 @@ pub struct Session {
     remote: bool,
     /// Listeners for pages on the host's `localhost`, see [`Session::open_url`].
     forwards: Forwards,
-    runtime: Handle,
+    pub(crate) runtime: Handle,
 }
 
 impl Session {
@@ -385,7 +405,7 @@ impl Session {
         }
     }
 
-    fn connection(&self) -> Result<Arc<Connection>, SessionError> {
+    pub(crate) fn connection(&self) -> Result<Arc<Connection>, SessionError> {
         self.state
             .lock()
             .ok()
@@ -652,6 +672,63 @@ impl Session {
             session_path: session.path,
             entries: page.entries.into_iter().map(Into::into).collect(),
             start: page.start,
+        })
+    }
+
+    /// The conversation in the session file `session_path` around the line
+    /// that starts at byte `offset`, from a search hit (#303): entries
+    /// before it, the line's own and those after it. Read only.
+    pub async fn claude_history_at(
+        &self,
+        session_path: &str,
+        offset: u64,
+    ) -> Result<TranscriptSpan, SessionError> {
+        let conn = self.connection()?;
+        let line = claude::read_hit_line(&conn, session_path, offset)
+            .await?
+            .unwrap_or_default();
+        let own = claude::entries_in_line(&line);
+        let line_end = offset + line.len() as u64 + 1;
+        let session = claude::Session {
+            path: session_path.to_owned(),
+            size: offset,
+        };
+        let before = claude::read_back(&conn, &session, offset).await?;
+        let after = claude::read_forward(&conn, session_path, line_end).await?;
+        let highlight = (!own.is_empty()).then_some(before.entries.len() as u32);
+        let entries = before
+            .entries
+            .into_iter()
+            .chain(own)
+            .chain(after.entries)
+            .map(Into::into)
+            .collect();
+        Ok(TranscriptSpan {
+            session_path: session_path.to_owned(),
+            entries,
+            start: before.start,
+            end: after.end,
+            at_end: after.at_end,
+            highlight,
+        })
+    }
+
+    /// The entries after byte `from` of the session file `session_path`:
+    /// a span's `end`. Read only.
+    pub async fn claude_history_after(
+        &self,
+        session_path: &str,
+        from: u64,
+    ) -> Result<TranscriptSpan, SessionError> {
+        let conn = self.connection()?;
+        let after = claude::read_forward(&conn, session_path, from).await?;
+        Ok(TranscriptSpan {
+            session_path: session_path.to_owned(),
+            entries: after.entries.into_iter().map(Into::into).collect(),
+            start: from,
+            end: after.end,
+            at_end: after.at_end,
+            highlight: None,
         })
     }
 
@@ -1319,7 +1396,7 @@ const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
 /// returns the tab's id.
-async fn run_in_tab(
+pub(crate) async fn run_in_tab(
     conn: &Connection,
     workspace_id: &str,
     cwd: &str,
