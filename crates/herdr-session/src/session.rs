@@ -293,13 +293,16 @@ impl Session {
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
             let mut previous: Option<Arc<herdr_core::SessionState>> = None;
+            // Since when each agent is in its state; kept across reconnects.
+            let mut clock = view::StateClock::default();
             loop {
                 let state = updates.borrow_and_update().clone();
                 let by_name = *grouping.borrow_and_update();
                 let sort = sorting.borrow_and_update().clone();
-                let update =
+                let mut update =
                     view::session_update(&state, previous.as_deref(), by_name, &sort, remote);
                 if state.session.is_some() {
+                    clock.stamp(&mut update.board, &mut update.attention, unix_ms());
                     previous = state.session.clone();
                 }
                 on_update(update);
@@ -1223,6 +1226,14 @@ async fn wait_for_file(conn: &Connection, name: &str) -> Result<(), SessionError
         }
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
+}
+
+/// The current time in Unix milliseconds.
+fn unix_ms() -> u64 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    u64::try_from(now.as_millis()).unwrap_or(u64::MAX)
 }
 
 fn upload_name(ext: &str) -> String {

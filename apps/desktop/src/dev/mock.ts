@@ -138,6 +138,7 @@ const board = workspaces.flatMap((w) =>
         agentState: p.agentState,
         title: p.title,
         cwd: null,
+        stateSinceMs: null,
       })),
   ),
 );
