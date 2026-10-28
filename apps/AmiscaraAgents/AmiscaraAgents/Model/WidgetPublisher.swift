@@ -70,6 +70,9 @@ final class WidgetPublisher {
         #if !os(tvOS)
         store.updateShortcutAgents(snapshot)
         #endif
+        #if os(iOS) || os(macOS)
+        SpotlightIndex.shared.update(store: store, snapshot: snapshot)
+        #endif
         #if os(iOS)
         AgentLiveActivity.shared.update(snapshot, store: store)
         #endif

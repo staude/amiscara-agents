@@ -66,6 +66,9 @@ final class HostStore {
         notifier.hostForKey = { [weak self] key in
             self?.connections.first { CloudPush.hostKey(forPublicKey: $0.config.pinnedHostKey) == key }?.id
         }
+        #if os(iOS) || os(macOS)
+        SpotlightIndex.shared.start(hostIDs: connections.map(\.id))
+        #endif
         widgets.start(self)
         widgets.publish(self)
         #if os(macOS)
@@ -241,6 +244,9 @@ final class HostStore {
         }
         #endif
         connection.stop()
+        #if os(iOS) || os(macOS)
+        SpotlightIndex.shared.remove(host: id)
+        #endif
         KeyStore.delete(for: id)
         #if !os(tvOS)
         SecretStore.deleteAll(for: id)
