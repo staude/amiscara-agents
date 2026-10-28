@@ -72,6 +72,17 @@ struct WorkspaceDetailView: View {
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
                 #endif
+            } else if let selection,
+                      let connection = store.connection(for: selection.hostID),
+                      !connection.isLive,
+                      let pane = keptPane(for: selection) {
+                // Before the host lists its spaces, e.g. after a launch while
+                // offline: the pane's last screen, without tabs or input (#276).
+                PaneDetailView(selection: PaneRef(hostID: connection.id, paneID: pane))
+                    .navigationTitle(keptSpaceName(for: selection) ?? connection.config.name)
+                    #if os(iOS)
+                    .navigationBarTitleDisplayMode(.inline)
+                    #endif
             } else {
                 ContentUnavailableView(
                     "Kein Space gewählt",
@@ -92,6 +103,18 @@ struct WorkspaceDetailView: View {
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
         }
+        .onChange(of: isKnown) { _, known in
+            // The host lists the space only now (a launch while offline, a
+            // space created a moment ago): its tab.
+            if known, tabID == nil { focus(on: selection) }
+        }
+        .onChange(of: isGone) { _, gone in
+            // The space shown last was closed on the host: not again on launch.
+            guard gone, let selection, let last = PaneCache.shared.lastOpen,
+                  last.host == selection.hostID, last.workspace == selection.workspaceID
+            else { return }
+            PaneCache.shared.lastOpen = nil
+        }
         .onChange(of: tabID) { remember() }
         .onChange(of: paneID, initial: true) { _, pane in
             remember()
@@ -99,6 +122,37 @@ struct WorkspaceDetailView: View {
                 pane.map { (hostID: selection.hostID, paneID: $0) }
             }
         }
+    }
+
+    /// Whether the host lists the selected space.
+    private var isKnown: Bool {
+        guard let selection else { return false }
+        return store.connection(for: selection.hostID)?.update?.workspaces
+            .contains { $0.workspaceId == selection.workspaceID } ?? false
+    }
+
+    /// Whether the live host no longer lists the selected space.
+    private var isGone: Bool {
+        guard let selection, let connection = store.connection(for: selection.hostID),
+              connection.isLive, connection.update != nil
+        else { return false }
+        return !isKnown
+    }
+
+    /// The pane to show for a space the host does not list, if its last
+    /// screen is kept.
+    private func keptPane(for selection: SpaceRef) -> String? {
+        guard let pane = selection.paneID ?? LastTabs.shared.entry(host: selection.hostID, workspace: selection.workspaceID)?.pane,
+              PaneCache.shared.entry(host: selection.hostID, pane: pane) != nil
+        else { return nil }
+        return pane
+    }
+
+    private func keptSpaceName(for selection: SpaceRef) -> String? {
+        guard let last = PaneCache.shared.lastOpen,
+              last.host == selection.hostID, last.workspace == selection.workspaceID
+        else { return nil }
+        return last.spaceName
     }
 
     private func currentTab(_ workspace: WorkspaceItem) -> TabItem? {
@@ -272,14 +326,21 @@ struct WorkspaceDetailView: View {
     /// Keeps the shown tab and pane for the next time the space is opened
     /// (#263). Only what the snapshot knows: right after creating a tab it
     /// may not list it yet, and `workspace.tabs` changing calls this again.
+    /// Also the space and pane to open on the next launch (#276).
     private func remember() {
         guard let selection, let tabID,
-              let tab = store.connection(for: selection.hostID)?.update?.workspaces
-                .first(where: { $0.workspaceId == selection.workspaceID })?.tabs
-                .first(where: { $0.tabId == tabID })
+              let workspace = store.connection(for: selection.hostID)?.update?.workspaces
+                .first(where: { $0.workspaceId == selection.workspaceID }),
+              let tab = workspace.tabs.first(where: { $0.tabId == tabID })
         else { return }
         let pane = paneID.flatMap { id in tab.panes.contains { $0.paneId == id } ? id : nil }
         LastTabs.shared.record(tab: tabID, pane: pane, host: selection.hostID, workspace: selection.workspaceID)
+        PaneCache.shared.lastOpen = .init(
+            host: selection.hostID,
+            workspace: selection.workspaceID,
+            pane: pane,
+            spaceName: workspace.worktreeName ?? workspace.name
+        )
     }
 
     /// An agent picks its own tab and pane; a space opened without one

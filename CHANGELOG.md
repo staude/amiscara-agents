@@ -566,8 +566,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Siri and Shortcuts: "Was macht der Agent?" (#275) answers for one agent
   with its status, how long it has been in it and the last three lines of
   its screen without input box and footer, also as text for further steps
-  ("Was macht <Agent> in Amiscara Agents?"). The app measures the duration
-  itself; the Mac carries it in its iCloud boards. On the iPhone and iPad,
+  ("Was macht <Agent> in Amiscara Agents?"). The duration is the time the
+  session saw the state begin (#274), else the Mac's. On the iPhone and iPad,
   hosts out of reach answer from the Mac's board, with screen lines only
   for waiting agents, and the agent picker of all agent intents also lists
   their agents. Siri also understands an agent by its space name.

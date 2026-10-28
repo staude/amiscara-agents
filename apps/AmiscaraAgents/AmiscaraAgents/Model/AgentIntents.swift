@@ -441,16 +441,13 @@ extension HostStore {
         if connection.isLive {
             guard let item = connection.update?.board.first(where: { $0.paneId == agent.paneID }) else { return noData }
             let state = WidgetSnapshot.State(item.agentState)
-            let entry = connection.clock.entry(item.paneId).flatMap { $0.state == state ? $0 : nil }
-            var since = entry?.since
-            var exact = entry?.exact ?? false
+            // Since when, as the session saw it change (#274).
+            var since = item.stateSinceMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000) }
             #if os(iOS)
             // The Mac may have seen the state begin when this device did not.
-            if !exact, let hostKey, let board = await Self.macBoard(hostKey: hostKey),
-               let seen = board.agents.first(where: { $0.paneID == item.paneId }),
-               seen.state == state, let macSince = seen.since, macSince < since ?? .distantFuture {
-                since = macSince
-                exact = true
+            if since == nil, let hostKey, let board = await Self.macBoard(hostKey: hostKey),
+               let seen = board.agents.first(where: { $0.paneID == item.paneId }), seen.state == state {
+                since = seen.since
             }
             #endif
             let screen = await connection.screenExcerpt(paneID: item.paneId, lines: 30) ?? ""
@@ -459,7 +456,6 @@ extension HostStore {
                 space: item.spacePlace,
                 status: state.label,
                 since: since,
-                exact: exact,
                 now: .now,
                 lines: ScreenLines.last(3, of: screen),
                 source: .live,
@@ -482,7 +478,6 @@ extension HostStore {
             space: seen.place,
             status: seen.state.label,
             since: seen.since,
-            exact: seen.since != nil,
             now: .now,
             lines: lines,
             source: .mac(updated: board.updated),

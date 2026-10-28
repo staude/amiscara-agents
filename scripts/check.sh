@@ -24,6 +24,8 @@ cargo test --workspace --locked
 
 if $apple; then
     scripts/last-tabs-test.sh
+    scripts/pane-cache-test.sh
+    scripts/agent-overview-test.sh
     scripts/agent-status-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
@@ -32,6 +34,8 @@ if $apple; then
             xcodebuild -project apps/AmiscaraAgents/AmiscaraAgents.xcodeproj -scheme "$scheme" \
             -destination "$destination" -derivedDataPath target/xcode -quiet build
     done
+    # Needs the bindings the Xcode build made.
+    scripts/pane-cache-ffi-test.sh
 fi
 if $android; then
     # Code under cfg(target_os = "android") only compiles for the phone.

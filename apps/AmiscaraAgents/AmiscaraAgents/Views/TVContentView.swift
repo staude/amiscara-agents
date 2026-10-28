@@ -6,7 +6,7 @@ import SwiftUI
 /// Each tab navigates on its own; the remote's back button returns.
 struct TVContentView: View {
     @Binding var editing: HostConfig?
-    /// A pane to open, from the Top Shelf or a link: shown in the Agents tab.
+    /// A pane to open, from the Top Shelf or a link: shown in the overview tab.
     @Binding var open: SpaceRef?
     @State private var agentsPath: [SpaceRef] = []
 
@@ -18,7 +18,7 @@ struct TVContentView: View {
 
     var body: some View {
         TabView(selection: $section) {
-            Tab("Agents", systemImage: "sparkles", value: .agents) {
+            Tab("Übersicht", systemImage: "square.grid.2x2", value: .agents) {
                 NavigationStack(path: $agentsPath) { TVBoardView() }
             }
             Tab("Spaces", systemImage: "square.split.2x1", value: .spaces) {
@@ -82,10 +82,39 @@ private struct TVSpaceScreen: View {
                 .onChange(of: workspace.tabs.map(\.tabId), initial: true) { _, ids in
                     if tabID == nil || !ids.contains(tabID ?? "") { pick(workspace, pane: selection.paneID) }
                 }
+                // The space and pane to open on the next launch (#276).
+                .onChange(of: paneID) { _, pane in
+                    PaneCache.shared.lastOpen = .init(
+                        host: connection.id,
+                        workspace: workspace.workspaceId,
+                        pane: pane,
+                        spaceName: workspace.worktreeName ?? workspace.name
+                    )
+                }
                 .task(id: connection.id) { agentKinds = await connection.agentKinds() }
+            } else if let connection = store.connection(for: selection.hostID),
+                      !connection.isLive,
+                      let pane = selection.paneID ?? LastTabs.shared.entry(host: selection.hostID, workspace: selection.workspaceID)?.pane,
+                      PaneCache.shared.entry(host: selection.hostID, pane: pane) != nil {
+                // Before the host lists its spaces: the pane's last screen,
+                // without tabs or input (#276).
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(keptSpaceName ?? connection.config.name)
+                        .font(.headline)
+                        .lineLimit(1)
+                    PaneDetailView(selection: PaneRef(hostID: connection.id, paneID: pane))
+                }
+                .padding(.horizontal, 40)
             } else {
                 ContentUnavailableView("Space nicht verfügbar", systemImage: "square.split.2x1")
             }
+        }
+        .onChange(of: isGone) { _, gone in
+            // The space shown last was closed on the host: not again on launch.
+            guard gone, let last = PaneCache.shared.lastOpen,
+                  last.host == selection.hostID, last.workspace == selection.workspaceID
+            else { return }
+            PaneCache.shared.lastOpen = nil
         }
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focus, .tabs)
@@ -94,6 +123,21 @@ private struct TVSpaceScreen: View {
             NewWorktreeView(source: source) { _ in }
         }
         .closeConfirmation($closing)
+    }
+
+    /// Whether the live host no longer lists the space.
+    private var isGone: Bool {
+        guard let connection = store.connection(for: selection.hostID), connection.isLive,
+              let update = connection.update
+        else { return false }
+        return !update.workspaces.contains { $0.workspaceId == selection.workspaceID }
+    }
+
+    private var keptSpaceName: String? {
+        guard let last = PaneCache.shared.lastOpen,
+              last.host == selection.hostID, last.workspace == selection.workspaceID
+        else { return nil }
+        return last.spaceName
     }
 
     private func tabRow(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
@@ -205,34 +249,33 @@ extension View {
 
 // MARK: Agents
 
-/// All agents of all hosts as cards, waiting first.
+/// The overview (#274) as cards: the agents of all hosts in the groups
+/// waiting, working, done, newest first in each.
 struct TVBoardView: View {
     @Environment(HostStore.self) private var store
 
-    private var agents: [(connection: HostConnection, agent: BoardItem)] {
-        store.connections.flatMap { connection in
-            (connection.update?.board ?? []).map { (connection: connection, agent: $0) }
-        }
-        .enumerated()
-        .sorted { ($0.element.agent.agentState.urgency, $0.offset) < ($1.element.agent.agentState.urgency, $1.offset) }
-        .map(\.element)
-    }
-
     var body: some View {
+        let overview = store.overview
         ScrollView {
             if store.connections.isEmpty {
                 TVNoHosts()
-            } else if agents.isEmpty {
-                ContentUnavailableView("Keine Agents", systemImage: "sparkles", description: Text("Auf den Hosts läuft gerade kein Agent."))
+            } else if overview.isEmpty {
+                ContentUnavailableView("Keine Agents", systemImage: "sparkles", description: Text("Kein Agent wartet, arbeitet oder ist fertig."))
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 420), spacing: 40)], spacing: 40) {
-                    ForEach(agents, id: \.agent.paneId) { connection, agent in
-                        NavigationLink(value: SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId)) {
-                            card(agent, host: store.connections.count > 1 ? connection.config.name : nil)
+                LazyVStack(alignment: .leading, spacing: 30) {
+                    ForEach(overview.sections) { section in
+                        Text(section.group.title)
+                            .font(.title3.weight(.semibold))
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 420), spacing: 40)], spacing: 40) {
+                            ForEach(section.rows) { row in
+                                NavigationLink(value: SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID)) {
+                                    card(row, host: store.connections.count > 1 ? row.hostName : nil)
+                                }
+                                .buttonStyle(.card)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(row.agent.name), \(row.agent.state.label), \(row.agent.place)")
+                            }
                         }
-                        .buttonStyle(.card)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("\(agent.name ?? agent.agent), \(agent.agentState.label), \(agent.spacePlace), Tab \(agent.tabLabel)")
                     }
                 }
                 .padding(.horizontal, 60)
@@ -242,30 +285,41 @@ struct TVBoardView: View {
         .spaceDestination()
     }
 
-    private func card(_ agent: BoardItem, host: String?) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func card(_ row: AgentOverview.Row, host: String?) -> some View {
+        let state = row.agent.state
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                StatusDot(state: agent.agentState)
-                Text(agent.agentState.label)
+                Circle().fill(state.color).frame(width: 8, height: 8)
+                Text(state.label)
                     .font(.headline)
-                    .foregroundStyle(agent.agentState.color)
+                    .foregroundStyle(state.color)
                 Spacer()
                 if let host {
                     Text(host).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Text(agent.spacePlace).font(.title3.weight(.semibold)).lineLimit(1)
-            Text([agent.name ?? agent.agent, "Tab \(agent.tabLabel)"].joined(separator: " · "))
+            Text(row.agent.place).font(.title3.weight(.semibold)).lineLimit(1)
+            Text(row.agent.name)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-            Text(agent.title)
+            // The title only while the host sends it; boards in iCloud have none.
+            if row.staleAt == nil, let title = liveItem(row)?.title, !title.isEmpty {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            OverviewAge(row: row)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
         }
         .padding(28)
         .frame(maxWidth: .infinity, minHeight: 200, alignment: .topLeading)
+    }
+
+    private func liveItem(_ row: AgentOverview.Row) -> BoardItem? {
+        store.connection(for: row.hostID)?.update?.board.first { $0.paneId == row.agent.paneID }
     }
 }
 

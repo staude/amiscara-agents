@@ -308,16 +308,6 @@
         }
       }
     },
-    "%@: %@, schon mindestens %@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@: %2$@ for at least %3$@."
-          }
-        }
-      }
-    },
     "%@: %@." : {
       "localizations" : {
         "en" : {
@@ -1031,6 +1021,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pair Apple TV"
+          }
+        }
+      }
+    },
+    "Arbeitet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
           }
         }
       }
@@ -2931,6 +2931,16 @@
         }
       }
     },
+    "Kein Agent wartet, arbeitet oder ist fertig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent is waiting, working or done."
+          }
+        }
+      }
+    },
     "Kein Agent wartet." : {
       "localizations" : {
         "en" : {
@@ -3107,6 +3117,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No matches"
+          }
+        }
+      }
+    },
+    "Keine Verbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection"
           }
         }
       }
@@ -4657,6 +4677,26 @@
         }
       }
     },
+    "Stand von %@, Verbindung wird aufgebaut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@, connecting"
+          }
+        }
+      }
+    },
+    "Stand von %@, keine Verbindung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As of %@, no connection"
+          }
+        }
+      }
+    },
     "Standard" : {
       "localizations" : {
         "en" : {
@@ -5147,12 +5187,12 @@
         }
       }
     },
-    "Verbindung unterbrochen, Inhalt veraltet" : {
+    "Verbindung wird aufgebaut" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connection lost, content out of date"
+            "value" : "Connecting"
           }
         }
       }
@@ -5383,6 +5423,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for an answer"
+          }
+        }
+      }
+    },
+    "Wartet auf dich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for You"
           }
         }
       }
@@ -6126,6 +6176,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Handoff from Clipboard …"
+          }
+        }
+      }
+    },
+    "Übersicht" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
           }
         }
       }

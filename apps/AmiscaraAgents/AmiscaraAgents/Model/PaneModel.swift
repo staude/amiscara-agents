@@ -12,6 +12,9 @@ final class PaneModel {
     var content: PaneContent? { agentHistory ?? followed }
     /// The followed screen, with scrollback when asked for.
     private var followed: PaneContent?
+    /// When the shown screen last changed, also for a screen kept from
+    /// before (#276).
+    private(set) var updatedAt: Date?
     /// The choice question the agent asks on the live screen (#272); never
     /// from the transcript, which may show an answered one.
     var question: ChoiceQuestion? { followed?.question }
@@ -65,7 +68,8 @@ final class PaneModel {
 
     /// Whether another load can bring older rows.
     var canLoadMoreHistory: Bool {
-        guard let content = followed, agentHistory == nil, !isLoadingHistory else { return false }
+        // A kept screen while the host is not live (#276): nobody to ask.
+        guard let content = followed, connection?.isLive == true, agentHistory == nil, !isLoadingHistory else { return false }
         return content.historyLines == 0
             || (content.truncated && content.historyLines < maxHistoryLines())
     }
@@ -135,7 +139,13 @@ final class PaneModel {
         isLive = live
         follow?.stop()
         follow = nil
-        followed = nil
+        // The last screen kept, until the pane reads a new one (#276); not
+        // for a live host, where it would pass for the current screen.
+        let kept = connection?.isLive == false
+            ? paneID.flatMap { paneID in connection.flatMap { PaneCache.shared.entry(host: $0.id, pane: paneID) } }
+            : nil
+        followed = kept?.content
+        updatedAt = kept?.date
         error = nil
         historyLines = 0
         screenRows = 0
@@ -147,13 +157,16 @@ final class PaneModel {
         self.connection = connection
         generation = connection?.generation
         guard let paneID, let connection else { return }
+        let hostID = connection.id
         let bridge = PaneBridge(
             content: { [weak self] content in
                 Task { @MainActor in
                     guard let self, self.paneID == content.paneId else { return }
                     if content.historyLines == 0 { self.screenRows = content.lines.count }
                     self.followed = content
+                    self.updatedAt = .now
                     self.error = nil
+                    PaneCache.shared.record(content, host: hostID, pane: content.paneId)
                 }
             },
             error: { [weak self] message in

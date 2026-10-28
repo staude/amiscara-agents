@@ -92,6 +92,10 @@ code), so a host is set up the same way everywhere.
   their spaces (worktrees under their repository, `Bereich/Name` spaces
   grouped, see [below](#organizing-spaces-bereichname)), tabs and agents.
   Agents are sorted by urgency: waiting for an answer, working, done, idle.
+- **Overview:** the agents of all hosts on one page, grouped into waiting,
+  working and done, newest first, with the time in that state. Hosts
+  without a connection show their last known state (or the Mac's board in
+  iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
 - **Live pane:** the selected pane's screen with colors, updated as it
   changes. Split tabs side by side as herdr lays them out, search with
   highlighted hits, font zoom, color schemes with a minimum contrast, web
@@ -150,7 +154,11 @@ code), so a host is set up the same way everywhere.
   iPhone and iPad and the boards on the Apple Watch (see below).
 - Widgets, Siri and Shortcuts ("Welche Agents warten?", "Was macht der
   Agent?", "Agent öffnen"), dictation, and the "Tasten" menu with shortcuts
-  for the pane (⌘. Esc, ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers).
+  for the pane (⌘. Esc, ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an
+  agent waits for an answer, plain arrows, Enter and Esc go to its pane from
+  anywhere in the window (not from other text fields such as the pane
+  search; in the composer arrows and Enter only while it is empty, Esc
+  always).
 - Publishes its Bonjour name in iCloud so the Apple TV finds it.
 - Distributed outside the App Store, signed with Developer ID and
   notarized; the App Sandbox would block the socket and SSH to arbitrary
@@ -179,7 +187,7 @@ Complications show the number of waiting agents, also in the Smart Stack.
 
 ### Apple TV
 
-- A tab bar with **Agents** (all agents as cards, waiting first),
+- A tab bar with **Übersicht** (the overview as cards),
   **Spaces** and **Hosts**. Swipes on the Siri Remote scroll a focused
   pane, the back button returns. A reduced input bar sends keys and quick
   replies.

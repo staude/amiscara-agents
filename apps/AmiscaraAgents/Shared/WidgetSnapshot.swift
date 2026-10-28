@@ -27,8 +27,8 @@ struct WidgetSnapshot: Codable, Equatable {
         /// The agent's custom name, else its kind (`claude`).
         let name: String
         let state: State
-        /// When the agent entered `state`, as the writing app saw it begin
-        /// (#275); `nil` when it did not, and in older records.
+        /// Since when the agent is in its state, as the app saw it change;
+        /// `nil` when unknown, also in snapshots and boards from older builds.
         var since: Date? = nil
 
         var id: String { paneID }

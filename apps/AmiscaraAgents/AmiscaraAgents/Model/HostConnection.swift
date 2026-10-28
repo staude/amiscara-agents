@@ -9,16 +9,15 @@ final class HostConnection: Identifiable {
     private(set) var config: HostConfig
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
+    /// When the host was last seen connected, for the overview (#274).
+    private var liveClock = LiveClock()
+    var liveAt: Date? { liveClock.liveAt }
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
     /// pane view follows its pane again when this changes.
     private(set) var generation = 0
     /// Called on the main actor after every update, e.g. for notifications.
     @ObservationIgnored var onUpdate: ((HostConnection, SessionUpdate) -> Void)?
-    /// Since when each agent is in its state (#275); kept over `reconnect()`.
-    @ObservationIgnored private(set) var clock = StateClock()
-    /// Whether the last update was live, so the next one follows without a gap.
-    @ObservationIgnored private var lastUpdateLive = false
     nonisolated let id: UUID
 
     init(config: HostConfig) {
@@ -36,14 +35,13 @@ final class HostConnection: Identifiable {
     func start() {
         stop()
         startError = nil
-        clock = StateClock()
-        lastUpdateLive = false
         do {
             let bridge = SessionBridge { [weak self] update in
                 Task { @MainActor in
                     guard let self else { return }
+                    let wasLive = self.isLive
                     self.update = update
-                    self.observeStates(update)
+                    self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
                     self.onUpdate?(self, update)
                 }
             }
@@ -64,22 +62,8 @@ final class HostConnection: Identifiable {
     /// (refused login, host key) starts over instead, also when its last
     /// update has not arrived yet.
     func reconnect() {
+        liveClock.reconnecting(live: isLive)
         guard let session, session.reconnect() else { return start() }
-    }
-
-    /// Feeds the clock with live boards only: one in between that is not
-    /// live breaks the run, so a change seen after it is not exact.
-    private func observeStates(_ update: SessionUpdate) {
-        guard case .live = update.status else {
-            lastUpdateLive = false
-            return
-        }
-        clock.observe(
-            update.board.map { (paneID: $0.paneId, state: WidgetSnapshot.State($0.agentState)) },
-            at: .now,
-            continuous: lastUpdateLive
-        )
-        lastUpdateLive = true
     }
 
     func stop() {

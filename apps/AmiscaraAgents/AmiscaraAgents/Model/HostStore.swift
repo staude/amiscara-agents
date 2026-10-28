@@ -20,6 +20,9 @@ final class HostStore {
     @ObservationIgnored private var shortcutPause: Task<Void, Never>?
     #endif
     var loadError: String?
+    /// The boards the Mac apps leave in iCloud for this device's hosts
+    /// (#156), as last fetched by `widgets`.
+    var cloudBoards: [CloudBoard] = []
 
     private let fileURL: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -89,7 +92,7 @@ final class HostStore {
                 self.cloudPush.send(update.attention, hostKey: key, hostName: name) { [weak connection] paneID in
                     await connection?.screenExcerpt(paneID: paneID, lines: CloudPush.excerptLines)
                 }
-                self.cloudPush.sendBoard(connection.snapshotAgents, live: connection.isLive, hostKey: key, hostName: name)
+                self.cloudPush.sendBoard(update.board, live: connection.isLive, hostKey: key, hostName: name)
             }
             #endif
         }
@@ -162,6 +165,24 @@ final class HostStore {
         }
     }
 
+    /// The agents of all hosts for the overview (#274); hosts without a
+    /// connection show their last known state.
+    var overview: AgentOverview {
+        AgentOverview(
+            hosts: connections.map { connection in
+                AgentOverview.Host(
+                    id: connection.id,
+                    name: connection.config.name,
+                    live: connection.isLive,
+                    liveAt: connection.liveAt,
+                    hostKey: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
+                    agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init)
+                )
+            },
+            boards: cloudBoards
+        )
+    }
+
     /// Open requests hidden on this device with "Ignorieren", by `key`.
     var ignoredOpenRequests: Set<String> = []
 
@@ -214,6 +235,7 @@ final class HostStore {
         KeyStore.delete(for: id)
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)
+        PaneCache.shared.forget(host: id)
         connections.remove(at: index)
         save()
     }

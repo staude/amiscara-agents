@@ -110,13 +110,13 @@ final class CloudPushSender {
     /// The agents of the host with key fingerprint `hostKey`, for devices
     /// that cannot reach it. Written right away after a quiet time, else at
     /// most every `boardInterval`, with the newest state.
-    func sendBoard(_ agents: [WidgetSnapshot.Agent], live: Bool, hostKey: String, hostName: String) {
+    func sendBoard(_ items: [BoardItem], live: Bool, hostKey: String, hostName: String) {
         let board = CloudBoard(
             hostKey: hostKey,
             hostName: hostName,
             live: live,
             updated: .now,
-            agents: agents
+            agents: items.map(WidgetSnapshot.Agent.init)
         )
         boards[hostKey] = board
         startBoardTimer()

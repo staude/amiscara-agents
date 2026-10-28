@@ -3,6 +3,12 @@ import SwiftUI
 struct ContentView: View {
     @Environment(HostStore.self) private var store
     @State private var selection: SpaceRef?
+    /// The overview of all hosts (#274) is open instead of a space.
+    @State private var showingOverview = false
+    #if os(iOS)
+    /// Compact, the split view collapses to a stack (iPhone).
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
     @State private var editing: HostConfig?
     @State private var dismissedKeyPrompts: Set<UUID> = []
     /// An opened "add host" link and the new host it is meant for.
@@ -30,10 +36,15 @@ struct ContentView: View {
             TVContentView(editing: $editing, open: $selection)
             #else
             NavigationSplitView {
-                HostSidebar(selection: $selection, editing: $editing, switching: $switching, openHandoff: openHandoff)
+                HostSidebar(selection: sidebarSelection, editing: $editing, switching: $switching, openHandoff: openHandoff)
                     .navigationSplitViewColumnWidth(min: foldWidth ?? 240, ideal: foldWidth ?? 280, max: foldWidth)
             } detail: {
-                WorkspaceDetailView(selection: $selection)
+                // Without a space chosen, Mac and iPad show the overview.
+                if showingOverview || selection == nil {
+                    OverviewView { selection = $0 }
+                } else {
+                    WorkspaceDetailView(selection: $selection)
+                }
             }
             .sidebarAtFold($foldWidth)
             .overlay(alignment: .bottom) {
@@ -41,6 +52,15 @@ struct ContentView: View {
                 OpenRequestBanner()
             }
             #endif
+        }
+        .onChange(of: selection) { _, selection in
+            // A space opened from anywhere leaves the overview. Without a
+            // space no pane is on screen, so its agent notifies again.
+            if selection != nil {
+                showingOverview = false
+            } else {
+                store.notifier.visiblePane = nil
+            }
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in
             // A tapped notification, menu bar entry or shortcut opens its
@@ -155,6 +175,22 @@ struct ContentView: View {
             }
         }
         .task { await openDemo() }
+        .task { reopenLastPane() }
+    }
+
+    /// Once per launch, not for further Mac windows.
+    private static var reopenedLastPane = false
+
+    /// Opens the space and pane shown last (#276), unless something else
+    /// (a notification, a link) opens a pane already.
+    private func reopenLastPane() {
+        guard !Self.reopenedLastPane, !DemoMode.isOn else { return }
+        Self.reopenedLastPane = true
+        guard selection == nil, store.notifier.openRequest == nil,
+              let last = PaneCache.shared.lastOpen,
+              store.connection(for: last.host) != nil
+        else { return }
+        selection = SpaceRef(hostID: last.host, workspaceID: last.workspace, paneID: last.pane)
     }
 
     /// Opens what the screenshot demo asks for (#199) once the demo
@@ -221,6 +257,37 @@ struct ContentView: View {
         guard number >= 1, number <= spaces.count else { return }
         let space = spaces[number - 1]
         selection = SpaceRef(hostID: space.hostID, workspaceID: space.workspaceID)
+    }
+
+    /// Without a space chosen, Mac and iPad show the overview and mark it
+    /// in the sidebar; the iPhone stays on the sidebar, which a selection
+    /// would leave.
+    private var overviewIsPlaceholder: Bool {
+        #if os(iOS)
+        selection == nil && sizeClass != .compact
+        #else
+        selection == nil
+        #endif
+    }
+
+    /// The sidebar's selection: the overview or a space.
+    private var sidebarSelection: Binding<SidebarItem?> {
+        Binding(
+            get: { showingOverview || overviewIsPlaceholder ? .overview : selection.map(SidebarItem.space) },
+            set: { item in
+                switch item {
+                case .overview:
+                    selection = nil
+                    showingOverview = true
+                case .space(let ref):
+                    selection = ref
+                    showingOverview = false
+                case nil:
+                    selection = nil
+                    showingOverview = false
+                }
+            }
+        )
     }
 
     /// The first host waiting for a host key decision the user has not put off.

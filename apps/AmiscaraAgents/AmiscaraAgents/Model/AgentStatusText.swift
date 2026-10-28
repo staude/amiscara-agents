@@ -10,16 +10,14 @@ enum AgentStatusText {
         case mac(updated: Date)
     }
 
-    /// `since` is when the state began, `exact` false when it began at
-    /// that time or earlier. The duration follows "schon", not "seit": the
-    /// format style has no dative ("seit 2 Tage"). `linesMissingOffline`
-    /// says why no lines come.
+    /// `since` is when the state began, `nil` when nobody saw it begin.
+    /// The duration follows "schon", not "seit": the format style has no
+    /// dative ("seit 2 Tage"). `linesMissingOffline` says why no lines come.
     static func text(
         name: String,
         space: String,
         status: String,
         since: Date?,
-        exact: Bool,
         now: Date,
         lines: [String],
         source: Source,
@@ -34,13 +32,10 @@ enum AgentStatusText {
                 parts.append(String(localized: "Laut Mac (Stand gerade eben):"))
             }
         }
-        let duration = since.flatMap { duration(from: $0, to: now) }
-        switch (since, duration, exact) {
-        case (_, let duration?, true):
+        switch (since, since.flatMap { duration(from: $0, to: now) }) {
+        case (_, let duration?):
             parts.append(String(localized: "\(who): \(status), schon \(duration)."))
-        case (_, let duration?, false):
-            parts.append(String(localized: "\(who): \(status), schon mindestens \(duration)."))
-        case (.some, nil, true):
+        case (.some, nil):
             parts.append(String(localized: "\(who): \(status), gerade eben gewechselt."))
         default:
             parts.append(String(localized: "\(who): \(status)."))

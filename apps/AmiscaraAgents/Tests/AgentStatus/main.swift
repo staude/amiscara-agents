@@ -1,6 +1,5 @@
 // Checks the answer of "Was macht der Agent?" (#275) without the UI: the
-// screen lines it picks, the clock of state changes and the texts. Built by
-// scripts/agent-status-test.sh.
+// screen lines it picks and the texts. Built by scripts/agent-status-test.sh.
 import Foundation
 
 var failures = 0
@@ -37,57 +36,40 @@ check(ScreenLines.isChrome("? for shortcuts"), "footer is chrome")
 check(ScreenLines.isChrome("│ > │"), "prompt is chrome")
 check(!ScreenLines.isChrome("> quoted output"), "text after a > is not chrome")
 
-// MARK: State clock
-
 let t0 = Date(timeIntervalSince1970: 1_000_000)
-var clock = StateClock()
-clock.observe([(paneID: "p1", state: .working)], at: t0, continuous: false)
-check(clock.entry("p1") == .init(state: .working, since: t0, exact: false), "first update is not exact")
-
-clock.observe([(paneID: "p1", state: .working)], at: t0 + 30, continuous: true)
-check(clock.entry("p1")?.since == t0, "same state keeps its start")
-
-clock.observe([(paneID: "p1", state: .blocked), (paneID: "p2", state: .idle)], at: t0 + 60, continuous: true)
-check(clock.entry("p1") == .init(state: .blocked, since: t0 + 60, exact: true), "a change seen live is exact")
-check(clock.entry("p2")?.exact == true, "a new pane seen live is exact")
-
-clock.observe([(paneID: "p1", state: .done)], at: t0 + 600, continuous: false)
-check(clock.entry("p1") == .init(state: .done, since: t0 + 600, exact: false), "a change after a gap is not exact")
-check(clock.entry("p2") == nil, "a pane that is gone is forgotten")
 
 // MARK: Texts
 
 let now = t0 + 3600
 let live = AgentStatusText.text(
-    name: "claude", space: "Shop", status: "arbeitet", since: now - 5 * 60, exact: true, now: now,
+    name: "claude", space: "Shop", status: "arbeitet", since: now - 5 * 60, now: now,
     lines: ["a", "b", "c"], source: .live, linesMissingOffline: false
 )
 check(live.hasPrefix("claude in Shop: arbeitet, schon "), "live text: \(live)")
 check(live.contains("5"), "live text has the duration: \(live)")
-check(!live.contains("mindestens"), "exact duration has no 'mindestens': \(live)")
 check(live.hasSuffix("Auf dem Bildschirm: a / b / c"), "live text ends with the lines: \(live)")
 
-let inexact = AgentStatusText.text(
-    name: "claude", space: "Shop", status: "wartet", since: now - 2 * 3600, exact: false, now: now,
+let noLines = AgentStatusText.text(
+    name: "claude", space: "Shop", status: "wartet", since: now - 2 * 3600, now: now,
     lines: [], source: .live, linesMissingOffline: false
 )
-check(inexact.contains("schon mindestens"), "inexact duration says 'mindestens': \(inexact)")
-check(!inexact.contains("Bildschirm"), "no lines, no lines part: \(inexact)")
+check(noLines.contains("schon 2"), "hours as duration: \(noLines)")
+check(!noLines.contains("Bildschirm"), "no lines, no lines part: \(noLines)")
 
-let fresh = AgentStatusText.text(
-    name: "claude", space: "Shop", status: "fertig", since: now - 20, exact: false, now: now,
+let unknown = AgentStatusText.text(
+    name: "claude", space: "Shop", status: "fertig", since: nil, now: now,
     lines: [], source: .live, linesMissingOffline: false
 )
-check(fresh == "claude in Shop: fertig.", "inexact under a minute has no duration: \(fresh)")
+check(unknown == "claude in Shop: fertig.", "unknown start has no duration: \(unknown)")
 
 let justNow = AgentStatusText.text(
-    name: "claude", space: "", status: "fertig", since: now - 20, exact: true, now: now,
+    name: "claude", space: "", status: "fertig", since: now - 20, now: now,
     lines: [], source: .live, linesMissingOffline: false
 )
-check(justNow == "claude: fertig, gerade eben gewechselt.", "exact under a minute says 'gerade eben': \(justNow)")
+check(justNow == "claude: fertig, gerade eben gewechselt.", "under a minute says 'gerade eben': \(justNow)")
 
 let mac = AgentStatusText.text(
-    name: "claude", space: "Shop", status: "arbeitet", since: nil, exact: false, now: now,
+    name: "claude", space: "Shop", status: "arbeitet", since: nil, now: now,
     lines: [], source: .mac(updated: now - 3 * 60), linesMissingOffline: true
 )
 check(mac.hasPrefix("Laut Mac (Stand vor "), "Mac text names its source: \(mac)")
@@ -95,7 +77,7 @@ check(mac.contains("claude in Shop: arbeitet."), "Mac text without a start has n
 check(mac.hasSuffix("Bildschirmzeilen gibt es ohne Verbindung nur für wartende Agents."), "Mac text says why lines are missing: \(mac)")
 
 let macNow = AgentStatusText.text(
-    name: "claude", space: "Shop", status: "wartet", since: now - 10 * 60, exact: true, now: now,
+    name: "claude", space: "Shop", status: "wartet", since: now - 10 * 60, now: now,
     lines: ["Proceed?"], source: .mac(updated: now - 5), linesMissingOffline: false
 )
 check(macNow.hasPrefix("Laut Mac (Stand gerade eben): claude in Shop: wartet, schon "), "fresh Mac board: \(macNow)")
