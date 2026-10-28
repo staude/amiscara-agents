@@ -9,8 +9,9 @@ final class HostConnection: Identifiable {
     private(set) var config: HostConfig
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
-    /// When the last update arrived while connected, so the overview can
-    /// tell how old the agents it still shows are (#274).
+    /// When the host was last seen connected (an update while live or the
+    /// one that ended it), so the overview can tell how old the agents it
+    /// still shows are (#274).
     private(set) var liveAt: Date?
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
@@ -39,8 +40,11 @@ final class HostConnection: Identifiable {
             let bridge = SessionBridge { [weak self] update in
                 Task { @MainActor in
                     guard let self else { return }
+                    // Also when the connection drops: until then the last
+                    // update was still current, however quiet the host was.
+                    let wasLive = self.isLive
                     self.update = update
-                    if case .live = update.status { self.liveAt = .now }
+                    if wasLive || self.isLive { self.liveAt = .now }
                     self.onUpdate?(self, update)
                 }
             }

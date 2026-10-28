@@ -57,6 +57,8 @@ do {
     check(overview.sections.first?.rows.first?.staleAt == ago(2), "stale with its own age")
     let newer = AgentOverview(hosts: [offline], boards: [board("K", updated: ago(1), [agent("new", .blocked)])])
     check(panes(newer, .waiting) == ["new"], "a newer board wins")
+    let unconnected = CloudBoard(hostKey: "K", hostName: "mac", live: false, updated: ago(1), agents: [agent("rewritten", .blocked)])
+    check(panes(AgentOverview(hosts: [offline], boards: [unconnected]), .working) == ["own"], "a board the Mac wrote without a connection is not newer")
 }
 
 // Hosts without agents and agents that are ready or unknown stay out.

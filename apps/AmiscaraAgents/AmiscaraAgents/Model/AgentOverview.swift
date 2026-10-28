@@ -85,7 +85,9 @@ struct AgentOverview: Equatable {
                     return agent
                 }
                 staleAt = nil
-            } else if let board, host.liveAt.map({ board.updated > $0 }) ?? true {
+            } else if let board, host.liveAt.map({ board.live && board.updated > $0 }) ?? true {
+                // A Mac without a connection rewrites its last state with
+                // a new date, so only a connected board can be newer.
                 agents = board.agents
                 staleAt = board.updated
             } else {
