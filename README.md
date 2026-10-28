@@ -141,6 +141,14 @@ code), so a host is set up the same way everywhere.
 - **Claude Code conversation:** for Claude panes the conversation itself
   (prompts, answers, tool calls), read from `~/.claude/projects` on the host
   over SFTP.
+- **Read aloud and voice mode:** "Vorlesen" in the header of a Claude pane
+  reads Claude's last reply with the system voice, in the reply's language,
+  code blocks skipped. "Antworten vorlesen" reads each reply once Claude has
+  finished, as long as the pane is open (silent with the silent switch on).
+  The voice mode reads the reply, then listens; a pause sends the dictated
+  answer, "Stopp" ends it. When Claude waits for a decision, the voice mode
+  says so and leaves the answer to the screen. Needs file access like the
+  conversation and the app in front. Mac, iPhone and iPad.
 - **Input:** prompts to agents (`agent.prompt`), text to shells, a key bar
   (Esc, Tab, Ctrl-C, arrows, Enter) and quick replies. When an agent waits
   for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen; when
