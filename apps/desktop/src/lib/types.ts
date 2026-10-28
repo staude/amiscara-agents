@@ -146,6 +146,8 @@ export interface BoardItem {
   agentState: AgentState;
   title: string;
   cwd: string | null;
+  /** Since when the agent is in its state (Unix ms); null if unknown. */
+  stateSinceMs: number | null;
 }
 
 export interface SessionUpdate {

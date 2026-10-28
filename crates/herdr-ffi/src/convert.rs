@@ -165,6 +165,9 @@ pub struct BoardItem {
     pub agent_state: AgentState,
     pub title: String,
     pub cwd: Option<String>,
+    /// Since when the agent is in its state, in Unix milliseconds; `None`
+    /// when it already was in it as the session started.
+    pub state_since_ms: Option<u64>,
 }
 
 #[uniffi::remote(Record)]
