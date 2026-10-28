@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @Environment(HostStore.self) private var store
     @State private var selection: SpaceRef?
+    /// The overview of all hosts (#274) is open instead of a space.
+    @State private var showingOverview = false
     @State private var editing: HostConfig?
     @State private var dismissedKeyPrompts: Set<UUID> = []
     /// An opened "add host" link and the new host it is meant for.
@@ -30,10 +32,15 @@ struct ContentView: View {
             TVContentView(editing: $editing, open: $selection)
             #else
             NavigationSplitView {
-                HostSidebar(selection: $selection, editing: $editing, switching: $switching, openHandoff: openHandoff)
+                HostSidebar(selection: sidebarSelection, editing: $editing, switching: $switching, openHandoff: openHandoff)
                     .navigationSplitViewColumnWidth(min: foldWidth ?? 240, ideal: foldWidth ?? 280, max: foldWidth)
             } detail: {
-                WorkspaceDetailView(selection: $selection)
+                // Without a space chosen, Mac and iPad show the overview.
+                if showingOverview || selection == nil {
+                    OverviewView { selection = $0 }
+                } else {
+                    WorkspaceDetailView(selection: $selection)
+                }
             }
             .sidebarAtFold($foldWidth)
             .overlay(alignment: .bottom) {
@@ -41,6 +48,10 @@ struct ContentView: View {
                 OpenRequestBanner()
             }
             #endif
+        }
+        .onChange(of: selection) { _, selection in
+            // A space opened from anywhere leaves the overview.
+            if selection != nil { showingOverview = false }
         }
         .onChange(of: store.notifier.openRequest, initial: true) { _, request in
             // A tapped notification, menu bar entry or shortcut opens its
@@ -221,6 +232,26 @@ struct ContentView: View {
         guard number >= 1, number <= spaces.count else { return }
         let space = spaces[number - 1]
         selection = SpaceRef(hostID: space.hostID, workspaceID: space.workspaceID)
+    }
+
+    /// The sidebar's selection: the overview or a space.
+    private var sidebarSelection: Binding<SidebarItem?> {
+        Binding(
+            get: { showingOverview ? .overview : selection.map(SidebarItem.space) },
+            set: { item in
+                switch item {
+                case .overview:
+                    selection = nil
+                    showingOverview = true
+                case .space(let ref):
+                    selection = ref
+                    showingOverview = false
+                case nil:
+                    selection = nil
+                    showingOverview = false
+                }
+            }
+        )
     }
 
     /// The first host waiting for a host key decision the user has not put off.

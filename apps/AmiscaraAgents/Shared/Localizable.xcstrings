@@ -995,6 +995,16 @@
         }
       }
     },
+    "Arbeitet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
     "Auch eine gestoppte Session lässt sich hinzufügen. Die App verbindet sich, sobald sie läuft." : {
       "localizations" : {
         "en" : {
@@ -2817,6 +2827,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No agent waiting"
+          }
+        }
+      }
+    },
+    "Kein Agent wartet, arbeitet oder ist fertig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent is waiting, working or done."
           }
         }
       }
@@ -5157,6 +5177,16 @@
         }
       }
     },
+    "Wartet auf dich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for You"
+          }
+        }
+      }
+    },
     "Was Sie an diese Pane senden, steht hier." : {
       "localizations" : {
         "en" : {
@@ -5896,6 +5926,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Handoff from Clipboard …"
+          }
+        }
+      }
+    },
+    "Übersicht" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
           }
         }
       }
