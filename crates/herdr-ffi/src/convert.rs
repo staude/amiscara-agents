@@ -379,4 +379,7 @@ pub struct FilePreview {
     /// Seconds since 1970, 0 if unknown.
     pub modified: u64,
     pub content: FileContent,
+    /// Whole text up to 256 KB, UTF-8 without `\r`: can be saved back
+    /// (#271).
+    pub editable: bool,
 }

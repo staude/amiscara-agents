@@ -63,6 +63,10 @@ pub enum SessionError {
     /// be renewed, or sshd forbids TCP forwarding.
     #[error("{0}")]
     Forward(String),
+    /// A file was not saved: it changed on the host since it was opened
+    /// (#271).
+    #[error("{0}")]
+    FileChanged(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -105,6 +109,9 @@ impl From<actions::ActionError> for SessionError {
 
 fn files_error(err: TransportError) -> SessionError {
     match err {
+        TransportError::Files(message) if message.ends_with(herdr_transport::CHANGED_ON_HOST) => {
+            SessionError::FileChanged(message)
+        }
         TransportError::Files(message) => SessionError::Files(message),
         other => SessionError::NotConnected(other.to_string()),
     }
@@ -796,6 +803,24 @@ impl Session {
     pub async fn file_preview(&self, path: &str) -> Result<browse::FilePreview, SessionError> {
         let conn = self.connection()?;
         browse::preview(&conn, path).await.map_err(files_error)
+    }
+
+    /// Writes `text` to the file at the absolute `path` on the host (#271)
+    /// and returns it as now saved. `size` and `modified` are those of the
+    /// [`browse::FilePreview`] it was edited from; when the file changed
+    /// since, nothing is written and it fails with
+    /// [`SessionError::FileChanged`]. Up to 256 KB of text.
+    pub async fn save_file(
+        &self,
+        path: &str,
+        text: &str,
+        size: u64,
+        modified: u64,
+    ) -> Result<browse::FilePreview, SessionError> {
+        let conn = self.connection()?;
+        browse::save(&conn, path, text, size, modified)
+            .await
+            .map_err(files_error)
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
