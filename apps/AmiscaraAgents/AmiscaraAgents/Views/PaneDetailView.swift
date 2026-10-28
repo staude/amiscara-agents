@@ -117,6 +117,9 @@ struct PaneDetailView: View {
                 search.query = query
             }
             showingConversation = DemoMode.view == "conversation"
+            #if !os(tvOS)
+            showingFiles = DemoMode.view == "files"
+            #endif
             if let prompt = DemoMode.history, !prompt.isEmpty, let selection {
                 PromptHistory.shared.record(prompt, for: PromptHistory.key(host: selection.hostID, pane: selection.paneID))
             }

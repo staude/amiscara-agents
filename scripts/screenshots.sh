@@ -85,6 +85,18 @@ views=(
     "quick-switcher|Shop/API|0 0|switcher|"
     "add-host|Shop/API|0 0|addHost|"
 )
+# Only in the Mac, iPhone and iPad apps (#290): the overview and dashboard
+# instead of a space, the file browser, the pane dimmed after going offline.
+apple_views=(
+    "overview|||overview|"
+    "dashboard|||dashboard|"
+    "files|Shop/Web|0 0|files|"
+    "offline|Lab/WeatherStation|0 0|offline|"
+)
+
+# The file browser stays inside the home and falls back to it for a pane
+# outside, so for it the home is the demo root with the repositories.
+files_home() { if [[ $1 == files ]]; then echo "$root"; else echo "$root/home"; fi; }
 
 # --- Mac ---------------------------------------------------------------
 mac() {
@@ -94,12 +106,14 @@ mac() {
         -derivedDataPath target/xcode build -quiet
     local app=target/xcode/Build/Products/Debug/AmiscaraAgents.app/Contents/MacOS/AmiscaraAgents
     mkdir -p "$out/mac" "$root/home"
-    local entry name space where view search pid window
-    for entry in "${views[@]}" "settings|Shop/API|0 0|settings|"; do
+    local entry name space where view search pid window target
+    for entry in "${views[@]}" "${apple_views[@]}" "settings|Shop/API|0 0|settings|"; do
         IFS='|' read -r name space where view search <<<"$entry"
+        target=""
         # shellcheck disable=SC2086 # where is "tab index"
-        HOME="$root/home" CFFIXED_USER_HOME="$root/home" "$app" \
-            -demoSocket "$socket" -demoSpace "$space" -demoPane "$(pane "$space" $where)" \
+        [[ -n "$space" ]] && target=$(pane "$space" $where)
+        HOME="$(files_home "$view")" CFFIXED_USER_HOME="$root/home" "$app" \
+            -demoSocket "$socket" -demoSpace "$space" -demoPane "$target" \
             -demoView "$view" -demoSearch "$search" -demoWindow 1440x900 \
             -appearance "$appearance" >"$root/mac.log" 2>&1 &
         pid=$!
@@ -167,8 +181,9 @@ sim() {
         # A relaunch right after terminating can leave tvOS on its home screen.
         xcrun simctl terminate "$udid" net.staude.amiscara.agents 2>/dev/null || true
         sleep 2
-        SIMCTL_CHILD_HOME="$root/home" xcrun simctl launch "$udid" \
-            net.staude.amiscara.agents -demoSocket "$socket" -demoSpace "$space" \
+        # The simulators ignore SIMCTL_CHILD_HOME for HOME, so -demoHome.
+        xcrun simctl launch "$udid" \
+            net.staude.amiscara.agents -demoSocket "$socket" -demoHome "$(files_home "$view")" -demoSpace "$space" \
             -demoPane "$target" -demoView "$view" -demoSearch "$search" \
             -appearance "$appearance" >/dev/null
         sleep 7
@@ -247,19 +262,19 @@ if want ios || want duo || want duo-open || want ipad; then
     sim_build AmiscaraAgents-iOS "iOS Simulator"
     ios_app=target/xcode-sim/Build/Products/Debug-iphonesimulator/AmiscaraAgents.app
     want ios && sim ios "${IPHONE_SIM:-$(sim_id "iPhone 18 Pro")}" "$ios_app" true \
-        "spaces||||" "${views[@]}"
+        "spaces||||" "${views[@]}" "${apple_views[@]}"
     if want duo; then
         sim_display=primary
-        sim duo "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "spaces||||" "${views[@]}"
+        sim duo "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "spaces||||" "${views[@]}" "${apple_views[@]}"
         sim_display=""
     fi
     if want duo-open; then
         sim_display=primary-1
-        sim duo-open "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "${views[@]}"
+        sim duo-open "${DUO_SIM:-$(sim_id "iPhone Duo")}" "$ios_app" true "${views[@]}" "${apple_views[@]}"
         sim_display=""
     fi
     want ipad && sim ipad "${IPAD_SIM:-$(sim_id "iPad Pro 13-inch (M5)")}" "$ios_app" true \
-        "${views[@]}"
+        "${views[@]}" "${apple_views[@]}"
 fi
 # --- Windows and Linux desktop app -------------------------------------
 # The same Svelte UI and Rust side, run here as a debug build against the

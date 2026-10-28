@@ -11,11 +11,16 @@ import Foundation
 ///   Works in the simulators too, which reach the Mac's sockets.
 /// - `-demoSpace <label>`: the space to open, by its herdr label.
 /// - `-demoPane <pane id>`: the pane to select in it.
-/// - `-demoView <name>`: on top, `switcher`, `addHost`, `conversation`
-///   or (Mac) `settings`.
+/// - `-demoView <name>`: on top, `switcher`, `addHost`, `conversation`,
+///   `files` or (Mac) `settings`; instead of a space `overview` or
+///   `dashboard` (the demo host's); `offline` takes the host offline
+///   after 3 s, so the pane shows its last screen dimmed (#290).
 /// - `-demoSearch <text>`: the pane search, open with this text.
 /// - `-demoWindow <width>x<height>`: the Mac window's content size.
 /// - `-demoHistory <text>`: a prompt in the history of the pane (#229).
+/// - `-demoHome <path>`: the home the local host's files and Claude
+///   conversations are read from. The simulators set their own `HOME`
+///   and ignore `SIMCTL_CHILD_HOME`, so the app sets it at launch (#290).
 /// - `-demoWidgets YES`: publish the demo board to the widgets after all,
 ///   for screenshots of widgets placed by hand (#215).
 enum DemoMode {
@@ -40,6 +45,14 @@ enum DemoMode {
     #endif
 
     static var isOn: Bool { socket != nil }
+
+    /// Points `HOME` at `-demoHome` before the core reads it (#290).
+    static func applyHome() {
+        #if DEBUG
+        guard isOn, let home = UserDefaults.standard.string(forKey: "demoHome"), !home.isEmpty else { return }
+        setenv("HOME", home, 1)
+        #endif
+    }
 
     /// `-demoWindow` as a size.
     static var windowSize: CGSize? {

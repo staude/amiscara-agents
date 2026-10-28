@@ -20,6 +20,7 @@ struct AmiscaraAgentsApp: App {
     #endif
 
     init() {
+        DemoMode.applyHome()
         let store = HostStore()
         _store = State(initialValue: store)
         #if !os(tvOS)

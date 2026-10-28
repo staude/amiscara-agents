@@ -600,9 +600,58 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
+  Z–A) or manually; manual starts from the order shown and changes by drag
+  and drop in the sidebar, within a group and only on the same host. Stored
+  per host on Mac, iPhone, iPad, Android, Windows and Linux; the running
+  session rebuilds its order without reconnecting. Core:
+  `herdr_core::spaces::SpaceSort`, `SessionUpdate::space_order`,
+  `Session::set_space_sort`.
+- The sort menu next to "Spaces" shows the current order as text ("wie
+  herdr", "Name A–Z", "Name Z–A", "Manuell") instead of an icon (#254).
+- Dragging a space shows a line where it will land; places the drop would
+  refuse draw none (#255).
+- Summary of new output (#273): a pane opened again after at least
+  15 minutes whose screen has more than a changed bottom line offers
+  "Zusammenfassen" above the terminal. The on-device model (Apple
+  Intelligence) writes two sentences about what happened since the last
+  visit, for Claude panes from the conversation when file access is on,
+  otherwise from the new lines. Nothing leaves the device; the last visit
+  per pane is kept for 7 days. Mac, iPhone and iPad. Core:
+  `Session::recent_text`.
+- Overview across all hosts (#274): the agents of all hosts grouped into
+  waiting, working and done, newest first, with the time in that state;
+  hosts without a connection show their last state or the Mac's board in
+  iCloud with its age. First entry of the sidebar on Mac, iPad and iPhone,
+  the start of the Apple TV. Core: agents report since when they are in
+  their state.
+- The last screen while offline (#276): each pane's last screen stays on
+  the device (memory and cache directory, up to 500 rows per pane,
+  40 panes, 7 days). While the host is not live the pane shows it dimmed
+  under "Stand von …, Verbindung wird aufgebaut" (or "keine Verbindung"),
+  and the app reopens the last space and pane on launch, also before the
+  host is back. Mac, iPhone, iPad and Apple TV. Core: pane content to and
+  from JSON.
+- Answer keys from anywhere (#277): while the shown pane's agent waits for
+  an answer, arrows, Enter and Esc go to its pane on the Mac regardless of
+  focus; other text fields such as the pane search keep them, and the
+  composer keeps arrows and Enter while it has text (Esc still cancels).
+- Dashboard per host (#278): the host's name or "Dashboard" in the sidebar
+  opens a page in the widget's look, the waiting count large, the working
+  ones below and a row per agent that opens it; the badge counts the
+  waiting ones. The last live agents stay while the host reconnects, also
+  after "Neu verbinden", and without a connection the Mac's board in iCloud
+  stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
 
 ### Changed
 
+- README and screenshots cover the features since 22 October; the
+  screenshot run adds the overview, host dashboard, file browser and an
+  offline pane for Mac, iPhone and iPad, from the new `-demoView` values
+  `overview`, `dashboard`, `files` and `offline` (#290). The new
+  `-demoHome` sets `HOME` at launch, because the simulators ignore
+  `SIMCTL_CHILD_HOME`; the iPhone and iPad conversation and file browser
+  shots read the demo home again instead of the app container.
 - iPhone Duo: the dictation microphone sits in the vertical bar instead
   of the key row while the bar is shown (#222).
 - The magnifier in a pane header and in the iPhone Duo's side bar closes

@@ -23,6 +23,11 @@ final class HostConnection: Identifiable {
     private(set) var generation = 0
     /// Called on the main actor after every update, e.g. for notifications.
     @ObservationIgnored var onUpdate: ((HostConnection, SessionUpdate) -> Void)?
+    #if DEBUG
+    /// The screenshot demo took the host offline (#290); late updates of
+    /// the stopped session must not bring it back.
+    @ObservationIgnored private var demoOffline = false
+    #endif
     nonisolated let id: UUID
 
     init(config: HostConfig) {
@@ -44,6 +49,9 @@ final class HostConnection: Identifiable {
             let bridge = SessionBridge { [weak self] update in
                 Task { @MainActor in
                     guard let self else { return }
+                    #if DEBUG
+                    if self.demoOffline { return }
+                    #endif
                     let wasLive = self.isLive
                     self.update = update
                     self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
@@ -77,6 +85,17 @@ final class HostConnection: Identifiable {
         session = nil
         cachedAgentKinds = nil
     }
+
+    #if DEBUG
+    /// The screenshot demo's offline pane (#290): stops the session and
+    /// shows the host as unreachable, while the demo server keeps running
+    /// for the other platforms.
+    func demoGoOffline() {
+        demoOffline = true
+        stop()
+        update?.status = .retrying(attempt: 1, error: "Host nicht erreichbar")
+    }
+    #endif
 
     /// Replaces the configuration (after editing or trusting a host key)
     /// and reconnects. A change of the grouping alone goes to the running

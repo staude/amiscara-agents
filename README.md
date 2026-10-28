@@ -52,6 +52,14 @@ All screenshots come from a seeded demo session with fictional projects
 <td width="50%"><img src="docs/screenshots/mac/quick-switcher.png" alt="Mac: quick switcher"><br><sub>Mac: quick switcher across all hosts</sub></td>
 <td width="50%"><img src="docs/screenshots/desktop/space-waiting.png" alt="Windows and Linux app"><br><sub>Windows and Linux: the same views in the desktop app</sub></td>
 </tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/mac/overview.png" alt="Mac: overview of all hosts"><br><sub>Mac: the overview, waiting, working and done across all hosts</sub></td>
+<td width="50%"><img src="docs/screenshots/mac/dashboard.png" alt="Mac: dashboard of a host"><br><sub>Mac: the dashboard of one host in the widget's look</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/mac/files.png" alt="Mac: file browser"><br><sub>Mac: the file browser in the pane's working directory</sub></td>
+<td width="50%"><img src="docs/screenshots/mac/offline.png" alt="Mac: last screen while offline"><br><sub>Mac: the last screen, dimmed while the host is offline</sub></td>
+</tr>
 </table>
 
 **iPad, iPhone and Android**
@@ -59,14 +67,19 @@ All screenshots come from a seeded demo session with fictional projects
 <table>
 <tr>
 <td width="50%"><img src="docs/screenshots/ipad/split-tab.png" alt="iPad: split tab"><br><sub>iPad: split tab</sub></td>
-<td width="25%"><img src="docs/screenshots/ios/space-waiting.png" alt="iPhone: waiting agent"><br><sub>iPhone: waiting agent</sub></td>
+<td width="25%"><img src="docs/screenshots/ios/space-waiting.png" alt="iPhone: waiting agent"><br><sub>iPhone: waiting agent with its options as buttons</sub></td>
 <td width="25%"><img src="docs/screenshots/android/hosts.png" alt="Android: hosts, spaces and agents"><br><sub>Android: hosts, spaces, agents</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/ipad/overview.png" alt="iPad: overview"><br><sub>iPad: overview of all hosts</sub></td>
+<td width="25%"><img src="docs/screenshots/ios/dashboard.png" alt="iPhone: dashboard of a host"><br><sub>iPhone: host dashboard</sub></td>
+<td width="25%"><img src="docs/screenshots/ios/files.png" alt="iPhone: file browser"><br><sub>iPhone: file browser</sub></td>
 </tr>
 </table>
 
-**Apple TV:** the agents of all hosts on the big screen.
+**Apple TV:** the overview of all hosts on the big screen.
 
-<img src="docs/screenshots/tvos/spaces.png" alt="Apple TV: agents board" width="100%">
+<img src="docs/screenshots/tvos/spaces.png" alt="Apple TV: overview of all hosts" width="100%">
 
 ## Platforms
 
@@ -96,6 +109,18 @@ code), so a host is set up the same way everywhere.
   working and done, newest first, with the time in that state. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
+- **Dashboard per host:** a host's name (or "Dashboard" under it) in the
+  sidebar opens a page in the look of the widget: the number of waiting
+  agents large, the working ones below, a row per agent that opens it.
+  While the host reconnects its last agents stay; without a connection the
+  Mac's board in iCloud stands in. Mac, iPhone and iPad.
+- **Sorting spaces:** per host as herdr has them, by name (A–Z, Z–A) or
+  manually by drag and drop, with a line where the space will land. The
+  menu next to "Spaces" shows the current order as text. Not on the Apple
+  TV and Watch.
+- **Last tab per space:** a space opened from its row, by ⌘1 to ⌘9 or the
+  quick switcher comes back on the tab and pane shown last, also after a
+  restart. Mac, iPhone, iPad, Windows and Linux.
 - **Live pane:** the selected pane's screen with colors, updated as it
   changes. Split tabs side by side as herdr lays them out, search with
   highlighted hits, font zoom, color schemes with a minimum contrast, web
@@ -104,6 +129,15 @@ code), so a host is set up the same way everywhere.
   scrollen") page through a full-screen agent's own view and fetch its
   whole transcript; experimentally ("Zeilen umbrechen") wrap long lines at
   the window width instead of scrolling sideways.
+- **Last screen while offline:** the app keeps each pane's last screen on
+  the device (up to 500 rows, 40 panes, 7 days). While the host is not
+  connected the pane shows it dimmed with "Stand von …", and the app opens
+  the last pane on launch, also offline. Mac, iPhone, iPad and Apple TV.
+- **Summary of new output:** a pane opened again after at least 15 minutes
+  with new output offers "Zusammenfassen": two sentences on what happened
+  since the last visit, written by the on-device model (for Claude panes
+  from the conversation when file access is on). Nothing leaves the
+  device. Mac, iPhone and iPad with Apple Intelligence.
 - **Claude Code conversation:** for Claude panes the conversation itself
   (prompts, answers, tool calls), read from `~/.claude/projects` on the host
   over SFTP.

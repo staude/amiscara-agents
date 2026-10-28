@@ -211,6 +211,8 @@ struct ContentView: View {
                 switch DemoMode.view {
                 case "switcher": switching = true
                 case "addHost": editing = HostConfig(name: "", kind: .ssh)
+                case "overview": showingOverview = true
+                case "dashboard": dashboardHost = connection.id
                 #if os(macOS)
                 case "settings": openSettings()
                 #endif
@@ -220,6 +222,13 @@ struct ContentView: View {
                 if let size = DemoMode.windowSize, let window = NSApp.windows.first(where: { $0.isVisible && $0.title != "" }) {
                     window.setContentSize(size)
                     window.center()
+                }
+                #endif
+                #if DEBUG
+                // Once the pane's screen is there (#290).
+                if DemoMode.view == "offline" {
+                    try? await Task.sleep(for: .seconds(3))
+                    connection.demoGoOffline()
                 }
                 #endif
                 return
