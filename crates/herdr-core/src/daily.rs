@@ -243,23 +243,38 @@ pub fn turns(entries: &[Entry], since_ms: u64, until_ms: u64) -> Vec<DailyItem> 
             items.push(item(DailyItemKind::Done, at, &entry.text));
         }
     };
+    // A slash command just listed: a built-in one (`/model`) answers with
+    // its output instead of a turn and is taken back.
+    let mut command_at: Option<usize> = None;
     for entry in entries {
         if let Some(at) = entry.timestamp.as_deref().and_then(parse_utc_ms) {
             time = Some(at);
         }
         if entry.kind == EntryKind::User {
             match user_line(&entry.text) {
-                UserLine::Prompt(text) => {
+                UserLine::Prompt { text, command } => {
                     finish(last, &mut items);
+                    command_at = None;
                     if let Some(at) = time.filter(|at| in_day(*at)) {
+                        if command {
+                            command_at = Some(items.len());
+                        }
                         items.push(item(DailyItemKind::Prompt, at, &text));
                     }
                 }
                 // Ends the turn without an answer.
-                UserLine::Interrupted => {}
+                UserLine::Interrupted => command_at = None,
+                UserLine::CommandOutput => {
+                    if let Some(at) = command_at.take() {
+                        items.truncate(at);
+                    }
+                    continue;
+                }
                 // Part of the turn, like a tool result.
                 UserLine::Inserted => continue,
             }
+        } else {
+            command_at = None;
         }
         last = Some((entry, time));
     }
@@ -269,12 +284,27 @@ pub fn turns(entries: &[Entry], since_ms: u64, until_ms: u64) -> Vec<DailyItem> 
 
 enum UserLine {
     /// Typed by the user; a slash command as `/name args`.
-    Prompt(String),
+    Prompt {
+        text: String,
+        command: bool,
+    },
     Interrupted,
-    /// Put in by Claude Code: task notifications, a command's output, the
-    /// summary that continues a compacted conversation.
+    /// The output of a built-in slash command.
+    CommandOutput,
+    /// Put in by Claude Code: task notifications, the summary that
+    /// continues a compacted conversation and the like.
     Inserted,
 }
+
+/// Tags Claude Code wraps its own user lines in.
+const INSERTED_TAGS: [&str; 6] = [
+    "<task-notification>",
+    "<local-command-caveat>",
+    "<local-command-stderr>",
+    "<bash-input>",
+    "<bash-stdout>",
+    "<system-reminder>",
+];
 
 /// What a user line of a conversation is.
 fn user_line(text: &str) -> UserLine {
@@ -282,18 +312,34 @@ fn user_line(text: &str) -> UserLine {
     if text.starts_with("[Request interrupted") {
         return UserLine::Interrupted;
     }
-    if text.starts_with("This session is being continued from a previous conversation") {
+    let head: String = text.chars().take(400).collect();
+    if head.contains("This session is being continued from a previous conversation") {
         return UserLine::Inserted;
     }
-    if !text.starts_with('<') {
-        return UserLine::Prompt(text.to_owned());
+    if text.starts_with("<local-command-stdout>") {
+        return UserLine::CommandOutput;
     }
-    match tag(text, "command-name") {
-        Some(name) => {
-            let args = tag(text, "command-args").unwrap_or_default();
-            UserLine::Prompt(format!("{name} {args}").trim_end().to_owned())
-        }
-        None => UserLine::Inserted,
+    if INSERTED_TAGS.iter().any(|tag| text.starts_with(tag)) {
+        return UserLine::Inserted;
+    }
+    if let Some(name) = tag(text, "command-name") {
+        let args = tag(text, "command-args").unwrap_or_default();
+        return UserLine::Prompt {
+            text: format!("{name} {args}").trim_end().to_owned(),
+            command: true,
+        };
+    }
+    // Pasted text comes wrapped in tags of its own; show what is inside.
+    let text: Vec<&str> = text
+        .lines()
+        .filter(|line| {
+            let line = line.trim_start();
+            !line.starts_with("<pasted_content") && !line.starts_with("</pasted_content")
+        })
+        .collect();
+    UserLine::Prompt {
+        text: text.join("\n"),
+        command: false,
     }
 }
 
@@ -498,6 +544,23 @@ mod tests {
                 "[Request interrupted by user]",
                 at("2026-10-28T10:00:20Z"),
             ),
+            // A built-in command answers with its output: no task.
+            entry(
+                EntryKind::User,
+                "<command-name>/model</command-name>\n<command-args>opus</command-args>",
+                at("2026-10-28T11:00:00Z"),
+            ),
+            entry(
+                EntryKind::User,
+                "<local-command-stdout>Set model</local-command-stdout>",
+                at("2026-10-28T11:00:01Z"),
+            ),
+            // Pasted text is a prompt, shown without its tags.
+            entry(
+                EntryKind::User,
+                "<pasted_content id=\"e92f\">\nnetbird down\n</pasted_content id=\"e92f\">\nWarum?",
+                at("2026-10-28T12:00:00Z"),
+            ),
             // At `until`: outside.
             entry(EntryKind::User, "Morgen", at("2026-10-29T00:00:00Z")),
             entry(EntryKind::Assistant, "Gut", at("2026-10-29T00:00:10Z")),
@@ -527,6 +590,11 @@ mod tests {
                     DailyItemKind::Prompt,
                     10 * 3_600_000,
                     "/review 301".to_owned()
+                ),
+                (
+                    DailyItemKind::Prompt,
+                    12 * 3_600_000,
+                    "netbird down".to_owned()
                 ),
             ]
         );
