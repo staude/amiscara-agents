@@ -106,12 +106,14 @@ final class Approvals {
     /// Loads all hosts with a token; a host loaded less than half a minute
     /// ago is skipped unless `force`. Hosts without a connection keep what
     /// they showed last.
-    /// A call while loading runs once more afterwards. The load runs in a
+    ///
+    /// A call while loading runs once more afterwards and waits for it. The load runs in a
     /// task of its own, so a view that goes away or restarts its task does
     /// not cut it short.
     func load(_ connections: [HostConnection], force: Bool = false) async {
-        guard !loading else {
+        if let running {
             pending = (connections, force || pending?.force == true)
+            await running.value
             return
         }
         loading = true
@@ -123,9 +125,13 @@ final class Approvals {
                 pending = nil
             }
             loading = false
+            running = nil
         }
+        running = run
         await run.value
     }
+
+    @ObservationIgnored private var running: Task<Void, Never>?
 
     @ObservationIgnored private var pending: (connections: [HostConnection], force: Bool)?
 

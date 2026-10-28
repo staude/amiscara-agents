@@ -169,7 +169,10 @@ struct ApprovalDetail: View {
             asksApproval = nil
             guard let tab, let connection else { return }
             while !Task.isCancelled {
-                asksApproval = await Approvals.approvalQuestion(in: tab, on: connection) != nil
+                let asks = await Approvals.approvalQuestion(in: tab, on: connection) != nil
+                // A read for a tab no longer shown must not land.
+                guard !Task.isCancelled else { return }
+                asksApproval = asks
                 try? await Task.sleep(for: .seconds(3))
             }
         }
@@ -242,6 +245,9 @@ struct ApprovalDetail: View {
             defer { sending = false }
             do {
                 try await store.approvals.answer(answer, for: item, on: connection)
+                // The tab still counts as waiting for a moment; no second
+                // answer until it asks again.
+                asksApproval = false
             } catch {
                 self.error = (error as? Approvals.AnswerFailure)?.localizedDescription ?? inputErrorMessage(error)
             }
