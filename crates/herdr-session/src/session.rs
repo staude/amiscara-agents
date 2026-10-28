@@ -968,7 +968,7 @@ impl Session {
 
     /// Deletes the secret `name` on the host; a missing one is no error.
     pub async fn remove_secret(&self, name: &str) -> Result<(), SessionError> {
-        secrets::check_name(name)?;
+        secrets::check_name_shape(name)?;
         let conn = self.connection()?;
         conn.remove_file(&format!("{}/{name}", secrets::ENV_DIR))
             .await
@@ -985,7 +985,7 @@ impl Session {
             .map_err(files_error)?
             .into_iter()
             .map(|file| file.name)
-            .filter(|name| secrets::is_valid_env_name(name))
+            .filter(|name| secrets::has_env_name_shape(name))
             .collect();
         names.sort();
         Ok(names)

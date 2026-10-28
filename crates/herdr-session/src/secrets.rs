@@ -35,13 +35,19 @@ pub fn is_reserved_env_name(name: &str) -> bool {
 /// `[A-Z_][A-Z0-9_]*`, up to 128 characters, and not
 /// [reserved](is_reserved_env_name).
 pub fn is_valid_env_name(name: &str) -> bool {
+    has_env_name_shape(name) && !is_reserved_env_name(name)
+}
+
+/// The shape of [`is_valid_env_name`] without the reservation. Listing and
+/// removing use it, so a reserved name sent before #293 can still be seen and
+/// deleted.
+pub(crate) fn has_env_name_shape(name: &str) -> bool {
     let mut chars = name.chars();
     name.len() <= MAX_NAME_LEN
         && chars
             .next()
             .is_some_and(|ch| ch.is_ascii_uppercase() || ch == '_')
         && chars.all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_')
-        && !is_reserved_env_name(name)
 }
 
 /// Refuses an unsuitable variable name.
@@ -51,6 +57,16 @@ pub(crate) fn check_name(name: &str) -> Result<(), SessionError> {
             "variable name is reserved for the shell".into(),
         ))
     } else if is_valid_env_name(name) {
+        Ok(())
+    } else {
+        Err(SessionError::Upload("invalid variable name".into()))
+    }
+}
+
+/// Refuses a name that is no variable at all; for removing, which must still
+/// work for a reserved one.
+pub(crate) fn check_name_shape(name: &str) -> Result<(), SessionError> {
+    if has_env_name_shape(name) {
         Ok(())
     } else {
         Err(SessionError::Upload("invalid variable name".into()))
@@ -74,7 +90,10 @@ pub(crate) fn check_value(value: &str) -> Result<(), SessionError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{check_name, check_value, is_reserved_env_name, is_valid_env_name};
+    use super::{
+        check_name, check_name_shape, check_value, has_env_name_shape, is_reserved_env_name,
+        is_valid_env_name,
+    };
 
     #[test]
     fn names_are_shell_variables() {
@@ -95,6 +114,8 @@ mod tests {
             assert!(!is_valid_env_name(name), "{name}");
             let message = check_name(name).expect_err("refused").to_string();
             assert!(message.contains("reserved"), "{message}");
+            assert!(has_env_name_shape(name), "{name}");
+            assert!(check_name_shape(name).is_ok(), "{name}");
         }
         for name in ["PATHS", "MY_HOME", "HERDR", "OLD_X", "NB_TOKEN"] {
             assert!(!is_reserved_env_name(name), "{name}");
