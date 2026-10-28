@@ -256,6 +256,16 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The last `lines` rows of a pane including scrollback as plain text,
+    /// joined where the terminal wrapped them with `unwrap` (#273). Read
+    /// only, a plain terminal read without file access.
+    func recentText(paneID: String, lines: UInt32, unwrap: Bool) async throws -> String {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.recentText(paneId: paneID, maxLines: lines, unwrap: unwrap)
+        }.value
+    }
+
     /// What changed in a pane's working directory (#228). Read only, but it
     /// opens a short-lived tab to run Git and reads the result over SFTP, so
     /// it needs both input and file access.

@@ -2391,6 +2391,16 @@
         }
       }
     },
+    "Fasse zusammen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarizing …"
+          }
+        }
+      }
+    },
     "Fertig" : {
       "localizations" : {
         "en" : {
@@ -3147,6 +3157,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No lines changed"
+          }
+        }
+      }
+    },
+    "Keine neue Ausgabe seit dem letzten Besuch." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No new output since your last visit."
           }
         }
       }
@@ -4107,6 +4127,16 @@
         }
       }
     },
+    "Seit dem letzten Besuch ist Neues dazugekommen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is new output since your last visit."
+          }
+        }
+      }
+    },
     "Seit dem Öffnen hat sich die Datei auf dem Host geändert. „Neu laden“ verwirft die Änderungen in der App; wer sie behalten will, kopiert sie vorher." : {
       "localizations" : {
         "en" : {
@@ -5053,6 +5083,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "There is no data on %@ right now. The host cannot be reached or the agent is no longer running."
+          }
+        }
+      }
+    },
+    "Zusammenfassen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarize"
+          }
+        }
+      }
+    },
+    "Zusammenfassung schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close summary"
           }
         }
       }
