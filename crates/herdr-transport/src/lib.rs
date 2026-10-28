@@ -597,6 +597,37 @@ impl Connection {
         }
     }
 
+    /// Writes `data` as `file_name` into `dir` below the login's home
+    /// directory and returns its absolute path on the server. Unlike
+    /// [`Connection::upload`] an existing file is replaced. Meant for
+    /// secrets (#291): every directory of `dir` gets mode 0700 and the file
+    /// 0600 before any data is written. Over SSH this needs SFTP like
+    /// [`Connection::upload`]; errors never contain `data`.
+    pub async fn write_private_file(
+        &self,
+        dir: &str,
+        file_name: &str,
+        data: &[u8],
+    ) -> Result<String, TransportError> {
+        if file_name.is_empty() || file_name.contains('/') || file_name.starts_with('.') {
+            return Err(TransportError::Upload(format!(
+                "invalid file name {file_name:?}"
+            )));
+        }
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let home = dirs::home_dir()
+                    .ok_or_else(|| TransportError::Upload("no home directory".into()))?;
+                write_private_below(&home, dir, file_name, data).await
+            }
+            Inner::Ssh { handle, .. } => {
+                let _transfer = Transfer::start(&self.inner);
+                sftp_write_private(handle, dir, file_name, data).await
+            }
+        }
+    }
+
     /// Adds `line` to `~/.ssh/authorized_keys` unless a line already holds
     /// `key_blob` (the base64 part of the key); returns whether it was added.
     /// The previous file is kept as `authorized_keys.bak-amiscara`, the new
@@ -647,30 +678,21 @@ impl Connection {
     pub async fn list_files(&self, dir: &str) -> Result<Vec<RemoteFile>, TransportError> {
         match &self.inner {
             #[cfg(unix)]
-            Inner::Local(_) => {
-                let path = local_home_path(dir)?;
-                let mut entries = tokio::fs::read_dir(&path)
-                    .await
-                    .map_err(|err| TransportError::Files(format!("{}: {err}", path.display())))?;
-                let mut files = Vec::new();
-                while let Some(entry) = entries.next_entry().await? {
-                    let meta = entry.metadata().await?;
-                    if !meta.is_file() {
-                        continue;
-                    }
-                    files.push(RemoteFile {
-                        name: entry.file_name().to_string_lossy().into_owned(),
-                        size: meta.len(),
-                        modified: meta
-                            .modified()
-                            .ok()
-                            .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map_or(0, |at| at.as_secs()),
-                    });
-                }
-                Ok(files)
-            }
-            Inner::Ssh { handle, .. } => sftp_list(handle, dir).await,
+            Inner::Local(_) => local_list_files(&local_home_path(dir)?, false).await,
+            Inner::Ssh { handle, .. } => sftp_list(handle, dir, false).await,
+        }
+    }
+
+    /// Like [`Connection::list_files`], but a missing `dir` gives an empty
+    /// list instead of an error.
+    pub async fn list_files_if_present(
+        &self,
+        dir: &str,
+    ) -> Result<Vec<RemoteFile>, TransportError> {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => local_list_files(&local_home_path(dir)?, true).await,
+            Inner::Ssh { handle, .. } => sftp_list(handle, dir, true).await,
         }
     }
 
@@ -1238,9 +1260,43 @@ async fn sftp_session(
     })
 }
 
+/// The files in `path` for [`Connection::list_files`]; with `if_present` a
+/// missing directory gives an empty list.
+#[cfg(unix)]
+async fn local_list_files(
+    path: &Path,
+    if_present: bool,
+) -> Result<Vec<RemoteFile>, TransportError> {
+    let mut entries = match tokio::fs::read_dir(path).await {
+        Ok(entries) => entries,
+        Err(err) if if_present && err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Vec::new());
+        }
+        Err(err) => return Err(TransportError::Files(format!("{}: {err}", path.display()))),
+    };
+    let mut files = Vec::new();
+    while let Some(entry) = entries.next_entry().await? {
+        let meta = entry.metadata().await?;
+        if !meta.is_file() {
+            continue;
+        }
+        files.push(RemoteFile {
+            name: entry.file_name().to_string_lossy().into_owned(),
+            size: meta.len(),
+            modified: meta
+                .modified()
+                .ok()
+                .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+                .map_or(0, |at| at.as_secs()),
+        });
+    }
+    Ok(files)
+}
+
 async fn sftp_list(
     handle: &Handle<HostKeyCheck>,
     dir: &str,
+    if_present: bool,
 ) -> Result<Vec<RemoteFile>, TransportError> {
     let sftp = sftp_session(handle, TransportError::Files).await?;
     let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
@@ -1250,6 +1306,10 @@ async fn sftp_list(
         home.trim_end_matches('/'),
         dir.trim_start_matches('/')
     );
+    if if_present && !sftp.try_exists(target.as_str()).await.map_err(failed)? {
+        sftp.close().await.map_err(failed)?;
+        return Ok(Vec::new());
+    }
     let files = sftp
         .read_dir(target.as_str())
         .await
@@ -1439,6 +1499,94 @@ async fn sftp_upload(
     Ok(target)
 }
 
+/// [`Connection::write_private_file`] on this machine, with `home` given
+/// for tests.
+#[cfg(unix)]
+async fn write_private_below(
+    home: &Path,
+    dir: &str,
+    file_name: &str,
+    data: &[u8],
+) -> Result<String, TransportError> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let failed = |err: std::io::Error| TransportError::Upload(err.to_string());
+    let mut path = home.to_path_buf();
+    for part in dir.split('/').filter(|part| !part.is_empty()) {
+        path.push(part);
+        tokio::fs::DirBuilder::new()
+            .mode(0o700)
+            .recursive(true)
+            .create(&path)
+            .await
+            .map_err(failed)?;
+        tokio::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+            .await
+            .map_err(failed)?;
+    }
+    path.push(file_name);
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&path)
+        .await
+        .map_err(failed)?;
+    // An existing file keeps its mode on open; narrow it before writing.
+    file.set_permissions(std::fs::Permissions::from_mode(0o600))
+        .await
+        .map_err(failed)?;
+    file.write_all(data).await.map_err(failed)?;
+    file.flush().await.map_err(failed)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// [`Connection::write_private_file`] over SFTP.
+async fn sftp_write_private(
+    handle: &Handle<HostKeyCheck>,
+    dir: &str,
+    file_name: &str,
+    data: &[u8],
+) -> Result<String, TransportError> {
+    let sftp = sftp_session(handle, TransportError::Upload).await?;
+    let failed = |err: russh_sftp::client::error::Error| TransportError::Upload(err.to_string());
+
+    let mode = |bits: u32| FileAttributes {
+        permissions: Some(bits),
+        ..FileAttributes::empty()
+    };
+    let mut path = sftp.canonicalize(".").await.map_err(failed)?;
+    for part in dir.split('/').filter(|part| !part.is_empty()) {
+        path = format!("{}/{part}", path.trim_end_matches('/'));
+        if !sftp.try_exists(path.as_str()).await.map_err(failed)? {
+            sftp.create_dir(path.as_str()).await.map_err(failed)?;
+        }
+        sftp.set_metadata(path.as_str(), mode(0o700))
+            .await
+            .map_err(failed)?;
+    }
+    let target = format!("{path}/{file_name}");
+    let mut file = sftp
+        .open_with_flags_and_attributes(
+            target.as_str(),
+            OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
+            mode(0o600),
+        )
+        .await
+        .map_err(failed)?;
+    // An existing file keeps its mode, and some servers apply the umask to
+    // the create attributes: narrow it before any data goes out.
+    sftp.set_metadata(target.as_str(), mode(0o600))
+        .await
+        .map_err(failed)?;
+    let written = |err: std::io::Error| TransportError::Upload(err.to_string());
+    file.write_all(data).await.map_err(written)?;
+    file.shutdown().await.map_err(written)?;
+    sftp.close().await.map_err(failed)?;
+    Ok(target)
+}
+
 async fn read_line(
     reader: &mut BufReader<Box<dyn Stream>>,
 ) -> Result<Option<String>, TransportError> {
@@ -1524,6 +1672,75 @@ mod authorized_keys_tests {
         );
         // A blob that is only part of another key does not count.
         assert!(with_authorized_key("ssh-ed25519 AAAAkeyLONGER a\n", line, "AAAAkey").is_some());
+    }
+}
+
+#[cfg(all(test, unix))]
+mod private_file_tests {
+    use super::{local_list_files, write_private_below};
+    use std::os::unix::fs::PermissionsExt;
+
+    /// Secrets get 0700 directories and a 0600 file, also over an existing
+    /// file with a wider mode, whose content is replaced.
+    #[test]
+    fn writes_private_files_and_replaces_them() {
+        let home = std::env::temp_dir().join(format!("amiscara-private-{}", std::process::id()));
+        std::fs::create_dir_all(home.join(".amiscara-agents")).expect("home");
+        std::fs::set_permissions(
+            home.join(".amiscara-agents"),
+            std::fs::Permissions::from_mode(0o755),
+        )
+        .expect("mode");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let mode = |path: &std::path::Path| {
+            std::fs::metadata(path).expect("stat").permissions().mode() & 0o777
+        };
+
+        let dir = home.join(".amiscara-agents/env");
+        assert!(
+            runtime
+                .block_on(local_list_files(&dir, true))
+                .expect("missing dir")
+                .is_empty()
+        );
+        assert!(runtime.block_on(local_list_files(&dir, false)).is_err());
+
+        let written = runtime
+            .block_on(write_private_below(
+                &home,
+                ".amiscara-agents/env",
+                "NB_TOKEN",
+                b"first-value",
+            ))
+            .expect("write");
+        let file = dir.join("NB_TOKEN");
+        assert_eq!(written, file.to_string_lossy());
+        assert_eq!(std::fs::read(&file).expect("read"), b"first-value");
+        assert_eq!(mode(&file), 0o600);
+        assert_eq!(mode(&dir), 0o700);
+        assert_eq!(mode(&home.join(".amiscara-agents")), 0o700);
+
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).expect("mode");
+        runtime
+            .block_on(write_private_below(
+                &home,
+                ".amiscara-agents/env",
+                "NB_TOKEN",
+                b"x",
+            ))
+            .expect("overwrite");
+        assert_eq!(std::fs::read(&file).expect("read"), b"x");
+        assert_eq!(mode(&file), 0o600);
+
+        let files = runtime
+            .block_on(local_list_files(&dir, true))
+            .expect("list");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, "NB_TOKEN");
+        std::fs::remove_dir_all(&home).expect("clean up");
     }
 }
 

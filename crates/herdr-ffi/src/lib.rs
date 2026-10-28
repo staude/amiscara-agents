@@ -303,6 +303,13 @@ pub fn is_valid_session_name(name: String) -> bool {
     herdr_session::is_valid_session_name(&name)
 }
 
+/// Whether `name` can be an environment variable for a secret (#291):
+/// `[A-Z_][A-Z0-9_]*`, up to 128 characters.
+#[uniffi::export]
+pub fn is_valid_env_name(name: String) -> bool {
+    herdr_session::is_valid_env_name(&name)
+}
+
 /// The named herdr sessions on this machine, running or stopped. Empty on
 /// systems without a local socket.
 #[uniffi::export]
@@ -687,6 +694,22 @@ impl HostSession {
     /// path. The name helps the agent tell what the file is.
     pub fn upload_named_file(&self, data: Vec<u8>, file_name: String) -> Result<String, FfiError> {
         Ok(runtime().block_on(self.session.upload_named_file(&data, &file_name))?)
+    }
+
+    /// Writes the secret `name` with `value` to `~/.amiscara-agents/env` on
+    /// the host (#291), file mode 0600. Blocks; call it off the main thread.
+    pub fn send_secret(&self, name: String, value: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.send_secret(&name, &value))?)
+    }
+
+    /// Deletes the secret `name` on the host; a missing one is no error.
+    pub fn remove_secret(&self, name: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.remove_secret(&name))?)
+    }
+
+    /// The names of the secrets on the host, sorted; never their values.
+    pub fn secret_names(&self) -> Result<Vec<String>, FfiError> {
+        Ok(runtime().block_on(self.session.secret_names())?)
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`

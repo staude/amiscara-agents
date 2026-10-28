@@ -327,6 +327,31 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The names of the secrets on the host (#291), never their values.
+    /// Over SSH it needs the same SFTP access as uploads.
+    func secretNames() async throws -> [String] {
+        let session = try secretsSession()
+        return try await Task.detached {
+            try session.secretNames()
+        }.value
+    }
+
+    /// Writes a secret to `~/.amiscara-agents/env` on the host (#291).
+    func sendSecret(name: String, value: String) async throws {
+        let session = try secretsSession()
+        try await Task.detached {
+            try session.sendSecret(name: name, value: value)
+        }.value
+    }
+
+    /// Deletes a secret on the host; a missing one is no error.
+    func removeSecret(name: String) async throws {
+        let session = try secretsSession()
+        try await Task.detached {
+            try session.removeSecret(name: name)
+        }.value
+    }
+
     /// The named herdr sessions on the host, running or stopped (#213).
     /// Read only, but over SSH it needs the same SFTP access as uploads.
     func herdrSessions() async throws -> [HerdrSession] {
@@ -462,6 +487,15 @@ final class HostConnection: Identifiable {
         return session
     }
 
+    /// Secrets change the host, so they need input allowed besides the
+    /// file access.
+    private func secretsSession() throws -> HostSession {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.secretsFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return session
+    }
+
     private func writableSession() throws -> HostSession {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard let session, isLive else { throw ConnectionFailure.notConnected }
@@ -499,6 +533,7 @@ enum ConnectionFailure: LocalizedError {
     case filesOff
     case diffFilesOff
     case browseFilesOff
+    case secretsFilesOff
     case unsafePath
 
     var errorDescription: String? {
@@ -515,6 +550,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .secretsFilesOff:
+            String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
             String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:

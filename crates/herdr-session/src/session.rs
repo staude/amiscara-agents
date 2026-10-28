@@ -17,6 +17,7 @@ use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
+use crate::secrets;
 use crate::view::{self, ChoiceQuestion, PaneContent, SessionUpdate};
 
 /// Where uploads land, relative to the login's home directory.
@@ -950,6 +951,44 @@ impl Session {
         conn.upload(UPLOAD_DIR, &name, data)
             .await
             .map_err(upload_error)
+    }
+
+    /// Writes the secret `name` with `value` to `~/.amiscara-agents/env` on
+    /// the host (#291), file mode 0600, replacing an earlier value. Needs
+    /// file access like uploads; errors never contain the value.
+    pub async fn send_secret(&self, name: &str, value: &str) -> Result<(), SessionError> {
+        secrets::check_name(name)?;
+        secrets::check_value(value)?;
+        let conn = self.connection()?;
+        conn.write_private_file(secrets::ENV_DIR, name, value.as_bytes())
+            .await
+            .map(|_| ())
+            .map_err(upload_error)
+    }
+
+    /// Deletes the secret `name` on the host; a missing one is no error.
+    pub async fn remove_secret(&self, name: &str) -> Result<(), SessionError> {
+        secrets::check_name(name)?;
+        let conn = self.connection()?;
+        conn.remove_file(&format!("{}/{name}", secrets::ENV_DIR))
+            .await
+            .map_err(files_error)
+    }
+
+    /// The names of the secrets on the host, sorted; files whose name is no
+    /// variable are left out. Only names: values are never read back.
+    pub async fn secret_names(&self) -> Result<Vec<String>, SessionError> {
+        let conn = self.connection()?;
+        let mut names: Vec<String> = conn
+            .list_files_if_present(secrets::ENV_DIR)
+            .await
+            .map_err(files_error)?
+            .into_iter()
+            .map(|file| file.name)
+            .filter(|name| secrets::is_valid_env_name(name))
+            .collect();
+        names.sort();
+        Ok(names)
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`

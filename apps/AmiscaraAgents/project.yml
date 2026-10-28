@@ -362,6 +362,8 @@ targets:
           - Model/Dictation.swift
           - Model/AgentIntents.swift
           - Views/MenuBarMenu.swift
+          - Views/SecretsView.swift
+          - Model/SecretStore.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

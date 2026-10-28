@@ -915,6 +915,16 @@
         }
       }
     },
+    "An Host senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to Host"
+          }
+        }
+      }
+    },
     "An letzten Agent" : {
       "localizations" : {
         "en" : {
@@ -1081,6 +1091,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "On screen: %@"
+          }
+        }
+      }
+    },
+    "auf dem Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on the host"
           }
         }
       }
@@ -1905,6 +1925,16 @@
         }
       }
     },
+    "Der Wert landet auf dem Host in ~/.amiscara-agents/env, nur für Sie lesbar, und bleibt auf diesem Gerät im Schlüsselbund. Neue Shells in herdr-Panes setzen die Variable, laufende Agenten lesen sie mit „amiscara-env NAME“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The value goes to ~/.amiscara-agents/env on the host, readable only by you, and stays in this device’s Keychain. New shells in herdr panes set the variable; running agents read it with “amiscara-env NAME”."
+          }
+        }
+      }
+    },
     "Die %lld Worktree-Spaces darunter werden mit geschlossen, die Verzeichnisse bleiben." : {
       "localizations" : {
         "de" : {
@@ -2331,6 +2361,16 @@
         }
       }
     },
+    "Entfernen fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing failed: %@"
+          }
+        }
+      }
+    },
     "Entsperren" : {
       "localizations" : {
         "en" : {
@@ -2357,6 +2397,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Letters, digits, “-”, “_” and “.” are allowed, but not “.” at the start."
+          }
+        }
+      }
+    },
+    "Erlaubt sind Großbuchstaben A–Z, Ziffern und _, am Anfang keine Ziffer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allowed are capital letters A–Z, digits and _, not starting with a digit."
           }
         }
       }
@@ -2557,6 +2607,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Go"
+          }
+        }
+      }
+    },
+    "Geheimnisse auf %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secrets on %@"
+          }
+        }
+      }
+    },
+    "Geheimnisse auf dem Host nicht lesbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot read secrets on the host: %@"
+          }
+        }
+      }
+    },
+    "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app writes secrets through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
+    "Geheimnisse …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secrets …"
           }
         }
       }
@@ -3631,6 +3721,16 @@
         }
       }
     },
+    "Name, z. B. NB_TOKEN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name, e.g. NB_TOKEN"
+          }
+        }
+      }
+    },
     "Nennt die Agents, die auf eine Antwort warten, über alle Hosts." : {
       "localizations" : {
         "en" : {
@@ -3751,6 +3851,16 @@
         }
       }
     },
+    "Neues Geheimnis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Secret"
+          }
+        }
+      }
+    },
     "Nicht bei iCloud angemeldet. Mac und iPhone brauchen dieselbe Apple-ID." : {
       "localizations" : {
         "en" : {
@@ -3767,6 +3877,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not reachable: %@."
+          }
+        }
+      }
+    },
+    "nicht gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not sent"
           }
         }
       }
@@ -3821,6 +3941,16 @@
         }
       }
     },
+    "Noch keine Geheimnisse." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No secrets yet."
+          }
+        }
+      }
+    },
     "Noch keine Hosts. Öffne Amiscara Agents auf dem iPhone." : {
       "localizations" : {
         "en" : {
@@ -3837,6 +3967,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No prompts yet"
+          }
+        }
+      }
+    },
+    "nur auf dem Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "only on the host"
           }
         }
       }
@@ -5183,6 +5323,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Which agent?"
+          }
+        }
+      }
+    },
+    "Wert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Value"
           }
         }
       }
