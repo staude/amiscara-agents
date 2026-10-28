@@ -80,6 +80,8 @@ final class Dictation {
 
     func stop() {
         let wasRunning = isRunning
+        // `begin` activated the session once it made the feed.
+        let hadSession = wasRunning || feed != nil
         if let engine {
             if engine.isRunning { engine.stop() }
             engine.inputNode.removeTap(onBus: 0)
@@ -91,7 +93,10 @@ final class Dictation {
         task = nil
         isRunning = false
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        // Not when nothing recorded: reading aloud may be using the session.
+        if hadSession {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
         #endif
         guard wasRunning else { return }
         Self.running -= 1
