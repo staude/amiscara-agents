@@ -65,7 +65,8 @@ final class PaneModel {
 
     /// Whether another load can bring older rows.
     var canLoadMoreHistory: Bool {
-        guard let content = followed, agentHistory == nil, !isLoadingHistory else { return false }
+        // A kept screen without a session (#276) has nobody to ask.
+        guard let content = followed, follow != nil, agentHistory == nil, !isLoadingHistory else { return false }
         return content.historyLines == 0
             || (content.truncated && content.historyLines < maxHistoryLines())
     }
