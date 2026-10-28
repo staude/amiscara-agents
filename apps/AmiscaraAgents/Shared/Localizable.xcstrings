@@ -2491,6 +2491,16 @@
         }
       }
     },
+    "Erst das Diktat in der Eingabeleiste beenden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop the dictation in the input bar first."
+          }
+        }
+      }
+    },
     "Es fehlt der Host-Key dieses Macs." : {
       "localizations" : {
         "en" : {

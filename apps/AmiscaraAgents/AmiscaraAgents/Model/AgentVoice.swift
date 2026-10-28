@@ -39,6 +39,8 @@ final class AgentVoice {
     @ObservationIgnored private var run = 0
     /// Bumped on each agent state change, so an older retry loop stops.
     @ObservationIgnored private var stateChange = 0
+    /// `Dictation.start` is still asking for permissions.
+    @ObservationIgnored private var startingDictation = false
 
     private struct Read: Equatable {
         let sessionPath: String
@@ -73,12 +75,14 @@ final class AgentVoice {
     }
 
     /// "Letzte Antwort vorlesen": the last reply, also if read before. In
-    /// voice mode, dictation follows as after any reply.
+    /// voice mode dictation follows only where it would anyway: not while
+    /// Claude works or waits for a decision.
     func readLast(connection: HostConnection, paneID: String) {
         if !voiceMode { stop() }
         let run = run
+        let after: State = state == .waiting || state == .waitingForDecision ? state : .listening
         Task {
-            if await read(connection: connection, paneID: paneID, automatic: false, onlyNew: false, run: run) == .noReply {
+            if await read(connection: connection, paneID: paneID, automatic: false, onlyNew: false, run: run, then: after) == .noReply {
                 error = String(localized: "Noch keine Antwort zum Vorlesen.")
             }
         }
@@ -89,11 +93,21 @@ final class AgentVoice {
     func agentStateChanged(from old: AgentState?, to new: AgentState?, connection: HostConnection, paneID: String) {
         stateChange += 1
         guard let new, new != .working, state != .listening else { return }
-        // A decision declined on the screen goes from blocked to idle.
-        let declined = voiceMode && old == .blocked && state == .waitingForDecision
+        // A decision declined on the screen goes from blocked to idle, also
+        // while its sentence is still spoken.
+        let declined = voiceMode && old == .blocked
+            && (state == .waitingForDecision || afterSpeaking == .waitingForDecision)
         guard old == .working || declined else { return }
-        // Answered on the screen: wait for the reply as after a prompt.
-        if declined, new != .blocked { state = .waiting }
+        if declined {
+            // Answered on the screen: wait for the reply as after a prompt.
+            if utterance != nil {
+                utterance = nil
+                afterSpeaking = nil
+                synthesizer.stopSpeaking(at: .immediate)
+                releaseAudioSession()
+            }
+            state = .waiting
+        }
         if new == .blocked {
             if voiceMode { speakDecision() }
             return
@@ -122,6 +136,11 @@ final class AgentVoice {
     /// then listens; "Stopp" or a tap ends it.
     func startVoiceMode(connection: HostConnection, paneID: String, agentState: AgentState?) {
         stop()
+        // Two recordings at once would hear each other.
+        guard !Dictation.isAnyRunning else {
+            error = String(localized: "Erst das Diktat in der Eingabeleiste beenden.")
+            return
+        }
         voiceMode = true
         target = (connection, paneID)
         keepScreenOn(true)
@@ -179,7 +198,10 @@ final class AgentVoice {
     }
 
     /// Reads the last reply of the pane's conversation.
-    private func read(connection: HostConnection, paneID: String, automatic: Bool, onlyNew: Bool, run: Int) async -> Outcome {
+    /// `then` is what follows the reply in voice mode.
+    private func read(
+        connection: HostConnection, paneID: String, automatic: Bool, onlyNew: Bool, run: Int, then next: State = .listening
+    ) async -> Outcome {
         let page: TranscriptPage
         do {
             page = try await connection.claudeHistory(paneID: paneID)
@@ -201,7 +223,7 @@ final class AgentVoice {
         lastRead = read
         let spoken = SpokenText.make(from: entry.text)
         guard !spoken.text.isEmpty else { return .noReply }
-        speak(spoken.text, language: spoken.language, automatic: automatic, then: voiceMode ? .listening : nil)
+        speak(spoken.text, language: spoken.language, automatic: automatic, then: voiceMode ? next : nil)
         return .spoken
     }
 
@@ -256,10 +278,14 @@ final class AgentVoice {
         state = .listening
         let run = run
         dictation.onFinish = { [weak self] text in self?.heard(text, run: run) }
+        // A start still asking for permissions serves this call too.
+        guard !startingDictation else { return }
+        startingDictation = true
         Task {
             await dictation.start(endingAfterPause: .seconds(1.8), preferBuiltInMic: false)
-            guard run == self.run else {
-                // Stopped while asking for permissions.
+            startingDictation = false
+            guard voiceMode, state == .listening else {
+                // Stopped, or speaking again, while asking for permissions.
                 stopDictation()
                 return
             }
