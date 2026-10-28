@@ -218,7 +218,13 @@ final class Approvals {
 
     private struct Comment: Decodable {
         let body: String?
+        let authorAssociation: String?
     }
+
+    /// Who may write the plan the app shows: anyone can comment on an issue
+    /// of a public repository, so a comment that only looks like a plan
+    /// must not stand in for the real one.
+    private static let planAuthors: Set<String> = ["OWNER", "MEMBER", "COLLABORATOR"]
 
     private static func fetch(_ connection: HostConnection, token: String) async -> HostResult {
         let repos: [GitHubRepo]
@@ -265,13 +271,14 @@ final class Approvals {
         return result
     }
 
-    /// The overview of the issue's latest plan comment, over all pages.
+    /// The overview of the issue's latest plan comment by someone with
+    /// access to the repository, over all pages.
     private static func latestOverview(_ repo: String, _ number: Int, token: String) async throws -> String? {
         var next: URL? = endpoint("repos/\(repo)/issues/\(number)/comments?per_page=100")
         var overview: String?
         while let url = next {
             let (comments, link): ([Comment], URL?) = try await get(url, token: token)
-            for comment in comments {
+            for comment in comments where planAuthors.contains(comment.authorAssociation ?? "") {
                 if let body = comment.body, let found = planOverview(body: body) {
                     overview = found
                 }
