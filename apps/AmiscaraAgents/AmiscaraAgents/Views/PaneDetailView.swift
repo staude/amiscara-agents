@@ -71,6 +71,12 @@ struct PaneDetailView: View {
         }
         .onAppear { model.arm() }
         .onDisappear { model.leave() }
+        #if os(macOS)
+        // A Mac app seldom goes to the background; quitting ends the visit.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            model.leave()
+        }
+        #endif
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         .sheet(isPresented: $showingConversation) {
             if let selection, let connection = store.connection(for: selection.hostID) {

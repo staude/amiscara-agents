@@ -191,6 +191,8 @@ final class PaneModel {
 
     /// Remembers when the pane was left and how its screen ended (#273).
     func leave() {
+        // An offer was for the visit before this one.
+        summaryOffer = nil
         guard recordsVisits, let paneID, let connection, let followed else { return }
         PaneVisits.shared.record(host: connection.id, pane: paneID, tail: PaneVisits.tail(of: followed.plainText))
     }
