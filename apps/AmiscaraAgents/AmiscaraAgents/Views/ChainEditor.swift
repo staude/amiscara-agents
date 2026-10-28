@@ -32,8 +32,15 @@ struct ChainEditor: View {
 
     private var toItself: Bool { target == source.agent.paneId }
 
+    /// Counted as the core does: Unicode scalars, not what shows as one
+    /// character (an emoji with skin tone is two).
     private var characters: Int {
-        text.split(whereSeparator: \.isWhitespace).joined(separator: " ").count
+        text.split(whereSeparator: \.isWhitespace).joined(separator: " ").unicodeScalars.count
+    }
+
+    /// A waiting agent refuses prompts, so it cannot be its own target.
+    private var targets: [BoardItem] {
+        trigger == .blocked ? agents.filter { $0.paneId != source.agent.paneId } : agents
     }
 
     var body: some View {
@@ -45,7 +52,7 @@ struct ChainEditor: View {
                         Text("wartet").tag(ChainTrigger.blocked)
                     }
                     Picker("Senden an", selection: $target) {
-                        ForEach(agents, id: \.paneId) { agent in
+                        ForEach(targets, id: \.paneId) { agent in
                             Text(agent.paneId == source.agent.paneId
                                 ? String(localized: "\(agent.chainName) (selbst)")
                                 : agent.chainName)
@@ -108,6 +115,11 @@ struct ChainEditor: View {
             .onChange(of: target) {
                 if toItself { repeats = false }
             }
+            .onChange(of: trigger) {
+                if trigger == .blocked, toItself, let other = targets.first {
+                    target = other.paneId
+                }
+            }
         }
         #if os(macOS)
         .frame(width: 460, height: 440)
@@ -117,7 +129,7 @@ struct ChainEditor: View {
     }
 
     private var canSave: Bool {
-        !saving && (1 ... 160).contains(characters)
+        !saving && (1 ... 160).contains(characters) && !(trigger == .blocked && toItself)
     }
 
     private func save() {
