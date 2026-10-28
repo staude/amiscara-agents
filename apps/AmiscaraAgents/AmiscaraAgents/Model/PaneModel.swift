@@ -226,7 +226,8 @@ final class PaneModel {
     }
 
     /// Offers a summary when the last visit is long enough ago and the
-    /// screen changed since. No line count: herdr reports none.
+    /// screen shows more than a changed bottom line since. No line count:
+    /// herdr reports none.
     private func checkVisit(_ content: PaneContent) {
         guard let armedAt else { return }
         self.armedAt = nil
@@ -237,7 +238,7 @@ final class PaneModel {
     private func offer(for content: PaneContent) -> Bool {
         guard let visit = lastVisit,
               Date.now.timeIntervalSince(visit.seen) >= Self.summaryPause,
-              PaneVisits.tail(of: content.plainText) != visit.tail
+              !PaneVisits.newOutput(in: content.plainText, after: visit.tail).isEmpty
         else { return false }
         summaryOffer = visit
         return true
