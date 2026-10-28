@@ -422,14 +422,14 @@ struct InputBar: View {
         pasteMonitor = nil
     }
 
+    private var answerKeyTrigger: String { "\(draftKey)/\(isBlocked)" }
+
     /// While the agent waits for an answer, arrows, Enter and Esc go to the
     /// pane from anywhere in the window (#277), not only from the composer:
     /// after a click into the pane view or the sidebar nobody has to click
     /// back. Digits stay out, they would answer a dialog by accident. With
     /// text in the composer, arrows and Enter keep their editing job; Esc
     /// still cancels the question.
-    private var answerKeyTrigger: String { "\(draftKey)/\(isBlocked)" }
-
     private func catchAnswerKeys() {
         guard answerKeyMonitor == nil else { return }
         answerKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -440,6 +440,10 @@ struct InputBar: View {
                 guard isBlocked, connection.isLive, !AppLock.shared.isCovered,
                       let window = windowBox.window, event.window === window, window.attachedSheet == nil
                 else { return false }
+                if let editor = window.firstResponder as? NSTextView, editor.hasMarkedText() {
+                    // An input method is composing; its keys are not ours.
+                    return false
+                }
                 if composerFocused {
                     if key != "esc", !text.isEmpty || !attachments.isEmpty { return false }
                 } else if window.firstResponder is NSText {

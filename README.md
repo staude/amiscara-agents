@@ -146,8 +146,8 @@ code), so a host is set up the same way everywhere.
   dictation, and the "Tasten" menu with shortcuts for the pane (⌘. Esc,
   ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an agent waits for an
   answer, plain arrows, Enter and Esc go to its pane from anywhere in the
-  window (not from text fields, and not arrows or Enter with text in the
-  composer).
+  window (not from other text fields such as the pane search; in the
+  composer arrows and Enter only while it is empty, Esc always).
 - Publishes its Bonjour name in iCloud so the Apple TV finds it.
 - Distributed outside the App Store, signed with Developer ID and
   notarized; the App Sandbox would block the socket and SSH to arbitrary
