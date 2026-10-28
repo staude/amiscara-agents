@@ -43,9 +43,10 @@ final class Notifier: NSObject {
     /// first, one per pane.
     @ObservationIgnored private var questionCategories: [UNNotificationCategory] = []
     private static let maxQuestionCategories = 32
-    /// More actions than these the system does not show; the rest is a tap
-    /// away in the pane.
-    private static let maxQuestionActions = 4
+    /// The system shows four actions: up to three options and Esc to
+    /// cancel; the rest is a tap away in the pane. No Enter, the digit
+    /// answers already.
+    private static let maxQuestionActions = 3
 
     override init() {
         // Answer buttons for "agent waits", local and pushed (#94). Not
@@ -94,7 +95,7 @@ final class Notifier: NSObject {
         let identifier = "\(AgentNotification.blockedCategory).\(hostID.uuidString).\(paneID)"
         let actions = question.options.prefix(Self.maxQuestionActions).map { option in
             UNNotificationAction(identifier: "key.\(option.key)", title: option.label, options: [.authenticationRequired])
-        }
+        } + [UNNotificationAction(identifier: "key.esc", title: String(localized: "Abbrechen"), options: [])]
         questionCategories.removeAll { $0.identifier == identifier }
         questionCategories.append(UNNotificationCategory(identifier: identifier, actions: actions, intentIdentifiers: []))
         if questionCategories.count > Self.maxQuestionCategories {
