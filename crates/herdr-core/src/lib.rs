@@ -7,7 +7,8 @@
 //! open pane current, [`fullscreen`] looks back in a full-screen agent.
 //! [`spaces`] orders the sidebar and groups spaces by
 //! name, [`browse`] reads files below the home directory. [`question`]
-//! finds an agent's choice question on the screen.
+//! finds an agent's choice question on the screen. [`usage`] sums the
+//! tokens of Claude Code from its session files.
 
 pub mod actions;
 pub mod browse;
@@ -20,6 +21,7 @@ pub mod spaces;
 mod state;
 pub mod sync;
 pub mod terminal;
+pub mod usage;
 
 pub use state::{
     Applied, BoardEntry, EDITOR_DONE_TOKEN, EDITOR_ID_TOKEN, EDITOR_PATH_TOKEN_PREFIX,
