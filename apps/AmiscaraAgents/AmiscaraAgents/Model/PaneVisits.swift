@@ -76,10 +76,13 @@ final class PaneVisits {
     }
 
     /// The lines after the last place where `tail` matches consecutive lines
-    /// with text; all lines when `tail` is empty or matches nowhere.
+    /// with text; all lines when `tail` is empty or matches nowhere. The
+    /// bottom line of `tail` is left out when there are others: often a
+    /// prompt or status line that changed in place since.
     nonisolated static func newLines(in text: String, after tail: [String]) -> [String] {
         let lines = text.components(separatedBy: "\n")
         let candidates = textLines(text)
+        let tail = tail.count > 1 ? Array(tail.dropLast()) : tail
         guard !tail.isEmpty, candidates.count >= tail.count else { return lines }
         let hashes = candidates.map { hash($0.text) }
         for start in stride(from: hashes.count - tail.count, through: 0, by: -1)

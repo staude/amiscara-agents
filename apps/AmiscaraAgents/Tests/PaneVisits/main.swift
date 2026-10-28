@@ -22,11 +22,13 @@ var failures = 0
 
     // New lines
     let tail = PaneVisits.tail(of: "$ make\nbuilt")
-    check(PaneVisits.newLines(in: "old\n$ make\n\nbuilt\n$ test\nok", after: tail) == ["$ test", "ok"], "lines after the anchor")
-    check(PaneVisits.newLines(in: "$ make\nbuilt\nx\n$ make\nbuilt\ny", after: tail) == ["y"], "the last of two anchors")
+    check(PaneVisits.newLines(in: "old\n$ make\n\nbuilt\n$ test\nok", after: tail) == ["", "built", "$ test", "ok"], "lines after the anchor, its bottom line again")
+    check(PaneVisits.newLines(in: "$ make\nbuilt\nx\n$ make\nbuilt\ny", after: tail) == ["built", "y"], "the last of two anchors")
     check(PaneVisits.newLines(in: "a\nb", after: tail) == ["a", "b"], "no anchor gives everything")
     check(PaneVisits.newLines(in: "a\nb", after: []) == ["a", "b"], "no tail gives everything")
-    check(PaneVisits.newLines(in: "$ make\nbuilt", after: tail).isEmpty, "nothing new")
+    check(PaneVisits.newLines(in: "$ make\nbuilt", after: tail) == ["built"], "nothing new but the bottom line")
+    let atPrompt = PaneVisits.tail(of: "built\n% ")
+    check(PaneVisits.newLines(in: "built\n% make\nok", after: atPrompt) == ["% make", "ok"], "a prompt line typed into since")
 
     // Memory
     let file = FileManager.default.temporaryDirectory.appending(path: "pane-visits-\(UUID().uuidString).json")
