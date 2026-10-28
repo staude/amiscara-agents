@@ -245,7 +245,7 @@ pub fn snippet(text: &str, needle: &str) -> Option<String> {
 /// prompts and answers. The other arguments name files next to the
 /// script: `total` gets the number of files, `progress` one byte per file
 /// searched, `out` one `path:offset` line per matching line (at most
-/// [`HOST_HITS_PER_FILE`] per file), and at the end
+/// [`HOST_HITS_PER_FILE`] per file plus one, so a cut shows), and at the end
 /// `<out>.done` the first [`HOST_MAX_LINES`] of them plus one, so a cut
 /// shows. Read only.
 pub fn search_script(pattern: &str, out: &str, progress: &str, total: &str) -> String {
@@ -259,14 +259,18 @@ out="$d/{out}"
 G=/usr/bin/grep
 [ -x "$G" ] || G=grep
 cd "$HOME" || exit 1
-find .claude/projects -name '*.jsonl' -type f >"$out.list" 2>/dev/null
+# Newest first, so the limits keep recent conversations.
+find .claude/projects -name '*.jsonl' -type f -exec ls -t {{}} + >"$out.list" 2>/dev/null
 wc -l <"$out.list" | tr -d ' ' >"$d/{total}"
 # Only prompts and answers: attachments, request copies, tool results and
-# subagents mention a word as often and would fill the limits.
+# subagents mention a word as often and would fill the limits, as would
+# the directory, the branch, thinking and its signature in a line.
 while IFS= read -r f; do
   "$G" -a -b -i -F -f "$d/{pattern}" -- "$f" 2>/dev/null |
     "$G" -a -F -e '"type":"user"' -e '"type":"assistant"' |
     "$G" -a -v -F -e '"type":"tool_result"' -e '"isSidechain":true' -e '"isMeta":true' |
+    sed -E 's/"(signature|cwd|gitBranch|thinking)":"([^"\\]|\\.)*"//g' |
+    "$G" -a -i -F -f "$d/{pattern}" |
     head -n {per_file} | cut -d: -f1 |
     while IFS= read -r o; do printf '%s:%s\n' "$f" "$o"; done
   printf . >>"$d/{progress}"
@@ -278,7 +282,7 @@ mv "$out.head" "$out.done"
         total = name(total),
         progress = name(progress),
         pattern = name(pattern),
-        per_file = HOST_HITS_PER_FILE,
+        per_file = HOST_HITS_PER_FILE + 1,
         lines = HOST_MAX_LINES + 1,
     )
 }
@@ -380,7 +384,11 @@ where
 }
 
 /// The last AI title of the session file `path` of `size` bytes.
+/// `None` for an unknown size of 0.
 pub async fn session_title(conn: &Connection, path: &str, size: u64) -> Option<String> {
+    if size == 0 {
+        return None;
+    }
     let tail = conn
         .read_file_range(path, size.saturating_sub(TITLE_TAIL), TITLE_TAIL)
         .await
@@ -798,7 +806,13 @@ mod tests {
                 ],
             ),
             ("-Users-me-b", vec![entry("keychain auch")]),
-            ("-Users-me-c", vec![entry("nichts")]),
+            (
+                "-Users-me-c",
+                vec![format!(
+                    "{}\n",
+                    json!({"type": "user", "cwd": "/keychain", "message": {"content": "nichts"}})
+                )],
+            ),
         ] {
             let dir = home.join(".claude/projects").join(dir);
             std::fs::create_dir_all(&dir).expect("dir");

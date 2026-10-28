@@ -386,7 +386,8 @@ impl<S: SearchSink> Search<'_, S> {
             if self.done() {
                 break;
             }
-            let hits = self.read_file(&file, done, total).await?;
+            let (hits, cut) = self.read_file(&file, done, total).await?;
+            self.end.truncated |= cut;
             done += file.size;
             self.sink.progress(done, total);
             self.report(&file.path, file.size, hits).await;
@@ -395,23 +396,25 @@ impl<S: SearchSink> Search<'_, S> {
     }
 
     /// The hits of one file, read in steps of [`SCAN_CHUNK`]; at most
-    /// [`claude::HOST_HITS_PER_FILE`] lines, like grep on the host.
-    /// Progress counts on from `done` bytes of `total`.
+    /// [`claude::HOST_HITS_PER_FILE`] lines, like grep on the host, and
+    /// whether the file had more. Progress counts on from `done` bytes of
+    /// `total`.
     async fn read_file(
         &self,
         file: &SessionFile,
         done: u64,
         total: u64,
-    ) -> Result<Vec<claude::Hit>, SessionError> {
+    ) -> Result<(Vec<claude::Hit>, bool), SessionError> {
         let mut hits = Vec::new();
         let mut lines = 0;
+        let mut cut = false;
         // Bytes of a line not yet complete, and where it starts.
         let mut rest: Vec<u8> = Vec::new();
         let mut rest_start = 0;
         // Inside a line longer than [`claude::MAX_HIT_LINE`], which is skipped.
         let mut skipping = false;
         let mut pos = 0;
-        while pos < file.size && lines < claude::HOST_HITS_PER_FILE {
+        while pos < file.size && !cut {
             if self.stopped() {
                 break;
             }
@@ -443,11 +446,12 @@ impl<S: SearchSink> Search<'_, S> {
                 .map_or(0, |at| at + 1);
             let mut start = rest_start;
             for line in rest[..complete].split(|&b| b == b'\n') {
-                if lines >= claude::HOST_HITS_PER_FILE {
-                    break;
-                }
                 let found = claude::hits_in_line(&file.path, line, start, &self.query);
                 if !found.is_empty() {
+                    if lines == claude::HOST_HITS_PER_FILE {
+                        cut = true;
+                        break;
+                    }
                     lines += 1;
                     hits.extend(found);
                 }
@@ -462,7 +466,7 @@ impl<S: SearchSink> Search<'_, S> {
             self.sink.progress(done + pos, total);
         }
         // The rest is a line still being written.
-        Ok(hits)
+        Ok((hits, cut))
     }
 
     /// Runs [`claude::search_script`] in a tab of `space` and reads the
@@ -539,9 +543,22 @@ impl<S: SearchSink> Search<'_, S> {
                 lines.truncate(claude::HOST_MAX_LINES);
                 self.end.truncated = true;
             }
+            // The script reports one line more per file than it keeps.
+            let mut per_file: HashMap<String, usize> = HashMap::new();
+            let all = lines.len();
+            lines.retain(|(path, _)| {
+                let count = per_file.entry(path.clone()).or_default();
+                *count += 1;
+                *count <= claude::HOST_HITS_PER_FILE
+            });
+            self.end.truncated |= lines.len() < all;
             self.read_host_hits(lines).await
         }
         .await;
+        if self.stopped() {
+            // The closed tab's shell may write a last byte of progress.
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
         for file in &temp {
             let _ = self.conn.remove_file(file).await;
         }
