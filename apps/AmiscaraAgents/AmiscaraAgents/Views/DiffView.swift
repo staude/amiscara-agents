@@ -15,16 +15,6 @@ struct DiffView: View {
     @State private var loaded = false
     @State private var error: String?
     @State private var query = ""
-    @State private var open: Set<String> = []
-
-    private var shown: [DiffFile] {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return files }
-        return files.filter { file in
-            file.path.localizedStandardContains(query)
-                || file.hunks.contains { $0.lines.contains { $0.text.localizedStandardContains(query) } }
-        }
-    }
 
     var body: some View {
         NavigationStack {
@@ -65,40 +55,13 @@ struct DiffView: View {
             ContentUnavailableView("Keine Änderungen", systemImage: "checkmark.circle", description: Text("Das Arbeitsverzeichnis entspricht dem letzten Commit."))
         } else {
             List {
-                Section {
-                    ForEach(shown, id: \.path) { file in
-                        DisclosureGroup(isExpanded: Binding(
-                            get: { open.contains(file.path) },
-                            set: { if $0 { open.insert(file.path) } else { open.remove(file.path) } }
-                        )) {
-                            FileHunks(file: file)
-                        } label: {
-                            FileRow(file: file)
-                        }
-                    }
-                } header: {
-                    Text(summary)
-                } footer: {
-                    if truncated {
-                        Label("Die Änderungen sind zu groß und wurden abgeschnitten; es fehlen Dateien.", systemImage: "scissors")
-                    }
-                    // A failed reload keeps the last list; say it is old.
-                    if let error {
-                        Label(error, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
-                    }
-                }
+                // A failed reload keeps the last list; say it is old.
+                DiffFileList(files: files, truncated: truncated, query: query, note: error)
             }
             #if os(macOS)
             .listStyle(.inset)
             #endif
         }
-    }
-
-    private var summary: String {
-        let added = files.reduce(0) { $0 + Int($1.additions) }
-        let removed = files.reduce(0) { $0 + Int($1.deletions) }
-        return String(localized: "\(files.count) Dateien, +\(added) −\(removed)")
     }
 
     private func load() async {
@@ -112,11 +75,64 @@ struct DiffView: View {
             files = diff.files
             truncated = diff.truncated
             error = nil
-            // A single file opens right away.
-            if files.count == 1 { open = [files[0].path] }
         } catch {
             self.error = inputErrorMessage(error)
         }
+    }
+}
+
+/// The files of a diff as a list section, each folding out to its hunks;
+/// also the diff of a pull request (#309). `query` filters by path and
+/// line, `note` shows under the files, e.g. a failed reload.
+struct DiffFileList: View {
+    let files: [DiffFile]
+    let truncated: Bool
+    var query = ""
+    var note: String?
+    @State private var open: Set<String> = []
+
+    private var shown: [DiffFile] {
+        let query = query.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return files }
+        return files.filter { file in
+            file.path.localizedStandardContains(query)
+                || file.hunks.contains { $0.lines.contains { $0.text.localizedStandardContains(query) } }
+        }
+    }
+
+    var body: some View {
+        Section {
+            ForEach(shown, id: \.path) { file in
+                DisclosureGroup(isExpanded: Binding(
+                    get: { open.contains(file.path) },
+                    set: { if $0 { open.insert(file.path) } else { open.remove(file.path) } }
+                )) {
+                    FileHunks(file: file)
+                } label: {
+                    FileRow(file: file)
+                }
+            }
+        } header: {
+            Text(summary)
+        } footer: {
+            if truncated {
+                Label("Die Änderungen sind zu groß und wurden abgeschnitten; es fehlen Dateien.", systemImage: "scissors")
+            }
+            if let note {
+                Label(note, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+            }
+        }
+        // A single file opens right away.
+        .onChange(of: files.map(\.path), initial: true) { _, paths in
+            if paths.count == 1 { open = Set(paths) }
+        }
+    }
+
+    private var summary: String {
+        let added = files.reduce(0) { $0 + Int($1.additions) }
+        let removed = files.reduce(0) { $0 + Int($1.deletions) }
+        return String(localized: "\(files.count) Dateien, +\(added) −\(removed)")
     }
 }
 
