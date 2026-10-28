@@ -43,6 +43,11 @@ fn detect_lines(lines: &[String]) -> Option<Vec<Choice>> {
         if let Some(option) = Row::option(line) {
             break option;
         }
+        // The agent's own input line: its dialog is not open, so options
+        // above are a prompt the user sent, as Claude Code echoes it.
+        if line.trim_start().starts_with('❯') {
+            return None;
+        }
         if !Row::is_blank_or_frame(line) {
             tail += 1;
             if tail > MAX_TAIL_LINES {
@@ -51,6 +56,10 @@ fn detect_lines(lines: &[String]) -> Option<Vec<Choice>> {
         }
     };
 
+    // More than nine options take more than one key; no question then.
+    if last.number > 9 {
+        return None;
+    }
     let indent = last.indent;
     let mut found = vec![last];
     while found.last()?.number > 1 {
@@ -107,11 +116,7 @@ impl Row {
         let indent = line.chars().count() - rest.chars().count();
         let digits = rest.chars().take_while(char::is_ascii_digit).count();
         let after = rest[digits..].strip_prefix(". ")?;
-        // More than nine options take more than one key; no question then.
-        let number: u8 = rest[..digits]
-            .parse()
-            .ok()
-            .filter(|n| (1..=9).contains(n))?;
+        let number: u8 = rest[..digits].parse().ok().filter(|n| *n > 0)?;
         let label = after
             .split('│')
             .next()
@@ -327,6 +332,36 @@ Enter to select · ↑/↓ to navigate · n to add notes · Esc to cancel
   ⏸ manual mode on
 ";
         assert_eq!(detect_text(text), None);
+    }
+
+    #[test]
+    fn numbered_prompt_echo_is_no_question() {
+        let text = "\
+❯ Reply with just OK:
+  1. Build
+  2. Test
+
+· Kneading…
+
+────────────────────────────────────────────────────────────────────────
+❯ 1. Build
+  2. Test
+────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────
+  Fable 5.1 · CTX ███░░░░░░░ 51k/200k
+  ⏸ manual mode on
+";
+        assert_eq!(detect_text(text), None);
+    }
+
+    #[test]
+    fn more_than_nine_options_are_no_question() {
+        let mut text = String::from("❯ 1. Option 1\n");
+        for number in 2..=10 {
+            text.push_str(&format!("  {number}. Option {number}\n"));
+        }
+        assert_eq!(detect_text(&text), None);
     }
 
     #[test]
