@@ -1,0 +1,90 @@
+#!/bin/sh
+# VS Code stand-in for herdr panes on a host (#288): `code <folder>` offers
+# the folder to the connected Amiscara Agents apps, which ask "An agent
+# wants to open a folder in VS Code" and open it over Remote-SSH on their
+# own machine. Put it in front of the real `code` in the shells of herdr
+# panes, e.g. in ~/.zshrc or ~/.bashrc:
+#
+#   [ -n "$HERDR_PANE_ID" ] && PATH="$HOME/.amiscara-agents/bin:$PATH"
+#
+# The path goes to the pane as metadata (`herdr pane report-metadata`,
+# source `amiscara-agents-editor`): `editor_id` plus the path in pieces of
+# 80 characters, `editor_path_0` to `editor_path_14`. The script returns at
+# once; if no app opened the folder within 30 seconds (an app sets
+# `editor_done` to the id), the real `code` opens it on the host. Outside
+# herdr, with other arguments than one folder, or for paths over 1200
+# characters or with spaces or non-ASCII characters, the real `code` runs
+# right away.
+
+# The real `code`: the first one in PATH that is not this script.
+self_dir=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)
+real=
+IFS_SAVED=$IFS
+IFS=:
+for dir in $PATH; do
+    [ -n "$dir" ] || continue
+    [ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$self_dir" ] && continue
+    if [ -x "$dir/code" ] && [ ! -d "$dir/code" ]; then
+        real=$dir/code
+        break
+    fi
+done
+IFS=$IFS_SAVED
+if [ -z "$real" ] && [ "$(uname -s)" = Darwin ]; then
+    app="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+    [ -x "$app" ] && real=$app
+fi
+
+run_real() {
+    if [ -z "$real" ]; then
+        echo "code: command not found" >&2
+        exit 127
+    fi
+    exec "$real" "$@"
+}
+
+[ -n "${HERDR_PANE_ID-}" ] && [ "$#" -eq 1 ] && [ -d "$1" ] || run_real "$@"
+path=$(CDPATH='' cd -- "$1" && pwd -P) || run_real "$@"
+export LC_ALL=C
+case $path in
+/*) ;;
+*) run_real "$@" ;;
+esac
+case $path in
+*[!!-~]*) run_real "$@" ;;
+esac
+[ "${#path}" -le 1200 ] || run_real "$@"
+
+herdr=${HERDR_BIN_PATH:-herdr}
+id="$(date +%s)-$$"
+set -- pane report-metadata "$HERDR_PANE_ID" --source amiscara-agents-editor \
+    --ttl-ms 30000 --token "editor_id=$id"
+rest=$path
+i=0
+while [ "$i" -lt 15 ]; do
+    if [ -n "$rest" ]; then
+        set -- "$@" --token "editor_path_$i=$(printf '%s' "$rest" | cut -c1-80)"
+        rest=$(printf '%s' "$rest" | cut -c81-)
+    else
+        # A shorter path than the last one must not keep its tail.
+        set -- "$@" --clear-token "editor_path_$i"
+    fi
+    i=$((i + 1))
+done
+"$herdr" "$@" >/dev/null 2>&1 || run_real "$path"
+
+# Wait in the background, so the shell is free at once.
+# shellcheck disable=SC2016 # expands in the waiting shell
+nohup sh -c '
+    herdr=$1 pane=$2 id=$3 real=$4 path=$5
+    i=0
+    while [ "$i" -lt 30 ]; do
+        sleep 1
+        case $("$herdr" pane get "$pane" 2>/dev/null) in
+        *"\"editor_done\":\"$id\""*) exit 0 ;;
+        esac
+        i=$((i + 1))
+    done
+    [ -n "$real" ] && exec "$real" "$path"
+' sh "$herdr" "$HERDR_PANE_ID" "$id" "$real" "$path" >/dev/null 2>&1 &
+exit 0
