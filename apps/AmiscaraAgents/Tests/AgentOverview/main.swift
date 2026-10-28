@@ -93,5 +93,32 @@ do {
     check(decoded != nil && decoded?.since == nil, "old JSON decodes without a time")
 }
 
+// The last connected time: connected, dropped, reconnected (LiveClock).
+do {
+    var clock = LiveClock()
+    clock.update(wasLive: false, isLive: false, now: ago(30))
+    check(clock.liveAt == nil, "never connected has no time")
+    clock.update(wasLive: false, isLive: true, now: ago(20))
+    check(clock.liveAt == ago(20), "an update while live")
+    clock.update(wasLive: true, isLive: false, now: ago(10))
+    check(clock.liveAt == ago(10), "the update that ends the connection, however quiet the host was")
+    clock.update(wasLive: false, isLive: false, now: ago(5))
+    check(clock.liveAt == ago(10), "later updates without connection keep it")
+
+    clock.update(wasLive: false, isLive: true, now: ago(4))
+    clock.reconnecting(live: true)
+    clock.update(wasLive: true, isLive: false, now: ago(1))
+    check(clock.liveAt == ago(4), "a reconnect of a link that looked live keeps the last live time")
+    clock.update(wasLive: false, isLive: true, now: now)
+    clock.update(wasLive: true, isLive: false, now: now.addingTimeInterval(60))
+    check(clock.liveAt == now.addingTimeInterval(60), "back live, a drop counts again")
+
+    var idle = LiveClock()
+    idle.reconnecting(live: false)
+    idle.update(wasLive: false, isLive: true, now: ago(2))
+    idle.update(wasLive: true, isLive: false, now: ago(1))
+    check(idle.liveAt == ago(1), "a reconnect while not live suspects nothing")
+}
+
 if failures > 0 { exit(1) }
 print("agent-overview: ok")

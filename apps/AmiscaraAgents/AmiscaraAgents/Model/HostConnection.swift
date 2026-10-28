@@ -9,13 +9,9 @@ final class HostConnection: Identifiable {
     private(set) var config: HostConfig
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
-    /// When the host was last seen connected (an update while live or the
-    /// one that ended it), so the overview can tell how old the agents it
-    /// still shows are (#274).
-    private(set) var liveAt: Date?
-    /// A reconnect was asked for while the link still looked live; its end
-    /// then says nothing about when the host was last reachable.
-    @ObservationIgnored private var linkSuspect = false
+    /// When the host was last seen connected, for the overview (#274).
+    private var liveClock = LiveClock()
+    var liveAt: Date? { liveClock.liveAt }
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
     /// pane view follows its pane again when this changes.
@@ -43,18 +39,9 @@ final class HostConnection: Identifiable {
             let bridge = SessionBridge { [weak self] update in
                 Task { @MainActor in
                     guard let self else { return }
-                    // Also when the connection drops: until then the last
-                    // update was still current, however quiet the host was.
-                    // Not after a reconnect for a link that may have died
-                    // unnoticed, e.g. while the device slept.
-                    let dropped = self.isLive && !self.linkSuspect
+                    let wasLive = self.isLive
                     self.update = update
-                    if self.isLive {
-                        self.liveAt = .now
-                        self.linkSuspect = false
-                    } else if dropped {
-                        self.liveAt = .now
-                    }
+                    self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
                     self.onUpdate?(self, update)
                 }
             }
@@ -75,7 +62,7 @@ final class HostConnection: Identifiable {
     /// (refused login, host key) starts over instead, also when its last
     /// update has not arrived yet.
     func reconnect() {
-        if isLive { linkSuspect = true }
+        liveClock.reconnecting(live: isLive)
         guard let session, session.reconnect() else { return start() }
     }
 
