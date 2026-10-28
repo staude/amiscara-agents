@@ -424,38 +424,6 @@ extension HostStore {
         #endif
     }
 
-    /// Tells Siri the agents again when one came, went or was renamed, so
-    /// it understands their names in the phrases (#275). Takes the widgets'
-    /// snapshot, which also holds the Mac's boards and loses removed hosts.
-    /// At most once a minute: Siri then asks for the agents, and that
-    /// reconnects hosts that are not live.
-    func updateShortcutAgents(_ snapshot: WidgetSnapshot) {
-        // Name and space are what Siri understands; tabs do not count.
-        shortcutAgentsSeen = Set(snapshot.hosts.flatMap { host in
-            host.agents.map { agent in
-                let space = agent.place.components(separatedBy: " · ").first ?? agent.place
-                return "\(host.id)/\(agent.paneID)|\(agent.name)|\(space)"
-            }
-        })
-        guard shortcutPause == nil else { return }
-        sendShortcutAgents()
-    }
-
-    /// Sends the agents seen when they changed, then pauses a minute and
-    /// sends what changed meanwhile.
-    private func sendShortcutAgents() {
-        guard shortcutAgentsSeen != shortcutAgentsSent else {
-            shortcutPause = nil
-            return
-        }
-        shortcutAgentsSent = shortcutAgentsSeen
-        HerdrShortcuts.updateAppShortcutParameters()
-        shortcutPause = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(60))
-            self?.sendShortcutAgents()
-        }
-    }
-
     /// The answer to "Was macht der Agent?" (#275): from the live
     /// connection, else (iOS) from the Mac's board in iCloud, else a
     /// message that there is nothing to say. Never fails.
