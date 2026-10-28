@@ -67,6 +67,14 @@ export const openRequestUrl = (hostId: string, url: string) =>
   invoke<string>("open_request_url", { hostId, url });
 export const dismissOpenRequest = (hostId: string, paneId: string, requestId: string) =>
   invoke<void>("dismiss_open_request", { hostId, paneId, requestId });
+/** Opens a folder an agent on the host asked for in VS Code (#288). */
+export const openEditorRequest = (hostId: string, path: string) =>
+  invoke<void>("open_editor_request", { hostId, path });
+/** "In VS Code öffnen": a pane's working directory, else a space's focused pane's. */
+export const openInEditor = (hostId: string, target: { workspaceId?: string; paneId?: string }) =>
+  invoke<void>("open_in_editor", { hostId, workspaceId: target.workspaceId ?? null, paneId: target.paneId ?? null });
+export const dismissEditorRequest = (hostId: string, paneId: string, requestId: string) =>
+  invoke<void>("dismiss_editor_request", { hostId, paneId, requestId });
 export const quickReplies = () => invoke<string[]>("quick_replies");
 export const setLanguage = (lang: string) => invoke<void>("set_language", { lang });
 export const saveQuickReplies = (replies: string[]) =>
@@ -206,6 +214,7 @@ const CONFIG_ERRORS: Record<string, MessageKey> = {
   keyMissing: "errorKeyMissing",
   inputOff: "errorInputOff",
   uploadOff: "errorUploadOff",
+  noFolder: "errorNoFolder",
 };
 
 /** Why an "add host" link was refused (`LinkError` in herdr-session). */

@@ -79,6 +79,10 @@ pub struct HostConfig {
     /// Workspace IDs in the user's order, for `SpaceSortMode::Manual`.
     #[serde(default)]
     pub space_order: Option<Vec<String>>,
+    /// SSH target VS Code connects to for "In VS Code öffnen" (#288), e.g.
+    /// an alias from `~/.ssh/config`; missing means `user@host`.
+    #[serde(default)]
+    pub ssh_target: Option<String>,
 }
 
 /// The order of spaces in the sidebar; same values as in the Apple apps.
@@ -110,6 +114,26 @@ impl HostConfig {
                 SpaceSort::Manual(self.space_order.clone().unwrap_or_default())
             }
         }
+    }
+
+    /// The Remote-SSH target for VS Code (#288); `None` for a local host,
+    /// whose folders open directly.
+    pub fn editor_target(&self) -> Option<String> {
+        if self.kind != HostKind::Ssh {
+            return None;
+        }
+        let target = self
+            .ssh_target
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or_default();
+        Some(if !target.is_empty() {
+            target.to_owned()
+        } else if self.user.is_empty() {
+            self.host.clone()
+        } else {
+            format!("{}@{}", self.user, self.host)
+        })
     }
 
     /// The `socket_path` for an `authorized_keys` line: `None` for the

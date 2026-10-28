@@ -39,6 +39,9 @@ pub enum ConfigError {
     InputOff,
     #[error("file uploads are off for {host}")]
     UploadOff { host: String },
+    /// herdr reports no working directory for the pane (#288).
+    #[error("no folder is known for this pane")]
+    NoFolder,
     /// Requests the webview never makes, and system errors; not worded.
     #[error("{0}")]
     Other(String),
@@ -54,6 +57,7 @@ impl ConfigError {
             Self::KeyMissing => "keyMissing",
             Self::InputOff => "inputOff",
             Self::UploadOff { .. } => "uploadOff",
+            Self::NoFolder => "noFolder",
             Self::Other(_) => "other",
         }
     }

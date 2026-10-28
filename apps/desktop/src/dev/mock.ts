@@ -33,6 +33,7 @@ const host = (id: string, name: string, kind: "ssh" | "local"): HostConfig => ({
   groupSpaces: null,
   spaceSort: null,
   spaceOrder: null,
+  sshTarget: null,
 });
 
 const hosts = [host("work", "work", "ssh"), host("nas", "nas", "ssh")];
@@ -170,6 +171,15 @@ const update: SessionUpdate = {
       localAddress: true,
     },
   ],
+  editorRequests: [
+    {
+      paneId: "p1",
+      requestId: "1761400000-4243",
+      path: "/Users/frank/dev/dorfkino/.worktrees/dorfkino-42-login",
+      workspaceLabel: "Privat/Dorfkino",
+      paneTitle: "claude",
+    },
+  ],
 };
 
 const color = (kind: "default" | number | [number, number, number]): TermColor =>
@@ -266,6 +276,12 @@ mockIPC(
         return a.url;
       case "dismiss_open_request":
         update.openRequests = update.openRequests.filter((r) => r.requestId !== a.requestId);
+        return null;
+      case "open_editor_request":
+      case "open_in_editor":
+        return null;
+      case "dismiss_editor_request":
+        update.editorRequests = update.editorRequests.filter((r) => r.requestId !== a.requestId);
         return null;
       case "follow_pane": {
         const channel = a.channel as { id: number };

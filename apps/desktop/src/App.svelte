@@ -20,7 +20,7 @@
   import { applyTheme, prefs } from "./lib/prefs.svelte";
   import { model } from "./lib/state.svelte";
   import { updater } from "./lib/update.svelte";
-  import type { HostConfig, OpenRequest } from "./lib/types";
+  import type { EditorRequest, HostConfig, OpenRequest } from "./lib/types";
 
   let editing = $state<{ host: HostConfig | null } | null>(null);
   let linkDialog = $state<{ url: string | null } | null>(null);
@@ -29,6 +29,8 @@
   // Pages agents on the hosts want opened (#247). Ignoring hides one here
   // only; opening takes it back on the host, so other devices drop it too.
   const requestKey = (hostId: string, request: OpenRequest) => `${hostId}|${request.paneId}|${request.requestId}`;
+  // Folders for VS Code (#288) share the hidden and error lists.
+  const editorKey = (hostId: string, request: EditorRequest) => `editor|${hostId}|${request.paneId}|${request.requestId}`;
   let hiddenRequests = $state<Record<string, true>>({});
   let requestErrors = $state<Record<string, string>>({});
   let openingRequests = $state<Record<string, true>>({});
@@ -39,6 +41,26 @@
         .map((request) => ({ host, request, key: requestKey(host.id, request) })),
     ),
   );
+
+  let editorRequests = $derived(
+    model.hosts.flatMap((host) =>
+      (model.updates[host.id]?.editorRequests ?? [])
+        .filter((request) => !hiddenRequests[editorKey(host.id, request)])
+        .map((request) => ({ host, request, key: editorKey(host.id, request) })),
+    ),
+  );
+
+  /** Opens the folder over Remote-SSH and takes the request back, so the host does not open VS Code itself. */
+  async function openEditorRequest(host: HostConfig, request: EditorRequest, key: string) {
+    delete requestErrors[key];
+    try {
+      await core.openEditorRequest(host.id, request.path);
+      hiddenRequests[key] = true;
+      core.dismissEditorRequest(host.id, request.paneId, request.requestId).catch(() => {});
+    } catch (err) {
+      requestErrors[key] = core.errorText(err);
+    }
+  }
 
   async function openRequest(host: HostConfig, request: OpenRequest, key: string) {
     if (openingRequests[key]) return;
@@ -162,6 +184,17 @@
           {#if requestErrors[key]}<span class="update-error">{requestErrors[key]}</span>{/if}
         </div>
         <button class="primary" disabled={openingRequests[key]} onclick={() => openRequest(host, request, key)}>{t("openRequestOpen")}</button>
+        <button onclick={() => (hiddenRequests[key] = true)}>{t("openRequestIgnore")}</button>
+      </div>
+    {/each}
+    {#each editorRequests as { host, request, key } (key)}
+      <div class="open-request">
+        <div class="open-request-text">
+          <strong>{t("editorRequestTitle", { space: request.workspaceLabel || host.name })}</strong>
+          <code>{request.path}</code>
+          {#if requestErrors[key]}<span class="update-error">{requestErrors[key]}</span>{/if}
+        </div>
+        <button class="primary" onclick={() => openEditorRequest(host, request, key)}>{t("openRequestOpen")}</button>
         <button onclick={() => (hiddenRequests[key] = true)}>{t("openRequestIgnore")}</button>
       </div>
     {/each}

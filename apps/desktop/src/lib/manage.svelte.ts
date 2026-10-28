@@ -1,6 +1,7 @@
 // Creating, renaming and closing in herdr: which dialog or menu is open.
 // Sidebar and tab bar ask for one, App shows it.
 
+import { errorText, openInEditor } from "./core";
 import { t } from "./i18n.svelte";
 import { model } from "./state.svelte";
 import type { AgentState, WorkspaceItem } from "./types";
@@ -73,6 +74,11 @@ export function closeSpace(hostId: string, workspace: WorkspaceItem) {
   };
 }
 
+/** "In VS Code öffnen" (#288) for a pane, else a space's focused pane. */
+export function openFolderInEditor(hostId: string, target: { workspaceId?: string; paneId?: string }) {
+  openInEditor(hostId, target).catch((err) => (model.error = errorText(err)));
+}
+
 /** The menu of a space row (sidebar). */
 export function spaceMenu(hostId: string, workspace: WorkspaceItem): (MenuItem | null)[] {
   const writable = canWrite(hostId);
@@ -84,6 +90,7 @@ export function spaceMenu(hostId: string, workspace: WorkspaceItem): (MenuItem |
       action: () =>
         (ui.dialog = { kind: "rename", hostId, target: "space", id: workspace.workspaceId, current: workspace.label }),
     },
+    { label: t("openInVSCode"), action: () => openFolderInEditor(hostId, { workspaceId: workspace.workspaceId }) },
     ...(repo
       ? [
           {
