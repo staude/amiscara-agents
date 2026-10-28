@@ -414,7 +414,8 @@ impl Session {
     /// device shows it; returns its id. At most
     /// [`chains::MAX_CHAINS_PER_PANE`] per pane, the text one line of at most
     /// [`chains::MAX_CHAIN_TEXT`] characters, and a repeating chain must not
-    /// prompt its own agent, which would keep it busy for good.
+    /// prompt its own agent, which would keep it busy for good; nor can a
+    /// chain on waiting, since a waiting agent refuses prompts.
     pub async fn set_chain(
         &self,
         pane_id: &str,
@@ -432,6 +433,12 @@ impl Session {
         if repeat && target_pane_id == pane_id {
             return Err(SessionError::Rejected(
                 "a repeating chain cannot prompt its own agent".into(),
+            ));
+        }
+        // It waits at a dialog then, which refuses prompts.
+        if trigger == ChainTrigger::Blocked && target_pane_id == pane_id {
+            return Err(SessionError::Rejected(
+                "a waiting agent takes no prompt; chain it to another agent".into(),
             ));
         }
         let session = self
@@ -477,6 +484,17 @@ impl Session {
         write_chain_tokens(&conn, pane_id, chains::clear_tokens(chain_id))
             .await
             .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        // Its claim would otherwise take one of the pane's tokens for a day.
+        let _ = conn
+            .request(
+                "pane.report_metadata",
+                serde_json::json!({
+                    "pane_id": pane_id,
+                    "source": chains::claim_source(chain_id),
+                    "tokens": { chains::claim_token(chain_id): null },
+                }),
+            )
+            .await;
         Ok(())
     }
 
@@ -1289,8 +1307,11 @@ impl ChainRun {
         // herdr ignores a report whose `seq` is not newer than the last one
         // of its source and has no compare-and-set: every device writes its
         // claim with the change's number, only the first one sticks.
+        // The mark names this run, not only the device: two sessions with
+        // one device id (the same host added twice, a device restored from
+        // another's backup) must not both take it.
         let claim = chains::claim_token(&self.chain.id);
-        let mark = format!("{}:{seq}", self.device);
+        let mark = format!("{}:{}:{seq}", self.device, run_nonce());
         let claimed = self
             .conn
             .request(
@@ -1307,31 +1328,72 @@ impl ChainRun {
         if let Err(err) = claimed {
             return skipped(err.to_string());
         }
-        let holder = match self.claim_holder(&claim).await {
-            Ok(holder) => holder,
+        let pane = match self.pane().await {
+            Ok(pane) => pane,
             Err(reason) => return skipped(reason),
         };
-        if holder.as_deref() != Some(mark.as_str()) {
+        if pane.tokens.get(&claim) != Some(&mark) {
+            return None;
+        }
+        // Deleted, failed or sent by now (e.g. a slower device that saw it
+        // before a one-shot chain went): the host's copy decides.
+        if !chains::chains_of(&pane)
+            .iter()
+            .any(|chain| chain.id == self.chain.id && !chain.failed)
+        {
             return None;
         }
         if !self.target_present {
             self.mark_failed().await;
             return Some((ChainOutcome::Failed, Some("the target pane is gone".into())));
         }
-        if let Err(err) =
-            actions::send_prompt(&self.conn, &self.chain.target_pane_id, &self.chain.text).await
-        {
-            self.mark_failed().await;
-            return Some((ChainOutcome::Failed, Some(err.to_string())));
-        }
-        if !self.chain.repeat {
-            // Best effort: left behind, its next run finds the claim taken.
-            let _ = write_chain_tokens(
+        // A one-shot chain goes before it sends: left behind after a send,
+        // the agent's next change would claim it anew and send again.
+        if !self.chain.repeat
+            && let Err(err) = write_chain_tokens(
                 &self.conn,
                 &self.pane_id,
                 chains::clear_tokens(&self.chain.id),
             )
-            .await;
+            .await
+        {
+            return skipped(err.to_string());
+        }
+        match actions::send_prompt(&self.conn, &self.chain.target_pane_id, &self.chain.text).await {
+            Ok(()) => {}
+            // The target waits at a dialog or the link dropped: this time
+            // only. A one-shot chain comes back to run on the next change.
+            Err(
+                err @ (actions::ActionError::AgentBlocked | actions::ActionError::Transport(_)),
+            ) => {
+                if !self.chain.repeat {
+                    let _ = write_chain_tokens(
+                        &self.conn,
+                        &self.pane_id,
+                        chains::chain_tokens(&self.chain),
+                    )
+                    .await;
+                }
+                return skipped(err.to_string());
+            }
+            Err(err) => {
+                self.mark_failed().await;
+                return Some((ChainOutcome::Failed, Some(err.to_string())));
+            }
+        }
+        if !self.chain.repeat {
+            // The chain is gone; its claim need not wait out its time.
+            let _ = self
+                .conn
+                .request(
+                    "pane.report_metadata",
+                    serde_json::json!({
+                        "pane_id": self.pane_id,
+                        "source": chains::claim_source(&self.chain.id),
+                        "tokens": { &claim: null },
+                    }),
+                )
+                .await;
         }
         Some((ChainOutcome::Sent, None))
     }
@@ -1347,14 +1409,14 @@ impl ChainRun {
             .map_err(|err| err.to_string())
     }
 
-    async fn claim_holder(&self, claim: &str) -> Result<Option<String>, String> {
+    async fn pane(&self) -> Result<herdr_proto::PaneInfo, String> {
         let value = self
             .conn
             .request("pane.get", serde_json::json!({ "pane_id": self.pane_id }))
             .await
             .map_err(|err| err.to_string())?;
         let got: PaneGetResult = serde_json::from_value(value).map_err(|err| err.to_string())?;
-        Ok(got.pane.tokens.get(claim).cloned())
+        Ok(got.pane)
     }
 
     /// Keeps the chain, marked failed, so it shows and never runs again.
@@ -1366,6 +1428,15 @@ impl ChainRun {
         };
         let _ = write_chain_tokens(&self.conn, &self.pane_id, chains::chain_tokens(&failed)).await;
     }
+}
+
+/// Eight random hex digits that tell one chain run's claim from another's.
+fn run_nonce() -> String {
+    use std::hash::BuildHasher;
+    format!(
+        "{:08x}",
+        std::collections::hash_map::RandomState::new().hash_one(unix_ms()) & 0xffff_ffff
+    )
 }
 
 /// Whether the sync driver behind `rx` has ended. It drops its sender when
@@ -1781,6 +1852,8 @@ mod tests {
             /// Source to its tokens and the last `seq` it took.
             sources: BTreeMap<String, (BTreeMap<String, String>, Option<u64>)>,
             panes: Vec<&'static str>,
+            /// Targets waiting at a dialog, which refuse prompts.
+            blocked: Vec<&'static str>,
             prompts: Vec<(String, String)>,
         }
 
@@ -1825,6 +1898,9 @@ mod tests {
                     }
                     "agent.prompt" => {
                         let target = params["target"].as_str().unwrap_or_default();
+                        if self.blocked.contains(&target) {
+                            return json!({"error": {"code": "agent_blocked", "message": "waits"}});
+                        }
                         if !self.panes.contains(&target) {
                             return json!({"error": {"code": "agent_not_found", "message": "gone"}});
                         }
@@ -1998,6 +2074,80 @@ mod tests {
             .await;
             assert!(results.is_empty(), "{results:?}");
             assert!(fake.lock().expect("fake").prompts.is_empty());
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_waiting_target_skips_and_keeps_the_chain() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1", "w1:p2"],
+                blocked: vec!["w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("blocked", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Skipped);
+            let chains =
+                chains::chains_of(&state("done", &fake.lock().expect("fake").tokens()).panes[0]);
+            assert!(chains.len() == 1 && !chains[0].failed, "{chains:?}");
+
+            // Once the target is free, the next change sends.
+            {
+                let mut fake = fake.lock().expect("fake");
+                fake.blocked.clear();
+                fake.seq = 12;
+            }
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Sent);
+            let fake = fake.lock().expect("fake");
+            assert_eq!(fake.prompts.len(), 1);
+            assert!(
+                !fake
+                    .tokens()
+                    .keys()
+                    .any(|key| key.starts_with("chain_0a1b2c")),
+                "chain and claim gone: {:?}",
+                fake.tokens()
+            );
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn one_device_id_twice_still_sends_once() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1", "w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("twice", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac", "mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(fake.lock().expect("fake").prompts.len(), 1);
             let _ = std::fs::remove_file(&path);
         }
 
