@@ -47,23 +47,37 @@ final class PaneCache {
     /// Panes with a write planned.
     private var pending: Set<Key> = []
     private let files: PaneCacheFiles
+    /// The files are written off the main actor, one after the other.
+    private let disk = DispatchQueue(label: "net.staude.amiscara.agents.pane-cache")
+    /// `nil` keeps `lastOpen` in memory only.
+    private let defaults: UserDefaults?
 
     var lastOpen: LastOpen? {
         didSet {
-            guard lastOpen != oldValue, !DemoMode.isOn else { return }
+            guard lastOpen != oldValue, let defaults else { return }
             if let lastOpen, let data = try? JSONEncoder().encode(lastOpen) {
-                UserDefaults.standard.set(data, forKey: Self.lastOpenKey)
+                defaults.set(data, forKey: Self.lastOpenKey)
             } else {
-                UserDefaults.standard.removeObject(forKey: Self.lastOpenKey)
+                defaults.removeObject(forKey: Self.lastOpenKey)
             }
         }
     }
 
-    private init() {
-        files = PaneCacheFiles(directory: DemoMode.isOn ? nil : FileManager.default
-            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appending(path: "AmiscaraAgents/panes"))
-        if !DemoMode.isOn, let data = UserDefaults.standard.data(forKey: Self.lastOpenKey) {
+    /// The demo mode keeps nothing on the device.
+    private convenience init() {
+        self.init(
+            directory: DemoMode.isOn ? nil : FileManager.default
+                .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appending(path: "AmiscaraAgents/panes"),
+            defaults: DemoMode.isOn ? nil : .standard
+        )
+    }
+
+    /// For `scripts/pane-cache-ffi-test.sh`.
+    init(directory: URL?, defaults: UserDefaults?) {
+        files = PaneCacheFiles(directory: directory)
+        self.defaults = defaults
+        if let data = defaults?.data(forKey: Self.lastOpenKey) {
             lastOpen = try? JSONDecoder().decode(LastOpen.self, from: data)
         }
     }
@@ -117,9 +131,11 @@ final class PaneCache {
         missed = []
     }
 
-    /// Writes the planned screens now, e.g. before the app is suspended.
+    /// Writes the planned screens now and waits for the disk, e.g. before
+    /// the app is suspended or quits.
     func flush() {
         for key in pending { write(key) }
+        disk.sync {}
     }
 
     /// Drops what is kept of a removed host.
@@ -130,7 +146,9 @@ final class PaneCache {
         missed = missed.filter { $0.host != host }
         forgotten.insert(host)
         pending = pending.filter { $0.host != host }
-        files.forget(host: host)
+        let files = files
+        // After the writes already on their way.
+        disk.async { files.forget(host: host) }
         if lastOpen?.host == host { lastOpen = nil }
     }
 
@@ -144,12 +162,10 @@ final class PaneCache {
 
     private func write(_ key: Key) {
         guard pending.remove(key) != nil, let entry = entries[key] else { return }
-        files.write(
-            paneContentJson(content: entry.content),
-            title: entry.title,
-            host: key.host,
-            pane: key.pane,
-            date: entry.date
-        )
+        let json = paneContentJson(content: entry.content)
+        let (files, title, date) = (files, entry.title, entry.date)
+        disk.async {
+            files.write(json, title: title, host: key.host, pane: key.pane, date: date)
+        }
     }
 }

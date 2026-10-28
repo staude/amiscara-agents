@@ -6,7 +6,7 @@ import Foundation
 /// after a restart while the host is out of reach. Kept to the newest
 /// `maxFiles` panes and `maxAge`; the system may also empty the directory.
 /// No app types, so `scripts/pane-cache-test.sh` builds it alone.
-struct PaneCacheFiles {
+struct PaneCacheFiles: Sendable {
     static let maxAge: TimeInterval = 7 * 24 * 60 * 60
     static let maxFiles = 40
 
@@ -18,9 +18,9 @@ struct PaneCacheFiles {
 
     /// `nil` (the demo mode) writes and reads nothing.
     private let directory: URL?
-    private let now: () -> Date
+    private let now: @Sendable () -> Date
 
-    init(directory: URL?, now: @escaping () -> Date = Date.init) {
+    init(directory: URL?, now: @escaping @Sendable () -> Date = { Date() }) {
         self.directory = directory
         self.now = now
     }
