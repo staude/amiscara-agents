@@ -25,6 +25,7 @@ cargo test --workspace --locked
 if $apple; then
     scripts/last-tabs-test.sh
     scripts/pane-visits-test.sh
+    scripts/chain-log-test.sh
     scripts/pane-cache-test.sh
     scripts/agent-overview-test.sh
     scripts/agent-status-test.sh
