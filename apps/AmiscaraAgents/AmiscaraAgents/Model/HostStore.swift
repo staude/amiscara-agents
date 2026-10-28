@@ -143,6 +143,8 @@ final class HostStore {
     /// (#286). A changed question gets a new notification instead.
     func answerResult(_ key: String, to paneID: String, on hostID: UUID, shown: [[String]]?) async -> AnswerResult {
         guard let connection = await reconnected(hostID) else { return .failed(Self.hostGone) }
+        // Offline the board may be empty or old: say why nothing went out.
+        guard connection.isLive else { return .failed(inputErrorMessage(ConnectionFailure.notConnected)) }
         // A new session starts with an empty board.
         for _ in 0..<20 where connection.update?.board.contains(where: { $0.paneId == paneID }) != true {
             try? await Task.sleep(for: .milliseconds(250))
@@ -150,12 +152,16 @@ final class HostStore {
         guard let item = connection.update?.board.first(where: { $0.paneId == paneID }),
               item.agentState == .blocked
         else { return .failed(String(localized: "Der Agent wartet nicht mehr.")) }
-        // Offline, the question cannot be read; sending fails with the reason.
-        if let shown, connection.isLive {
+        if let shown {
             let now = await connection.choiceQuestion(paneID: paneID)?.binding
             guard QuestionBinding.stillAsked(shown: shown, now: now) else {
-                notifier.notify([item], on: connection.config) { [weak connection] paneID in
-                    await connection?.choiceQuestion(paneID: paneID)
+                // No question read (none detected, or a read error): only
+                // the pane opens. A new notification would carry the fixed
+                // answers, unbound.
+                if now != nil {
+                    notifier.notify([item], on: connection.config) { [weak connection] paneID in
+                        await connection?.choiceQuestion(paneID: paneID)
+                    }
                 }
                 return .questionChanged
             }
