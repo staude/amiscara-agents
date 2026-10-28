@@ -402,7 +402,9 @@ struct HostSidebar: View {
                 pullRequestButton(pullRequest, on: connection)
             }
             #elseif os(iOS)
-            .contextMenu(when: !renamable && pullRequest != nil) {
+            // By `renamable` only, so the row keeps its identity when a pull
+            // request comes or goes; an empty menu does not show.
+            .contextMenu(when: !renamable) {
                 pullRequestButton(pullRequest, on: connection)
             }
             #endif

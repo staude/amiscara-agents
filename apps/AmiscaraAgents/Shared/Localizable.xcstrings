@@ -2911,6 +2911,16 @@
         }
       }
     },
+    "GitHub begrenzt gerade die Anfragen dieses Tokens. Später noch einmal versuchen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub is rate-limiting this token right now. Try again later."
+          }
+        }
+      }
+    },
     "GitHub lehnt den Token ab. Einen neuen Token in den Host-Einstellungen eintragen." : {
       "localizations" : {
         "en" : {
@@ -3817,6 +3827,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Merge (%@)"
+          }
+        }
+      }
+    },
+    "Mergen verlangt Face ID, Touch ID oder einen Gerätecode. Auf diesem Gerät ist keins eingerichtet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merging needs Face ID, Touch ID or a device passcode. None is set up on this device."
           }
         }
       }

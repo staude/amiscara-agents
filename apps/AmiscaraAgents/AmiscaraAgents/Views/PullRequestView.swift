@@ -32,7 +32,8 @@ struct PullRequestView: View {
         NavigationStack {
             List {
                 header
-                if let error, detail == nil {
+                // Also after a failed reload, which keeps the last state.
+                if let error {
                     Section {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.red)
@@ -184,7 +185,8 @@ struct PullRequestView: View {
 
     private func checks(_ detail: PullRequestDetail) -> some View {
         Section("Checks") {
-            ForEach(detail.checks) { check in
+            // Names repeat, e.g. one job from two workflows.
+            ForEach(Array(detail.checks.enumerated()), id: \.offset) { _, check in
                 HStack {
                     CheckIcon(state: check.state)
                     Text(check.name)
@@ -300,6 +302,10 @@ struct PullRequestView: View {
         Task {
             defer { merging = false }
             let reason = String(localized: "Pull Request #\(pullRequest.number) mergen")
+            guard AppLock.isAvailable else {
+                mergeError = String(localized: "Mergen verlangt Face ID, Touch ID oder einen Gerätecode. Auf diesem Gerät ist keins eingerichtet.")
+                return
+            }
             guard await AppLock.shared.confirmOwner(reason: reason) else { return }
             do {
                 // The head this view shows; a newer commit makes GitHub refuse.

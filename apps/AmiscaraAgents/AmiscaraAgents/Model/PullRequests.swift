@@ -1,6 +1,9 @@
 #if !os(tvOS)
 import Foundation
 import Observation
+#if os(macOS)
+import AppKit
+#endif
 
 /// The open pull requests of a host's spaces (#309): per space the one whose
 /// head is the space's branch in the repository of its `origin` remote.
@@ -18,6 +21,7 @@ final class PullRequests {
     /// The merge methods of each repository, by `owner/name`.
     @ObservationIgnored private var methods: [String: MergeMethods] = [:]
     @ObservationIgnored weak var connection: HostConnection?
+    @ObservationIgnored private let hostID: UUID
     @ObservationIgnored private var token: String?
     /// The GitHub repository of each herdr repository key, also `nil` for
     /// none, valid for one session (`generation`).
@@ -38,6 +42,7 @@ final class PullRequests {
     }
 
     init(host hostID: UUID) {
+        self.hostID = hostID
         token = DemoMode.isOn ? nil : GitHubToken.load(host: hostID)
     }
 
@@ -108,6 +113,8 @@ final class PullRequests {
     }
 
     private func load() async {
+        // Not readable before the first unlock after a restart.
+        if token == nil, !DemoMode.isOn { token = GitHubToken.load(host: hostID) }
         guard let connection, let client, connection.config.uploadAllowed else {
             byWorkspace = [:]
             methods = [:]
@@ -120,10 +127,10 @@ final class PullRequests {
         }
         let spaces = spaces
         for space in spaces where !repos.keys.contains(space.repoKey) {
-            // Not cached on failure: asked again next time.
-            if let repo = try? await connection.githubRepository(workspaceID: space.workspaceID) {
-                repos[space.repoKey] = repo
-            }
+            // `nil` for no GitHub origin is cached; a failure is asked again.
+            do {
+                repos[space.repoKey] = .some(try await connection.githubRepository(workspaceID: space.workspaceID))
+            } catch {}
         }
         var targets: [String: GitHubRepo] = [:]
         for space in spaces {
@@ -169,6 +176,15 @@ final class PullRequests {
         methods = allowed
     }
 
+    /// The app is in front; the Mac's app lock does not track that.
+    private static var inFront: Bool {
+        #if os(macOS)
+        NSApplication.shared.isActive
+        #else
+        AppLock.shared.isActive
+        #endif
+    }
+
     private func scheduleTimer() {
         guard timer == nil, token != nil else { return }
         timer = Task { [weak self] in
@@ -179,7 +195,7 @@ final class PullRequests {
                     self.timer = nil
                     return
                 }
-                if self.connection?.isLive == true, AppLock.shared.isActive {
+                if self.connection?.isLive == true, Self.inFront {
                     await self.refresh()
                 }
             }

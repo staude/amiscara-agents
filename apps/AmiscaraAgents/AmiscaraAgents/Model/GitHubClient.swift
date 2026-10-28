@@ -165,6 +165,12 @@ struct GitHubClient {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let result = try decoder.decode(GraphQLResponse<T>.self, from: data)
+        // A field the token may not read (e.g. checks without "Checks")
+        // comes back empty with the rest; only the repository missing means
+        // no access, and that decodes as `nil` repository.
+        if let data = result.data, result.errors?.allSatisfy({ $0.type == "FORBIDDEN" }) ?? true {
+            return data
+        }
         if let error = result.errors?.first {
             // A repository the token cannot see is "not found".
             if error.type == "NOT_FOUND" || error.type == "FORBIDDEN" { throw GitHubError.noAccess }
@@ -178,6 +184,8 @@ struct GitHubClient {
         guard let status = (response as? HTTPURLResponse)?.statusCode, !(200..<300).contains(status) else { return }
         switch status {
         case 401: throw GitHubError.tokenInvalid
+        case 403 where (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0":
+            throw GitHubError.message(String(localized: "GitHub begrenzt gerade die Anfragen dieses Tokens. Später noch einmal versuchen."))
         case 403, 404: throw GitHubError.noAccess
         default:
             let message = (try? JSONDecoder().decode(RESTError.self, from: data))?.message
@@ -278,11 +286,10 @@ struct PullRequestSummary: Identifiable, Hashable {
 }
 
 struct PullRequestDetail {
-    struct Check: Identifiable {
+    struct Check {
         let name: String
         let state: CheckState
         let url: URL?
-        var id: String { name }
     }
 
     /// A comment or a review.
