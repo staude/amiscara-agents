@@ -8,12 +8,19 @@ struct SpaceRef: Hashable, Sendable {
     var paneID: String?
 }
 
+/// What the sidebar can select: the overview of all hosts (#274) or a
+/// space with its agent.
+enum SidebarItem: Hashable {
+    case overview
+    case space(SpaceRef)
+}
+
 /// The sidebar, laid out like herdr's own: per host the spaces (linked
 /// worktrees indented under their repository's space), then the agents as
 /// "space · tab" with the agent below, waiting ones first.
 struct HostSidebar: View {
     @Environment(HostStore.self) private var store
-    @Binding var selection: SpaceRef?
+    @Binding var selection: SidebarItem?
     @Binding var editing: HostConfig?
     @Binding var switching: Bool
     /// Text from the clipboard to an agent (#236).
@@ -51,6 +58,14 @@ struct HostSidebar: View {
 
     var body: some View {
         List(selection: $selection) {
+            #if !os(tvOS)
+            // The Apple TV has the overview as its first tab.
+            if !store.connections.isEmpty {
+                Label("Übersicht", systemImage: "square.grid.2x2")
+                    .badge(store.overview.waitingCount)
+                    .tag(SidebarItem.overview)
+            }
+            #endif
             ForEach(store.connections) { connection in
                 Section {
                     if let update = connection.update {
@@ -131,12 +146,12 @@ struct HostSidebar: View {
         #endif
         .sheet(item: $newSpaceOn) { connection in
             NewSpaceView(connection: connection) { created in
-                selection = SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
+                selection = .space(SpaceRef(hostID: connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
             }
         }
         .sheet(item: $newWorktreeFrom) { source in
             NewWorktreeView(source: source) { created in
-                selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
+                selection = .space(SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
             }
         }
     }
@@ -162,7 +177,7 @@ struct HostSidebar: View {
     private func agentRow(_ connection: HostConnection, _ entry: AgentOrder.Entry) -> some View {
         let agent = entry.agent
         let row = AgentRow(agent: agent, tabNumber: entry.tabNumber)
-            .tag(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId))
+            .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId)))
         if RenameTarget.available(on: connection) {
             let rename = {
                 renaming = RenameTarget(connection: connection, kind: .agent(paneID: agent.paneId), current: agent.name ?? "")
@@ -325,7 +340,7 @@ struct HostSidebar: View {
     private func spaceRow(_ connection: HostConnection, _ update: SessionUpdate, _ entry: SpaceOrder.Entry, grouped: Bool, reorder entries: [SpaceOrder.Entry]?) -> some View {
         let key = entry.workspace.workspaceId
         return SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
-            .tag(SpaceRef(hostID: connection.id, workspaceID: key))
+            .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: key)))
             .spaceReordering(key, on: connection.id, among: entries, drag: spaceDrag) { reorder(connection, $0, dragged: $1, onto: key) }
             .renameAction(available: RenameTarget.available(on: connection)) {
                 renaming = RenameTarget(

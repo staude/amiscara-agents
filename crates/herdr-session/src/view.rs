@@ -6,9 +6,10 @@ use std::collections::HashMap;
 
 use herdr_core::SessionState;
 use herdr_core::pane::PaneScreen;
+use herdr_core::question;
 use herdr_core::spaces::{self, SpaceSort};
 use herdr_core::sync::{SyncState, SyncStatus};
-use herdr_core::terminal::{Color, Span};
+use herdr_core::terminal::{Color, Screen, Span};
 use herdr_proto::{AgentStatus, PaneInfo, TabLayout};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -190,6 +191,47 @@ pub struct BoardItem {
     pub agent_state: AgentState,
     pub title: String,
     pub cwd: Option<String>,
+    /// Since when the agent is in its state, in Unix milliseconds, as this
+    /// session saw it change; `None` for agents already in that state when
+    /// the session started. herdr does not report this time itself.
+    pub state_since_ms: Option<u64>,
+}
+
+/// Remembers since when each agent pane is in its state, across updates of
+/// one session, and fills [`BoardItem::state_since_ms`].
+#[derive(Debug, Default)]
+pub(crate) struct StateClock {
+    seen: HashMap<String, (AgentState, Option<u64>)>,
+    stamped: bool,
+}
+
+impl StateClock {
+    /// Stamps `board` with the remembered times; a pane that is new or
+    /// changed its state gets `now_ms`, except on the first call, when the
+    /// time of the states already shown is unknown. `attention` holds
+    /// entries of `board` and gets the same times.
+    pub(crate) fn stamp(
+        &mut self,
+        board: &mut [BoardItem],
+        attention: &mut [BoardItem],
+        now_ms: u64,
+    ) {
+        let mut seen = HashMap::with_capacity(board.len());
+        for item in board.iter_mut() {
+            let since = match self.seen.get(&item.pane_id) {
+                Some((state, since)) if *state == item.agent_state => *since,
+                _ if self.stamped => Some(now_ms),
+                _ => None,
+            };
+            item.state_since_ms = since;
+            seen.insert(item.pane_id.clone(), (item.agent_state, since));
+        }
+        for item in attention.iter_mut() {
+            item.state_since_ms = seen.get(&item.pane_id).and_then(|(_, since)| *since);
+        }
+        self.seen = seen;
+        self.stamped = true;
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -201,6 +243,24 @@ pub struct PaneContent {
     pub truncated: bool,
     /// History rows asked for, 0 when `lines` is the visible screen only.
     pub history_lines: u32,
+    /// The agent's choice question at the bottom, if any (#272).
+    pub question: Option<ChoiceQuestion>,
+}
+
+/// A question an agent asks with numbered options, such as Claude Code's
+/// permission prompt; answered by sending one option's key.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoiceQuestion {
+    pub options: Vec<ChoiceOption>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoiceOption {
+    /// The logical key that selects it, e.g. `2`.
+    pub key: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -411,6 +471,7 @@ pub fn session_update(
             agent_state: entry.pane.agent_status.into(),
             title: title(entry.pane),
             cwd: entry.pane.cwd.clone(),
+            state_since_ms: None,
         })
         .collect();
 
@@ -475,7 +536,23 @@ pub fn pane_content(screen: &PaneScreen) -> PaneContent {
             .collect(),
         truncated: screen.truncated,
         history_lines: screen.history_lines,
+        question: choice_question(&screen.screen),
     }
+}
+
+/// The choice question at the bottom of a screen, see
+/// [`herdr_core::question`].
+pub fn choice_question(screen: &Screen) -> Option<ChoiceQuestion> {
+    let choices = question::detect(screen)?;
+    Some(ChoiceQuestion {
+        options: choices
+            .into_iter()
+            .map(|choice| ChoiceOption {
+                key: choice.number.to_string(),
+                label: choice.label,
+            })
+            .collect(),
+    })
 }
 
 fn styled_span(span: &Span) -> StyledSpan {
@@ -597,6 +674,83 @@ mod tests {
         );
     }
 
+    fn board_item(pane_id: &str, agent_state: AgentState) -> BoardItem {
+        BoardItem {
+            pane_id: pane_id.to_owned(),
+            workspace_id: "w1".into(),
+            tab_id: "w1:t1".into(),
+            workspace_label: "space".into(),
+            workspace_name: "space".into(),
+            workspace_group: None,
+            tab_label: "tab".into(),
+            agent: "claude".into(),
+            name: None,
+            agent_state,
+            title: String::new(),
+            cwd: None,
+            state_since_ms: None,
+        }
+    }
+
+    fn stamped(clock: &mut StateClock, board: &[(&str, AgentState)], now: u64) -> Vec<Option<u64>> {
+        let mut items: Vec<BoardItem> = board
+            .iter()
+            .map(|(id, state)| board_item(id, *state))
+            .collect();
+        clock.stamp(&mut items, &mut [], now);
+        items.iter().map(|item| item.state_since_ms).collect()
+    }
+
+    #[test]
+    fn the_first_stamp_knows_no_times() {
+        let mut clock = StateClock::default();
+        let board = [("p1", AgentState::Blocked), ("p2", AgentState::Working)];
+        assert_eq!(stamped(&mut clock, &board, 100), [None, None]);
+        assert_eq!(stamped(&mut clock, &board, 200), [None, None]);
+    }
+
+    #[test]
+    fn a_changed_state_gets_the_time_and_keeps_it() {
+        let mut clock = StateClock::default();
+        stamped(&mut clock, &[("p1", AgentState::Working)], 100);
+        assert_eq!(
+            stamped(&mut clock, &[("p1", AgentState::Blocked)], 200),
+            [Some(200)]
+        );
+        assert_eq!(
+            stamped(&mut clock, &[("p1", AgentState::Blocked)], 300),
+            [Some(200)]
+        );
+    }
+
+    #[test]
+    fn a_pane_that_comes_back_starts_anew() {
+        let mut clock = StateClock::default();
+        stamped(&mut clock, &[("p1", AgentState::Done)], 100);
+        assert_eq!(
+            stamped(&mut clock, &[("p2", AgentState::Working)], 200),
+            [Some(200)]
+        );
+        assert_eq!(
+            stamped(
+                &mut clock,
+                &[("p1", AgentState::Done), ("p2", AgentState::Working)],
+                300
+            ),
+            [Some(300), Some(200)]
+        );
+    }
+
+    #[test]
+    fn attention_gets_the_time_of_its_board_entry() {
+        let mut clock = StateClock::default();
+        stamped(&mut clock, &[("p1", AgentState::Working)], 100);
+        let mut board = vec![board_item("p1", AgentState::Done)];
+        let mut attention = board.clone();
+        clock.stamp(&mut board, &mut attention, 200);
+        assert_eq!(attention[0].state_since_ms, Some(200));
+    }
+
     #[test]
     fn worktree_name_is_the_checkout_directory() {
         assert_eq!(
@@ -644,11 +798,18 @@ mod tests {
             ],
             truncated: true,
             history_lines: 200,
+            question: Some(ChoiceQuestion {
+                options: vec![ChoiceOption {
+                    key: "1".into(),
+                    label: "Yes".into(),
+                }],
+            }),
         };
         let back = pane_content_from_json(&pane_content_to_json(&content)).expect("round trip");
         assert_eq!(back.pane_id, "w1:p2");
         assert_eq!((back.truncated, back.history_lines), (true, 200));
         assert_eq!(back.lines.len(), 2);
+        assert_eq!(back.question, content.question);
         assert!(back.lines[1].spans.is_empty());
         let spans = &back.lines[0].spans;
         assert_eq!(spans[0].fg, TermColor::Default);

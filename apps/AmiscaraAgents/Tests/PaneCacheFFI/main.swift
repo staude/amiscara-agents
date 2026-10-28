@@ -24,7 +24,7 @@ func screen(_ pane: String, rows: Int, text: String = "row") -> PaneContent {
             inverse: span.inverse, hidden: span.hidden, strikethrough: span.strikethrough, link: span.link
         )])
     }
-    return PaneContent(paneId: pane, lines: lines, truncated: true, historyLines: 1000)
+    return PaneContent(paneId: pane, lines: lines, truncated: true, historyLines: 1000, question: ChoiceQuestion(options: [ChoiceOption(key: "1", label: "Yes")]))
 }
 
 @MainActor func run() {
@@ -46,6 +46,7 @@ func screen(_ pane: String, rows: Int, text: String = "row") -> PaneContent {
     check(kept?.content.lines.count == PaneCache.maxLines, "keeps the last 500 rows")
     check(kept?.content.lines.last?.spans.first?.text == "row 699", "keeps the newest rows")
     check(kept?.content.historyLines == 0 && kept?.content.truncated == false, "a kept screen asks for no history")
+    check(kept?.content.question == nil, "a kept screen offers no answers")
     check(kept?.title == "claude", "a title seen before the screen is kept")
     cache.record(screen("p2", rows: 3), host: hostB, pane: "p2")
     cache.lastOpen = .init(host: hostA, workspace: "w1", pane: "p1", spaceName: "docs")

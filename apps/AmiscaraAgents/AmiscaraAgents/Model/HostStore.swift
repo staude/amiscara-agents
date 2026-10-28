@@ -13,6 +13,9 @@ final class HostStore {
     let cloudPush = CloudPushSender()
     #endif
     var loadError: String?
+    /// The boards the Mac apps leave in iCloud for this device's hosts
+    /// (#156), as last fetched by `widgets`.
+    var cloudBoards: [CloudBoard] = []
 
     private let fileURL: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -68,7 +71,9 @@ final class HostStore {
         let connection = HostConnection(config: config)
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
-            self.notifier.notify(update.attention, on: connection.config)
+            self.notifier.notify(update.attention, on: connection.config) { [weak connection] paneID in
+                await connection?.choiceQuestion(paneID: paneID)
+            }
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
                 .count)
@@ -151,6 +156,24 @@ final class HostStore {
                 .filter { $0.agentState == .blocked }
                 .map { (connection: connection, agent: $0) }
         }
+    }
+
+    /// The agents of all hosts for the overview (#274); hosts without a
+    /// connection show their last known state.
+    var overview: AgentOverview {
+        AgentOverview(
+            hosts: connections.map { connection in
+                AgentOverview.Host(
+                    id: connection.id,
+                    name: connection.config.name,
+                    live: connection.isLive,
+                    liveAt: connection.liveAt,
+                    hostKey: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
+                    agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init)
+                )
+            },
+            boards: cloudBoards
+        )
     }
 
     /// Open requests hidden on this device with "Ignorieren", by `key`.

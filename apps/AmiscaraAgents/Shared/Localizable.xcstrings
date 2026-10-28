@@ -995,6 +995,16 @@
         }
       }
     },
+    "Arbeitet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
     "Auch eine gestoppte Session lässt sich hinzufügen. Die App verbindet sich, sobald sie läuft." : {
       "localizations" : {
         "en" : {
@@ -1091,6 +1101,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Base"
+          }
+        }
+      }
+    },
+    "Bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
           }
         }
       }
@@ -1395,6 +1415,16 @@
         }
       }
     },
+    "Datei auf dem Host geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File changed on the host"
+          }
+        }
+      }
+    },
     "Datei entfernen" : {
       "localizations" : {
         "en" : {
@@ -1601,6 +1631,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file browser reads through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
+    "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The path contains control characters and cannot go into a prompt."
           }
         }
       }
@@ -1831,6 +1871,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file"
+          }
+        }
+      }
+    },
+    "Die Datei wurde auf dem Host geändert, seit sie geöffnet wurde. Nicht gesichert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed on the host since it was opened. Not saved."
           }
         }
       }
@@ -2421,6 +2471,16 @@
         }
       }
     },
+    "Gesichert, aber nicht neu gelesen. Vor dem nächsten Sichern die Datei neu laden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved, but not read back. Reload the file before saving again."
+          }
+        }
+      }
+    },
     "Gesprächsverlauf" : {
       "localizations" : {
         "en" : {
@@ -2817,6 +2877,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No agent waiting"
+          }
+        }
+      }
+    },
+    "Kein Agent wartet, arbeitet oder ist fertig." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent is waiting, working or done."
           }
         }
       }
@@ -3521,6 +3591,16 @@
         }
       }
     },
+    "Nicht gesichert: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved: %@"
+          }
+        }
+      }
+    },
     "Nicht verbunden" : {
       "localizations" : {
         "en" : {
@@ -3943,6 +4023,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search Backward"
+          }
+        }
+      }
+    },
+    "Seit dem Öffnen hat sich die Datei auf dem Host geändert. „Neu laden“ verwirft die Änderungen in der App; wer sie behalten will, kopiert sie vorher." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed on the host since it was opened. “Reload” discards the changes made in the app; copy them first to keep them."
           }
         }
       }
@@ -4827,6 +4917,36 @@
         }
       }
     },
+    "Verwerfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        }
+      }
+    },
+    "Weiter bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep editing"
+          }
+        }
+      }
+    },
+    "Änderungen verwerfen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard changes?"
+          }
+        }
+      }
+    },
     "Übergeordneter Ordner" : {
       "localizations" : {
         "en" : {
@@ -5183,6 +5303,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for an answer"
+          }
+        }
+      }
+    },
+    "Wartet auf dich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for You"
           }
         }
       }
@@ -5926,6 +6056,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Handoff from Clipboard …"
+          }
+        }
+      }
+    },
+    "Übersicht" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
           }
         }
       }

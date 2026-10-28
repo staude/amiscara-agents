@@ -92,6 +92,10 @@ code), so a host is set up the same way everywhere.
   their spaces (worktrees under their repository, `Bereich/Name` spaces
   grouped, see [below](#organizing-spaces-bereichname)), tabs and agents.
   Agents are sorted by urgency: waiting for an answer, working, done, idle.
+- **Overview:** the agents of all hosts on one page, grouped into waiting,
+  working and done, newest first, with the time in that state. Hosts
+  without a connection show their last known state (or the Mac's board in
+  iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
 - **Live pane:** the selected pane's screen with colors, updated as it
   changes. Split tabs side by side as herdr lays them out, search with
   highlighted hits, font zoom, color schemes with a minimum contrast, web
@@ -105,7 +109,9 @@ code), so a host is set up the same way everywhere.
   over SFTP.
 - **Input:** prompts to agents (`agent.prompt`), text to shells, a key bar
   (Esc, Tab, Ctrl-C, arrows, Enter) and quick replies. When an agent waits
-  for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen. A
+  for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen; when
+  Claude Code asks for a permission or with AskUserQuestion, one button per
+  option with its text instead of 1, 2, 3. A
   prompt starting with `/` goes live into the agent's own input line, so
   Claude Code shows its commands and skills in the pane (↑↓ pick, Tab takes,
   Enter runs).
@@ -116,12 +122,16 @@ code), so a host is set up the same way everywhere.
   host, their paths are appended to the prompt; agents such as Claude Code
   read images from there. Needs SFTP for the key, see
   [Uploads](#uploads-and-the-claude-conversation).
-- **Files:** a read-only browser for the host's files, starting in the
-  pane's working directory and limited to the home directory; text with
-  search (the first MB), images, size and type of other files. Needs SFTP
-  like uploads. Mac, iPhone and iPad.
+- **Files:** a browser for the host's files, starting in the pane's
+  working directory and limited to the home directory; text with search
+  (the first MB), images, size and type of other files. "An Agent senden"
+  attaches a file's host path to the prompt without an upload; text files
+  up to 256 KB (UTF-8, LF line endings) can be edited and saved, refused
+  when the file changed on the host since it was opened. Needs SFTP like
+  uploads, sending and editing also input allowed. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
-  buttons, one per pane.
+  buttons, one per pane; local ones carry the options of Claude Code's
+  question as titles.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the
@@ -144,7 +154,10 @@ code), so a host is set up the same way everywhere.
   iPhone and iPad and the boards on the Apple Watch (see below).
 - Widgets, Siri and Shortcuts ("Welche Agents warten?", "Agent öffnen"),
   dictation, and the "Tasten" menu with shortcuts for the pane (⌘. Esc,
-  ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers).
+  ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an agent waits for an
+  answer, plain arrows, Enter and Esc go to its pane from anywhere in the
+  window (not from other text fields such as the pane search; in the
+  composer arrows and Enter only while it is empty, Esc always).
 - Publishes its Bonjour name in iCloud so the Apple TV finds it.
 - Distributed outside the App Store, signed with Developer ID and
   notarized; the App Sandbox would block the socket and SSH to arbitrary
@@ -173,7 +186,7 @@ Complications show the number of waiting agents, also in the Smart Stack.
 
 ### Apple TV
 
-- A tab bar with **Agents** (all agents as cards, waiting first),
+- A tab bar with **Übersicht** (the overview as cards),
   **Spaces** and **Hosts**. Swipes on the Siri Remote scroll a focused
   pane, the back button returns. A reduced input bar sends keys and quick
   replies.

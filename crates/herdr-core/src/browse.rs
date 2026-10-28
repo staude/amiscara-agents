@@ -1,7 +1,8 @@
-//! A read-only file browser below the login's home directory (#259):
-//! directories sorted for the apps, and the start of a file as text, image
-//! or neither. Reads through [`Connection::list_dir`] and
-//! [`Connection::read_file_head`], so over SSH it needs SFTP like uploads.
+//! A file browser below the login's home directory (#259): directories
+//! sorted for the apps, and the start of a file as text, image or neither.
+//! Small text files can be saved back (#271). Reads and writes through
+//! [`Connection::list_dir`], [`Connection::read_file_head`] and
+//! [`Connection::write_file`], so over SSH it needs SFTP like uploads.
 
 use herdr_transport::{Connection, TransportError};
 
@@ -9,6 +10,11 @@ use herdr_transport::{Connection, TransportError};
 pub const MAX_TEXT_BYTES: u64 = 1024 * 1024;
 /// Images up to this size open as images; larger ones like other binaries.
 pub const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
+/// Text files up to this size can be edited (#271).
+pub const MAX_EDIT_BYTES: u64 = 256 * 1024;
+/// How the message of [`TransportError::Files`] from [`save`] starts when
+/// the file was written but could not be read back.
+pub const SAVED_NOT_READ: &str = "saved, but not read back";
 /// A NUL byte in this many first bytes makes a file binary.
 const BINARY_PROBE: usize = 8192;
 
@@ -56,6 +62,9 @@ pub struct FilePreview {
     /// Seconds since 1970, 0 if unknown.
     pub modified: u64,
     pub content: FileContent,
+    /// Whole text up to [`MAX_EDIT_BYTES`], valid UTF-8 without `\r` and
+    /// with a known modification time: [`save`] can write it back.
+    pub editable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +123,7 @@ pub async fn preview(conn: &Connection, path: &str) -> Result<FilePreview, Trans
         .await?;
     // By the requested name, as the read above: a link `shot` to
     // `photo.png` was read as text.
+    let editable = is_editable(&name, head.size, head.modified, &head.data);
     let content = classify(&name, head.size, head.data);
     let name = head.path.rsplit('/').next().unwrap_or(&name).to_owned();
     Ok(FilePreview {
@@ -122,7 +132,49 @@ pub async fn preview(conn: &Connection, path: &str) -> Result<FilePreview, Trans
         name,
         size: head.size,
         modified: head.modified,
+        editable,
     })
+}
+
+/// Writes `text` to the file at the absolute `path` (#271) unless it
+/// changed since it was read with `size` and `modified`, and returns the
+/// file as now on the host, the base for the next save.
+pub async fn save(
+    conn: &Connection,
+    path: &str,
+    text: &str,
+    size: u64,
+    modified: u64,
+) -> Result<FilePreview, TransportError> {
+    if text.len() as u64 > MAX_EDIT_BYTES {
+        return Err(TransportError::Files("file too large to edit".into()));
+    }
+    // As for `editable`: no Windows line endings, e.g. from a paste.
+    if text.contains('\r') {
+        return Err(TransportError::Files(
+            "text has Windows line endings".into(),
+        ));
+    }
+    conn.write_file(path, text.as_bytes(), size, modified)
+        .await?;
+    // Saving again from the old base would report a change on the host.
+    preview(conn, path)
+        .await
+        .map_err(|err| TransportError::Files(format!("{SAVED_NOT_READ}: {err}")))
+}
+
+/// Whether `data`, the start of the file `name` of `size` bytes, is all of
+/// it and text that survives editing unchanged: UTF-8, no Windows line
+/// endings, small enough. Without a modification time a change on the host
+/// could not be noticed.
+fn is_editable(name: &str, size: u64, modified: u64, data: &[u8]) -> bool {
+    !is_image(name)
+        && size <= MAX_EDIT_BYTES
+        && data.len() as u64 == size
+        && modified > 0
+        && !data[..data.len().min(BINARY_PROBE)].contains(&0)
+        && !data.contains(&b'\r')
+        && std::str::from_utf8(data).is_ok()
 }
 
 /// What `data`, the start of the file `name` of `size` bytes, shows as.
@@ -241,6 +293,39 @@ mod tests {
             classify("app", 4, vec![0x7f, b'E', 0, 1]),
             FileContent::Binary
         );
+    }
+
+    #[test]
+    fn edits_only_whole_plain_utf8_text() {
+        let ok = b"key = \"value\"\n";
+        let size = ok.len() as u64;
+        assert!(is_editable("config.toml", size, 1, ok));
+        assert!(!is_editable("latin1.txt", 3, 1, &[b'a', 0xe4, b'\n']));
+        assert!(!is_editable("dos.txt", 4, 1, b"a\r\nb"));
+        assert!(!is_editable("app", 3, 1, &[b'a', 0, b'b']));
+        // Only the start was read.
+        assert!(!is_editable("big.log", size + 1, 1, ok));
+        let big = vec![b'a'; MAX_EDIT_BYTES as usize + 1];
+        assert!(!is_editable("big.log", big.len() as u64, 1, &big));
+        assert!(!is_editable("config.toml", size, 0, ok));
+        assert!(!is_editable("shot.png", size, 1, ok));
+    }
+
+    /// Refused before anything reaches the host: the connection's socket
+    /// does not even exist.
+    #[tokio::test]
+    async fn save_refuses_large_text_and_windows_line_endings() {
+        let conn = Connection::local("/nonexistent/herdr.sock");
+        let large = "a".repeat(MAX_EDIT_BYTES as usize + 1);
+        for (text, expected) in [
+            (large.as_str(), "file too large to edit"),
+            ("a\r\nb\n", "text has Windows line endings"),
+        ] {
+            match save(&conn, "/nonexistent/file.txt", text, 1, 1).await {
+                Err(TransportError::Files(message)) => assert_eq!(message, expected),
+                other => panic!("not refused: {other:?}"),
+            }
+        }
     }
 
     #[test]

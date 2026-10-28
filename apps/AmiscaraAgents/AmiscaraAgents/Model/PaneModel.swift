@@ -15,6 +15,9 @@ final class PaneModel {
     /// When the shown screen last changed, also for a screen kept from
     /// before (#276).
     private(set) var updatedAt: Date?
+    /// The choice question the agent asks on the live screen (#272); never
+    /// from the transcript, which may show an answered one.
+    var question: ChoiceQuestion? { followed?.question }
     private(set) var error: String?
     /// The transcript of a full-screen agent such as Claude Code, which
     /// herdr keeps no scrollback for (#187): read once on request and shown

@@ -2,9 +2,9 @@
 //! types: same names and fields, so the Swift side is unchanged.
 
 pub use herdr_session::view::{
-    AgentState, BoardItem, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
-    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
-    WorkspaceItem,
+    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, HostStatus, OpenRequest, PaneContent,
+    PaneFrame, PaneItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem,
+    TermColor, TokenItem, WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -165,6 +165,9 @@ pub struct BoardItem {
     pub agent_state: AgentState,
     pub title: String,
     pub cwd: Option<String>,
+    /// Since when the agent is in its state, in Unix milliseconds; `None`
+    /// when it already was in it as the session started.
+    pub state_since_ms: Option<u64>,
 }
 
 #[uniffi::remote(Record)]
@@ -175,6 +178,20 @@ pub struct PaneContent {
     pub truncated: bool,
     /// History rows asked for, 0 when `lines` is the visible screen only.
     pub history_lines: u32,
+    /// The agent's choice question at the bottom, if any (#272).
+    pub question: Option<ChoiceQuestion>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ChoiceQuestion {
+    pub options: Vec<ChoiceOption>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ChoiceOption {
+    /// The logical key that selects it, e.g. `2`.
+    pub key: String,
+    pub label: String,
 }
 
 #[uniffi::remote(Record)]
@@ -379,4 +396,7 @@ pub struct FilePreview {
     /// Seconds since 1970, 0 if unknown.
     pub modified: u64,
     pub content: FileContent,
+    /// Whole text up to 256 KB, UTF-8 without `\r`: can be saved back
+    /// (#271).
+    pub editable: bool,
 }

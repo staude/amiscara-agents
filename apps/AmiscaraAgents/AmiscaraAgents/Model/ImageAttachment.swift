@@ -4,7 +4,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// An image or file waiting to be uploaded with the next prompt. Images are
-/// prepared for agents (format, size); other files go up unchanged.
+/// prepared for agents (format, size); other files go up unchanged. A file
+/// that is already on the host only adds its path.
 struct ImageAttachment: Identifiable, Sendable {
     let id = UUID()
     let data: Data
@@ -13,6 +14,9 @@ struct ImageAttachment: Identifiable, Sendable {
     let preview: CGImage?
     /// Shown for a file that is no image.
     var fileName: String?
+    /// The absolute path of a file on the host, sent without an upload
+    /// (#271).
+    var hostPath: String?
 
     /// Formats agents read directly; everything else becomes JPEG.
     private static let passThrough: [UTType] = [.png, .jpeg, .gif, .webP]
@@ -76,6 +80,24 @@ struct ImageAttachment: Identifiable, Sendable {
         var attachment = ImageAttachment(data: data, fileExtension: (name as NSString).pathExtension, preview: nil)
         attachment.fileName = name
         return attachment
+    }
+
+    /// A file on the host from the file browser (#271): no data, the
+    /// prompt gets its path.
+    static func hostFile(path: String) -> ImageAttachment {
+        var attachment = ImageAttachment(data: Data(), fileExtension: (path as NSString).pathExtension, preview: nil)
+        attachment.fileName = (path as NSString).lastPathComponent
+        attachment.hostPath = path
+        return attachment
+    }
+
+    /// Whether a host path can go into a prompt as it is: a newline would
+    /// send the prompt early, other control characters act as keys in the
+    /// pane. Format characters such as the joiner in emoji are fine.
+    static func isPlainPath(_ path: String) -> Bool {
+        !path.unicodeScalars.contains { scalar in
+            scalar.properties.generalCategory == .control || scalar == "\u{2028}" || scalar == "\u{2029}"
+        }
     }
 
     /// A file's content: an image prepared like a picked photo, the text of

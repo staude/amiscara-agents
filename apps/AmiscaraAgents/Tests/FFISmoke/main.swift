@@ -137,6 +137,14 @@ guard excerptLines.count <= 12, excerptLines.last?.isEmpty != true || excerpt.is
 }
 print("ok   excerpt: \(excerptLines.count) lines, \(excerpt.count) characters")
 
+// The choice question of the pane (#272): none on a shell or an idle
+// agent; a waiting agent's options carry their digit as the key.
+let question = try session.choiceQuestion(paneId: pane)
+if let question, question.options.isEmpty || question.options.contains(where: { Int($0.key) == nil }) {
+    fail("choice question: \(question.options)")
+}
+print("ok   choice question: \(question.map { "\($0.options.count) options" } ?? "none")")
+
 /// Uploads may be private screenshots: file 0600, directory 0700.
 func checkPrivate(_ path: String) {
     let mode = { (p: String) in

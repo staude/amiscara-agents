@@ -92,7 +92,9 @@ final class PaneCache {
             paneId: content.paneId,
             lines: Array(content.lines.suffix(Self.maxLines)),
             truncated: false,
-            historyLines: 0
+            historyLines: 0,
+            // Nothing to answer while the host is out of reach.
+            question: nil
         )
         entries[key] = Entry(content: kept, title: titles[key] ?? entries[key]?.title, date: .now)
         missed.remove(key)
