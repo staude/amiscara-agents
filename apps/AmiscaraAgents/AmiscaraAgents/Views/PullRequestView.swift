@@ -20,6 +20,9 @@ struct PullRequestView: View {
     @State private var truncated = false
     @State private var diffLoaded = false
     @State private var diffError: String?
+    /// The head the shown diff belongs to; merging needs it to be the
+    /// head merged.
+    @State private var diffHead: String?
     @State private var error: String?
     @State private var loading = false
     @State private var confirmingMerge = false
@@ -157,6 +160,9 @@ struct PullRequestView: View {
         if (detail?.mergeState ?? pullRequest.mergeState) == "BLOCKED" {
             return String(localized: "Blockiert: Es fehlen Reviews oder Checks, die das Repository verlangt.")
         }
+        if let detail, diffHead != detail.headOid {
+            return String(localized: "Ohne den Diff zum aktuellen Stand lässt sich nicht mergen. Neu laden oder auf GitHub mergen.")
+        }
         if store.mergeMethod(for: pullRequest) == nil {
             return String(localized: "Das Repository erlaubt keine Merge-Methode.")
         }
@@ -286,8 +292,10 @@ struct PullRequestView: View {
             files = await Task.detached { parseDiff(text: text) }.value
             truncated = cut
             diffError = nil
+            diffHead = detail.headOid
         } catch {
             files = []
+            diffHead = nil
             truncated = false
             diffError = error.localizedDescription
         }

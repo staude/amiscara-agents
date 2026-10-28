@@ -139,6 +139,10 @@ final class PullRequests {
             }
         }
         var found: [String: PullRequestSummary] = [:]
+        // A repository not read this time keeps its last rows.
+        for space in spaces where !repos.keys.contains(space.repoKey) {
+            found[space.workspaceID] = byWorkspace[space.workspaceID]
+        }
         var allowed: [String: MergeMethods] = [:]
         for (name, repo) in targets {
             let ownSpaces = spaces.filter { space in

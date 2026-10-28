@@ -172,9 +172,10 @@ code), so a host is set up the same way everywhere.
   SFTP like uploads and input allowed. Mac, iPhone and iPad.
 - **Pull requests:** with a GitHub token in the host settings, each space
   whose branch has an open pull request shows its number, checks and
-  review state; a tap opens description, checks, comments and the diff,
-  and "Mergen …" merges it after Face ID or the passcode (squash where the
-  repository allows it). Approving stays on GitHub. The token is
+  review state; the button next to the tabs, the dashboard or "Pull
+  Request #n …" in the space's menu opens description, checks, comments
+  and the diff, and "Mergen …" merges it after Face ID or the passcode
+  (squash where the repository allows it). Approving stays on GitHub. The token is
   fine-grained, for the repositories you want, with read access to
   Checks, Commit statuses and Metadata and read and write access to
   Contents and Pull requests; it stays in this device's Keychain. An

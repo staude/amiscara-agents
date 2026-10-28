@@ -649,8 +649,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the dashboard. The pull request view shows description, checks, comments
   and reviews (line comments only as a count) and the diff, and merges after
   Face ID or the passcode, also with the app lock off: squash where the
-  repository allows it, else a merge commit, else rebase, refused by GitHub
-  when a commit came in since loading. The repository comes from the
+  repository allows it, else a merge commit, else rebase. The diff is read
+  at the head merged, so merging needs it loaded; GitHub refuses the merge
+  when a commit came in since. The repository comes from the
   `origin` remote in the Git configuration on the host, read over the file
   access without a tab. Without a token nothing changes. Mac, iPhone and
   iPad. Core: `herdr_core::github::origin_repository`,

@@ -143,7 +143,8 @@ struct GitHubClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["merge_method": method.rawValue, "sha": sha])
         let (data, response) = try await URLSession.shared.data(for: request)
-        try check(data, response)
+        // Here 403 mostly means a missing write permission; GitHub says which.
+        try check(data, response, forbiddenSaysWhy: true)
     }
 
     private func request(path: String) -> URLRequest {
@@ -180,12 +181,15 @@ struct GitHubClient {
         return data
     }
 
-    private func check(_ data: Data, _ response: URLResponse) throws {
+    private func check(_ data: Data, _ response: URLResponse, forbiddenSaysWhy: Bool = false) throws {
         guard let status = (response as? HTTPURLResponse)?.statusCode, !(200..<300).contains(status) else { return }
         switch status {
         case 401: throw GitHubError.tokenInvalid
         case 403 where (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0":
             throw GitHubError.message(String(localized: "GitHub begrenzt gerade die Anfragen dieses Tokens. Später noch einmal versuchen."))
+        case 403 where forbiddenSaysWhy:
+            let message = (try? JSONDecoder().decode(RESTError.self, from: data))?.message
+            throw message.map(GitHubError.message) ?? GitHubError.noAccess
         case 403, 404: throw GitHubError.noAccess
         default:
             let message = (try? JSONDecoder().decode(RESTError.self, from: data))?.message

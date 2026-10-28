@@ -4321,6 +4321,16 @@
         }
       }
     },
+    "Ohne den Diff zum aktuellen Stand lässt sich nicht mergen. Neu laden oder auf GitHub mergen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merging needs the diff of the current state. Reload or merge on GitHub."
+          }
+        }
+      }
+    },
     "OK" : {
       "localizations" : {
         "en" : {
