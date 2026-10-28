@@ -109,6 +109,13 @@ private struct TVSpaceScreen: View {
                 ContentUnavailableView("Space nicht verfügbar", systemImage: "square.split.2x1")
             }
         }
+        .onChange(of: isGone) { _, gone in
+            // The space shown last was closed on the host: not again on launch.
+            guard gone, let last = PaneCache.shared.lastOpen,
+                  last.host == selection.hostID, last.workspace == selection.workspaceID
+            else { return }
+            PaneCache.shared.lastOpen = nil
+        }
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focus, .tabs)
         .sheet(item: $renaming) { RenameView(target: $0) }
@@ -116,6 +123,14 @@ private struct TVSpaceScreen: View {
             NewWorktreeView(source: source) { _ in }
         }
         .closeConfirmation($closing)
+    }
+
+    /// Whether the live host no longer lists the space.
+    private var isGone: Bool {
+        guard let connection = store.connection(for: selection.hostID), connection.isLive,
+              let update = connection.update
+        else { return false }
+        return !update.workspaces.contains { $0.workspaceId == selection.workspaceID }
     }
 
     private var keptSpaceName: String? {
