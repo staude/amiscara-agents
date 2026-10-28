@@ -13,8 +13,11 @@ final class HostStore {
     let cloudPush = CloudPushSender()
     #endif
     #if !os(tvOS)
-    /// The agents Siri last learned by name (#275), see `updateShortcutAgents()`.
-    @ObservationIgnored var shortcutAgents: Set<String> = []
+    /// The agents as last seen and as Siri last learned them by name
+    /// (#275), and the pause between two updates; see `updateShortcutAgents(_:)`.
+    @ObservationIgnored var shortcutAgentsSeen: Set<String> = []
+    @ObservationIgnored var shortcutAgentsSent: Set<String> = []
+    @ObservationIgnored var shortcutPause: Task<Void, Never>?
     #endif
     var loadError: String?
 
@@ -86,9 +89,6 @@ final class HostStore {
                 }
                 self.cloudPush.sendBoard(connection.snapshotAgents, live: connection.isLive, hostKey: key, hostName: name)
             }
-            #endif
-            #if !os(tvOS)
-            self.updateShortcutAgents()
             #endif
         }
         return connection

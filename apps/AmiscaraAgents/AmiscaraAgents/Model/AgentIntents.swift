@@ -425,14 +425,25 @@ extension HostStore {
     }
 
     /// Tells Siri the agents again when one came, went or was renamed, so
-    /// it understands their names in the phrases (#275).
-    func updateShortcutAgents() {
-        let agents = Set(connections.flatMap { connection in
-            (connection.update?.board ?? []).map { "\(connection.id)/\($0.paneId)|\($0.agent)|\($0.workspaceName)" }
+    /// it understands their names in the phrases (#275). Takes the widgets'
+    /// snapshot, which also holds the Mac's boards and loses removed hosts.
+    /// At most once a minute: Siri then asks for the agents, and that
+    /// reconnects hosts that are not live.
+    func updateShortcutAgents(_ snapshot: WidgetSnapshot) {
+        shortcutAgentsSeen = Set(snapshot.hosts.flatMap { host in
+            host.agents.map { "\(host.id)/\($0.paneID)|\($0.name)|\($0.place)" }
         })
-        guard agents != shortcutAgents else { return }
-        shortcutAgents = agents
+        guard shortcutPause == nil, shortcutAgentsSeen != shortcutAgentsSent else { return }
+        shortcutAgentsSent = shortcutAgentsSeen
         HerdrShortcuts.updateAppShortcutParameters()
+        shortcutPause = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            guard let self else { return }
+            shortcutPause = nil
+            guard shortcutAgentsSeen != shortcutAgentsSent else { return }
+            shortcutAgentsSent = shortcutAgentsSeen
+            HerdrShortcuts.updateAppShortcutParameters()
+        }
     }
 
     /// The answer to "Was macht der Agent?" (#275): from the live
@@ -484,7 +495,8 @@ extension HostStore {
         // Lines only for a waiting agent: the Mac leaves them in its
         // "wartet" record for the Watch (#156); the record stays after.
         var lines: [String] = []
-        if seen.state == .blocked, let excerpt = await Self.waitingExcerpt(hostKey: hostKey, paneID: seen.paneID) {
+        if seen.state == .blocked,
+           let excerpt = await Self.waitingExcerpt(hostKey: hostKey, paneID: seen.paneID, since: seen.since) {
             lines = ScreenLines.last(3, of: excerpt)
         }
         return AgentStatusText.text(
@@ -514,12 +526,18 @@ extension HostStore {
         return board
     }
 
-    /// What a waiting agent asks, from its "wartet" record in iCloud.
-    private static func waitingExcerpt(hostKey: String, paneID: String) async -> String? {
+    /// What a waiting agent asks, from its "wartet" record in iCloud; not
+    /// from a record older than the waiting that began at `since`, which
+    /// would be an earlier question. The Mac writes the record a moment
+    /// after it sees the state.
+    private static func waitingExcerpt(hostKey: String, paneID: String, since: Date?) async -> String? {
         let id = CKRecord.ID(recordName: CloudPush.recordName(CloudPush.waitingType, hostKey, paneID))
         guard let record = try? await CloudPush.container.privateCloudDatabase.record(for: id),
               let text = record[CloudPush.Field.excerpt] as? String, !text.isEmpty
         else { return nil }
+        if let since, let written = record.modificationDate, written < since.addingTimeInterval(-60) {
+            return nil
+        }
         return text
     }
     #endif
