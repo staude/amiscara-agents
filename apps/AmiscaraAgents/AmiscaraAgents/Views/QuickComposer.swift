@@ -16,8 +16,8 @@ final class QuickComposer {
     static let shared = QuickComposer()
 
     private var panel: QuickComposerPanel?
-    /// A prompt on its way: the window waits for its result, and Esc
-    /// cancels it.
+    /// A prompt on its way: the window waits for its result. Esc cancels
+    /// it while it waits for the host; once sent it cannot be taken back.
     var sending: Task<Void, Never>?
 
     /// The global shortcut: opens the window, or closes it when open.
@@ -55,7 +55,8 @@ final class QuickComposer {
     }
 
     /// A click elsewhere closes, except while a prompt is on its way: its
-    /// error must still show.
+    /// error must still show, and the window then stays until Esc or the
+    /// shortcut.
     fileprivate func resigned() {
         guard sending == nil else { return }
         close()
@@ -102,13 +103,16 @@ private final class QuickComposerPanel: NSPanel {
         QuickComposer.shared.resigned()
     }
 
-    /// ⌘. and ⌃C stop here while their buttons are off: the main menu
-    /// would send them to the pane in the main window.
+    /// Shortcuts this window does not handle stop here, except editing:
+    /// the main menu would apply them to the main window behind, e.g. send
+    /// ⌘. or ⌥⌘↑ to the pane open there.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if super.performKeyEquivalent(with: event) { return true }
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let key = event.charactersIgnoringModifiers
-        return (modifiers == .command && key == ".") || (modifiers == .control && key == "c")
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard modifiers.contains(.command) || modifiers.contains(.control) else { return false }
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        let editing = modifiers.subtracting(.shift) == .command && ["x", "c", "v", "a", "z"].contains(key)
+        return !editing
     }
 
     /// Centered, in the upper third of the screen with the mouse pointer.
@@ -154,6 +158,8 @@ private struct QuickComposerView: View {
                 header(entry)
             }
             .buttonStyle(.plain)
+            // The error that comes back belongs to this target.
+            .disabled(sending)
             // In the window, not a popover: a popover is a window of its
             // own, takes the keys and would close this one.
             // Also when the agent left its pane while the window was open.
