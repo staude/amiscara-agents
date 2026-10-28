@@ -3,8 +3,9 @@ import SwiftUI
 /// The selected pane: header with state, then the live screen.
 struct PaneDetailView: View {
     @Environment(HostStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     let selection: PaneRef?
-    @State private var model = PaneModel()
+    @State private var model = PaneModel(recordsVisits: true)
     @State private var search = PaneSearchState()
     @State private var showingConversation = false
     @State private var showingDiff = false
@@ -28,6 +29,7 @@ struct PaneDetailView: View {
                         PaneSearchBar(state: search, matches: matches)
                         Divider()
                     }
+                    summaryBar(connection: connection, paneID: selection.paneID)
                     screen(connection: connection, search: search.highlight(matches))
                     if connection.config.inputAllowed, let pane = pane(connection, selection.paneID) {
                         Divider()
@@ -59,6 +61,16 @@ struct PaneDetailView: View {
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
         }
         .onChange(of: selection) { search.matchIndex = nil }
+        // A visit ends when the pane is left or the app goes away (#273).
+        .onChange(of: scenePhase) { old, new in
+            if new == .background {
+                model.leave()
+            } else if old == .background, new != .background {
+                model.arm()
+            }
+        }
+        .onAppear { model.arm() }
+        .onDisappear { model.leave() }
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         .sheet(isPresented: $showingConversation) {
             if let selection, let connection = store.connection(for: selection.hostID) {
@@ -165,6 +177,27 @@ struct PaneDetailView: View {
         .disabled(model.content == nil)
         PaneSearchButton(state: search)
         TerminalZoomMenu()
+    }
+
+    /// Offers a summary of what is new since the last visit (#273), only
+    /// where the on-device model is there.
+    @ViewBuilder
+    private func summaryBar(connection: HostConnection, paneID: String) -> some View {
+        #if canImport(FoundationModels) && !os(tvOS)
+        if let visit = model.summaryOffer, PaneSummary.isAvailable {
+            PaneSummaryBar(
+                connection: connection,
+                paneID: paneID,
+                agent: pane(connection, paneID)?.agent,
+                visit: visit,
+                unwrap: wrapLines,
+                dismiss: model.dismissSummary
+            )
+            // A new pane or visit starts a new summary.
+            .id("\(connection.id)/\(paneID)/\(visit.seen.timeIntervalSinceReferenceDate)")
+            Divider()
+        }
+        #endif
     }
 
     @ViewBuilder

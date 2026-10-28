@@ -2291,6 +2291,16 @@
         }
       }
     },
+    "Fasse zusammen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarizing …"
+          }
+        }
+      }
+    },
     "Fertig" : {
       "localizations" : {
         "en" : {
@@ -3017,6 +3027,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No lines changed"
+          }
+        }
+      }
+    },
+    "Keine neue Ausgabe seit dem letzten Besuch." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No new output since your last visit."
           }
         }
       }
@@ -3937,6 +3957,16 @@
         }
       }
     },
+    "Seit dem letzten Besuch ist Neues dazugekommen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is new output since your last visit."
+          }
+        }
+      }
+    },
     "Spaces sortieren" : {
       "localizations" : {
         "en" : {
@@ -4793,6 +4823,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter above the name at which this Mac can be reached."
+          }
+        }
+      }
+    },
+    "Zusammenfassen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summarize"
+          }
+        }
+      }
+    },
+    "Zusammenfassung schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close summary"
           }
         }
       }
