@@ -12,6 +12,9 @@ pub const MAX_TEXT_BYTES: u64 = 1024 * 1024;
 pub const MAX_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 /// Text files up to this size can be edited (#271).
 pub const MAX_EDIT_BYTES: u64 = 256 * 1024;
+/// How the message of [`TransportError::Files`] from [`save`] starts when
+/// the file was written but could not be read back.
+pub const SAVED_NOT_READ: &str = "saved, but not read back";
 /// A NUL byte in this many first bytes makes a file binary.
 const BINARY_PROBE: usize = 8192;
 
@@ -155,9 +158,9 @@ pub async fn save(
     conn.write_file(path, text.as_bytes(), size, modified)
         .await?;
     // Saving again from the old base would report a change on the host.
-    preview(conn, path).await.map_err(|err| {
-        TransportError::Files(format!("saved, but not read back ({err}); reload the file"))
-    })
+    preview(conn, path)
+        .await
+        .map_err(|err| TransportError::Files(format!("{SAVED_NOT_READ}: {err}")))
 }
 
 /// Whether `data`, the start of the file `name` of `size` bytes, is all of

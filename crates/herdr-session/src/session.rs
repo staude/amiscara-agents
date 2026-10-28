@@ -67,6 +67,10 @@ pub enum SessionError {
     /// (#271).
     #[error("{0}")]
     FileChanged(String),
+    /// A file was saved but could not be read back (#271): the copy on the
+    /// device is out of date, reload it.
+    #[error("{0}")]
+    SavedNotRead(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -111,6 +115,9 @@ fn files_error(err: TransportError) -> SessionError {
     match err {
         TransportError::Files(message) if message.ends_with(herdr_transport::CHANGED_ON_HOST) => {
             SessionError::FileChanged(message)
+        }
+        TransportError::Files(message) if message.starts_with(browse::SAVED_NOT_READ) => {
+            SessionError::SavedNotRead(message)
         }
         TransportError::Files(message) => SessionError::Files(message),
         other => SessionError::NotConnected(other.to_string()),
@@ -809,7 +816,8 @@ impl Session {
     /// and returns it as now saved. `size` and `modified` are those of the
     /// [`browse::FilePreview`] it was edited from; when the file changed
     /// since, nothing is written and it fails with
-    /// [`SessionError::FileChanged`]. Up to 256 KB of text.
+    /// [`SessionError::FileChanged`]; written but not read back, with
+    /// [`SessionError::SavedNotRead`]. Up to 256 KB of text.
     pub async fn save_file(
         &self,
         path: &str,
@@ -1234,6 +1242,11 @@ mod tests {
                 "/home/a/x.txt: Permission denied".into()
             )),
             SessionError::Files(_)
+        ));
+        let unread = format!("{}: connection lost", herdr_core::browse::SAVED_NOT_READ);
+        assert!(matches!(
+            files_error(TransportError::Files(unread)),
+            SessionError::SavedNotRead(_)
         ));
         assert!(matches!(
             files_error(TransportError::Timeout),
