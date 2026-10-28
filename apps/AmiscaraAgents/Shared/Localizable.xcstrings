@@ -53,12 +53,32 @@
         }
       }
     },
+    "%@ (selbst)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (itself)"
+          }
+        }
+      }
+    },
     "%@ aufklappen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Expand %@"
+          }
+        }
+      }
+    },
+    "%@ fertig → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ finished → %@"
           }
         }
       }
@@ -165,6 +185,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ is waiting for an answer"
+          }
+        }
+      }
+    },
+    "%@ wartet → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ waiting → %@"
           }
         }
       }
@@ -931,6 +961,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "To last agent"
+          }
+        }
+      }
+    },
+    "An sich selbst nur einmal: Jedes Mal hielte den Agent für immer beschäftigt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To itself only once: every time would keep the agent busy for good."
           }
         }
       }
@@ -2025,6 +2065,16 @@
         }
       }
     },
+    "Die Kette liegt auf dem Host. Senden tut ein Gerät, das gerade verbunden ist; ein iPhone im Hintergrund nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The chain is kept on the host. A device that is connected at the time sends it; an iPhone in the background does not."
+          }
+        }
+      }
+    },
     "Die Versionsangabe im Code ist ungültig." : {
       "localizations" : {
         "en" : {
@@ -2361,6 +2411,16 @@
         }
       }
     },
+    "Einmal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once"
+          }
+        }
+      }
+    },
     "Enter senden" : {
       "localizations" : {
         "en" : {
@@ -2511,12 +2571,42 @@
         }
       }
     },
+    "fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "failed"
+          }
+        }
+      }
+    },
+    "Fehlgeschlagen, läuft nicht mehr" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed, no longer runs"
+          }
+        }
+      }
+    },
     "Fertig" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Done"
+          }
+        }
+      }
+    },
+    "fertig ist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "finishes"
           }
         }
       }
@@ -2677,6 +2767,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only works while the agent is not working"
+          }
+        }
+      }
+    },
+    "geschlossenes Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "closed pane"
+          }
+        }
+      }
+    },
+    "gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sent"
           }
         }
       }
@@ -3081,6 +3191,26 @@
         }
       }
     },
+    "Jedes Mal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every time"
+          }
+        }
+      }
+    },
+    "Jedes Mal senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Every Time"
+          }
+        }
+      }
+    },
     "Jetzt suchen" : {
       "localizations" : {
         "en" : {
@@ -3377,6 +3507,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "None waiting"
+          }
+        }
+      }
+    },
+    "Kette anlegen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Chain"
+          }
+        }
+      }
+    },
+    "Kette anlegen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Chain…"
+          }
+        }
+      }
+    },
+    "Kette fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chain failed"
+          }
+        }
+      }
+    },
+    "Kette löschen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Chain"
+          }
+        }
+      }
+    },
+    "Kette: → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chain: → %@"
+          }
+        }
+      }
+    },
+    "Ketten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chains"
           }
         }
       }
@@ -4297,6 +4487,26 @@
         }
       }
     },
+    "Protokoll" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        }
+      }
+    },
+    "Protokoll leeren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Log"
+          }
+        }
+      }
+    },
     "Push über iCloud" : {
       "localizations" : {
         "en" : {
@@ -4367,6 +4577,16 @@
         }
       }
     },
+    "Schnellantwort" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Reply"
+          }
+        }
+      }
+    },
     "Seit dem letzten Besuch ist Neues dazugekommen." : {
       "localizations" : {
         "en" : {
@@ -4383,6 +4603,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file changed on the host since it was opened. “Reload” discards the changes made in the app; copy them first to keep them."
+          }
+        }
+      }
+    },
+    "Senden an" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to"
+          }
+        }
+      }
+    },
+    "Sonst nur beim nächsten Mal; danach ist die Kette weg." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otherwise only the next time; then the chain is gone."
           }
         }
       }
@@ -5347,12 +5587,32 @@
         }
       }
     },
+    "Wenn %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When %@"
+          }
+        }
+      }
+    },
     "Wert" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Value"
+          }
+        }
+      }
+    },
+    "z. B. /issue-approve 300" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. /issue-approve 300"
           }
         }
       }
@@ -6516,6 +6776,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overview"
+          }
+        }
+      }
+    },
+    "übersprungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "skipped"
           }
         }
       }

@@ -364,6 +364,7 @@ targets:
           - Views/MenuBarMenu.swift
           - Views/SecretsView.swift
           - Model/SecretStore.swift
+          - Views/ChainEditor.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

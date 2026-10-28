@@ -5,7 +5,7 @@ import SwiftUI
 /// working ones below, a row per agent and how current it is. While the
 /// host reconnects its last agents stay; without a connection the Mac's
 /// board in iCloud stands in by the overview's rule (#274). A tap opens
-/// the agent.
+/// the agent. Below, the host's chains and this device's log (#300).
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
@@ -37,6 +37,8 @@ struct HostDashboardView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                ChainsSection(connection: connection)
+                    .padding(.top, 12)
                 footer(shown)
                     .padding(.top, 8)
             }

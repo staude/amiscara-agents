@@ -65,6 +65,12 @@ final class HostConnection: Identifiable {
                 groupSpacesByName: config.groupSpacesByName,
                 spaceSort: config.spaceSorting
             )
+            #if os(macOS) || os(iOS)
+            // Chains send prompts (#300), so only where input is allowed.
+            if config.inputAllowed {
+                session?.setChainRunner(deviceId: Self.chainDeviceID)
+            }
+            #endif
             generation += 1
         } catch {
             startError = error.localizedDescription
@@ -125,6 +131,34 @@ final class HostConnection: Identifiable {
         config.spaceSort = mode
         config.spaceOrder = order
         session?.setSpaceSort(sort: config.spaceSorting)
+    }
+
+    #if os(macOS) || os(iOS)
+    /// This device for chains (#300): a random id, made once. herdr keeps
+    /// which device claimed a chain's run under it.
+    static var chainDeviceID: String {
+        let key = "chainDeviceID"
+        if let id = UserDefaults.standard.string(forKey: key) { return id }
+        let id = UUID().uuidString
+        UserDefaults.standard.set(id, forKey: key)
+        return id
+    }
+    #endif
+
+    /// Adds a chain to the agent in `paneID` (#300): when it finishes or
+    /// waits, `text` goes to the agent in `target`, once or every time.
+    func addChain(to paneID: String, trigger: ChainTrigger, repeats: Bool, target: String, text: String) async throws {
+        let session = try writableSession()
+        _ = try await Task.detached {
+            try session.setChain(paneId: paneID, trigger: trigger, repeat: repeats, targetPaneId: target, text: text)
+        }.value
+    }
+
+    func removeChain(_ chainID: String, from paneID: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.removeChain(paneId: paneID, chainId: chainID)
+        }.value
     }
 
     func followPane(_ paneID: String, live: Bool = true, observer: PaneObserver) -> PaneFollow? {

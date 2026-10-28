@@ -35,6 +35,8 @@ struct HostSidebar: View {
     #if !os(tvOS)
     /// The host whose secrets are shown (#291).
     @State private var secretsFor: HostConnection?
+    /// The agent a chain is being added to (#300).
+    @State private var chainFrom: ChainSource?
     #endif
     /// Why a swipe action on an agent row could not be sent.
     @State private var swipeError: String?
@@ -152,6 +154,9 @@ struct HostSidebar: View {
         .sheet(item: $secretsFor) { connection in
             SecretsView(connection: connection)
         }
+        .sheet(item: $chainFrom) { source in
+            ChainEditor(source: source)
+        }
         #endif
         .sheet(item: $renaming) { target in
             RenameView(target: target)
@@ -200,9 +205,10 @@ struct HostSidebar: View {
         }
     }
 
-    /// An agent row with rename in its context menu and, with input
-    /// allowed, swipe actions (#230): leading confirms a waiting agent or
-    /// sends the first quick reply, trailing has Esc, Ctrl-C and rename.
+    /// An agent row with rename and "Kette anlegen" (#300) in its context
+    /// menu and, with input allowed, swipe actions (#230): leading confirms
+    /// a waiting agent or sends the first quick reply, trailing has Esc,
+    /// Ctrl-C and rename.
     @ViewBuilder
     private func agentRow(_ connection: HostConnection, _ entry: AgentOrder.Entry) -> some View {
         let agent = entry.agent
@@ -215,6 +221,11 @@ struct HostSidebar: View {
             row
                 .contextMenu {
                     Button("Agent benennen …", systemImage: "pencil", action: rename)
+                    #if !os(tvOS)
+                    Button("Kette anlegen …", systemImage: "link") {
+                        chainFrom = ChainSource(connection: connection, agent: agent)
+                    }
+                    #endif
                 }
                 #if !os(tvOS)
                 // No full swipe: a flick through the list must not approve
@@ -955,10 +966,23 @@ struct SpaceRow: View {
 
 /// An agent the way herdr's sidebar shows it by default: state, space and
 /// tab number (only when the space has several tabs), then the agent. A
-/// grouped space shows its short name with the group beside it.
+/// grouped space shows its short name with the group beside it, its
+/// chains (#300) go below.
 private struct AgentRow: View {
     let agent: BoardItem
     let tabNumber: String?
+
+    /// "Kette: → reviewer", or that one failed.
+    private var chainLine: Text? {
+        guard !agent.chains.isEmpty else { return nil }
+        if agent.chains.contains(where: \.failed) {
+            return Text("Kette fehlgeschlagen").foregroundStyle(.red)
+        }
+        let targets = agent.chains
+            .map { $0.targetLabel.isEmpty ? "?" : $0.targetLabel }
+            .joined(separator: ", ")
+        return Text("Kette: → \(targets)").foregroundStyle(.tint)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -985,6 +1009,11 @@ private struct AgentRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if let chains = chainLine {
+                    chains
+                        .font(.caption)
+                        .lineLimit(1)
+                }
             }
         }
     }
