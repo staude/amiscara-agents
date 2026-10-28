@@ -129,6 +129,13 @@ code), so a host is set up the same way everywhere.
   up to 256 KB (UTF-8, LF line endings) can be edited and saved, refused
   when the file changed on the host since it was opened. Needs SFTP like
   uploads, sending and editing also input allowed. Mac, iPhone and iPad.
+- **Secrets:** tokens and passwords go to the host as environment
+  variables without passing through a pane: "Geheimnisse …" in a host's
+  menu writes each one to `~/.amiscara-agents/env/<NAME>` (mode 0600) over
+  SFTP and keeps the value in this device's Keychain to send it again.
+  New shells in herdr panes export them, running agents read one with
+  `amiscara-env <NAME>`, see [Setting up a host](#setting-up-a-host). Needs
+  SFTP like uploads and input allowed. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.
@@ -420,6 +427,20 @@ A `.deb` does not update itself; install the new one by hand.
    is needed when SSH does not run on port 22. The client needs VS Code
    with the Remote-SSH extension. "In VS Code öffnen" on a space or in the
    pane header works without the script.
+7. Optional, for secrets from the apps (#291): copy
+   [`scripts/host/amiscara-env`](scripts/host/amiscara-env) to
+   `~/.amiscara-agents/bin/` too, `chmod +x` it and let the shells in herdr
+   panes export every secret, in `~/.zshrc` or `~/.bashrc`:
+
+   ```sh
+   [ -n "$HERDR_PANE_ID" ] && for n in $("$HOME/.amiscara-agents/bin/amiscara-env" --names); do export "$n=$("$HOME/.amiscara-agents/bin/amiscara-env" "$n")"; done
+   ```
+
+   This only reaches shells started afterwards. An agent that is already
+   running asks for a single value instead, e.g.
+   `NB_TOKEN=$(amiscara-env NB_TOKEN) netbird …` (with step 6, or the full
+   path), so the value never appears in the pane. Only herdr panes get the
+   variables, not every login.
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user

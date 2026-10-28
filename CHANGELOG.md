@@ -585,6 +585,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `SessionState::editor_requests`, `vscode_url`,
   `SessionUpdate::editor_requests`, `Session::dismiss_editor_request`,
   `pane_folder`, `space_folder`.
+- Secrets (#291): "Geheimnisse …" in a host's menu (Mac, iPhone, iPad) sends
+  environment variables such as tokens to `~/.amiscara-agents/env/<NAME>` on
+  the host over SFTP (folder 0700, file 0600), never through a pane. Names
+  are `[A-Z_][A-Z0-9_]*`; the value stays in this device's Keychain
+  (`net.staude.amiscara.agents.secret`, not in iCloud) so it can be sent
+  again, and "Entfernen" deletes it on the host and the device. Needs file
+  access and input allowed. `scripts/host/amiscara-env <NAME>` prints a
+  value for running agents, `--names` lists them for the shell line that
+  exports all of them in herdr panes. Core: `Connection::write_private_file`,
+  `list_files_if_present`, `herdr_session::secrets`, `Session::send_secret`,
+  `remove_secret`, `secret_names`.
 
 ### Changed
 
