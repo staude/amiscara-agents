@@ -29,8 +29,14 @@ struct ClaudeSessionsView: View {
                     Text(loadError)
                         .foregroundStyle(.secondary)
                 } else if folderLoaded && folder == nil {
-                    Text("herdr kennt den Ordner dieser Pane nicht.")
-                        .foregroundStyle(.secondary)
+                    Group {
+                        if paneID == nil {
+                            Text("herdr kennt den Ordner dieses Space nicht.")
+                        } else {
+                            Text("herdr kennt den Ordner dieser Pane nicht.")
+                        }
+                    }
+                    .foregroundStyle(.secondary)
                 } else if let sessions, sessions.isEmpty {
                     ContentUnavailableView("Keine Sitzungen in diesem Ordner", systemImage: "clock.arrow.circlepath")
                 } else {

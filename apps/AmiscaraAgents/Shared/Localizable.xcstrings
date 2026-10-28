@@ -2831,6 +2831,16 @@
         }
       }
     },
+    "herdr kennt den Ordner dieses Space nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this space's folder."
+          }
+        }
+      }
+    },
     "Hinzufügen" : {
       "localizations" : {
         "en" : {
