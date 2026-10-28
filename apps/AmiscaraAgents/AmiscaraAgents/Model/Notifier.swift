@@ -19,8 +19,9 @@ final class Notifier: NSObject {
     var dictateRequest: DictateRequest?
 
     /// Sends an answer key chosen on a notification (also on the Watch) to
-    /// host and pane; true when it went out. Set by the store.
-    @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String) async -> Bool)?
+    /// host and pane, given the options the notification was shown for
+    /// (#286); set by the store.
+    @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String, _ shown: [[String]]?) async -> AnswerResult)?
     /// The host a push from iCloud names by its host key fingerprint.
     @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
 
@@ -47,6 +48,9 @@ final class Notifier: NSObject {
     /// cancel; the rest is a tap away in the pane. No Enter, the digit
     /// answers already.
     private static let maxQuestionActions = 3
+    /// Panes with an "agent waits" notification, by notification
+    /// identifier; withdrawn once the agent no longer waits (#286).
+    @ObservationIgnored private var waitingNotified: Set<String> = []
 
     override init() {
         // Answer buttons for "agent waits", local and pushed (#94). Not
@@ -78,11 +82,20 @@ final class Notifier: NSObject {
                     continue
                 }
                 var category: String?
+                var bound: ChoiceQuestion?
                 if item.agentState == .blocked {
                     let asked = await question?(item.paneId)
                     category = await self.category(for: asked, hostID: host.id, paneID: item.paneId)
+                    // Only a question's options as buttons are bound to it.
+                    bound = asked?.options.isEmpty == false ? asked : nil
                 }
-                try? await center.add(request(for: item, on: host, category: category))
+                try? await center.add(request(for: item, on: host, category: category, question: bound))
+                let identifier = Self.identifier(host.id, item.paneId)
+                if item.agentState == .blocked {
+                    waitingNotified.insert(identifier)
+                } else {
+                    waitingNotified.remove(identifier)
+                }
             }
         }
     }
@@ -108,6 +121,19 @@ final class Notifier: NSObject {
         return identifier
     }
 
+    /// Removes the "agent waits" notifications of panes on `board` whose
+    /// agent no longer waits, wherever it was answered (#286). Panes not
+    /// on the board keep theirs.
+    func withdraw(answeredIn board: [BoardItem], hostID: UUID) {
+        let answered = board
+            .filter { $0.agentState != .blocked }
+            .map { Self.identifier(hostID, $0.paneId) }
+            .filter { waitingNotified.contains($0) }
+        guard !answered.isEmpty else { return }
+        center.removeDeliveredNotifications(withIdentifiers: answered)
+        waitingNotified.subtract(answered)
+    }
+
     /// App badge: agents waiting for an answer, over all hosts.
     func updateBadge(waiting: Int) {
         Task {
@@ -116,7 +142,7 @@ final class Notifier: NSObject {
         }
     }
 
-    private func request(for item: BoardItem, on host: HostConfig, category: String?) -> UNNotificationRequest {
+    private func request(for item: BoardItem, on host: HostConfig, category: String?, question: ChoiceQuestion?) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         let text = AgentNotificationText(item: item, hostName: host.name)
         content.title = text.title
@@ -132,6 +158,9 @@ final class Notifier: NSObject {
             "workspace": item.workspaceId,
             "pane": item.paneId,
         ]
+        if let question {
+            content.userInfo[QuestionBinding.infoKey] = question.binding
+        }
         // One notification per pane: a newer state replaces the older one.
         return UNNotificationRequest(identifier: AgentNotification.identifier(host.id, item.paneId), content: content, trigger: nil)
     }
@@ -168,6 +197,13 @@ struct AgentNotificationText {
     }
 }
 
+extension ChoiceQuestion {
+    /// The options for `QuestionBinding`.
+    var binding: [[String]] {
+        QuestionBinding.info(options.map { ($0.key, $0.label) })
+    }
+}
+
 #if !os(tvOS)
 extension Notifier: UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(
@@ -190,21 +226,26 @@ extension Notifier: UNUserNotificationCenterDelegate {
     ) async {
         let info = response.notification.request.content.userInfo
         let host: UUID, workspace: String, pane: String
+        let shown: [[String]]?
         if let cloud = CloudPush.target(of: info) {
             // From iCloud: the Mac names its host by key fingerprint.
             guard let id = await hostForKey?(cloud.hostKey), !cloud.paneID.isEmpty else { return }
             (host, workspace, pane) = (id, cloud.workspaceID, cloud.paneID)
+            // Pushes carry only the fixed answers.
+            shown = nil
         } else if let id = (info["host"] as? String).flatMap(UUID.init(uuidString:)),
                   let space = info["workspace"] as? String,
                   let paneID = info["pane"] as? String {
             (host, workspace, pane) = (id, space, paneID)
+            shown = QuestionBinding.shown(in: info)
         } else {
             return
         }
         if let key = AgentNotification.key(forAction: response.actionIdentifier) {
             // An answer button, e.g. on the Watch: send the key, stay closed.
-            _ = await answer?(host, pane, key)
-            return
+            // A changed question gets a new notification and opens the pane
+            // with the app; the button cannot bring the app to the front.
+            guard await answer?(host, pane, key, shown) == .questionChanged else { return }
         }
         await MainActor.run {
             openRequest = SpaceRef(hostID: host, workspaceID: workspace, paneID: pane)
@@ -224,7 +265,7 @@ extension Notifier: UNUserNotificationCenterDelegate {
 final class Notifier {
     var openRequest: SpaceRef?
     var dictateRequest: DictateRequest?
-    @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String) async -> Bool)?
+    @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String, _ shown: [[String]]?) async -> AnswerResult)?
     @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
     @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)?
     @ObservationIgnored var appActive = true
@@ -234,6 +275,7 @@ final class Notifier {
         on host: HostConfig,
         question: (@MainActor (_ paneID: String) async -> ChoiceQuestion?)? = nil
     ) {}
+    func withdraw(answeredIn board: [BoardItem], hostID: UUID) {}
     func updateBadge(waiting: Int) {}
 }
 #endif

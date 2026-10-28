@@ -1655,6 +1655,16 @@
         }
       }
     },
+    "Der Agent fragt inzwischen etwas anderes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is asking something else now."
+          }
+        }
+      }
+    },
     "Der Agent wartet auf eine Antwort. Bitte zuerst beantworten." : {
       "localizations" : {
         "en" : {
