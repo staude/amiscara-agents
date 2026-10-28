@@ -133,6 +133,8 @@ struct AddSessionView: View {
         new.allowInput = config.allowInput
         new.notify = config.notify
         new.groupSpaces = config.groupSpaces
+        // Same machine, same way in for VS Code (#288).
+        new.sshTarget = config.sshTarget
         onChoose(new)
         dismiss()
     }

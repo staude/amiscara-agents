@@ -86,6 +86,8 @@ final class HostConnection: Identifiable {
         regrouped.groupSpaces = config.groupSpaces
         // Only changes the key line, not the session.
         regrouped.allowWebForward = config.allowWebForward
+        // Only read when opening VS Code (#288).
+        regrouped.sshTarget = config.sshTarget
         if regrouped == config, let session {
             self.config = config
             session.setGroupSpacesByName(on: config.groupSpacesByName)
