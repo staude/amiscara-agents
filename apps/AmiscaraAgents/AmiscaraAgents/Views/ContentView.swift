@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var selection: SpaceRef?
     /// The overview of all hosts (#274) is open instead of a space.
     @State private var showingOverview = false
+    /// The dashboard of this host (#278) is open instead of a space.
+    @State private var dashboardHost: UUID?
     #if os(iOS)
     /// Compact, the split view collapses to a stack (iPhone).
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -40,7 +42,9 @@ struct ContentView: View {
                     .navigationSplitViewColumnWidth(min: foldWidth ?? 240, ideal: foldWidth ?? 280, max: foldWidth)
             } detail: {
                 // Without a space chosen, Mac and iPad show the overview.
-                if showingOverview || selection == nil {
+                if let connection = dashboardConnection {
+                    HostDashboardView(connection: connection) { selection = $0 }
+                } else if showingOverview || selection == nil {
                     OverviewView { selection = $0 }
                 } else {
                     WorkspaceDetailView(selection: $selection)
@@ -54,10 +58,12 @@ struct ContentView: View {
             #endif
         }
         .onChange(of: selection) { _, selection in
-            // A space opened from anywhere leaves the overview. Without a
-            // space no pane is on screen, so its agent notifies again.
+            // A space opened from anywhere leaves the overview and the
+            // dashboard. Without a space no pane is on screen, so its agent
+            // notifies again.
             if selection != nil {
                 showingOverview = false
+                dashboardHost = nil
             } else {
                 store.notifier.visiblePane = nil
             }
@@ -242,10 +248,11 @@ struct ContentView: View {
     }
     #endif
 
-    /// The spaces of the selected host in sidebar order; without a selection
-    /// those of the first host that has any.
+    /// The spaces of the selected host (or the one whose dashboard is open)
+    /// in sidebar order; without a selection those of the first host that
+    /// has any.
     private var currentSpaces: [(hostID: UUID, workspaceID: String)] {
-        let connection = store.connection(for: selection?.hostID)
+        let connection = store.connection(for: selection?.hostID ?? dashboardHost)
             ?? store.connections.first { !($0.update?.workspaces.isEmpty ?? true) }
         guard let connection, let update = connection.update else { return [] }
         return SpaceOrder.arrange(update).map { (connection.id, $0.workspace.workspaceId) }
@@ -270,21 +277,36 @@ struct ContentView: View {
         #endif
     }
 
-    /// The sidebar's selection: the overview or a space.
+    /// The host whose dashboard is open; `nil` once it was removed.
+    private var dashboardConnection: HostConnection? {
+        dashboardHost.flatMap { store.connection(for: $0) }
+    }
+
+    /// The sidebar's selection: the overview, a host's dashboard or a space.
     private var sidebarSelection: Binding<SidebarItem?> {
         Binding(
-            get: { showingOverview || overviewIsPlaceholder ? .overview : selection.map(SidebarItem.space) },
+            get: {
+                if let connection = dashboardConnection { return .host(connection.id) }
+                return showingOverview || overviewIsPlaceholder ? .overview : selection.map(SidebarItem.space)
+            },
             set: { item in
                 switch item {
                 case .overview:
                     selection = nil
                     showingOverview = true
+                    dashboardHost = nil
+                case .host(let id):
+                    selection = nil
+                    showingOverview = false
+                    dashboardHost = id
                 case .space(let ref):
                     selection = ref
                     showingOverview = false
+                    dashboardHost = nil
                 case nil:
                     selection = nil
                     showingOverview = false
+                    dashboardHost = nil
                 }
             }
         )

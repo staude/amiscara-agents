@@ -85,9 +85,7 @@ struct AgentOverview: Equatable {
                     return agent
                 }
                 staleAt = nil
-            } else if let board, host.liveAt.map({ board.live && board.updated > $0 }) ?? true {
-                // A Mac without a connection rewrites its last state with
-                // a new date, so only a connected board can be newer.
+            } else if let board, Self.standsIn(board, liveAt: host.liveAt) {
                 agents = board.agents
                 staleAt = board.updated
             } else {
@@ -109,5 +107,19 @@ struct AgentOverview: Equatable {
             let rows = sorted.filter { Group($0.agent.state) == group }
             return rows.isEmpty ? nil : Section(group: group, rows: rows)
         }
+    }
+
+    /// The newest of the Mac's boards for a host key.
+    static func newestBoard(for hostKey: String?, in boards: [CloudBoard]) -> CloudBoard? {
+        guard let hostKey else { return nil }
+        return boards.filter { $0.hostKey == hostKey }.max { $0.updated < $1.updated }
+    }
+
+    /// Whether the Mac's board stands in for a host without a connection
+    /// that was last connected at `liveAt`; also for the host dashboard
+    /// (#278). A Mac without a connection rewrites its last state with a
+    /// new date, so only a connected board can be newer.
+    static func standsIn(_ board: CloudBoard, liveAt: Date?) -> Bool {
+        liveAt.map { board.live && board.updated > $0 } ?? true
     }
 }
