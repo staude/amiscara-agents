@@ -172,19 +172,13 @@ final class AgentLiveActivity {
             let unframed = rows.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "│❯> ")) }
             if let question = unframed.last(where: { $0.hasSuffix("?") }) { return question }
             let isOption = { (row: String) in row.first?.isNumber == true && row.dropFirst().drop { $0.isNumber }.hasPrefix(".") }
-            let footer = ["for shortcuts", "esc to", "accept edits", "bypass permissions", "plan mode", "⏵", "ctrl+"]
             return unframed.last { row in
                 !row.isEmpty && !isOption(row)
                     && !row.allSatisfy { "─╭╮╰╯".contains($0) }
-                    && !footer.contains { row.localizedCaseInsensitiveContains($0) }
+                    && !ScreenLines.footer.contains { row.localizedCaseInsensitiveContains($0) }
             }
         }
-        let footer = ["for shortcuts", "esc to", "accept edits", "bypass permissions", "plan mode", "⏵", "ctrl+"]
-        return rows.last { row in
-            !row.isEmpty
-                && !row.allSatisfy { "─│╭╮╰╯>❯ ".contains($0) }
-                && !footer.contains { row.localizedCaseInsensitiveContains($0) }
-        }
+        return rows.last { !ScreenLines.isChrome($0) }
     }
 }
 #endif
