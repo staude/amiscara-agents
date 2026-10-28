@@ -191,8 +191,12 @@ final class UsageStore {
         guard connection.isLive else { throw ConnectionFailure.notConnected }
         await restoreIfNeeded(connection)
         guard !cwds.isEmpty else { return UsageReport(buckets: []) }
+        let generation = connection.generation
         let report = try await connection.usage(cwds: cwds, since: since)
-        if let state = await connection.usageState(), let url = Self.fileURL(connection.id) {
+        // A session started meanwhile has read nothing yet; its empty state
+        // must not replace the kept one.
+        if connection.generation == generation, let state = await connection.usageState(),
+           let url = Self.fileURL(connection.id) {
             await Task.detached {
                 try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try? Data(state.utf8).write(to: url, options: .atomic)
