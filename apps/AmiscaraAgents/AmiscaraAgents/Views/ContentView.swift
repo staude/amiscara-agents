@@ -175,6 +175,22 @@ struct ContentView: View {
             }
         }
         .task { await openDemo() }
+        .task { reopenLastPane() }
+    }
+
+    /// Once per launch, not for further Mac windows.
+    private static var reopenedLastPane = false
+
+    /// Opens the space and pane shown last (#276), unless something else
+    /// (a notification, a link) opens a pane already.
+    private func reopenLastPane() {
+        guard !Self.reopenedLastPane, !DemoMode.isOn else { return }
+        Self.reopenedLastPane = true
+        guard selection == nil, store.notifier.openRequest == nil,
+              let last = PaneCache.shared.lastOpen,
+              store.connection(for: last.host) != nil
+        else { return }
+        selection = SpaceRef(hostID: last.host, workspaceID: last.workspace, paneID: last.pane)
     }
 
     /// Opens what the screenshot demo asks for (#199) once the demo

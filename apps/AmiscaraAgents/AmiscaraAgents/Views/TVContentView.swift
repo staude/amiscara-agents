@@ -82,10 +82,39 @@ private struct TVSpaceScreen: View {
                 .onChange(of: workspace.tabs.map(\.tabId), initial: true) { _, ids in
                     if tabID == nil || !ids.contains(tabID ?? "") { pick(workspace, pane: selection.paneID) }
                 }
+                // The space and pane to open on the next launch (#276).
+                .onChange(of: paneID) { _, pane in
+                    PaneCache.shared.lastOpen = .init(
+                        host: connection.id,
+                        workspace: workspace.workspaceId,
+                        pane: pane,
+                        spaceName: workspace.worktreeName ?? workspace.name
+                    )
+                }
                 .task(id: connection.id) { agentKinds = await connection.agentKinds() }
+            } else if let connection = store.connection(for: selection.hostID),
+                      !connection.isLive,
+                      let pane = selection.paneID ?? LastTabs.shared.entry(host: selection.hostID, workspace: selection.workspaceID)?.pane,
+                      PaneCache.shared.entry(host: selection.hostID, pane: pane) != nil {
+                // Before the host lists its spaces: the pane's last screen,
+                // without tabs or input (#276).
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(keptSpaceName ?? connection.config.name)
+                        .font(.headline)
+                        .lineLimit(1)
+                    PaneDetailView(selection: PaneRef(hostID: connection.id, paneID: pane))
+                }
+                .padding(.horizontal, 40)
             } else {
                 ContentUnavailableView("Space nicht verfügbar", systemImage: "square.split.2x1")
             }
+        }
+        .onChange(of: isGone) { _, gone in
+            // The space shown last was closed on the host: not again on launch.
+            guard gone, let last = PaneCache.shared.lastOpen,
+                  last.host == selection.hostID, last.workspace == selection.workspaceID
+            else { return }
+            PaneCache.shared.lastOpen = nil
         }
         .toolbar(.hidden, for: .navigationBar)
         .defaultFocus($focus, .tabs)
@@ -94,6 +123,21 @@ private struct TVSpaceScreen: View {
             NewWorktreeView(source: source) { _ in }
         }
         .closeConfirmation($closing)
+    }
+
+    /// Whether the live host no longer lists the space.
+    private var isGone: Bool {
+        guard let connection = store.connection(for: selection.hostID), connection.isLive,
+              let update = connection.update
+        else { return false }
+        return !update.workspaces.contains { $0.workspaceId == selection.workspaceID }
+    }
+
+    private var keptSpaceName: String? {
+        guard let last = PaneCache.shared.lastOpen,
+              last.host == selection.hostID, last.workspace == selection.workspaceID
+        else { return nil }
+        return last.spaceName
     }
 
     private func tabRow(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
