@@ -541,6 +541,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
   quick switcher) comes back on the tab and pane shown last, also after a
   restart (Mac, iPhone, iPad, Windows, Linux). A tab closed on the host
   falls back to herdr's active tab; an agent row still opens its own tab.
+- Files to the agent and editing (#271): in the file browser a file goes to
+  the pane's composer with "An Agent senden" (context menu of a row, or the
+  toolbar of an open file) as a chip with its host path, no upload; sending
+  puts the path into the prompt. Text files up to 256 KB in UTF-8 without
+  Windows line endings open with "Bearbeiten" in an editor without
+  autocorrection and typographic quotes; "Sichern" (⌘S) writes the file in
+  place and refuses when its size or modification time changed on the host
+  since it was opened, offering to reload; saved but not read back, it
+  loads the file again. Both need input allowed for the host besides the
+  file access. Mac, iPhone and iPad. Core:
+  `Connection::write_file`, `herdr_transport::CHANGED_ON_HOST`,
+  `herdr_core::browse::save`, `browse::MAX_EDIT_BYTES`,
+  `FilePreview::editable`, `Session::save_file`,
+  `SessionError::FileChanged`, `browse::SAVED_NOT_READ`,
+  `SessionError::SavedNotRead`.
 - Agent choice questions as buttons (#272): when Claude Code asks for a
   permission or with AskUserQuestion, the pane shows one button per option
   with its text above the composer (Mac, iPhone, iPad); a tap sends the

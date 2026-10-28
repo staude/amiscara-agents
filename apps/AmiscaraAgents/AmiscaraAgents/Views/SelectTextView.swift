@@ -161,6 +161,103 @@ struct NativeTextView: UIViewRepresentable {
 }
 #endif
 
+#if os(macOS)
+/// Editable monospace text for files on the host (#271). Substitutions
+/// such as typographic quotes and dashes and the spell checker are off:
+/// they would break configuration files.
+struct EditableTextView: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSTextView.scrollableTextView()
+        guard let view = scroll.documentView as? NSTextView else { return scroll }
+        view.isEditable = true
+        view.isSelectable = true
+        view.isRichText = false
+        view.allowsUndo = true
+        view.usesFindBar = true
+        view.isIncrementalSearchingEnabled = true
+        view.isAutomaticQuoteSubstitutionEnabled = false
+        view.isAutomaticDashSubstitutionEnabled = false
+        view.isAutomaticTextReplacementEnabled = false
+        view.isAutomaticSpellingCorrectionEnabled = false
+        view.isContinuousSpellCheckingEnabled = false
+        view.isGrammarCheckingEnabled = false
+        view.isAutomaticLinkDetectionEnabled = false
+        view.isAutomaticDataDetectionEnabled = false
+        view.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        view.textContainerInset = NSSize(width: 8, height: 8)
+        view.string = text
+        view.delegate = context.coordinator
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.text = $text
+        guard let view = scroll.documentView as? NSTextView, view.string != text else { return }
+        view.string = text
+    }
+
+    func makeCoordinator() -> TextBinding { TextBinding(text: $text) }
+
+    @MainActor
+    final class TextBinding: NSObject, NSTextViewDelegate {
+        var text: Binding<String>
+
+        init(text: Binding<String>) { self.text = text }
+
+        func textDidChange(_ notification: Notification) {
+            guard let view = notification.object as? NSTextView else { return }
+            text.wrappedValue = view.string
+        }
+    }
+}
+#elseif os(iOS)
+/// Editable monospace text for files on the host (#271). Autocorrection,
+/// capitals, typographic quotes and dashes and the spell checker are off:
+/// they would break configuration files.
+struct EditableTextView: UIViewRepresentable {
+    @Binding var text: String
+
+    func makeUIView(context: Context) -> UITextView {
+        let view = UITextView()
+        view.isEditable = true
+        view.isSelectable = true
+        view.isFindInteractionEnabled = true
+        view.autocorrectionType = .no
+        view.autocapitalizationType = .none
+        view.smartQuotesType = .no
+        view.smartDashesType = .no
+        view.smartInsertDeleteType = .no
+        view.spellCheckingType = .no
+        view.font = .monospacedSystemFont(ofSize: UIFont.systemFontSize, weight: .regular)
+        view.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        view.text = text
+        view.delegate = context.coordinator
+        return view
+    }
+
+    func updateUIView(_ view: UITextView, context: Context) {
+        context.coordinator.text = $text
+        guard view.text != text else { return }
+        view.text = text
+    }
+
+    func makeCoordinator() -> TextBinding { TextBinding(text: $text) }
+
+    @MainActor
+    final class TextBinding: NSObject, UITextViewDelegate {
+        var text: Binding<String>
+
+        init(text: Binding<String>) { self.text = text }
+
+        func textViewDidChange(_ view: UITextView) {
+            text.wrappedValue = view.text
+        }
+    }
+}
+#endif
+
 #if !os(tvOS)
 /// The last find request a `NativeTextView` answered.
 final class FindRequestState {

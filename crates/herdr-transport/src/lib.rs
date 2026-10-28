@@ -851,6 +851,33 @@ impl Connection {
         }
     }
 
+    /// Replaces the content of the existing file at the absolute `path`
+    /// (#271), refused with a message ending in [`CHANGED_ON_HOST`] when its
+    /// size or modification time differ from `expected_size` and
+    /// `expected_modified` (as read when it was opened). Writes in place,
+    /// so mode, owner and hard links stay; never creates a file. Same rules
+    /// for the path as [`Connection::read_file_head`].
+    pub async fn write_file(
+        &self,
+        path: &str,
+        data: &[u8],
+        expected_size: u64,
+        expected_modified: u64,
+    ) -> Result<(), TransportError> {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let home = dirs::home_dir()
+                    .ok_or_else(|| TransportError::Files("no home directory".into()))?;
+                write_below(&home, path, data, expected_size, expected_modified).await
+            }
+            Inner::Ssh { handle, .. } => {
+                let _transfer = Transfer::start(&self.inner);
+                sftp_write_file(handle, path, data, expected_size, expected_modified).await
+            }
+        }
+    }
+
     /// Deletes the file `path` below the home directory; a missing file is
     /// no error. Over SSH this needs SFTP like [`Connection::upload`].
     pub async fn remove_file(&self, path: &str) -> Result<(), TransportError> {
@@ -960,6 +987,10 @@ pub struct RemoteFile {
 /// the home directory.
 pub const OUTSIDE_HOME: &str = "is outside the home directory";
 
+/// How the message of [`TransportError::Files`] ends when
+/// [`Connection::write_file`] finds the file changed since it was read.
+pub const CHANGED_ON_HOST: &str = "changed on the host since it was opened";
+
 /// A directory from [`Connection::list_dir`]; paths are real and absolute.
 #[derive(Debug, Clone)]
 pub struct DirListing {
@@ -1047,6 +1078,35 @@ async fn real_path_below(home: &Path, path: &str) -> Result<(String, String), Tr
     Ok((home, target))
 }
 
+/// [`Connection::write_file`] on this machine with `home` given, for tests.
+#[cfg(unix)]
+async fn write_below(
+    home: &Path,
+    path: &str,
+    data: &[u8],
+    expected_size: u64,
+    expected_modified: u64,
+) -> Result<(), TransportError> {
+    let (_, target) = real_path_below(home, path).await?;
+    let failed = |err: std::io::Error| TransportError::Files(format!("{target}: {err}"));
+    let meta = tokio::fs::metadata(&target).await.map_err(failed)?;
+    if !meta.is_file() {
+        return Err(TransportError::Files(format!("{target} is not a file")));
+    }
+    if meta.len() != expected_size || local_modified(&meta) != expected_modified {
+        return Err(TransportError::Files(format!("{target} {CHANGED_ON_HOST}")));
+    }
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(&target)
+        .await
+        .map_err(failed)?;
+    file.write_all(data).await.map_err(failed)?;
+    file.flush().await.map_err(failed)?;
+    Ok(())
+}
+
 #[cfg(unix)]
 fn local_modified(meta: &std::fs::Metadata) -> u64 {
     meta.modified()
@@ -1120,6 +1180,40 @@ async fn sftp_list_dir(
         path: target,
         entries,
     })
+}
+
+/// Like [`write_below`], on the server.
+async fn sftp_write_file(
+    handle: &Handle<HostKeyCheck>,
+    path: &str,
+    data: &[u8],
+    expected_size: u64,
+    expected_modified: u64,
+) -> Result<(), TransportError> {
+    let sftp = sftp_session(handle, TransportError::Files).await?;
+    let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
+    let (_, target) = sftp_real_path(&sftp, path).await?;
+    let meta = sftp
+        .metadata(target.as_str())
+        .await
+        .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+    if !meta.file_type().is_file() {
+        return Err(TransportError::Files(format!("{target} is not a file")));
+    }
+    if meta.size.unwrap_or(0) != expected_size
+        || meta.mtime.map_or(0, u64::from) != expected_modified
+    {
+        return Err(TransportError::Files(format!("{target} {CHANGED_ON_HOST}")));
+    }
+    let mut file = sftp
+        .open_with_flags(target.as_str(), OpenFlags::WRITE | OpenFlags::TRUNCATE)
+        .await
+        .map_err(|err| TransportError::Files(format!("{target}: {err}")))?;
+    let written = |err: std::io::Error| TransportError::Files(format!("{target}: {err}"));
+    file.write_all(data).await.map_err(written)?;
+    file.shutdown().await.map_err(written)?;
+    sftp.close().await.map_err(failed)?;
+    Ok(())
 }
 
 /// `path` below the local home directory.
@@ -1437,7 +1531,70 @@ mod authorized_keys_tests {
 mod browse_tests {
     use super::inside_home;
     #[cfg(unix)]
-    use super::{OUTSIDE_HOME, TransportError, real_path_below};
+    use super::{
+        CHANGED_ON_HOST, OUTSIDE_HOME, TransportError, local_modified, real_path_below, write_below,
+    };
+
+    /// Saving writes in place when size and time still match, refuses a
+    /// changed file without touching it, and stays below the home.
+    #[cfg(unix)]
+    #[test]
+    fn writes_only_an_unchanged_file_below_home() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let base = std::env::temp_dir().join(format!("amiscara-write-{}", std::process::id()));
+        let home = base.join("home");
+        let outside = base.join("outside.txt");
+        std::fs::create_dir_all(&home).expect("home");
+        let file = home.join("notes.txt");
+        std::fs::write(&file, "old\n").expect("file");
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o640)).expect("mode");
+        std::fs::write(&outside, "keep\n").expect("outside");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let stamp = |path: &std::path::Path| {
+            let meta = std::fs::metadata(path).expect("stat");
+            (meta.len(), local_modified(&meta))
+        };
+        let write = |path: &std::path::Path, data: &str, (size, modified): (u64, u64)| {
+            runtime.block_on(write_below(
+                &home,
+                &path.to_string_lossy(),
+                data.as_bytes(),
+                size,
+                modified,
+            ))
+        };
+
+        let opened = stamp(&file);
+        write(&file, "new text\n", opened).expect("unchanged file");
+        assert_eq!(std::fs::read_to_string(&file).expect("read"), "new text\n");
+        let mode = std::fs::metadata(&file).expect("stat").permissions().mode();
+        assert_eq!(mode & 0o777, 0o640);
+
+        // The size read at opening no longer matches.
+        match write(&file, "lost\n", opened) {
+            Err(TransportError::Files(message)) => {
+                assert!(message.ends_with(CHANGED_ON_HOST), "{message}");
+            }
+            other => panic!("changed file was written: {other:?}"),
+        }
+        assert_eq!(std::fs::read_to_string(&file).expect("read"), "new text\n");
+
+        match write(&outside, "x\n", stamp(&outside)) {
+            Err(TransportError::Files(message)) => {
+                assert!(message.ends_with(OUTSIDE_HOME), "{message}");
+            }
+            other => panic!("file outside home was written: {other:?}"),
+        }
+        assert_eq!(std::fs::read_to_string(&outside).expect("read"), "keep\n");
+        // Never creates a file.
+        assert!(write(&home.join("new.txt"), "x\n", (0, 0)).is_err());
+        assert!(!home.join("new.txt").exists());
+        std::fs::remove_dir_all(&base).expect("clean up");
+    }
 
     /// A link out of the home directory is refused on its real path, a
     /// link inside stays allowed.

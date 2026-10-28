@@ -65,6 +65,13 @@ pub enum FfiError {
     /// key's `authorized_keys` line with web forwarding (#247).
     #[error("{0}")]
     Forward(String),
+    /// A file was not saved: it changed on the host since it was opened
+    /// (#271).
+    #[error("{0}")]
+    FileChanged(String),
+    /// A file was saved but could not be read back (#271); reload it.
+    #[error("{0}")]
+    SavedNotRead(String),
 }
 
 impl From<SessionError> for FfiError {
@@ -81,6 +88,8 @@ impl From<SessionError> for FfiError {
             SessionError::Files(message) => Self::Files(message),
             SessionError::AgentWorking(message) => Self::AgentWorking(message),
             SessionError::Forward(message) => Self::Forward(message),
+            SessionError::FileChanged(message) => Self::FileChanged(message),
+            SessionError::SavedNotRead(message) => Self::SavedNotRead(message),
         }
     }
 }
@@ -536,6 +545,21 @@ impl HostSession {
     /// call it off the main thread.
     pub fn file_preview(&self, path: String) -> Result<FilePreview, FfiError> {
         Ok(runtime().block_on(self.session.file_preview(&path))?)
+    }
+
+    /// Writes `text` to the file at the absolute `path` on the host (#271)
+    /// and returns it as now saved. `size` and `modified` come from the
+    /// `FilePreview` it was edited from; fails with `FileChanged` when the
+    /// file changed since, with `SavedNotRead` when it was written but not
+    /// read back. Blocks; call it off the main thread.
+    pub fn save_file(
+        &self,
+        path: String,
+        text: String,
+        size: u64,
+        modified: u64,
+    ) -> Result<FilePreview, FfiError> {
+        Ok(runtime().block_on(self.session.save_file(&path, &text, size, modified))?)
     }
 
     /// The transcript of a full-screen agent such as Claude Code as plain
