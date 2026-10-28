@@ -3,9 +3,10 @@ import UniformTypeIdentifiers
 
 #if !os(tvOS)
 
-/// The files on the host, starting in a pane's working directory (#259).
-/// Read only; the home directory is the root. Over SSH it needs the same
-/// SFTP access as uploads.
+/// The files on the host, starting in a pane's working directory (#259);
+/// the home directory is the root. Over SSH it needs the same SFTP access
+/// as uploads. With input allowed a file can go to the pane's composer and
+/// small text files can be edited (#271).
 struct FileBrowserView: View {
     let connection: HostConnection
     let paneID: String
@@ -28,6 +29,9 @@ struct FileBrowserView: View {
         directory.map { $0.path == $0.home } ?? true
     }
 
+    /// A host on "read only" stays so for its files too.
+    private var canAct: Bool { connection.config.inputAllowed }
+
     var body: some View {
         NavigationStack {
             content
@@ -36,7 +40,7 @@ struct FileBrowserView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 #endif
                 .navigationDestination(for: String.self) { path in
-                    FilePreviewView(connection: connection, path: path)
+                    FilePreviewView(connection: connection, path: path, canAct: canAct, send: send)
                 }
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
@@ -124,6 +128,11 @@ struct FileBrowserView: View {
             NavigationLink(value: entry.path) {
                 EntryRow(entry: entry)
             }
+            .contextMenu {
+                if canAct {
+                    Button("An Agent senden", systemImage: "paperplane") { send(entry.path) }
+                }
+            }
         case .other:
             EntryRow(entry: entry)
                 .foregroundStyle(.secondary)
@@ -143,6 +152,13 @@ struct FileBrowserView: View {
             Label(error, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.red)
         }
+    }
+
+    /// Attaches the file to the pane's composer and closes the browser,
+    /// which covers the composer on the iPhone.
+    private func send(_ path: String) {
+        ComposerInbox.add(path: path, hostID: connection.id, paneID: paneID)
+        dismiss()
     }
 
     private func open(_ path: String) {
@@ -244,13 +260,29 @@ private struct EntryRow: View {
     }
 }
 
-/// One file: text with search, an image, or only size and type.
+/// One file: text with search, an image, or only size and type. With
+/// `canAct` it can go to the composer, and a small text file can be edited
+/// and saved (#271).
 private struct FilePreviewView: View {
     let connection: HostConnection
     let path: String
+    let canAct: Bool
+    let send: (String) -> Void
     @State private var preview: FilePreview?
     @State private var error: String?
     @State private var findRequest = 0
+    /// The text being edited; `nil` while viewing.
+    @State private var draft: String?
+    @State private var saving = false
+    @State private var saveError: String?
+    @State private var conflict = false
+    @State private var confirmingDiscard = false
+
+    private var originalText: String? {
+        if case .text(let text, _) = preview?.content { text } else { nil }
+    }
+
+    private var changed: Bool { draft != nil && draft != originalText }
 
     var body: some View {
         content
@@ -258,25 +290,120 @@ private struct FilePreviewView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .navigationBarBackButtonHidden(draft != nil)
+            .interactiveDismissDisabled(changed)
             .toolbar {
-                if case .text = preview?.content {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Suchen", systemImage: "magnifyingglass") { findRequest += 1 }
+                if draft != nil {
+                    editToolbar
+                } else {
+                    viewToolbar
+                }
+            }
+            .confirmationDialog("Änderungen verwerfen?", isPresented: $confirmingDiscard) {
+                Button("Verwerfen", role: .destructive) { stopEditing() }
+            }
+            .alert("Datei auf dem Host geändert", isPresented: $conflict) {
+                Button("Neu laden", role: .destructive) {
+                    stopEditing()
+                    // The viewer reads its text once; show the loading state.
+                    preview = nil
+                    Task { await load() }
+                }
+                Button("Weiter bearbeiten", role: .cancel) {}
+            } message: {
+                Text("Seit dem Öffnen hat sich die Datei auf dem Host geändert. „Neu laden“ verwirft die Änderungen in der App; wer sie behalten will, kopiert sie vorher.")
+            }
+            .task { await load() }
+    }
+
+    @ToolbarContentBuilder
+    private var viewToolbar: some ToolbarContent {
+        if case .text = preview?.content {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Suchen", systemImage: "magnifyingglass") { findRequest += 1 }
+            }
+        }
+        if canAct {
+            ToolbarItem(placement: .primaryAction) {
+                Button("An Agent senden", systemImage: "paperplane") { send(preview?.path ?? path) }
+            }
+            if let preview, preview.editable, let originalText {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Bearbeiten", systemImage: "pencil") {
+                        saveError = nil
+                        draft = originalText
                     }
                 }
             }
-            .task {
-                do {
-                    preview = try await connection.filePreview(path)
-                } catch {
-                    self.error = inputErrorMessage(error)
-                }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var editToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Abbrechen") {
+                if changed { confirmingDiscard = true } else { stopEditing() }
             }
+            .disabled(saving)
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Sichern", action: save)
+                .keyboardShortcut("s")
+                .disabled(!changed || saving)
+        }
+    }
+
+    private func load() async {
+        error = nil
+        do {
+            preview = try await connection.filePreview(path)
+        } catch {
+            preview = nil
+            self.error = inputErrorMessage(error)
+        }
+    }
+
+    private func stopEditing() {
+        draft = nil
+        saveError = nil
+    }
+
+    /// Writes the draft unless the file changed on the host meanwhile; then
+    /// the draft stays and the alert offers to reload.
+    private func save() {
+        guard let preview, let draft else { return }
+        saving = true
+        saveError = nil
+        Task {
+            defer { saving = false }
+            do {
+                self.preview = try await connection.saveFile(preview, text: draft)
+                stopEditing()
+            } catch FfiError.FileChanged {
+                conflict = true
+            } catch {
+                saveError = inputErrorMessage(error)
+            }
+        }
     }
 
     @ViewBuilder
     private var content: some View {
-        if let preview {
+        if preview != nil, draft != nil {
+            VStack(spacing: 0) {
+                if let saveError {
+                    Label(saveError, systemImage: "exclamationmark.triangle")
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                    Divider()
+                }
+                EditableTextView(text: Binding(get: { draft ?? "" }, set: { draft = $0 }))
+                    .disabled(saving)
+            }
+        } else if let preview {
             switch preview.content {
             case .text(let text, let truncated):
                 VStack(spacing: 0) {

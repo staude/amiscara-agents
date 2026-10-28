@@ -1095,6 +1095,16 @@
         }
       }
     },
+    "Bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
     "Bearbeiten …" : {
       "localizations" : {
         "en" : {
@@ -1391,6 +1401,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "File"
+          }
+        }
+      }
+    },
+    "Datei auf dem Host geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File changed on the host"
           }
         }
       }
@@ -1831,6 +1851,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file"
+          }
+        }
+      }
+    },
+    "Die Datei wurde auf dem Host geändert, seit sie geöffnet wurde. Nicht gesichert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed on the host since it was opened. Not saved."
           }
         }
       }
@@ -3937,6 +3967,16 @@
         }
       }
     },
+    "Seit dem Öffnen hat sich die Datei auf dem Host geändert. „Neu laden“ verwirft die Änderungen in der App; wer sie behalten will, kopiert sie vorher." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file changed on the host since it was opened. “Reload” discards the changes made in the app; copy them first to keep them."
+          }
+        }
+      }
+    },
     "Spaces sortieren" : {
       "localizations" : {
         "en" : {
@@ -4793,6 +4833,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter above the name at which this Mac can be reached."
+          }
+        }
+      }
+    },
+    "Verwerfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        }
+      }
+    },
+    "Weiter bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep editing"
+          }
+        }
+      }
+    },
+    "Änderungen verwerfen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard changes?"
           }
         }
       }
