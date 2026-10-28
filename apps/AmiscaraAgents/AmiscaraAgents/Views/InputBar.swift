@@ -129,6 +129,7 @@ struct InputBar: View {
             error = nil
             attachments = []
             takePendingShare()
+            takeHostFiles()
         }
         // Folding an iPhone Duo or resizing a window can swap this bar for
         // a new one; the composer goes along (#215).
@@ -138,6 +139,7 @@ struct InputBar: View {
                 attachments = draft.attachments
             }
             takePendingShare()
+            takeHostFiles()
         }
         #if os(iOS)
         // A share for this pane while the bar is on screen (#225).
@@ -148,6 +150,10 @@ struct InputBar: View {
         // On the Mac too: its share extension and the handoff sheet (#236).
         .onReceive(NotificationCenter.default.publisher(for: PendingShare.arrived)) { _ in
             takePendingShare()
+        }
+        // A file sent from the file browser (#271).
+        .onReceive(NotificationCenter.default.publisher(for: ComposerInbox.arrived)) { _ in
+            takeHostFiles()
         }
         .onChange(of: text) { keepDraft() }
         .onChange(of: attachments.map(\.id)) { keepDraft() }
@@ -201,7 +207,7 @@ struct InputBar: View {
         if !dictation.isRunning { toggleDictation() }
     }
 
-    private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
+    private var draftKey: String { ComposerInbox.key(hostID: connection.id, paneID: pane.paneId) }
 
     /// Text and images shared to this pane from another app (#225), or a
     /// handoff as a Markdown file (#236): into the composer, not sent.
@@ -244,6 +250,18 @@ struct InputBar: View {
         text = current.isEmpty ? prompt : current + "\n" + prompt
         attachments.append(attachment)
     }
+
+    /// Files on the host sent from the file browser (#271): attached by
+    /// path, each once, and the composer focused for the prompt.
+    private func takeHostFiles() {
+        let paths = ComposerInbox.take(key: draftKey)
+        guard !paths.isEmpty else { return }
+        for path in paths where !attachments.contains(where: { $0.hostPath == path }) {
+            attachments.append(.hostFile(path: path))
+        }
+        composerFocused = true
+    }
+
     private var historyKey: String { PromptHistory.key(host: connection.id, pane: pane.paneId) }
 
     private func keepDraft() {
@@ -300,7 +318,7 @@ struct InputBar: View {
                                     .scaledToFill()
                             } else if let name = attachment.fileName {
                                 VStack(spacing: 2) {
-                                    Image(systemName: "doc").font(.title3)
+                                    Image(systemName: attachment.hostPath == nil ? "doc" : "doc.badge.arrow.up").font(.title3)
                                     Text(name).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
                                 }
                                 .foregroundStyle(.secondary)
@@ -785,6 +803,26 @@ struct InputBar: View {
 @MainActor
 private enum ComposerDraft {
     static var slot: (key: String, text: String, attachments: [ImageAttachment])?
+}
+
+/// Files on the host the file browser sends to a pane's composer (#271),
+/// per host and pane like `ComposerDraft`, until its input bar takes them.
+@MainActor
+enum ComposerInbox {
+    static let arrived = Notification.Name("ComposerInbox.arrived")
+    private static var paths: [String: [String]] = [:]
+
+    static func add(path: String, hostID: UUID, paneID: String) {
+        paths[key(hostID: hostID, paneID: paneID), default: []].append(path)
+        NotificationCenter.default.post(name: arrived, object: nil)
+    }
+
+    static func take(key: String) -> [String] {
+        paths.removeValue(forKey: key) ?? []
+    }
+
+    /// The same as `InputBar.draftKey`.
+    static func key(hostID: UUID, paneID: String) -> String { "\(hostID)/\(paneID)" }
 }
 
 /// Starts dictation a control asked for (#227) when the request or the app
