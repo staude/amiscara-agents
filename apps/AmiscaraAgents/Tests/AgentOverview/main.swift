@@ -93,6 +93,22 @@ do {
     check(decoded != nil && decoded?.since == nil, "old JSON decodes without a time")
 }
 
+// The rule the host dashboard (#278) shares: newest board per key, and
+// only a connected board newer than the last connection stands in.
+do {
+    let old = board("K", updated: ago(10), [])
+    let new = board("K", updated: ago(3), [])
+    let other = board("L", updated: ago(1), [])
+    check(AgentOverview.newestBoard(for: "K", in: [old, new, other]) == new, "newest board for the key")
+    check(AgentOverview.newestBoard(for: nil, in: [old, new]) == nil, "no key, no board")
+    check(AgentOverview.newestBoard(for: "X", in: [old, new]) == nil, "unknown key, no board")
+    check(AgentOverview.standsIn(old, liveAt: nil), "never connected here: any board")
+    check(AgentOverview.standsIn(new, liveAt: ago(5)), "a connected board newer than the last connection")
+    check(!AgentOverview.standsIn(old, liveAt: ago(5)), "not an older board, e.g. a Mac's own copy after a reconnect")
+    let rewritten = CloudBoard(hostKey: "K", hostName: "mac", live: false, updated: ago(1), agents: [])
+    check(!AgentOverview.standsIn(rewritten, liveAt: ago(5)), "not a board a Mac without connection rewrote")
+}
+
 // The last connected time: connected, dropped, reconnected (LiveClock).
 do {
     var clock = LiveClock()

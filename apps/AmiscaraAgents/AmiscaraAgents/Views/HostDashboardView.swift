@@ -58,10 +58,9 @@ struct HostDashboardView: View {
         let fromCloud: Bool
 
         /// The live board; without a connection the newer of the last
-        /// board seen here and the Mac's board in iCloud. As in the
-        /// overview, only a connected board counts as newer: a Mac without
-        /// a connection rewrites its last state with a new date, and its
-        /// own boards come back from iCloud a few minutes late.
+        /// board seen here and the Mac's board in iCloud, by the overview's
+        /// rule. Its own boards also come back to a Mac from iCloud, a few
+        /// minutes late; the rule keeps them from replacing newer agents.
         @MainActor
         init(_ connection: HostConnection, boards: [CloudBoard]) {
             if connection.isLive {
@@ -71,8 +70,8 @@ struct HostDashboardView: View {
                 return
             }
             let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
-            let board = boards.filter { $0.hostKey == key }.max { $0.updated < $1.updated }
-            if let board, connection.liveAt.map({ board.live && board.updated > $0 }) ?? true {
+            if let board = AgentOverview.newestBoard(for: key, in: boards),
+               AgentOverview.standsIn(board, liveAt: connection.liveAt) {
                 agents = board.agents
                 updated = board.updated
                 fromCloud = true
