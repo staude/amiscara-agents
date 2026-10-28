@@ -42,6 +42,8 @@ final class UsageStore {
     @ObservationIgnored private var refreshing = false
     /// Asked for while a run was going, e.g. for a new agent's folder.
     @ObservationIgnored private var refreshAgain = false
+    /// Counts `reset()`s; a run that started before one drops its result.
+    @ObservationIgnored private var epoch = 0
     @ObservationIgnored private var timer: Task<Void, Never>?
 
     func attach(_ connection: HostConnection) {
@@ -87,13 +89,16 @@ final class UsageStore {
         }
         let cwds = Self.claudeFolders(connection.update?.board ?? [])
         if todayRead == nil { phase = .loading }
+        let started = epoch
         do {
             let report = try await read(connection, cwds: cwds, since: Calendar.current.startOfDay(for: .now))
+            guard epoch == started else { return }
             today = report.buckets
             todayRead = .now
             phase = .idle
             onChange?()
         } catch {
+            guard epoch == started else { return }
             phase = .failed(inputErrorMessage(error))
         }
     }
@@ -106,15 +111,18 @@ final class UsageStore {
             return
         }
         historyPhase = .loading
+        let started = epoch
         do {
             let report = try await read(
                 connection,
                 cwds: Self.claudeFolders(connection.update?.board ?? []),
                 since: Self.historyStart()
             )
+            guard epoch == started else { return }
             history = report.buckets
             historyPhase = .idle
         } catch {
+            guard epoch == started else { return }
             historyPhase = .failed(inputErrorMessage(error))
         }
     }
@@ -128,7 +136,8 @@ final class UsageStore {
     /// Today's usage of the host, or of one directory; `nil` before it was
     /// read.
     func todaySum(cwd: String? = nil, prices: UsagePrices) -> WidgetSnapshot.Usage? {
-        guard todayRead != nil else { return nil }
+        // Read before midnight: today is not known yet.
+        guard let todayRead, Calendar.current.isDateInToday(todayRead) else { return nil }
         let day = Calendar.current.startOfDay(for: .now)
         var usage = Self.sum(today, from: day, folder: cwd.map(Self.projectFolder), prices: prices)
         usage.day = day
@@ -139,12 +148,16 @@ final class UsageStore {
     /// (`claude::project_dir`): directories that share it share their
     /// usage, which the core reports under the first of them.
     static func projectFolder(_ cwd: String) -> String {
-        String(cwd.map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "-" })
+        // By scalar like Rust's `chars()`, not by grapheme cluster.
+        String(String.UnicodeScalarView(cwd.unicodeScalars.map {
+            $0.isASCII && $0.properties.isAlphabetic || ("0"..."9").contains($0) ? $0 : "-"
+        }))
     }
 
     /// Forgets what was read, e.g. when the entry now points at another
     /// machine whose session files have the same names.
     func reset() {
+        epoch += 1
         today = []
         todayRead = nil
         history = nil

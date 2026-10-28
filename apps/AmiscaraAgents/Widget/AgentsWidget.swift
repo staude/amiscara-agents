@@ -70,7 +70,9 @@ struct Provider: TimelineProvider {
             completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(15 * 60))))
         }
         #else
-        completion(Timeline(entries: [Entry(date: .now, snapshot: WidgetSnapshot.load())], policy: .never))
+        // Again at midnight, so the day's tokens (#302) do not stay as "Heute".
+        let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now)) ?? .distantFuture
+        completion(Timeline(entries: [Entry(date: .now, snapshot: WidgetSnapshot.load())], policy: .after(midnight)))
         #endif
     }
 }
