@@ -642,6 +642,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
+- Pull requests (#309): with a GitHub token in the host settings (fine-grained,
+  kept in this device's Keychain under `net.staude.amiscara.agents.github-token`,
+  not in iCloud) a space whose branch has an open pull request shows its
+  number, checks and review state in the sidebar, next to the tabs and on
+  the dashboard. The pull request view shows description, checks, comments
+  and reviews (line comments only as a count) and the diff, and merges after
+  Face ID or the passcode, also with the app lock off: squash where the
+  repository allows it, else a merge commit, else rebase, refused by GitHub
+  when a commit came in since loading. The repository comes from the
+  `origin` remote in the Git configuration on the host, read over the file
+  access without a tab. Without a token nothing changes. Mac, iPhone and
+  iPad. Core: `herdr_core::github::origin_repository`,
+  `Session::github_repository`, FFI `parse_diff`.
 
 ### Changed
 

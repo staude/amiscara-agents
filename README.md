@@ -170,6 +170,17 @@ code), so a host is set up the same way everywhere.
   New shells in herdr panes export them, running agents read one with
   `amiscara-env <NAME>`, see [Setting up a host](#setting-up-a-host). Needs
   SFTP like uploads and input allowed. Mac, iPhone and iPad.
+- **Pull requests:** with a GitHub token in the host settings, each space
+  whose branch has an open pull request shows its number, checks and
+  review state; a tap opens description, checks, comments and the diff,
+  and "Mergen …" merges it after Face ID or the passcode (squash where the
+  repository allows it). Approving stays on GitHub. The token is
+  fine-grained, for the repositories you want, with read access to
+  Checks, Commit statuses and Metadata and read and write access to
+  Contents and Pull requests; it stays in this device's Keychain. An
+  organization may have to approve fine-grained tokens first. The
+  repository comes from the `origin` remote in the Git configuration on
+  the host, so SSH hosts need SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.
