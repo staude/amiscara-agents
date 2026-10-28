@@ -38,9 +38,12 @@ final class PaneSummary {
             }
             if text.isEmpty {
                 let recent = try await connection.recentText(paneID: paneID, lines: maxHistoryLines(), unwrap: unwrap)
-                text = PaneVisits.newLines(in: recent, after: visit.tail)
-                    .joined(separator: "\n")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let lines = PaneVisits.newLines(in: recent, after: visit.tail)
+                // The old bottom line comes back with the new ones; alone it
+                // is a prompt or status line that changed, nothing new.
+                if lines.count(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) > 1 {
+                    text = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                }
             }
             guard !text.isEmpty else {
                 state = .done(String(localized: "Keine neue Ausgabe seit dem letzten Besuch."))
