@@ -154,11 +154,11 @@ final class HostConnection: Identifiable {
         }.value
     }
 
-    /// Creates a tab in a space; herdr picks the directory.
-    func createTab(in workspaceID: String) async throws -> Created {
+    /// Creates a tab in a space, in `cwd` or the directory herdr picks.
+    func createTab(in workspaceID: String, cwd: String? = nil) async throws -> Created {
         let session = try writableSession()
         return try await Task.detached {
-            try session.createTab(workspaceId: workspaceID, cwd: nil)
+            try session.createTab(workspaceId: workspaceID, cwd: cwd)
         }.value
     }
 
@@ -282,6 +282,25 @@ final class HostConnection: Identifiable {
         guard let session, isLive else { throw ConnectionFailure.notConnected }
         return try await Task.detached {
             try session.claudeHistory(paneId: paneID, before: before)
+        }.value
+    }
+
+    /// The Claude Code sessions of a folder on the host, newest first
+    /// (#304). Read only, with the same SFTP access as `claudeHistory`.
+    func claudeSessions(folder: String) async throws -> [ClaudeSessionItem] {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeSessions(folder: folder)
+        }.value
+    }
+
+    /// Continues a Claude Code session in a pane at its shell prompt
+    /// (`claude --resume <id>`) and returns the agent's name (#304).
+    func resumeClaude(_ sessionID: String, in paneID: String) async throws -> String {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.resumeClaude(paneId: paneID, sessionId: sessionID)
         }.value
     }
 
