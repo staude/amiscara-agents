@@ -205,6 +205,7 @@ final class HostStore {
         KeyStore.delete(for: id)
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)
+        PaneVisits.shared.forget(host: id)
         connections.remove(at: index)
         save()
     }
