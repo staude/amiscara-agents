@@ -33,7 +33,7 @@ struct PaneDetailView: View {
                     screen(connection: connection, search: search.highlight(matches))
                     if connection.config.inputAllowed, let pane = pane(connection, selection.paneID) {
                         Divider()
-                        InputBar(connection: connection, pane: pane)
+                        InputBar(connection: connection, pane: pane, question: model.question)
                             #if os(tvOS)
                             .focusSection()
                             #endif

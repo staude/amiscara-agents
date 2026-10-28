@@ -217,13 +217,20 @@ final class HostConnection: Identifiable {
         return home + "/" + trimmed
     }
 
-    /// Uploads images and returns their paths on the host, in order.
+    /// Uploads images and returns their paths on the host, in order. A file
+    /// already on the host (#271) gives its path without an upload.
     func upload(_ attachments: [ImageAttachment]) async throws -> [String] {
         guard config.uploadAllowed else { throw ConnectionFailure.uploadOff }
         let session = try writableSession()
+        // Before any upload, so a refused path leaves nothing behind.
+        guard attachments.allSatisfy({ $0.hostPath.map(ImageAttachment.isPlainPath) ?? true }) else {
+            throw ConnectionFailure.unsafePath
+        }
         return try await Task.detached {
             try attachments.map { attachment in
-                if let name = attachment.fileName {
+                if let path = attachment.hostPath {
+                    path
+                } else if let name = attachment.fileName {
                     try session.uploadNamedFile(data: attachment.data, fileName: name)
                 } else {
                     try session.uploadFile(data: attachment.data, fileExtension: attachment.fileExtension)
@@ -292,6 +299,18 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Writes `text` to a file of the file browser (#271), unless it changed
+    /// on the host since `preview` was read (`FfiError.FileChanged`); returns
+    /// the file as now saved. Changes the host, so it needs input allowed
+    /// besides the file access.
+    func saveFile(_ preview: FilePreview, text: String) async throws -> FilePreview {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        let session = try browseSession()
+        return try await Task.detached {
+            try session.saveFile(path: preview.path, text: text, size: preview.size, modified: preview.modified)
+        }.value
+    }
+
     /// The named herdr sessions on the host, running or stopped (#213).
     /// Read only, but over SSH it needs the same SFTP access as uploads.
     func herdrSessions() async throws -> [HerdrSession] {
@@ -330,6 +349,16 @@ final class HostConnection: Identifiable {
         return try? await Task.detached {
             try session.screenExcerpt(paneId: paneID, maxLines: lines)
         }.value
+    }
+
+    /// The choice question an agent asks in a pane, for a notification's
+    /// actions (#272); `nil` when there is none, when not connected or the
+    /// pane cannot be read. Read only.
+    func choiceQuestion(paneID: String) async -> ChoiceQuestion? {
+        guard let session, isLive else { return nil }
+        return try? await Task.detached {
+            try session.choiceQuestion(paneId: paneID)
+        }.value ?? nil
     }
 
     /// Lets another device's key in on this host (#127); false when it was
@@ -424,6 +453,7 @@ enum ConnectionFailure: LocalizedError {
     case filesOff
     case diffFilesOff
     case browseFilesOff
+    case unsafePath
 
     var errorDescription: String? {
         switch self {
@@ -439,6 +469,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .unsafePath:
+            String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:
             String(localized: "Der Gesprächsverlauf liest die Sitzungsdatei auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         }
@@ -458,6 +490,10 @@ func inputErrorMessage(_ error: Error) -> String {
         String(localized: "Dateien auf dem Host nicht lesbar: \(message)")
     case FfiError.AgentWorking:
         String(localized: "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt.")
+    case FfiError.SavedNotRead:
+        String(localized: "Gesichert, aber nicht neu gelesen. Vor dem nächsten Sichern die Datei neu laden.")
+    case FfiError.FileChanged:
+        String(localized: "Die Datei wurde auf dem Host geändert, seit sie geöffnet wurde. Nicht gesichert.")
     case FfiError.Forward:
         String(localized: "Der Host leitet localhost für dieses Gerät nicht weiter. „Lokale Webseiten weiterleiten“ einschalten (Host bearbeiten) und die neue Schlüsselzeile auf dem Host eintragen.")
     default:

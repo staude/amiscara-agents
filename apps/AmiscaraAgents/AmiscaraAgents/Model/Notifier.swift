@@ -37,10 +37,18 @@ final class Notifier: NSObject {
 
     @ObservationIgnored private let center = UNUserNotificationCenter.current()
     @ObservationIgnored private var authorized: Bool?
+    /// The fixed answers 1, 2, 3, Enter, Esc.
+    @ObservationIgnored private let blockedCategory: UNNotificationCategory
+    /// Categories with the options of a pane's question (#272), oldest
+    /// first, one per pane.
+    @ObservationIgnored private var questionCategories: [UNNotificationCategory] = []
+    private static let maxQuestionCategories = 32
+    /// The system shows four actions: up to three options and Esc to
+    /// cancel; the rest is a tap away in the pane. No Enter, the digit
+    /// answers already.
+    private static let maxQuestionActions = 3
 
     override init() {
-        super.init()
-        center.delegate = self
         // Answer buttons for "agent waits", local and pushed (#94). Not
         // `.foreground`: answering must not open the app, only send the key.
         // An answer can approve what an agent does, so a locked iPhone asks
@@ -48,13 +56,20 @@ final class Notifier: NSObject {
         let actions = AgentNotification.answers.map { answer in
             UNNotificationAction(identifier: "key.\(answer.key)", title: answer.title, options: [.authenticationRequired])
         }
-        center.setNotificationCategories([
-            UNNotificationCategory(identifier: AgentNotification.blockedCategory, actions: actions, intentIdentifiers: []),
-        ])
+        blockedCategory = UNNotificationCategory(identifier: AgentNotification.blockedCategory, actions: actions, intentIdentifiers: [])
+        super.init()
+        center.delegate = self
+        center.setNotificationCategories([blockedCategory])
     }
 
-    /// Posts one notification per agent that needs the user.
-    func notify(_ items: [BoardItem], on host: HostConfig) {
+    /// Posts one notification per agent that needs the user. `question`
+    /// reads the choice question of a waiting agent's pane, whose options
+    /// then become the answers (#272).
+    func notify(
+        _ items: [BoardItem],
+        on host: HostConfig,
+        question: (@MainActor (_ paneID: String) async -> ChoiceQuestion?)? = nil
+    ) {
         guard host.notificationsOn, !items.isEmpty else { return }
         Task {
             guard await allowed() else { return }
@@ -62,9 +77,35 @@ final class Notifier: NSObject {
                 if appActive, let visiblePane, visiblePane.hostID == host.id, visiblePane.paneID == item.paneId {
                     continue
                 }
-                try? await center.add(request(for: item, on: host))
+                var category: String?
+                if item.agentState == .blocked {
+                    let asked = await question?(item.paneId)
+                    category = await self.category(for: asked, hostID: host.id, paneID: item.paneId)
+                }
+                try? await center.add(request(for: item, on: host, category: category))
             }
         }
+    }
+
+    /// The category for a waiting agent: the fixed answers, or a question's
+    /// options as actions. Categories are registered all at once, so each
+    /// pane keeps one, up to `maxQuestionCategories`.
+    private func category(for question: ChoiceQuestion?, hostID: UUID, paneID: String) async -> String {
+        guard let question, !question.options.isEmpty else { return AgentNotification.blockedCategory }
+        let identifier = "\(AgentNotification.blockedCategory).\(hostID.uuidString).\(paneID)"
+        let actions = question.options.prefix(Self.maxQuestionActions).map { option in
+            UNNotificationAction(identifier: "key.\(option.key)", title: option.label, options: [.authenticationRequired])
+        } + [UNNotificationAction(identifier: "key.esc", title: String(localized: "Abbrechen"), options: [.authenticationRequired])]
+        questionCategories.removeAll { $0.identifier == identifier }
+        questionCategories.append(UNNotificationCategory(identifier: identifier, actions: actions, intentIdentifiers: []))
+        if questionCategories.count > Self.maxQuestionCategories {
+            questionCategories.removeFirst(questionCategories.count - Self.maxQuestionCategories)
+        }
+        center.setNotificationCategories(Set([blockedCategory] + questionCategories))
+        // Setting them returns at once; a notification posted before they
+        // are in place would show no actions.
+        _ = await center.notificationCategories()
+        return identifier
     }
 
     /// App badge: agents waiting for an answer, over all hosts.
@@ -75,15 +116,15 @@ final class Notifier: NSObject {
         }
     }
 
-    private func request(for item: BoardItem, on host: HostConfig) -> UNNotificationRequest {
+    private func request(for item: BoardItem, on host: HostConfig, category: String?) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         let text = AgentNotificationText(item: item, hostName: host.name)
         content.title = text.title
         content.subtitle = text.subtitle
         content.body = text.body
         content.sound = item.agentState == .blocked ? .default : nil
-        if item.agentState == .blocked {
-            content.categoryIdentifier = AgentNotification.blockedCategory
+        if let category {
+            content.categoryIdentifier = category
         }
         content.threadIdentifier = host.id.uuidString
         content.userInfo = [
@@ -188,7 +229,11 @@ final class Notifier {
     @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)?
     @ObservationIgnored var appActive = true
 
-    func notify(_ items: [BoardItem], on host: HostConfig) {}
+    func notify(
+        _ items: [BoardItem],
+        on host: HostConfig,
+        question: (@MainActor (_ paneID: String) async -> ChoiceQuestion?)? = nil
+    ) {}
     func updateBadge(waiting: Int) {}
 }
 #endif

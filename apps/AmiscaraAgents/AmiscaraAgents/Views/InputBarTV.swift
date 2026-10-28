@@ -8,6 +8,9 @@ import SwiftUI
 struct InputBar: View {
     let connection: HostConnection
     let pane: PaneItem
+    /// Shared with the other platforms' `InputBar`; the TV keeps its
+    /// buttons 1, 2, 3 (#272).
+    var question: ChoiceQuestion?
 
     @State private var text = ""
     @State private var sending = false
