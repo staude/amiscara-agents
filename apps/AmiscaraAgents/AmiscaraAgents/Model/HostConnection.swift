@@ -13,6 +13,9 @@ final class HostConnection: Identifiable {
     /// one that ended it), so the overview can tell how old the agents it
     /// still shows are (#274).
     private(set) var liveAt: Date?
+    /// A reconnect was asked for while the link still looked live; its end
+    /// then says nothing about when the host was last reachable.
+    @ObservationIgnored private var linkSuspect = false
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
     /// pane view follows its pane again when this changes.
@@ -42,9 +45,16 @@ final class HostConnection: Identifiable {
                     guard let self else { return }
                     // Also when the connection drops: until then the last
                     // update was still current, however quiet the host was.
-                    let wasLive = self.isLive
+                    // Not after a reconnect for a link that may have died
+                    // unnoticed, e.g. while the device slept.
+                    let dropped = self.isLive && !self.linkSuspect
                     self.update = update
-                    if wasLive || self.isLive { self.liveAt = .now }
+                    if self.isLive {
+                        self.liveAt = .now
+                        self.linkSuspect = false
+                    } else if dropped {
+                        self.liveAt = .now
+                    }
                     self.onUpdate?(self, update)
                 }
             }
@@ -65,6 +75,7 @@ final class HostConnection: Identifiable {
     /// (refused login, host key) starts over instead, also when its last
     /// update has not arrived yet.
     func reconnect() {
+        if isLive { linkSuspect = true }
         guard let session, session.reconnect() else { return start() }
     }
 
