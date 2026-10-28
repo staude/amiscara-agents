@@ -12,7 +12,7 @@ struct HostDashboardView: View {
     let open: (SpaceRef) -> Void
 
     var body: some View {
-        let shown = shown
+        let shown = Shown(connection, boards: store.cloudBoards)
         let snapshot = WidgetSnapshot(updated: shown.updated ?? .distantPast, hosts: [
             WidgetSnapshot.Host(id: connection.id, name: connection.config.name, live: connection.isLive, agents: shown.agents),
         ])
@@ -50,28 +50,40 @@ struct HostDashboardView: View {
         #endif
     }
 
-    /// The agents shown, how old they are and whether they came from iCloud.
-    private struct Shown {
+    /// The agents shown, how old they are and whether they came from
+    /// iCloud; also the sidebar's badge counts from here.
+    struct Shown {
         let agents: [WidgetSnapshot.Agent]
         let updated: Date?
         let fromCloud: Bool
-    }
 
-    /// The live board; without a connection the newer of the last board
-    /// seen here and the Mac's board in iCloud. As in the overview, only a
-    /// connected board counts as newer: a Mac without a connection
-    /// rewrites its last state with a new date, and its own boards come
-    /// back from iCloud a few minutes late.
-    private var shown: Shown {
-        if connection.isLive {
-            return Shown(agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init), updated: nil, fromCloud: false)
+        /// The live board; without a connection the newer of the last
+        /// board seen here and the Mac's board in iCloud. As in the
+        /// overview, only a connected board counts as newer: a Mac without
+        /// a connection rewrites its last state with a new date, and its
+        /// own boards come back from iCloud a few minutes late.
+        @MainActor
+        init(_ connection: HostConnection, boards: [CloudBoard]) {
+            if connection.isLive {
+                agents = (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init)
+                updated = nil
+                fromCloud = false
+                return
+            }
+            let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
+            let board = boards.filter { $0.hostKey == key }.max { $0.updated < $1.updated }
+            if let board, connection.liveAt.map({ board.live && board.updated > $0 }) ?? true {
+                agents = board.agents
+                updated = board.updated
+                fromCloud = true
+            } else {
+                agents = connection.lastBoard.map(WidgetSnapshot.Agent.init)
+                updated = connection.liveAt
+                fromCloud = false
+            }
         }
-        let key = CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
-        let board = store.cloudBoards.filter { $0.hostKey == key }.max { $0.updated < $1.updated }
-        if let board, connection.liveAt.map({ board.live && board.updated > $0 }) ?? true {
-            return Shown(agents: board.agents, updated: board.updated, fromCloud: true)
-        }
-        return Shown(agents: connection.lastBoard.map(WidgetSnapshot.Agent.init), updated: connection.liveAt, fromCloud: false)
+
+        var waiting: Int { agents.filter { $0.state == .blocked }.count }
     }
 
     /// "Live" while connected; otherwise the age of the shown agents.

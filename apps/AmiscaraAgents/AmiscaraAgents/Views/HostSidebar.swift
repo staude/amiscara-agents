@@ -71,7 +71,7 @@ struct HostSidebar: View {
                 Section {
                     #if !os(tvOS)
                     Label("Dashboard", systemImage: "gauge.with.dots.needle.33percent")
-                        .badge(connection.update?.board.filter { $0.agentState == .blocked }.count ?? 0)
+                        .badge(HostDashboardView.Shown(connection, boards: store.cloudBoards).waiting)
                         .tag(SidebarItem.host(connection.id))
                     #endif
                     if let update = connection.update {
