@@ -59,6 +59,19 @@ extension View {
     }
 }
 
+#if os(iOS) || os(macOS)
+/// Turns Spotlight indexing of spaces and agents on and off (#308); on the
+/// Mac in the settings window, on iOS in the "Erscheinungsbild" menu.
+struct SpotlightToggle: View {
+    @AppStorage(SpotlightIndex.enabledKey) private var enabled = true
+
+    var body: some View {
+        Toggle("Spaces und Agents in Spotlight", isOn: $enabled)
+            .onChange(of: enabled) { SpotlightIndex.shared.settingChanged() }
+    }
+}
+#endif
+
 #if os(macOS)
 /// The app's settings window (⌘,).
 struct SettingsView: View {
@@ -75,6 +88,13 @@ struct SettingsView: View {
                 Text("App-Sperre")
             } footer: {
                 Text("Fragt nach Touch ID oder dem Passwort, wenn Sie zur App zurückkehren.")
+            }
+            Section {
+                SpotlightToggle()
+            } header: {
+                Text("Spotlight")
+            } footer: {
+                Text("Namen, Branch und Status von Spaces und Agents gehen in die Systemsuche.")
             }
             UpdateSettings()
         }

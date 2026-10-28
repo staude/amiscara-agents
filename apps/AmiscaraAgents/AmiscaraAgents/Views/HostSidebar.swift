@@ -128,6 +128,7 @@ struct HostSidebar: View {
                             .pickerStyle(.menu)
                     }
                     LiveActivityToggle()
+                    SpotlightToggle()
                 }
             }
             #endif
