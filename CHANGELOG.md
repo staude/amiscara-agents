@@ -600,6 +600,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Quick composer on the Mac (#307): ⌃⌥Space opens a floating window from
+  any app, without bringing the app to the front, for a prompt to the last
+  agent; the agent can be switched in the window, Enter sends, Esc closes,
+  and the key bar's Esc and ⌃C go to the target pane. The shortcut can be
+  changed or cleared under "Schnelleingabe" in the settings (Swift package
+  KeyboardShortcuts). With the app lock on, the shortcut brings up the lock
+  instead once the delay is over.
 - Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
   Z–A) or manually; manual starts from the order shown and changes by drag
   and drop in the sidebar, within a group and only on the same host. Stored
