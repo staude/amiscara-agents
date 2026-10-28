@@ -218,8 +218,9 @@ fn days_from_civil(year: u64, month: u64, day: u64) -> Option<u64> {
 /// milliseconds `since` (inclusive) and `until` (exclusive), without
 /// place. A turn starts with a prompt and ends before the next; it is done
 /// at its last entry when that is Claude's text, not a tool call (an agent
-/// waiting at an approval looks like one still working). Entries without a
-/// time count as written with the one before. Entries before the first
+/// waiting at an approval looks like one still working). Lines Claude Code
+/// puts in as the user's are no prompts. Entries without a time count as
+/// written with the one before. Entries before the first
 /// prompt end a turn that began earlier.
 pub fn turns(entries: &[Entry], since_ms: u64, until_ms: u64) -> Vec<DailyItem> {
     let in_day = |time: u64| since_ms <= time && time < until_ms;
@@ -247,15 +248,60 @@ pub fn turns(entries: &[Entry], since_ms: u64, until_ms: u64) -> Vec<DailyItem> 
             time = Some(at);
         }
         if entry.kind == EntryKind::User {
-            finish(last, &mut items);
-            if let Some(at) = time.filter(|at| in_day(*at)) {
-                items.push(item(DailyItemKind::Prompt, at, &entry.text));
+            match user_line(&entry.text) {
+                UserLine::Prompt(text) => {
+                    finish(last, &mut items);
+                    if let Some(at) = time.filter(|at| in_day(*at)) {
+                        items.push(item(DailyItemKind::Prompt, at, &text));
+                    }
+                }
+                // Ends the turn without an answer.
+                UserLine::Interrupted => {}
+                // Part of the turn, like a tool result.
+                UserLine::Inserted => continue,
             }
         }
         last = Some((entry, time));
     }
     finish(last, &mut items);
     items
+}
+
+enum UserLine {
+    /// Typed by the user; a slash command as `/name args`.
+    Prompt(String),
+    Interrupted,
+    /// Put in by Claude Code: task notifications, a command's output, the
+    /// summary that continues a compacted conversation.
+    Inserted,
+}
+
+/// What a user line of a conversation is.
+fn user_line(text: &str) -> UserLine {
+    let text = text.trim_start();
+    if text.starts_with("[Request interrupted") {
+        return UserLine::Interrupted;
+    }
+    if text.starts_with("This session is being continued from a previous conversation") {
+        return UserLine::Inserted;
+    }
+    if !text.starts_with('<') {
+        return UserLine::Prompt(text.to_owned());
+    }
+    match tag(text, "command-name") {
+        Some(name) => {
+            let args = tag(text, "command-args").unwrap_or_default();
+            UserLine::Prompt(format!("{name} {args}").trim_end().to_owned())
+        }
+        None => UserLine::Inserted,
+    }
+}
+
+/// The trimmed text inside `<name>…</name>`.
+fn tag<'a>(text: &'a str, name: &str) -> Option<&'a str> {
+    let start = text.find(&format!("<{name}>"))? + name.len() + 2;
+    let end = start + text[start..].find(&format!("</{name}>"))?;
+    Some(text[start..end].trim())
 }
 
 /// The first non-empty line of `text`, cut to [`TEXT_LEN`] characters.
@@ -430,6 +476,28 @@ mod tests {
             // Ends with a tool call: no "done".
             entry(EntryKind::User, "Weiter", at("2026-10-28T09:00:00Z")),
             entry(EntryKind::Tool, "Edit: a.rs", at("2026-10-28T09:00:30Z")),
+            // Inserted by Claude Code: neither a prompt nor the turn's end.
+            entry(
+                EntryKind::User,
+                "<task-notification>\n<task-id>x</task-id>",
+                at("2026-10-28T09:01:00Z"),
+            ),
+            // A slash command is a prompt; an interruption ends the turn.
+            entry(
+                EntryKind::User,
+                "<command-message>review</command-message>\n<command-name>/review</command-name>\n<command-args>301</command-args>",
+                at("2026-10-28T10:00:00Z"),
+            ),
+            entry(
+                EntryKind::Assistant,
+                "Schaue ich an.",
+                at("2026-10-28T10:00:10Z"),
+            ),
+            entry(
+                EntryKind::User,
+                "[Request interrupted by user]",
+                at("2026-10-28T10:00:20Z"),
+            ),
             // At `until`: outside.
             entry(EntryKind::User, "Morgen", at("2026-10-29T00:00:00Z")),
             entry(EntryKind::Assistant, "Gut", at("2026-10-29T00:00:10Z")),
@@ -455,6 +523,11 @@ mod tests {
                     "Tests laufen.".to_owned()
                 ),
                 (DailyItemKind::Prompt, 9 * 3_600_000, "Weiter".to_owned()),
+                (
+                    DailyItemKind::Prompt,
+                    10 * 3_600_000,
+                    "/review 301".to_owned()
+                ),
             ]
         );
     }
