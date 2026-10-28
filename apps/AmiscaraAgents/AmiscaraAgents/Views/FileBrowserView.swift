@@ -371,7 +371,8 @@ private struct FilePreviewView: View {
     }
 
     /// Writes the draft unless the file changed on the host meanwhile; then
-    /// the draft stays and the alert offers to reload.
+    /// the draft stays and the alert offers to reload. Text typed while
+    /// saving keeps the editor open, on the saved file as the new base.
     private func save() {
         guard let preview, let draft else { return }
         saving = true
@@ -380,7 +381,7 @@ private struct FilePreviewView: View {
             defer { saving = false }
             do {
                 self.preview = try await connection.saveFile(preview, text: draft)
-                stopEditing()
+                if self.draft == draft { stopEditing() }
             } catch FfiError.FileChanged {
                 conflict = true
             } catch {
