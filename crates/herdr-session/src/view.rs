@@ -6,9 +6,10 @@ use std::collections::HashMap;
 
 use herdr_core::SessionState;
 use herdr_core::pane::PaneScreen;
+use herdr_core::question;
 use herdr_core::spaces::{self, SpaceSort};
 use herdr_core::sync::{SyncState, SyncStatus};
-use herdr_core::terminal::{Color, Span};
+use herdr_core::terminal::{Color, Screen, Span};
 use herdr_proto::{AgentStatus, PaneInfo, TabLayout};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -201,6 +202,24 @@ pub struct PaneContent {
     pub truncated: bool,
     /// History rows asked for, 0 when `lines` is the visible screen only.
     pub history_lines: u32,
+    /// The agent's choice question at the bottom, if any (#272).
+    pub question: Option<ChoiceQuestion>,
+}
+
+/// A question an agent asks with numbered options, such as Claude Code's
+/// permission prompt; answered by sending one option's key.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoiceQuestion {
+    pub options: Vec<ChoiceOption>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoiceOption {
+    /// The logical key that selects it, e.g. `2`.
+    pub key: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -463,7 +482,23 @@ pub fn pane_content(screen: &PaneScreen) -> PaneContent {
             .collect(),
         truncated: screen.truncated,
         history_lines: screen.history_lines,
+        question: choice_question(&screen.screen),
     }
+}
+
+/// The choice question at the bottom of a screen, see
+/// [`herdr_core::question`].
+pub fn choice_question(screen: &Screen) -> Option<ChoiceQuestion> {
+    let choices = question::detect(screen)?;
+    Some(ChoiceQuestion {
+        options: choices
+            .into_iter()
+            .map(|choice| ChoiceOption {
+                key: choice.number.to_string(),
+                label: choice.label,
+            })
+            .collect(),
+    })
 }
 
 fn styled_span(span: &Span) -> StyledSpan {

@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
-use crate::view::{self, PaneContent, SessionUpdate};
+use crate::view::{self, ChoiceQuestion, PaneContent, SessionUpdate};
 
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
@@ -63,6 +63,14 @@ pub enum SessionError {
     /// be renewed, or sshd forbids TCP forwarding.
     #[error("{0}")]
     Forward(String),
+    /// A file was not saved: it changed on the host since it was opened
+    /// (#271).
+    #[error("{0}")]
+    FileChanged(String),
+    /// A file was saved but could not be read back (#271): the copy on the
+    /// device is out of date, reload it.
+    #[error("{0}")]
+    SavedNotRead(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -105,6 +113,12 @@ impl From<actions::ActionError> for SessionError {
 
 fn files_error(err: TransportError) -> SessionError {
     match err {
+        TransportError::Files(message) if message.ends_with(herdr_transport::CHANGED_ON_HOST) => {
+            SessionError::FileChanged(message)
+        }
+        TransportError::Files(message) if message.starts_with(browse::SAVED_NOT_READ) => {
+            SessionError::SavedNotRead(message)
+        }
         TransportError::Files(message) => SessionError::Files(message),
         other => SessionError::NotConnected(other.to_string()),
     }
@@ -459,6 +473,17 @@ impl Session {
         Ok(read.screen.excerpt(max_lines as usize))
     }
 
+    /// The choice question an agent asks at the bottom of a pane's visible
+    /// screen, for a notification's actions (#272). Read only.
+    pub async fn choice_question(
+        &self,
+        pane_id: &str,
+    ) -> Result<Option<ChoiceQuestion>, SessionError> {
+        let conn = self.connection()?;
+        let read = pane::read_screen(&conn, pane_id).await?;
+        Ok(view::choice_question(&read.screen))
+    }
+
     /// Sends logical keys (`enter`, `esc`, `1`, `ctrl+c`, ...) to a pane.
     pub async fn send_keys(&self, pane_id: &str, keys: &[String]) -> Result<(), SessionError> {
         let conn = self.connection()?;
@@ -796,6 +821,25 @@ impl Session {
     pub async fn file_preview(&self, path: &str) -> Result<browse::FilePreview, SessionError> {
         let conn = self.connection()?;
         browse::preview(&conn, path).await.map_err(files_error)
+    }
+
+    /// Writes `text` to the file at the absolute `path` on the host (#271)
+    /// and returns it as now saved. `size` and `modified` are those of the
+    /// [`browse::FilePreview`] it was edited from; when the file changed
+    /// since, nothing is written and it fails with
+    /// [`SessionError::FileChanged`]; written but not read back, with
+    /// [`SessionError::SavedNotRead`]. Up to 256 KB of text.
+    pub async fn save_file(
+        &self,
+        path: &str,
+        text: &str,
+        size: u64,
+        modified: u64,
+    ) -> Result<browse::FilePreview, SessionError> {
+        let conn = self.connection()?;
+        browse::save(&conn, path, text, size, modified)
+            .await
+            .map_err(files_error)
     }
 
     /// Uploads any file to `~/.amiscara-agents/uploads` under its own name,
@@ -1195,7 +1239,31 @@ fn upload_name(ext: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::named_upload;
+    use super::{SessionError, TransportError, files_error, named_upload};
+
+    #[test]
+    fn a_file_changed_on_the_host_gets_its_own_error() {
+        let changed = format!("/home/a/x.txt {}", herdr_transport::CHANGED_ON_HOST);
+        assert!(matches!(
+            files_error(TransportError::Files(changed)),
+            SessionError::FileChanged(_)
+        ));
+        assert!(matches!(
+            files_error(TransportError::Files(
+                "/home/a/x.txt: Permission denied".into()
+            )),
+            SessionError::Files(_)
+        ));
+        let unread = format!("{}: connection lost", herdr_core::browse::SAVED_NOT_READ);
+        assert!(matches!(
+            files_error(TransportError::Files(unread)),
+            SessionError::SavedNotRead(_)
+        ));
+        assert!(matches!(
+            files_error(TransportError::Timeout),
+            SessionError::NotConnected(_)
+        ));
+    }
 
     #[test]
     fn named_uploads_are_safe_and_keep_the_name() {

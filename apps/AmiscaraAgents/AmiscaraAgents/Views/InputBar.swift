@@ -11,6 +11,9 @@ import UIKit
 struct InputBar: View {
     let connection: HostConnection
     let pane: PaneItem
+    /// The choice question the agent asks on the screen (#272): its options
+    /// replace the buttons 1, 2, 3.
+    var question: ChoiceQuestion?
 
     @State private var text = ""
     @State private var sending = false
@@ -51,7 +54,9 @@ struct InputBar: View {
     private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
     #endif
     private var isAgent: Bool { pane.agent != nil }
-    private var isBlocked: Bool { isAgent && pane.agentState == .blocked }
+    /// Waits for an answer: herdr says so, or a choice question is on the
+    /// screen, which herdr may report late (#272).
+    private var isBlocked: Bool { isAgent && (pane.agentState == .blocked || question != nil) }
     /// Never while the agent waits for approval: typed keys would answer
     /// its dialog.
     private var isLive: Bool {
@@ -129,6 +134,7 @@ struct InputBar: View {
             error = nil
             attachments = []
             takePendingShare()
+            takeHostFiles()
         }
         // Folding an iPhone Duo or resizing a window can swap this bar for
         // a new one; the composer goes along (#215).
@@ -138,6 +144,7 @@ struct InputBar: View {
                 attachments = draft.attachments
             }
             takePendingShare()
+            takeHostFiles()
         }
         #if os(iOS)
         // A share for this pane while the bar is on screen (#225).
@@ -148,6 +155,10 @@ struct InputBar: View {
         // On the Mac too: its share extension and the handoff sheet (#236).
         .onReceive(NotificationCenter.default.publisher(for: PendingShare.arrived)) { _ in
             takePendingShare()
+        }
+        // A file sent from the file browser (#271).
+        .onReceive(NotificationCenter.default.publisher(for: ComposerInbox.arrived)) { _ in
+            takeHostFiles()
         }
         .onChange(of: text) { keepDraft() }
         .onChange(of: attachments.map(\.id)) { keepDraft() }
@@ -201,7 +212,7 @@ struct InputBar: View {
         if !dictation.isRunning { toggleDictation() }
     }
 
-    private var draftKey: String { "\(connection.id)/\(pane.paneId)" }
+    private var draftKey: String { ComposerInbox.key(hostID: connection.id, paneID: pane.paneId) }
 
     /// Text and images shared to this pane from another app (#225), or a
     /// handoff as a Markdown file (#236): into the composer, not sent.
@@ -244,6 +255,18 @@ struct InputBar: View {
         text = current.isEmpty ? prompt : current + "\n" + prompt
         attachments.append(attachment)
     }
+
+    /// Files on the host sent from the file browser (#271): attached by
+    /// path, each once, and the composer focused for the prompt.
+    private func takeHostFiles() {
+        let paths = ComposerInbox.take(key: draftKey)
+        guard !paths.isEmpty else { return }
+        for path in paths where !attachments.contains(where: { $0.hostPath == path }) {
+            attachments.append(.hostFile(path: path))
+        }
+        composerFocused = true
+    }
+
     private var historyKey: String { PromptHistory.key(host: connection.id, pane: pane.paneId) }
 
     private func keepDraft() {
@@ -300,7 +323,7 @@ struct InputBar: View {
                                     .scaledToFill()
                             } else if let name = attachment.fileName {
                                 VStack(spacing: 2) {
-                                    Image(systemName: "doc").font(.title3)
+                                    Image(systemName: attachment.hostPath == nil ? "doc" : "doc.badge.arrow.up").font(.title3)
                                     Text(name).font(.caption2).lineLimit(2).multilineTextAlignment(.center)
                                 }
                                 .foregroundStyle(.secondary)
@@ -472,7 +495,15 @@ struct InputBar: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 waitingLabel
-                HStack(spacing: 6) { answerButtons }
+                if question != nil {
+                    // Option texts can be long; on a phone the row scrolls.
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 6) { answerButtons }
+                    }
+                    .scrollIndicators(.hidden)
+                } else {
+                    HStack(spacing: 6) { answerButtons }
+                }
             }
         }
         .controlSize(.large)
@@ -486,9 +517,22 @@ struct InputBar: View {
 
     @ViewBuilder
     private var answerButtons: some View {
-        ForEach(["1", "2", "3"], id: \.self) { key in
-            Button(key) { send(keys: [key]) }
-                .help("Option \(key) wählen (⌥⌘\(key))")
+        if let question {
+            // Claude Code takes the digit as the answer, no Enter needed.
+            ForEach(question.options, id: \.key) { option in
+                Button { send(keys: [option.key]) } label: {
+                    Text(option.label)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 240)
+                }
+                .help(option.label)
+            }
+        } else {
+            ForEach(["1", "2", "3"], id: \.self) { key in
+                Button(key) { send(keys: [key]) }
+                    .help("Option \(key) wählen (⌥⌘\(key))")
+            }
         }
         Button("Bestätigen", systemImage: "return") { send(keys: ["enter"]) }
             .buttonStyle(.borderedProminent)
@@ -785,6 +829,26 @@ struct InputBar: View {
 @MainActor
 private enum ComposerDraft {
     static var slot: (key: String, text: String, attachments: [ImageAttachment])?
+}
+
+/// Files on the host the file browser sends to a pane's composer (#271),
+/// per host and pane like `ComposerDraft`, until its input bar takes them.
+@MainActor
+enum ComposerInbox {
+    static let arrived = Notification.Name("ComposerInbox.arrived")
+    private static var paths: [String: [String]] = [:]
+
+    static func add(path: String, hostID: UUID, paneID: String) {
+        paths[key(hostID: hostID, paneID: paneID), default: []].append(path)
+        NotificationCenter.default.post(name: arrived, object: nil)
+    }
+
+    static func take(key: String) -> [String] {
+        paths.removeValue(forKey: key) ?? []
+    }
+
+    /// The same as `InputBar.draftKey`.
+    static func key(hostID: UUID, paneID: String) -> String { "\(hostID)/\(paneID)" }
 }
 
 /// Starts dictation a control asked for (#227) when the request or the app
