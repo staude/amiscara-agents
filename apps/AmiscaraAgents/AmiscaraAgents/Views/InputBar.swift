@@ -46,6 +46,10 @@ struct InputBar: View {
     #if os(macOS)
     /// Key monitor for ⌘V in the composer, see `catchImagePaste`.
     @State private var pasteMonitor: Any?
+    /// Key monitor for the answer keys while the agent waits, see `catchAnswerKeys`.
+    @State private var answerKeyMonitor: Any?
+    /// The window this bar is in; events from sheets or other windows pass.
+    @State private var windowBox = WindowBox()
     #endif
 
     #if os(iOS)
@@ -119,13 +123,18 @@ struct InputBar: View {
             addPasted(images.map { ImageAttachment.make(data: $0.data, type: $0.type) })
         }
         #if os(macOS)
-        .onAppear(perform: catchImagePaste)
-        .onDisappear(perform: releaseImagePaste)
-        // The monitor holds this view's values; renew it for another host.
-        .onChange(of: connection.id) {
-            releaseImagePaste()
-            catchImagePaste()
-        }
+        .modifier(KeyMonitors(
+            window: windowBox,
+            connectionID: connection.id,
+            answerKeyTrigger: answerKeyTrigger,
+            catchImagePaste: catchImagePaste,
+            releaseImagePaste: releaseImagePaste,
+            renewAnswerKeys: {
+                releaseAnswerKeys()
+                if isBlocked { catchAnswerKeys() }
+            },
+            releaseAnswerKeys: releaseAnswerKeys
+        ))
         #endif
         // The key, not only the pane: two hosts may use the same pane id.
         .onChange(of: draftKey) {
@@ -435,6 +444,50 @@ struct InputBar: View {
         if let pasteMonitor { NSEvent.removeMonitor(pasteMonitor) }
         pasteMonitor = nil
     }
+
+    private var answerKeyTrigger: String { "\(draftKey)/\(isBlocked)" }
+
+    /// While the agent waits for an answer, arrows, Enter and Esc go to the
+    /// pane from anywhere in the window (#277), not only from the composer:
+    /// after a click into the pane view or the sidebar nobody has to click
+    /// back. Digits stay out, they would answer a dialog by accident. With
+    /// text in the composer, arrows and Enter keep their editing job; Esc
+    /// still cancels the question.
+    private func catchAnswerKeys() {
+        guard answerKeyMonitor == nil else { return }
+        answerKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
+                  let key = Self.answerKeys[event.keyCode]
+            else { return event }
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard isBlocked, connection.isLive, !AppLock.shared.isCovered,
+                      let window = windowBox.window, event.window === window, window.attachedSheet == nil
+                else { return false }
+                if let editor = window.firstResponder as? NSTextView, editor.hasMarkedText() {
+                    // An input method is composing; its keys are not ours.
+                    return false
+                }
+                if composerFocused {
+                    if key != "esc", !text.isEmpty || !attachments.isEmpty { return false }
+                } else if window.firstResponder is NSText {
+                    // Another text field, e.g. the pane search.
+                    return false
+                }
+                liveKey(key)
+                return true
+            }
+            return handled ? nil : event
+        }
+    }
+
+    private func releaseAnswerKeys() {
+        if let answerKeyMonitor { NSEvent.removeMonitor(answerKeyMonitor) }
+        answerKeyMonitor = nil
+    }
+
+    private static let answerKeys: [UInt16: String] = [
+        126: "up", 125: "down", 123: "left", 124: "right", 36: "enter", 76: "enter", 53: "esc",
+    ]
     #endif
 
     private func addPhotos(_ items: [PhotosPickerItem]) async {
@@ -779,7 +832,9 @@ struct InputBar: View {
 
     /// Plain arrow keys in an empty composer go to the pane, to move through
     /// an agent's question or a shell's history; with text they move the
-    /// cursor. In live mode up and down pick from the agent's suggestions.
+    /// cursor. On the Mac the answer-key monitor takes over while the agent
+    /// waits (`catchAnswerKeys`). In live mode up and down pick from the
+    /// agent's suggestions.
     private func arrow(_ press: KeyPress) -> KeyPress.Result {
         guard press.modifiers.isEmpty, let key = Self.arrowKeys[press.key] else { return .ignored }
         if isLive { return key == "up" || key == "down" ? liveArrow(key) : .ignored }
@@ -865,3 +920,55 @@ private struct RequestedDictation: ViewModifier {
             .onChange(of: covered) { start() }
     }
 }
+
+#if os(macOS)
+/// Holds the window of the input bar for `InputBar.catchAnswerKeys`.
+final class WindowBox {
+    weak var window: NSWindow?
+}
+
+/// Starts and renews the key monitors of the input bar. The monitors hold
+/// the bar's values, so they are renewed for another host (paste) and for
+/// another pane or a changed wait state (answer keys).
+private struct KeyMonitors: ViewModifier {
+    let window: WindowBox
+    let connectionID: UUID
+    let answerKeyTrigger: String
+    let catchImagePaste: () -> Void
+    let releaseImagePaste: () -> Void
+    let renewAnswerKeys: () -> Void
+    let releaseAnswerKeys: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .background(WindowReader(box: window))
+            .onAppear(perform: catchImagePaste)
+            .onDisappear {
+                releaseImagePaste()
+                releaseAnswerKeys()
+            }
+            .onChange(of: connectionID) {
+                releaseImagePaste()
+                catchImagePaste()
+            }
+            .onChange(of: answerKeyTrigger, initial: true, renewAnswerKeys)
+    }
+}
+
+private struct WindowReader: NSViewRepresentable {
+    let box: WindowBox
+
+    func makeNSView(context: Context) -> NSView { Reader(box: box) }
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    private final class Reader: NSView {
+        let box: WindowBox
+        init(box: WindowBox) {
+            self.box = box
+            super.init(frame: .zero)
+        }
+        @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+        override func viewDidMoveToWindow() { box.window = window }
+    }
+}
+#endif

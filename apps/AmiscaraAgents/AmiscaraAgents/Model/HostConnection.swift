@@ -9,6 +9,9 @@ final class HostConnection: Identifiable {
     private(set) var config: HostConfig
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
+    /// When the host was last seen connected, for the overview (#274).
+    private var liveClock = LiveClock()
+    var liveAt: Date? { liveClock.liveAt }
     @ObservationIgnored private var session: HostSession?
     /// Counts session starts. Pane followers end with their session, so a
     /// pane view follows its pane again when this changes.
@@ -36,7 +39,9 @@ final class HostConnection: Identifiable {
             let bridge = SessionBridge { [weak self] update in
                 Task { @MainActor in
                     guard let self else { return }
+                    let wasLive = self.isLive
                     self.update = update
+                    self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
                     self.onUpdate?(self, update)
                 }
             }
@@ -57,6 +62,7 @@ final class HostConnection: Identifiable {
     /// (refused login, host key) starts over instead, also when its last
     /// update has not arrived yet.
     func reconnect() {
+        liveClock.reconnecting(live: isLive)
         guard let session, session.reconnect() else { return start() }
     }
 

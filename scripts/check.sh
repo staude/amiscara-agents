@@ -25,6 +25,7 @@ cargo test --workspace --locked
 if $apple; then
     scripts/last-tabs-test.sh
     scripts/pane-visits-test.sh
+    scripts/agent-overview-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
         [[ "$scheme" == AmiscaraAgents-iOS ]] && destination="generic/platform=iOS"
