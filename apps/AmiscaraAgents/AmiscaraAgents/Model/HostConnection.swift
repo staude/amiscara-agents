@@ -107,6 +107,9 @@ final class HostConnection: Identifiable {
         regrouped.allowWebForward = config.allowWebForward
         // Only read when opening VS Code (#288).
         regrouped.sshTarget = config.sshTarget
+        // Only decides whether "VPN aus" shows (#305).
+        regrouped.viaNetBird = config.viaNetBird
+        regrouped.netBirdLearned = config.netBirdLearned
         if regrouped == config, let session {
             self.config = config
             session.setGroupSpacesByName(on: config.groupSpacesByName)
