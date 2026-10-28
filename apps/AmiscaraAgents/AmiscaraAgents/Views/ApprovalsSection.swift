@@ -24,7 +24,7 @@ struct ApprovalsSection: View {
                     }
                     .buttonStyle(.plain)
                 }
-                ForEach(errors, id: \.host) { error in
+                ForEach(errors, id: \.id) { error in
                     Label {
                         Text(hostID == nil ? "\(error.host): \(error.message)" : error.message)
                     } icon: {
@@ -84,10 +84,11 @@ private struct ApprovalRow: View {
     }
 
     @ViewBuilder private var status: some View {
-        if let approved = store.approvals.answered[item.id] {
+        let waiting = Approvals.planTab(for: item, in: store.connection(for: item.hostID)) != nil
+        if let approved = store.approvals.answered[item.id], !waiting || approved {
             Label(approved ? "Freigegeben" : "Später", systemImage: approved ? "checkmark.circle" : "clock")
                 .foregroundStyle(approved ? .green : .secondary)
-        } else if Approvals.planTab(for: item, in: store.connection(for: item.hostID)) != nil {
+        } else if waiting {
             Label("Planungs-Tab wartet", systemImage: "hand.raised")
                 .foregroundStyle(.orange)
         } else if item.overview == nil {
@@ -162,16 +163,21 @@ struct ApprovalDetail: View {
         #if os(macOS)
         .frame(minWidth: 480, minHeight: 520)
         #endif
+        // Read again every few seconds: the tab may get to the approval
+        // after open questions, or ask again after an answer from here.
         .task(id: tab?.paneId) {
             asksApproval = nil
             guard let tab, let connection else { return }
-            asksApproval = await Approvals.approvalQuestion(in: tab, on: connection) != nil
+            while !Task.isCancelled {
+                asksApproval = await Approvals.approvalQuestion(in: tab, on: connection) != nil
+                try? await Task.sleep(for: .seconds(3))
+            }
         }
     }
 
     @ViewBuilder
     private func answers(connection: HostConnection?, tab: BoardItem?) -> some View {
-        if let approved = store.approvals.answered[item.id] {
+        if let approved = store.approvals.answered[item.id], asksApproval != true || tab == nil {
             Label(
                 approved ? "Freigegeben. Der Planungs-Tab startet die Umsetzung." : "Später. Der Plan wartet weiter auf Freigabe.",
                 systemImage: approved ? "checkmark.circle" : "clock"

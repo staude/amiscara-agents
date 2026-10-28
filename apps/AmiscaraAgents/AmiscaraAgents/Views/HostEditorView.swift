@@ -396,7 +396,6 @@ struct HostEditorView: View {
         config.user.isEmpty ? String(localized: "/Users/<benutzer>/.config/herdr/herdr.sock") : defaultRemoteSocket(user: config.user)
     }
 
-    /// Not yet in the store: a new host, also one handed over prefilled.
     private var githubTokenChanged: Bool {
         #if os(tvOS)
         false
@@ -405,6 +404,7 @@ struct HostEditorView: View {
         #endif
     }
 
+    /// Not yet in the store: a new host, also one handed over prefilled.
     private var isNew: Bool {
         store.connection(for: original.id) == nil
     }
@@ -508,6 +508,9 @@ struct HostEditorView: View {
                     try GitHubToken.save(token, for: config.id)
                 }
                 store.approvals.reset(config.id)
+                let approvals = store.approvals
+                let connections = store.connections
+                Task { await approvals.load(connections, force: true) }
             }
             #endif
             if isNew {

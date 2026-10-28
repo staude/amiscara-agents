@@ -94,22 +94,42 @@ final class Approvals {
         return items
     }
 
-    /// Errors by host name, for one host or all.
-    func errors(for hostID: UUID?, in connections: [HostConnection]) -> [(host: String, message: String)] {
+    /// Errors with their host, for one host or all.
+    func errors(for hostID: UUID?, in connections: [HostConnection]) -> [(id: UUID, host: String, message: String)] {
         connections
             .filter { hostID == nil || $0.id == hostID }
             .compactMap { connection in
-                results[connection.id]?.error.map { (host: connection.config.name, message: $0) }
+                results[connection.id]?.error.map { (id: connection.id, host: connection.config.name, message: $0) }
             }
     }
 
     /// Loads all hosts with a token; a host loaded less than half a minute
     /// ago is skipped unless `force`. Hosts without a connection keep what
     /// they showed last.
+    /// A call while loading runs once more afterwards. The load runs in a
+    /// task of its own, so a view that goes away or restarts its task does
+    /// not cut it short.
     func load(_ connections: [HostConnection], force: Bool = false) async {
-        guard !loading else { return }
+        guard !loading else {
+            pending = (connections, force || pending?.force == true)
+            return
+        }
         loading = true
-        defer { loading = false }
+        let run = Task {
+            var next: (connections: [HostConnection], force: Bool)? = (connections, force)
+            while let run = next {
+                await loadOnce(run.connections, force: run.force)
+                next = pending
+                pending = nil
+            }
+            loading = false
+        }
+        await run.value
+    }
+
+    @ObservationIgnored private var pending: (connections: [HostConnection], force: Bool)?
+
+    private func loadOnce(_ connections: [HostConnection], force: Bool) async {
         for connection in connections {
             if !force, let at = loadedAt[connection.id], Date.now.timeIntervalSince(at) < 30 { continue }
             guard let token = (try? GitHubToken.load(for: connection.id)) ?? nil,
@@ -122,8 +142,10 @@ final class Approvals {
                 results[connection.id] = HostResult(error: ConnectionFailure.approvalsFilesOff.localizedDescription)
                 continue
             }
-            guard connection.isLive else { continue }
-            results[connection.id] = await Self.fetch(connection, token: token)
+            guard connection.isLive,
+                  let result = await Self.fetch(connection, token: token)
+            else { continue }
+            results[connection.id] = result
             loadedAt[connection.id] = .now
         }
         let listed = Set(results.values.flatMap(\.items).map(\.id))
@@ -226,7 +248,8 @@ final class Approvals {
     /// must not stand in for the real one.
     private static let planAuthors: Set<String> = ["OWNER", "MEMBER", "COLLABORATOR"]
 
-    private static func fetch(_ connection: HostConnection, token: String) async -> HostResult {
+    /// `nil` when the request was cancelled; the host keeps what it showed.
+    private static func fetch(_ connection: HostConnection, token: String) async -> HostResult? {
         let repos: [GitHubRepo]
         do {
             repos = try await connection.githubRepos()
@@ -263,6 +286,8 @@ final class Approvals {
             } catch FetchFailure.status(let status) {
                 result.error = String(localized: "GitHub antwortet mit Status \(status).")
                 break scan
+            } catch let error as URLError where error.code == .cancelled {
+                return nil
             } catch {
                 result.error = error.localizedDescription
                 break scan
