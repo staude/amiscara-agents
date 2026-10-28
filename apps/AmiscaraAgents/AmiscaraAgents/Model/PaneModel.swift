@@ -12,6 +12,9 @@ final class PaneModel {
     var content: PaneContent? { agentHistory ?? followed }
     /// The followed screen, with scrollback when asked for.
     private var followed: PaneContent?
+    /// When the shown screen last changed, also for a screen kept from
+    /// before (#276).
+    private(set) var updatedAt: Date?
     private(set) var error: String?
     /// The transcript of a full-screen agent such as Claude Code, which
     /// herdr keeps no scrollback for (#187): read once on request and shown
@@ -132,7 +135,10 @@ final class PaneModel {
         isLive = live
         follow?.stop()
         follow = nil
-        followed = nil
+        // The last screen kept, until the pane reads a new one (#276).
+        let kept = paneID.flatMap { paneID in connection.flatMap { PaneCache.shared.entry(host: $0.id, pane: paneID) } }
+        followed = kept?.content
+        updatedAt = kept?.date
         error = nil
         historyLines = 0
         screenRows = 0
@@ -144,13 +150,16 @@ final class PaneModel {
         self.connection = connection
         generation = connection?.generation
         guard let paneID, let connection else { return }
+        let hostID = connection.id
         let bridge = PaneBridge(
             content: { [weak self] content in
                 Task { @MainActor in
                     guard let self, self.paneID == content.paneId else { return }
                     if content.historyLines == 0 { self.screenRows = content.lines.count }
                     self.followed = content
+                    self.updatedAt = .now
                     self.error = nil
+                    PaneCache.shared.record(content, host: hostID, pane: content.paneId)
                 }
             },
             error: { [weak self] message in
