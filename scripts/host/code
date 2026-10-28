@@ -11,7 +11,8 @@
 # source `amiscara-agents-editor`): `editor_id` plus the path in pieces of
 # 80 characters, `editor_path_0` to `editor_path_14`. The script returns at
 # once; if no app opened the folder within 30 seconds (an app sets
-# `editor_done` to the id), the real `code` opens it on the host. Outside
+# `editor_done` to the id), the real `code` opens it on the host. A newer
+# `code` in the same pane replaces the request. Outside
 # herdr, with other arguments than one folder, or for paths over 1200
 # characters or with spaces or non-ASCII characters, the real `code` runs
 # right away.
@@ -45,15 +46,16 @@ run_real() {
 
 [ -n "${HERDR_PANE_ID-}" ] && [ "$#" -eq 1 ] && [ -d "$1" ] || run_real "$@"
 path=$(CDPATH='' cd -- "$1" && pwd -P) || run_real "$@"
-export LC_ALL=C
-case $path in
-/*) ;;
-*) run_real "$@" ;;
-esac
-case $path in
-*[!!-~]*) run_real "$@" ;;
-esac
-[ "${#path}" -le 1200 ] || run_real "$@"
+# Printable ASCII only, checked in the C locale; the real `code` keeps the
+# caller's locale.
+plain=$(
+    export LC_ALL=C
+    case $path in
+    (/*[!!-~]* | [!/]*) ;;
+    (*) [ "${#path}" -le 1200 ] && echo yes ;;
+    esac
+)
+[ "$plain" = yes ] || run_real "$@"
 
 herdr=${HERDR_BIN_PATH:-herdr}
 id="$(date +%s)-$$"
@@ -82,6 +84,9 @@ nohup sh -c '
         sleep 1
         case $("$herdr" pane get "$pane" 2>/dev/null) in
         *"\"editor_done\":\"$id\""*) exit 0 ;;
+        # A newer `code` in the pane replaced this request.
+        *"\"editor_id\":\"$id\""*) ;;
+        *"\"editor_id\":\""*) exit 0 ;;
         esac
         i=$((i + 1))
     done

@@ -406,7 +406,11 @@ A `.deb` does not update itself; install the new one by hand.
    `code <folder>` in a pane then asks the Mac and desktop apps connected
    to the host to open the folder in their own VS Code over Remote-SSH and
    returns at once; if none opens it within 30 seconds, the real `code`
-   opens it on the host. Other arguments, paths with spaces or non-ASCII
+   opens it on the host. Working at the host itself, `code .` in a herdr
+   pane therefore takes those 30 seconds: the Mac app's "Dieser Mac" and
+   local hosts of the desktop app get no offers. A host with input turned
+   off cannot take the request back, so the host opens the folder too.
+   Other arguments, paths with spaces or non-ASCII
    characters and paths over 1200 characters go straight to the real
    `code`. VS Code connects with the client's own SSH configuration, not
    the app's key: by default to `user@host` of the connection, or to the
