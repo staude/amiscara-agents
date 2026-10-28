@@ -132,6 +132,10 @@ code), so a host is set up the same way everywhere.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.
+- **Folders in VS Code:** `code .` in a pane, or "In VS Code öffnen" on a
+  space or pane, opens the folder in VS Code on the Mac or PC over
+  Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop
+  app.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the
@@ -391,6 +395,31 @@ A `.deb` does not update itself; install the new one by hand.
    opens inside the app; Android hands it to the browser, and a forwarded
    page keeps loading only while Android keeps the app running in the
    background (reliably with "Bereitschaft" on).
+6. Optional, for `code .` from a pane (#288): copy
+   [`scripts/host/code`](scripts/host/code) to `~/.amiscara-agents/bin/`
+   too, `chmod +x` it and put the folder in front of `PATH` in herdr panes:
+
+   ```sh
+   [ -n "$HERDR_PANE_ID" ] && PATH="$HOME/.amiscara-agents/bin:$PATH"
+   ```
+
+   `code <folder>` in a pane then asks the Mac and desktop apps connected
+   to the host to open the folder in their own VS Code over Remote-SSH and
+   returns at once; if none opens it within 30 seconds, the real `code`
+   opens it on the host; "Ignorieren" in an app drops it, then nothing
+   opens. A newer `code` in the same pane replaces the
+   request, so only its folder opens. Working at the host itself, `code .` in a herdr
+   pane therefore takes those 30 seconds: the Mac app's "Dieser Mac" and
+   local hosts of the desktop app get no offers. A host with input turned
+   off cannot take the request back, so the host opens the folder too.
+   Other arguments, paths with spaces or non-ASCII
+   characters and paths over 1200 characters go straight to the real
+   `code`. VS Code connects with the client's own SSH configuration, not
+   the app's key: by default to `user@host` of the connection, or to the
+   host's "SSH-Ziel für VS Code", e.g. an alias from `~/.ssh/config`, which
+   is needed when SSH does not run on port 22. The client needs VS Code
+   with the Remote-SSH extension. "In VS Code öffnen" on a space or in the
+   pane header works without the script.
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user

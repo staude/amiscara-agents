@@ -61,6 +61,24 @@ pub struct SessionUpdate {
     /// time ran out. Always empty for a local host, whose own browser
     /// opens them already.
     pub open_requests: Vec<OpenRequest>,
+    /// Folders agents on the host want opened in VS Code (#288), pending
+    /// ones as for `open_requests`; always empty for a local host, where
+    /// the `code` stand-in opens VS Code itself.
+    pub editor_requests: Vec<EditorRequest>,
+}
+
+/// A folder an agent on the host wants opened in VS Code, see
+/// [`SessionUpdate::editor_requests`].
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditorRequest {
+    pub pane_id: String,
+    /// Pass it back to `dismiss_editor_request`.
+    pub request_id: String,
+    /// Absolute path on the host.
+    pub path: String,
+    pub workspace_label: String,
+    pub pane_title: String,
 }
 
 /// A page an agent on the host wants opened, see
@@ -318,7 +336,7 @@ pub fn pane_content_from_json(json: &str) -> Option<PaneContent> {
 /// `group_by_name` is the host's setting for the "Bereich/Name" convention:
 /// off, every space keeps its full label and herdr's order. `sort` orders
 /// the spaces on each level of the sidebar. `open_requests` is false for a
-/// local host.
+/// local host; it covers editor requests too.
 pub fn session_update(
     state: &SyncState,
     previous: Option<&SessionState>,
@@ -356,6 +374,7 @@ pub fn session_update(
             board: Vec::new(),
             attention: Vec::new(),
             open_requests: Vec::new(),
+            editor_requests: Vec::new(),
         };
     };
 
@@ -487,6 +506,28 @@ pub fn session_update(
         None => Vec::new(),
     };
 
+    let editor_requests = if open_requests {
+        session
+            .editor_requests()
+            .into_iter()
+            .map(|request| {
+                let pane = session.pane(&request.pane_id);
+                EditorRequest {
+                    workspace_label: pane
+                        .and_then(|pane| session.workspace(&pane.workspace_id))
+                        .map(|ws| ws.label.clone())
+                        .unwrap_or_default(),
+                    pane_title: pane.map(title).unwrap_or_default(),
+                    pane_id: request.pane_id,
+                    request_id: request.editor_id,
+                    path: request.path,
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     let open_requests = if open_requests {
         session
             .open_requests()
@@ -514,6 +555,7 @@ pub fn session_update(
         status,
         attention,
         open_requests,
+        editor_requests,
         server_version: Some(session.version.clone()),
         protocol_supported: session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
         focused_pane_id: session.focused_pane_id.clone(),

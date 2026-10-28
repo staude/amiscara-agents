@@ -21,10 +21,10 @@ pub use add_host::{
     encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, HostStatus, OpenRequest, PaneContent,
-    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
-    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
-    TranscriptPage, WorkspaceItem,
+    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
+    PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout,
+    StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry,
+    TranscriptKind, TranscriptPage, WorkspaceItem,
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
@@ -328,6 +328,13 @@ pub fn pane_content_from_json(json: String) -> Option<PaneContent> {
     herdr_session::view::pane_content_from_json(&json)
 }
 
+/// The VS Code address that opens the folder `path` (#288): over
+/// Remote-SSH to `target`, or as a local folder without one.
+#[uniffi::export]
+pub fn vscode_url(target: Option<String>, path: String) -> String {
+    herdr_core::vscode_url(target.as_deref(), &path)
+}
+
 #[uniffi::export]
 pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL
@@ -426,6 +433,29 @@ impl HostSession {
         request_id: String,
     ) -> Result<(), FfiError> {
         Ok(runtime().block_on(self.session.dismiss_open_request(&pane_id, &request_id))?)
+    }
+
+    /// Takes an editor request back on the host (#288), so other devices
+    /// stop offering it and the host does not open VS Code itself. Blocks
+    /// for one round trip.
+    pub fn dismiss_editor_request(
+        &self,
+        pane_id: String,
+        request_id: String,
+    ) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.dismiss_editor_request(&pane_id, &request_id))?)
+    }
+
+    /// The folder to open a pane in VS Code with (#288), `None` when herdr
+    /// reports no working directory.
+    pub fn pane_folder(&self, pane_id: String) -> Option<String> {
+        self.session.pane_folder(&pane_id)
+    }
+
+    /// The folder to open a space in VS Code with (#288): that of the
+    /// focused pane in its active tab, else of the first.
+    pub fn space_folder(&self, workspace_id: String) -> Option<String> {
+        self.session.space_folder(&workspace_id)
     }
 
     /// Sends a prompt to the agent in a pane, followed by Enter. Blocks for

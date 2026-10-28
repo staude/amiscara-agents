@@ -308,6 +308,7 @@ pub async fn add_from_link(
         group_spaces: None,
         space_sort: None,
         space_order: None,
+        ssh_target: None,
     };
     save_host(state, host).await
 }
@@ -716,6 +717,64 @@ pub async fn dismiss_open_request(
 ) -> Result<(), AppError> {
     let session = writable(&state, &host_id)?;
     Ok(session.dismiss_open_request(&pane_id, &request_id).await?)
+}
+
+/// Opens a folder an agent on the host asked for in VS Code (#288), over
+/// Remote-SSH with the host's SSH target. Here, not in the webview: the
+/// opener there allows only web addresses.
+#[tauri::command]
+pub async fn open_editor_request(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    let host = state.store().get(&host_id)?;
+    open_in_vscode(&app, &host, &path)
+}
+
+/// "In VS Code öffnen" for a pane, else for a space with its focused pane
+/// (#288): the pane's working directory in VS Code.
+#[tauri::command]
+pub async fn open_in_editor(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: String,
+    workspace_id: Option<String>,
+    pane_id: Option<String>,
+) -> Result<(), AppError> {
+    let host = state.store().get(&host_id)?;
+    let session = state.session(&host_id)?;
+    let folder = match (pane_id, workspace_id) {
+        (Some(pane_id), _) => session.pane_folder(&pane_id),
+        (None, Some(workspace_id)) => session.space_folder(&workspace_id),
+        (None, None) => None,
+    };
+    open_in_vscode(&app, &host, &folder.ok_or(ConfigError::NoFolder)?)
+}
+
+/// Takes an editor request back on the host, so other devices drop it and
+/// the host does not open VS Code itself. Writes to herdr like
+/// `dismiss_open_request`.
+#[tauri::command]
+pub async fn dismiss_editor_request(
+    state: State<'_, AppState>,
+    host_id: String,
+    pane_id: String,
+    request_id: String,
+) -> Result<(), AppError> {
+    let session = writable(&state, &host_id)?;
+    Ok(session
+        .dismiss_editor_request(&pane_id, &request_id)
+        .await?)
+}
+
+fn open_in_vscode(app: &AppHandle, host: &HostConfig, path: &str) -> Result<(), AppError> {
+    use tauri_plugin_opener::OpenerExt;
+    let url = herdr_core::vscode_url(host.editor_target().as_deref(), path);
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|err| ConfigError::Other(format!("VS Code: {err}")).into())
 }
 
 /// `%XX` escapes from `encodeURIComponent`; anything malformed stays as is.

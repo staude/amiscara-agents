@@ -27,6 +27,7 @@
       groupSpaces: null,
       spaceSort: null,
       spaceOrder: null,
+      sshTarget: null,
     };
   }
 
@@ -208,6 +209,15 @@
           onchange={(e) => (draft.allowWebForward = e.currentTarget.checked)}
         />
         {t("allowWebForward")}
+      </label>
+      <label class="row">
+        <span>{t("sshTarget")}</span>
+        <input
+          value={draft.sshTarget ?? ""}
+          placeholder={draft.user && draft.host ? `${draft.user}@${draft.host}` : "user@host"}
+          autocomplete="off"
+          oninput={(e) => (draft.sshTarget = e.currentTarget.value.trim() || null)}
+        />
       </label>
     {:else}
       <label class="row">

@@ -2,9 +2,9 @@
 //! types: same names and fields, so the Swift side is unchanged.
 
 pub use herdr_session::view::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, HostStatus, OpenRequest, PaneContent,
-    PaneFrame, PaneItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem,
-    TermColor, TokenItem, WorkspaceItem,
+    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
+    PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine,
+    StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -46,6 +46,21 @@ pub struct SessionUpdate {
     /// Pages agents on the host want opened (#247), all pending ones;
     /// always empty for a local host.
     pub open_requests: Vec<OpenRequest>,
+    /// Folders agents on the host want opened in VS Code (#288), all
+    /// pending ones; always empty for a local host.
+    pub editor_requests: Vec<EditorRequest>,
+}
+
+/// A folder an agent on the host wants opened in VS Code.
+#[uniffi::remote(Record)]
+pub struct EditorRequest {
+    pub pane_id: String,
+    /// Pass it back to `dismiss_editor_request`.
+    pub request_id: String,
+    /// Absolute path on the host.
+    pub path: String,
+    pub workspace_label: String,
+    pub pane_title: String,
 }
 
 /// A page an agent on the host wants opened.

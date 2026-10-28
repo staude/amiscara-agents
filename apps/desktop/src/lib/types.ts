@@ -25,6 +25,8 @@ export interface HostConfig {
   spaceSort: SpaceSortMode | null;
   /** Workspace IDs in the user's order, for `manual`. */
   spaceOrder: string[] | null;
+  /** SSH target VS Code connects to (#288); `null` is `user@host`. */
+  sshTarget: string | null;
 }
 
 /** The order of spaces in the sidebar (#243). */
@@ -161,6 +163,18 @@ export interface SessionUpdate {
   attention: BoardItem[];
   /** Pages agents on the host want opened (#247); empty for a local host. */
   openRequests: OpenRequest[];
+  /** Folders agents on the host want opened in VS Code (#288); empty for a local host. */
+  editorRequests: EditorRequest[];
+}
+
+/** A folder an agent on the host wants opened in VS Code. */
+export interface EditorRequest {
+  paneId: string;
+  requestId: string;
+  /** Absolute path on the host. */
+  path: string;
+  workspaceLabel: string;
+  paneTitle: string;
 }
 
 /** A page an agent on the host wants opened. */

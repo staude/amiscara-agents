@@ -23,6 +23,12 @@ struct OpenRequestBanner: View {
             ForEach(store.openRequests) { pending in
                 card(pending)
             }
+            #if os(macOS)
+            // Folders for VS Code (#288), only on the Mac.
+            ForEach(store.editorRequests) { pending in
+                card(pending)
+            }
+            #endif
         }
         .frame(maxWidth: 520)
         .padding()
@@ -64,6 +70,50 @@ struct OpenRequestBanner: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 4)
     }
+
+    #if os(macOS)
+    private func card(_ pending: PendingEditor) -> some View {
+        let request = pending.request
+        let space = request.workspaceLabel.isEmpty ? pending.connection.config.name : request.workspaceLabel
+        return VStack(alignment: .leading, spacing: 6) {
+            Label("Agent in \(space) möchte einen Ordner in VS Code öffnen", systemImage: "chevron.left.forwardslash.chevron.right")
+                .font(.headline)
+            Text(request.path)
+                .font(.caption.monospaced())
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .foregroundStyle(.secondary)
+                .selectableText()
+            if let error = errors[pending.key] {
+                Text(error).font(.caption).foregroundStyle(.orange)
+            }
+            HStack {
+                Spacer()
+                Button("Ignorieren") {
+                    // Also on the host, so it does not open VS Code itself.
+                    store.ignoredOpenRequests.insert(pending.key)
+                    Task { await pending.connection.dismiss(editor: pending.request) }
+                }
+                Button("Öffnen") {
+                    Task { await open(pending) }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(radius: 4)
+    }
+
+    /// Opens the folder over Remote-SSH and takes the request back, so the
+    /// host does not open VS Code itself after its 30 seconds.
+    private func open(_ pending: PendingEditor) async {
+        errors[pending.key] = openInVSCode(pending.request.path, on: pending.connection)
+        guard errors[pending.key] == nil else { return }
+        store.ignoredOpenRequests.insert(pending.key)
+        await pending.connection.dismiss(editor: pending.request)
+    }
+    #endif
 
     private func open(_ pending: PendingOpen) async {
         opening.insert(pending.key)

@@ -3,6 +3,7 @@
   import { untrack } from "svelte";
   import { activeFind, FindState } from "../lib/find.svelte";
   import { PaneModel } from "../lib/pane.svelte";
+  import { openFolderInEditor } from "../lib/manage.svelte";
   import { findMatches } from "../lib/search";
   import { stateLabel } from "../lib/spaces";
   import { model as app } from "../lib/state.svelte";
@@ -94,6 +95,7 @@
         {copied ? "✓" : "⧉"}
       </button>
       <button class="flat" title={t("findInPane")} onclick={() => find.show()}>⌕</button>
+      <button class="flat" title={t("openInVSCode")} onclick={() => openFolderInEditor(hostId, { paneId })}>&lt;/&gt;</button>
     {/if}
   </header>
   {#if selected && find.open}
