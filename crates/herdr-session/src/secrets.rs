@@ -14,8 +14,26 @@ const MAX_NAME_LEN: usize = 128;
 /// Largest value the apps send.
 const MAX_VALUE_LEN: usize = 16 * 1024;
 
-/// Whether `name` can be an environment variable: `[A-Z_][A-Z0-9_]*`, up to
-/// 128 characters.
+/// Names the shells of herdr panes need for themselves; a secret of this name
+/// would break them once the README line exports it.
+const RESERVED_NAMES: [&str; 8] = [
+    "PATH", "HOME", "SHELL", "USER", "LOGNAME", "PWD", "IFS", "TERM",
+];
+/// Prefixes of the same kind: herdr's own variables and the dynamic linker's.
+const RESERVED_PREFIXES: [&str; 3] = ["HERDR_", "LD_", "DYLD_"];
+
+/// Whether `name` would break the shells of herdr panes when exported: `PATH`,
+/// `HOME`, `LD_PRELOAD`, `HERDR_PANE_ID` and the like.
+pub fn is_reserved_env_name(name: &str) -> bool {
+    RESERVED_NAMES.contains(&name)
+        || RESERVED_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+}
+
+/// Whether `name` can be an environment variable for a secret:
+/// `[A-Z_][A-Z0-9_]*`, up to 128 characters, and not
+/// [reserved](is_reserved_env_name).
 pub fn is_valid_env_name(name: &str) -> bool {
     let mut chars = name.chars();
     name.len() <= MAX_NAME_LEN
@@ -23,11 +41,16 @@ pub fn is_valid_env_name(name: &str) -> bool {
             .next()
             .is_some_and(|ch| ch.is_ascii_uppercase() || ch == '_')
         && chars.all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_')
+        && !is_reserved_env_name(name)
 }
 
 /// Refuses an unsuitable variable name.
 pub(crate) fn check_name(name: &str) -> Result<(), SessionError> {
-    if is_valid_env_name(name) {
+    if is_reserved_env_name(name) {
+        Err(SessionError::Upload(
+            "variable name is reserved for the shell".into(),
+        ))
+    } else if is_valid_env_name(name) {
         Ok(())
     } else {
         Err(SessionError::Upload("invalid variable name".into()))
@@ -51,7 +74,7 @@ pub(crate) fn check_value(value: &str) -> Result<(), SessionError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{check_value, is_valid_env_name};
+    use super::{check_name, check_value, is_reserved_env_name, is_valid_env_name};
 
     #[test]
     fn names_are_shell_variables() {
@@ -63,6 +86,20 @@ mod tests {
         }
         assert!(is_valid_env_name(&"A".repeat(128)));
         assert!(!is_valid_env_name(&"A".repeat(129)));
+    }
+
+    #[test]
+    fn names_that_break_the_shell_are_refused() {
+        for name in ["PATH", "HOME", "LD_PRELOAD", "HERDR_X", "DYLD_X", "IFS"] {
+            assert!(is_reserved_env_name(name), "{name}");
+            assert!(!is_valid_env_name(name), "{name}");
+            let message = check_name(name).expect_err("refused").to_string();
+            assert!(message.contains("reserved"), "{message}");
+        }
+        for name in ["PATHS", "MY_HOME", "HERDR", "OLD_X", "NB_TOKEN"] {
+            assert!(!is_reserved_env_name(name), "{name}");
+            assert!(is_valid_env_name(name), "{name}");
+        }
     }
 
     #[test]

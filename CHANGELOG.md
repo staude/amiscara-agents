@@ -595,7 +595,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
   value for running agents, `--names` lists them for the shell line that
   exports all of them in herdr panes. Core: `Connection::write_private_file`,
   `list_files_if_present`, `herdr_session::secrets`, `Session::send_secret`,
-  `remove_secret`, `secret_names`.
+  `remove_secret`, `secret_names`. Names the shells of herdr panes need
+  (`PATH`, `HOME`, `SHELL`, `USER`, `LOGNAME`, `PWD`, `IFS`, `TERM`,
+  `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
+  why) and `amiscara-env` (#293); a Keychain error after a successful send
+  reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
 
 ### Changed
 

@@ -15,9 +15,10 @@
 #
 #   NB_TOKEN=$(amiscara-env NB_TOKEN) netbird …
 #
-# Names are `[A-Z_][A-Z0-9_]*`, up to 128 characters, as in the apps. An
-# invalid name or a missing secret fails with exit 1; no folder means no
-# secrets.
+# Names are `[A-Z_][A-Z0-9_]*`, up to 128 characters, as in the apps, and not
+# one the shells need: PATH, HOME, SHELL, USER, LOGNAME, PWD, IFS, TERM and
+# HERDR_*, LD_*, DYLD_*. An invalid name or a missing secret fails with
+# exit 1; no folder means no secrets.
 
 LC_ALL=C
 export LC_ALL
@@ -25,6 +26,8 @@ dir=$HOME/.amiscara-agents/env
 
 valid_name() {
     case $1 in
+        PATH | HOME | SHELL | USER | LOGNAME | PWD | IFS | TERM | HERDR_* | LD_* | DYLD_*)
+            return 1 ;;
         '' | [!ABCDEFGHIJKLMNOPQRSTUVWXYZ_]* | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_]*)
             return 1 ;;
     esac

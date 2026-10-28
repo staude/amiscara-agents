@@ -53,7 +53,10 @@ struct SecretsView: View {
                 } header: {
                     Text("Neues Geheimnis")
                 } footer: {
-                    if !trimmedName.isEmpty && !isValidEnvName(name: trimmedName) {
+                    if isReservedEnvName(name: trimmedName) {
+                        Text("Dieser Name gehört der Shell (PATH, HOME, SHELL, USER, LOGNAME, PWD, IFS, TERM, HERDR_*, LD_*, DYLD_*) und würde die Panes beschädigen.")
+                            .foregroundStyle(.red)
+                    } else if !trimmedName.isEmpty && !isValidEnvName(name: trimmedName) {
                         Text("Erlaubt sind Großbuchstaben A–Z, Ziffern und _, am Anfang keine Ziffer.")
                             .foregroundStyle(.red)
                     } else {
@@ -150,7 +153,13 @@ struct SecretsView: View {
         let value = newValue
         run(failed: { String(localized: "Senden fehlgeschlagen: \($0)") }) {
             try await connection.sendSecret(name: name, value: value)
-            try SecretStore.save(value: value, name: name, host: hostID)
+            do {
+                try SecretStore.save(value: value, name: name, host: hostID)
+            } catch {
+                newName = ""
+                newValue = ""
+                throw SaveFailure(message: String(localized: "Auf dem Host gespeichert, aber nicht im Schlüsselbund: \(Self.reason(error))"))
+            }
             newName = ""
             newValue = ""
         }
@@ -183,6 +192,11 @@ struct SecretsView: View {
         }
     }
 
+    /// The value reached the host, only the Keychain refused it.
+    private struct SaveFailure: Error {
+        let message: String
+    }
+
     private func run(
         failed: @escaping (String) -> String,
         _ action: @escaping @MainActor () async throws -> Void
@@ -193,7 +207,7 @@ struct SecretsView: View {
             do {
                 try await action()
             } catch {
-                actionError = failed(Self.reason(error))
+                actionError = (error as? SaveFailure)?.message ?? failed(Self.reason(error))
             }
             await reload()
             busy = false

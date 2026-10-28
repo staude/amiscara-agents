@@ -1105,6 +1105,16 @@
         }
       }
     },
+    "Auf dem Host gespeichert, aber nicht im Schlüsselbund: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved on the host, but not in the Keychain: %@"
+          }
+        }
+      }
+    },
     "Auf dem Mac in Amiscara Agents im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen." : {
       "localizations" : {
         "en" : {
@@ -2197,6 +2207,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This Mac stores “waiting” and “done” in your private iCloud; iPhone and iPad with the same Apple Account get them as push notifications with answer buttons, and so does the Apple Watch. The devices must have this Mac set up as a host. With “Also send for SSH hosts” this also covers the hosts this Mac is connected to, such as a Linux server without its own Mac app; the same notification from a second Mac does not arrive twice. “Accept commands from the Apple Watch” (off unless turned on): when the iPhone is out of reach, the Watch stores answers (1, 2, 3, Enter, Esc) and prompts in iCloud, and this Mac sends them to the hosts it sends for. Any device with the same Apple Account can then send input; the host's “Allow input” still applies, and commands expire after 60 seconds."
+          }
+        }
+      }
+    },
+    "Dieser Name gehört der Shell (PATH, HOME, SHELL, USER, LOGNAME, PWD, IFS, TERM, HERDR_*, LD_*, DYLD_*) und würde die Panes beschädigen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This name belongs to the shell (PATH, HOME, SHELL, USER, LOGNAME, PWD, IFS, TERM, HERDR_*, LD_*, DYLD_*) and would break the panes."
           }
         }
       }
