@@ -5,6 +5,10 @@ struct ContentView: View {
     @State private var selection: SpaceRef?
     /// The overview of all hosts (#274) is open instead of a space.
     @State private var showingOverview = false
+    #if os(iOS)
+    /// Compact, the split view collapses to a stack (iPhone).
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
     @State private var editing: HostConfig?
     @State private var dismissedKeyPrompts: Set<UUID> = []
     /// An opened "add host" link and the new host it is meant for.
@@ -239,10 +243,21 @@ struct ContentView: View {
         selection = SpaceRef(hostID: space.hostID, workspaceID: space.workspaceID)
     }
 
+    /// Without a space chosen, Mac and iPad show the overview and mark it
+    /// in the sidebar; the iPhone stays on the sidebar, which a selection
+    /// would leave.
+    private var overviewIsPlaceholder: Bool {
+        #if os(iOS)
+        selection == nil && sizeClass != .compact
+        #else
+        selection == nil
+        #endif
+    }
+
     /// The sidebar's selection: the overview or a space.
     private var sidebarSelection: Binding<SidebarItem?> {
         Binding(
-            get: { showingOverview ? .overview : selection.map(SidebarItem.space) },
+            get: { showingOverview || overviewIsPlaceholder ? .overview : selection.map(SidebarItem.space) },
             set: { item in
                 switch item {
                 case .overview:
