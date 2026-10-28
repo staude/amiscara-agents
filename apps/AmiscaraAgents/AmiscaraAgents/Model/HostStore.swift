@@ -12,6 +12,10 @@ final class HostStore {
     /// Events of the local host for pushes through iCloud (#119).
     let cloudPush = CloudPushSender()
     #endif
+    #if !os(tvOS)
+    /// The agents Siri last learned by name (#275), see `updateShortcutAgents()`.
+    @ObservationIgnored var shortcutAgents: Set<String> = []
+    #endif
     var loadError: String?
 
     private let fileURL: URL = {
@@ -82,6 +86,9 @@ final class HostStore {
                 }
                 self.cloudPush.sendBoard(connection.snapshotAgents, live: connection.isLive, hostKey: key, hostName: name)
             }
+            #endif
+            #if !os(tvOS)
+            self.updateShortcutAgents()
             #endif
         }
         return connection
