@@ -148,7 +148,10 @@ pub async fn save(
     }
     conn.write_file(path, text.as_bytes(), size, modified)
         .await?;
-    preview(conn, path).await
+    // Saving again from the old base would report a change on the host.
+    preview(conn, path)
+        .await
+        .map_err(|err| TransportError::Files(format!("saved, but not read back: {err}")))
 }
 
 /// Whether `data`, the start of the file `name` of `size` bytes, is all of
