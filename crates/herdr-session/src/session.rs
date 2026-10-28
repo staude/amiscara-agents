@@ -855,7 +855,7 @@ impl Session {
             let (entries, cwd, cut) = match read_day(&conn, file, since_ms).await {
                 Ok(read) => read,
                 // Gone or unreadable since the script listed it.
-                Err(TransportError::Files(_)) => continue,
+                Err(TransportError::Files(_) | TransportError::Io(_)) => continue,
                 Err(err) => return Err(SessionError::NotConnected(err.to_string())),
             };
             truncated |= cut;
@@ -1380,6 +1380,9 @@ const MAX_DAY_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_DAY_SESSIONS: usize = 40;
 /// Bytes read back from the end of one session file for a day.
 const MAX_DAY_SESSION_BYTES: u64 = 16 * 1024 * 1024;
+/// Bytes read at once from a session file for a day: over SSH every read
+/// opens its own SFTP session, so few large reads.
+const DAY_CHUNK: u64 = 4 * 1024 * 1024;
 
 /// A space's id and a folder in it.
 type SpaceDir = (String, String);
@@ -1480,7 +1483,7 @@ async fn read_day(
         if file.size - end >= MAX_DAY_SESSION_BYTES {
             return Ok((entries, cwd, true));
         }
-        let start = end.saturating_sub(claude::CHUNK);
+        let start = end.saturating_sub(DAY_CHUNK);
         let data = conn.read_file_range(&file.path, start, end - start).await?;
         if cwd.is_none() {
             cwd = claude::session_cwd(&data);
