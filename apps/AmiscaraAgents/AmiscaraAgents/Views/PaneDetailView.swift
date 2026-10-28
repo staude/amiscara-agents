@@ -17,6 +17,10 @@ struct PaneDetailView: View {
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
     /// The pane's buttons sit in the vertical bar of an iPhone Duo (#215).
     @State private var verticalBar = false
+    #if !os(tvOS)
+    /// Reading Claude's replies aloud and the voice mode (#297).
+    @State private var voice = AgentVoice()
+    #endif
 
     var body: some View {
         let matches = search.matches(in: model.content)
@@ -34,6 +38,7 @@ struct PaneDetailView: View {
                         Divider()
                     }
                     summaryBar(connection: connection, paneID: selection.paneID)
+                    voiceBar
                     screen(connection: connection, search: search.highlight(matches))
                     if connection.config.inputAllowed, let pane = pane(connection, selection.paneID) {
                         Divider()
@@ -64,17 +69,39 @@ struct PaneDetailView: View {
         .onChange(of: FollowKey(pane: selection, generation: store.connection(for: selection?.hostID)?.generation), initial: true) {
             model.show(paneID: selection?.paneID, on: store.connection(for: selection?.hostID))
         }
-        .onChange(of: selection) { search.matchIndex = nil }
+        .onChange(of: selection) {
+            search.matchIndex = nil
+            #if !os(tvOS)
+            voice.stop()
+            #endif
+        }
+        #if !os(tvOS)
+        // Reads a reply once Claude has finished (#297); a new pane is no
+        // state change.
+        .onChange(of: VoiceKey(pane: selection, state: claudeState)) { old, new in
+            guard old.pane == new.pane, let selection, let connection = store.connection(for: selection.hostID) else { return }
+            voice.agentStateChanged(from: old.state, to: new.state, connection: connection, paneID: selection.paneID)
+        }
+        #endif
         // A visit ends when the pane is left or the app goes away (#273).
         .onChange(of: scenePhase) { old, new in
             if new == .background {
                 model.leave()
+                #if !os(tvOS)
+                // Without the app in front the connection does not last.
+                voice.stop()
+                #endif
             } else if old == .background, new != .background {
                 model.arm()
             }
         }
         .onAppear { model.arm() }
-        .onDisappear { model.leave() }
+        .onDisappear {
+            model.leave()
+            #if !os(tvOS)
+            voice.stop()
+            #endif
+        }
         #if os(macOS)
         // A Mac app seldom goes to the background; quitting ends the visit.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
@@ -129,6 +156,18 @@ struct PaneDetailView: View {
     private struct FollowKey: Hashable {
         let pane: PaneRef?
         let generation: Int?
+    }
+
+    private struct VoiceKey: Equatable {
+        let pane: PaneRef?
+        let state: AgentState?
+    }
+
+    /// The agent state of the selected pane while Claude runs in it.
+    private var claudeState: AgentState? {
+        guard let selection, let connection = store.connection(for: selection.hostID),
+              let pane = pane(connection, selection.paneID), pane.agent == "claude" else { return nil }
+        return pane.agentState
     }
 
     private var currentTitle: String? {
@@ -188,6 +227,9 @@ struct PaneDetailView: View {
             }
             .labelStyle(.iconOnly)
             .help(String(localized: "Gesprächsverlauf aus der Claude-Sitzung"))
+            #if !os(tvOS)
+            AgentVoiceMenu(voice: voice, connection: connection, paneID: paneID, agentState: pane?.agentState)
+            #endif
         }
         #if !os(tvOS)
         if connection.config.inputAllowed {
@@ -233,6 +275,16 @@ struct PaneDetailView: View {
             )
             // A new pane or visit starts a new summary.
             .id("\(connection.id)/\(paneID)/\(visit.seen.timeIntervalSinceReferenceDate)")
+            Divider()
+        }
+        #endif
+    }
+
+    @ViewBuilder
+    private var voiceBar: some View {
+        #if !os(tvOS)
+        if voice.voiceMode || voice.error != nil {
+            AgentVoiceBar(voice: voice)
             Divider()
         }
         #endif
