@@ -35,7 +35,8 @@ extension HostStore {
 
     private func sendOne(_ prompt: String, to target: MultiSend.Target) async -> MultiSend.Outcome {
         let waiting = String(localized: "Wartet auf Antwort")
-        if let connection = connection(for: target.hostID) {
+        // A host without a connection keeps its last board; it fails below.
+        if let connection = connection(for: target.hostID), connection.isLive {
             if boardItem(host: target.hostID, pane: target.paneID)?.agentState == .blocked {
                 return .skipped(waiting)
             }
