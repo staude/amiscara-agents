@@ -2461,6 +2461,16 @@
         }
       }
     },
+    "Gesichert, aber nicht neu gelesen. Vor dem nächsten Sichern die Datei neu laden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved, but not read back. Reload the file before saving again."
+          }
+        }
+      }
+    },
     "Gesprächsverlauf" : {
       "localizations" : {
         "en" : {

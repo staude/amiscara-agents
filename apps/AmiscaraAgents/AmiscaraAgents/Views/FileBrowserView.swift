@@ -373,6 +373,8 @@ private struct FilePreviewView: View {
     /// Writes the draft unless the file changed on the host meanwhile; then
     /// the draft stays and the alert offers to reload. Text typed while
     /// saving keeps the editor open, on the saved file as the new base.
+    /// Saved but not read back, the file is loaded again, unless more was
+    /// typed meanwhile: then the message asks to reload first.
     private func save() {
         guard let preview, let draft else { return }
         saving = true
@@ -384,6 +386,11 @@ private struct FilePreviewView: View {
                 if self.draft == draft { stopEditing() }
             } catch FfiError.FileChanged {
                 conflict = true
+            } catch FfiError.SavedNotRead where self.draft == draft {
+                // Saved; the copy here is old. Show the file as it is now.
+                stopEditing()
+                self.preview = nil
+                await load()
             } catch FfiError.Files(let message) {
                 // Not "not readable" as for viewing.
                 saveError = String(localized: "Nicht gesichert: \(message)")

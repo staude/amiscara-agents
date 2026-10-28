@@ -548,12 +548,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Windows line endings open with "Bearbeiten" in an editor without
   autocorrection and typographic quotes; "Sichern" (⌘S) writes the file in
   place and refuses when its size or modification time changed on the host
-  since it was opened, offering to reload. Both need input allowed for the
-  host besides the file access. Mac, iPhone and iPad. Core:
+  since it was opened, offering to reload; saved but not read back, it
+  loads the file again. Both need input allowed for the host besides the
+  file access. Mac, iPhone and iPad. Core:
   `Connection::write_file`, `herdr_transport::CHANGED_ON_HOST`,
   `herdr_core::browse::save`, `browse::MAX_EDIT_BYTES`,
   `FilePreview::editable`, `Session::save_file`,
-  `SessionError::FileChanged`.
+  `SessionError::FileChanged`, `browse::SAVED_NOT_READ`,
+  `SessionError::SavedNotRead`.
 
 ### Changed
 

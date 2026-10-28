@@ -470,6 +470,8 @@ func inputErrorMessage(_ error: Error) -> String {
         String(localized: "Dateien auf dem Host nicht lesbar: \(message)")
     case FfiError.AgentWorking:
         String(localized: "Der Agent arbeitet gerade. Den Verlauf gibt es, sobald er fertig ist; blättern geht schon jetzt.")
+    case FfiError.SavedNotRead:
+        String(localized: "Gesichert, aber nicht neu gelesen. Vor dem nächsten Sichern die Datei neu laden.")
     case FfiError.FileChanged:
         String(localized: "Die Datei wurde auf dem Host geändert, seit sie geöffnet wurde. Nicht gesichert.")
     case FfiError.Forward:
