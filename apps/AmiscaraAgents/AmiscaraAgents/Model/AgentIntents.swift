@@ -369,6 +369,8 @@ extension HostStore {
         while connection.isSettling, ContinuousClock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(100))
         }
+        // Closing the quick composer while waiting sends nothing (#307).
+        try Task.checkCancellation()
         guard connection.isLive else { throw PromptIntentError.unreachable(connection.config.name) }
         do {
             try await connection.submit(text, to: paneID, isAgent: true)

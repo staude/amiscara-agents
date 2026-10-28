@@ -16,6 +16,9 @@ final class QuickComposer {
     static let shared = QuickComposer()
 
     private var panel: QuickComposerPanel?
+    /// A prompt on its way: the window waits for its result, and Esc
+    /// cancels it.
+    var sending: Task<Void, Never>?
 
     /// The global shortcut: opens the window, or closes it when open.
     func toggle(store: HostStore) {
@@ -33,7 +36,8 @@ final class QuickComposer {
         }
         let panel = QuickComposerPanel()
         // Each opening starts empty, with the target found anew.
-        let hosting = NSHostingView(rootView: QuickComposerView().environment(store))
+        let view = QuickComposerView(target: Self.lastAgent(in: store))
+        let hosting = NSHostingView(rootView: view.environment(store))
         panel.contentView = hosting
         panel.setContentSize(hosting.fittingSize)
         panel.place()
@@ -42,10 +46,29 @@ final class QuickComposer {
     }
 
     func close() {
+        sending?.cancel()
+        sending = nil
         // Cleared first: ordering out resigns key, which closes again.
         let panel = panel
         self.panel = nil
         panel?.orderOut(nil)
+    }
+
+    /// A click elsewhere closes, except while a prompt is on its way: its
+    /// error must still show.
+    fileprivate func resigned() {
+        guard sending == nil else { return }
+        close()
+    }
+
+    /// The last agent while it is still the same one in its pane and its
+    /// host is live; otherwise the window opens with the list, no guessing.
+    private static func lastAgent(in store: HostStore) -> SpaceRef? {
+        guard let last = LastAgent.current,
+              let connection = store.connection(for: last.hostID), connection.isLive,
+              last.matches(store.boardItem(host: last.hostID, pane: last.paneID))
+        else { return nil }
+        return SpaceRef(hostID: last.hostID, workspaceID: last.workspaceID, paneID: last.paneID)
     }
 }
 
@@ -76,7 +99,16 @@ private final class QuickComposerPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        QuickComposer.shared.close()
+        QuickComposer.shared.resigned()
+    }
+
+    /// ⌘. and ⌃C stop here while their buttons are off: the main menu
+    /// would send them to the pane in the main window.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if super.performKeyEquivalent(with: event) { return true }
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers
+        return (modifiers == .command && key == ".") || (modifiers == .control && key == "c")
     }
 
     /// Centered, in the upper third of the screen with the mouse pointer.
@@ -102,11 +134,16 @@ private struct QuickComposerView: View {
     @Environment(HostStore.self) private var store
 
     @State private var target: SpaceRef?
+    @State private var lock = AppLock.shared
     @State private var text = ""
     @State private var choosing = false
     @State private var sending = false
     @State private var error: String?
     @FocusState private var textFocused: Bool
+
+    init(target: SpaceRef?) {
+        _target = State(initialValue: target)
+    }
 
     var body: some View {
         let entry = target.flatMap(entry(for:))
@@ -119,12 +156,12 @@ private struct QuickComposerView: View {
             .buttonStyle(.plain)
             // In the window, not a popover: a popover is a window of its
             // own, takes the keys and would close this one.
-            if choosing || target == nil {
+            // Also when the agent left its pane while the window was open.
+            if choosing || entry == nil {
                 QuickComposerAgentList { picked in
                     target = picked
                     error = nil
                     choosing = false
-                    textFocused = true
                 }
             } else {
                 TextField("Prompt", text: $text, axis: .vertical)
@@ -134,6 +171,7 @@ private struct QuickComposerView: View {
                     .focused($textFocused)
                     .disabled(sending)
                     .onSubmit(send)
+                    .onAppear { textFocused = true }
                 HStack(spacing: 6) {
                     key("Esc", "esc", help: "Esc (⌘.)")
                         .keyboardShortcut(".", modifiers: .command)
@@ -157,9 +195,8 @@ private struct QuickComposerView: View {
         .background {
             // Esc closes the list, then the window, wherever the focus is.
             Button("Schließen") {
-                if choosing && target != nil {
+                if choosing && entry != nil {
                     choosing = false
-                    textFocused = true
                 } else {
                     QuickComposer.shared.close()
                 }
@@ -168,10 +205,9 @@ private struct QuickComposerView: View {
             .opacity(0)
             .accessibilityHidden(true)
         }
-        .onAppear {
-            // Without a still valid last agent the list shows; no guessing.
-            target = lastAgent()
-            textFocused = target != nil
+        // The lock can apply while the window is open (#232).
+        .onChange(of: lock.isCovered) { _, covered in
+            if covered { QuickComposer.shared.close() }
         }
     }
 
@@ -206,16 +242,6 @@ private struct QuickComposerView: View {
             .disabled(!canInput)
     }
 
-    /// The last agent while it is still the same one in its pane and its
-    /// host is live.
-    private func lastAgent() -> SpaceRef? {
-        guard let last = LastAgent.current,
-              let connection = store.connection(for: last.hostID), connection.isLive,
-              last.matches(store.boardItem(host: last.hostID, pane: last.paneID))
-        else { return nil }
-        return SpaceRef(hostID: last.hostID, workspaceID: last.workspaceID, paneID: last.paneID)
-    }
-
     private func entry(for target: SpaceRef) -> SwitcherEntry? {
         SwitcherEntry.all(in: store).first {
             $0.kind == .agent && $0.target.hostID == target.hostID && $0.target.paneID == target.paneID
@@ -228,24 +254,35 @@ private struct QuickComposerView: View {
     }
 
     private func send() {
-        guard let target, let paneID = target.paneID, !sending,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard let target, let paneID = target.paneID, entry(for: target) != nil, !sending,
+              !lock.isCovered, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return }
         sending = true
         error = nil
-        Task {
-            defer { sending = false }
+        QuickComposer.shared.sending = Task {
+            let failure: String?
             do {
                 // Remembers the target as the last agent.
                 try await store.sendPrompt(text, toHost: target.hostID, pane: paneID)
-                QuickComposer.shared.close()
-            } catch let failure as PromptIntentError {
-                error = String(localized: failure.localizedStringResource)
-                textFocused = true
+                failure = nil
+            } catch is CancellationError {
+                return
+            } catch let error as PromptIntentError {
+                failure = String(localized: error.localizedStringResource)
             } catch {
-                self.error = inputErrorMessage(error)
-                textFocused = true
+                failure = inputErrorMessage(error)
             }
+            // Closed meanwhile; a newer window may be sending.
+            guard !Task.isCancelled else { return }
+            QuickComposer.shared.sending = nil
+            guard let failure else {
+                QuickComposer.shared.close()
+                return
+            }
+            // The field takes the focus only once it is enabled again.
+            sending = false
+            error = failure
+            textFocused = true
         }
     }
 
