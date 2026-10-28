@@ -49,6 +49,29 @@ final class PaneModel {
     /// The setting "Zeilen umbrechen" (#191).
     static let wrapLinesKey = "terminalWrapLines"
 
+    /// The last visit to offer a summary for (#273): set when the pane is
+    /// opened again after `summaryPause` and its screen changed meanwhile.
+    private(set) var summaryOffer: PaneVisits.Entry?
+    /// Only the single pane view records visits, not the panes of a split tab.
+    @ObservationIgnored private let recordsVisits: Bool
+    @ObservationIgnored private var lastVisit: PaneVisits.Entry?
+    /// The first screen after `arm()` still has to be compared with the
+    /// last visit; later ones would be the user's own doing.
+    @ObservationIgnored private var armedAt: Date?
+    /// The pane is being looked at since `arm()`; only such a visit is
+    /// recorded, not a follower that kept running behind the list.
+    @ObservationIgnored private var visitOpen = false
+
+    /// How long a pane has to be away before a summary is offered.
+    static let summaryPause: TimeInterval = 15 * 60
+    /// How long after opening a pane its first screen counts as the state
+    /// it was found in, e.g. while reconnecting after the background.
+    private static let armWindow: TimeInterval = 30
+
+    init(recordsVisits: Bool = false) {
+        self.recordsVisits = recordsVisits
+    }
+
     /// Each load asks for the next step; herdr returns at most
     /// `maxHistoryLines()` rows, and every step is polled again while the
     /// pane changes, so the steps stay coarse.
@@ -133,6 +156,8 @@ final class PaneModel {
             setLive(live)
             return
         }
+        let samePane = paneID == self.paneID && connection?.id == self.connection?.id
+        if !samePane { leave() }
         if agentScrolled, let paneID = self.paneID, let previous = self.connection {
             Task { try? await previous.scrollAgent(.bottom, in: paneID) }
         }
@@ -156,17 +181,20 @@ final class PaneModel {
         self.paneID = paneID
         self.connection = connection
         generation = connection?.generation
+        if !samePane { arm() }
         guard let paneID, let connection else { return }
         let hostID = connection.id
         let bridge = PaneBridge(
             content: { [weak self] content in
                 Task { @MainActor in
-                    guard let self, self.paneID == content.paneId else { return }
+                    // Pane IDs repeat across hosts.
+                    guard let self, self.paneID == content.paneId, self.connection?.id == hostID else { return }
                     if content.historyLines == 0 { self.screenRows = content.lines.count }
                     self.followed = content
                     self.updatedAt = .now
                     self.error = nil
                     PaneCache.shared.record(content, host: hostID, pane: content.paneId)
+                    self.checkVisit(content)
                 }
             },
             error: { [weak self] message in
@@ -179,6 +207,57 @@ final class PaneModel {
         )
         follow = connection.followPane(paneID, live: live, observer: bridge)
         if unwrap { follow?.setUnwrap(unwrap: true) }
+    }
+
+    /// Remembers when the pane was left and how its screen ended (#273).
+    func leave() {
+        // An offer was for the visit before this one.
+        summaryOffer = nil
+        guard visitOpen else { return }
+        visitOpen = false
+        guard recordsVisits, let paneID, let connection, let followed else { return }
+        PaneVisits.shared.record(host: connection.id, pane: paneID, tail: PaneVisits.tail(of: followed.plainText))
+    }
+
+    /// Looks up the last visit, to compare it with the next screen.
+    func arm() {
+        summaryOffer = nil
+        guard recordsVisits, let paneID, let connection else {
+            lastVisit = nil
+            armedAt = nil
+            visitOpen = false
+            return
+        }
+        lastVisit = PaneVisits.shared.entry(host: connection.id, pane: paneID)
+        armedAt = .now
+        visitOpen = true
+        // A follower that kept running publishes nothing new while the pane
+        // stays quiet, so its current screen counts too; not the screen kept
+        // for an offline host (#276), which may be older.
+        if connection.isLive, let followed, offer(for: followed) { armedAt = nil }
+    }
+
+    func dismissSummary() {
+        summaryOffer = nil
+    }
+
+    /// Offers a summary when the last visit is long enough ago and the
+    /// screen shows more than a changed bottom line since. No line count:
+    /// herdr reports none.
+    private func checkVisit(_ content: PaneContent) {
+        guard let armedAt else { return }
+        self.armedAt = nil
+        guard Date.now.timeIntervalSince(armedAt) < Self.armWindow else { return }
+        _ = offer(for: content)
+    }
+
+    private func offer(for content: PaneContent) -> Bool {
+        guard let visit = lastVisit,
+              Date.now.timeIntervalSince(visit.seen) >= Self.summaryPause,
+              !PaneVisits.newOutput(in: content.plainText, after: visit.tail).isEmpty
+        else { return false }
+        summaryOffer = visit
+        return true
     }
 
     /// Joins the rows the terminal wrapped at the pane width, for a view

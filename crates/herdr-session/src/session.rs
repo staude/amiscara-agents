@@ -476,6 +476,30 @@ impl Session {
         Ok(read.screen.excerpt(max_lines as usize))
     }
 
+    /// The last `max_lines` rows of a pane including scrollback as plain
+    /// text, joined where the terminal wrapped them with `unwrap`: trailing
+    /// spaces trimmed, blank lines at the bottom dropped. For a summary of
+    /// what happened since the last visit (#273). Read only.
+    pub async fn recent_text(
+        &self,
+        pane_id: &str,
+        max_lines: u32,
+        unwrap: bool,
+    ) -> Result<String, SessionError> {
+        let conn = self.connection()?;
+        let read = pane::read_recent(&conn, pane_id, max_lines, unwrap).await?;
+        let mut lines: Vec<String> = read
+            .screen
+            .text_lines()
+            .into_iter()
+            .map(|line| line.trim_end().to_owned())
+            .collect();
+        while lines.last().is_some_and(String::is_empty) {
+            lines.pop();
+        }
+        Ok(lines.join("\n"))
+    }
+
     /// The choice question an agent asks at the bottom of a pane's visible
     /// screen, for a notification's actions (#272). Read only.
     pub async fn choice_question(
