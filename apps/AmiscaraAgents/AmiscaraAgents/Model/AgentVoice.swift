@@ -85,7 +85,10 @@ final class AgentVoice {
     /// Call when the pane's agent state changes. Only the end of Claude's
     /// work counts, not each text between two tool calls.
     func agentStateChanged(from old: AgentState?, to new: AgentState?, connection: HostConnection, paneID: String) {
-        guard old == .working, let new, new != .working, state != .listening else { return }
+        guard let new, new != .working, state != .listening else { return }
+        // A decision declined on the screen goes from blocked to idle.
+        let declined = voiceMode && old == .blocked && state == .waitingForDecision
+        guard old == .working || declined else { return }
         if new == .blocked {
             if voiceMode { speakDecision() }
             return
@@ -102,6 +105,8 @@ final class AgentVoice {
                 let outcome = await read(connection: connection, paneID: paneID, automatic: !voiceMode, onlyNew: true, run: run)
                 if outcome != .same { return }
             }
+            // Nothing new: in voice mode take the next prompt instead of hanging.
+            if run == self.run, voiceMode, state != .speaking { listen() }
         }
     }
 
@@ -134,10 +139,7 @@ final class AgentVoice {
         if utterance != nil {
             utterance = nil
             synthesizer.stopSpeaking(at: .immediate)
-            #if os(iOS)
-            // Only when speaking: the composer's dictation may be recording.
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            #endif
+            releaseAudioSession()
         }
         afterSpeaking = nil
         if voiceMode { keepScreenOn(false) }
@@ -145,6 +147,15 @@ final class AgentVoice {
         target = nil
         state = .idle
         error = nil
+    }
+
+    /// Hands the audio back to others, unless the composer's dictation
+    /// started meanwhile and still needs it.
+    private func releaseAudioSession() {
+        #if os(iOS)
+        guard !Dictation.isAnyRunning else { return }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
     }
 
     /// Without `onFinish`; leaves the audio session alone when not recording.
@@ -170,6 +181,12 @@ final class AgentVoice {
             return .failed
         }
         guard run == self.run else { return .failed }
+        // The composer's dictation shares the audio session: no automatic
+        // reading meanwhile.
+        if automatic, Dictation.isAnyRunning { return .failed }
+        // A tool call after the last text: the closing reply is not in the
+        // file yet.
+        if onlyNew, let last = page.entries.last, last.kind != .assistant { return .same }
         guard let entry = page.entries.last(where: { $0.kind == .assistant }) else { return .noReply }
         let read = Read(sessionPath: page.sessionPath, timestamp: entry.timestamp, text: entry.text)
         if onlyNew, read == lastRead { return .same }
@@ -191,10 +208,13 @@ final class AgentVoice {
         stopDictation()
         synthesizer.stopSpeaking(at: .immediate)
         #if os(iOS)
-        let session = AVAudioSession.sharedInstance()
-        let ambient = automatic && !voiceMode
-        try? session.setCategory(ambient ? .ambient : .playback, mode: .spokenAudio, options: ambient ? [] : [.duckOthers])
-        try? session.setActive(true)
+        // While the composer records, speak over its session as it is.
+        if !Dictation.isAnyRunning {
+            let session = AVAudioSession.sharedInstance()
+            let ambient = automatic && !voiceMode
+            try? session.setCategory(ambient ? .ambient : .playback, mode: .spokenAudio, options: ambient ? [] : [.duckOthers])
+            try? session.setActive(true)
+        }
         #endif
         let utterance = AVSpeechUtterance(string: text)
         // Without a voice for the language the system voice reads.
@@ -210,9 +230,7 @@ final class AgentVoice {
         utterance = nil
         let next = afterSpeaking
         afterSpeaking = nil
-        #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        #endif
+        releaseAudioSession()
         guard voiceMode else {
             state = .idle
             return
