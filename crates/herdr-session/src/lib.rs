@@ -23,7 +23,8 @@ pub use link::{
 pub use secrets::{ENV_DIR, is_reserved_env_name, is_valid_env_name};
 pub use session::{
     Endpoint, PaneFollow, PaneSink, ScrollStep, Session, SessionError, SshIdentity,
-    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, UPLOAD_DIR,
+    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, UPLOAD_DIR, UsageBucket,
+    UsageReport,
 };
 #[cfg(unix)]
 pub use sessions::local_herdr_sessions;
