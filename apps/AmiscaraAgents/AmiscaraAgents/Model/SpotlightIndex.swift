@@ -30,9 +30,9 @@ final class SpotlightIndex {
     /// Debounces writes (Entscheidung 2 des Plans): at most every 30s,
     /// because agents change state often.
     private var pauseTask: Task<Void, Never>?
-    /// The batch of per-host writes currently running; cancelled when the
-    /// setting turns off so a write in flight cannot land after `clearAll()`
-    /// already cleared Spotlight.
+    /// The batch of per-host writes currently running; `clearAll()` cancels
+    /// it and waits for it to finish before it deletes everything, so a
+    /// write in flight cannot land after the delete and put entries back.
     private var writeTask: Task<Void, Never>?
     private static let pause: TimeInterval = 30
 
@@ -109,13 +109,22 @@ final class SpotlightIndex {
     }
 
     private func clearAll() {
+        // Cancelling only stops the loop from starting the next host; a
+        // write already waiting on CoreSpotlight keeps running (it does not
+        // observe cancellation) and must finish before the delete below, or
+        // its `indexSearchableItems` could land right after it and put
+        // entries back.
+        let inFlight = writeTask
         writeTask?.cancel()
         writeTask = nil
         pending = [:]
         written = [:]
         lastSpaces = [:]
         indexedHosts = []
-        Task { try? await CSSearchableIndex.default().deleteAllSearchableItems() }
+        Task {
+            await inFlight?.value
+            try? await CSSearchableIndex.default().deleteAllSearchableItems()
+        }
     }
 
     /// Writes every host whose entries changed since the last write, one
