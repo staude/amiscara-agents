@@ -15,7 +15,6 @@ struct PullRequestView: View {
     let connection: HostConnection
     let pullRequest: PullRequestSummary
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @State private var detail: PullRequestDetail?
     @State private var files: [DiffFile] = []
     @State private var truncated = false
@@ -78,6 +77,11 @@ struct PullRequestView: View {
         #if os(macOS)
         .frame(minWidth: 680, minHeight: 680)
         #endif
+        // Texts and links come from anyone who can comment: only web
+        // pages, no links into this or other apps.
+        .environment(\.openURL, OpenURLAction { url in
+            ["http", "https"].contains(url.scheme?.lowercased() ?? "") ? .systemAction : .discarded
+        })
         .task { await load() }
     }
 
@@ -187,9 +191,11 @@ struct PullRequestView: View {
                         .lineLimit(1)
                     Spacer()
                     if let url = check.url {
-                        Button("Details", systemImage: "arrow.up.right.square") { openURL(url) }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
+                        Link(destination: url) {
+                            Label("Details", systemImage: "arrow.up.right.square")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
                     }
                 }
             }
@@ -264,28 +270,27 @@ struct PullRequestView: View {
         }
         loading = true
         defer { loading = false }
-        async let detailResult = attempt { try await client.detail(pullRequest) }
-        async let diffResult = attempt { try await client.diff(pullRequest) }
-        switch await detailResult {
-        case .success(let detail):
-            self.detail = detail
-            error = nil
-        case .failure(let failure):
-            error = failure.localizedDescription
+        defer { diffLoaded = true }
+        let detail: PullRequestDetail
+        do {
+            detail = try await client.detail(pullRequest)
+        } catch {
+            self.error = error.localizedDescription
+            return
         }
-        switch await diffResult {
-        case .success(let (text, cut)):
+        // The diff of exactly the head merged with, also after a push.
+        do {
+            let (text, cut) = try await client.diff(pullRequest, at: detail)
             files = await Task.detached { parseDiff(text: text) }.value
             truncated = cut
             diffError = nil
-        case .failure(let failure):
-            diffError = failure.localizedDescription
+        } catch {
+            files = []
+            truncated = false
+            diffError = error.localizedDescription
         }
-        diffLoaded = true
-    }
-
-    private func attempt<T: Sendable>(_ body: @Sendable () async throws -> T) async -> Result<T, Error> {
-        do { return .success(try await body()) } catch { return .failure(error) }
+        self.detail = detail
+        error = nil
     }
 
     private func merge() {

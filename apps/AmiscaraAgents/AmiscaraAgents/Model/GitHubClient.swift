@@ -63,7 +63,7 @@ struct GitHubClient {
         query($owner: String!, $name: String!, $number: Int!) {
           repository(owner: $owner, name: $name) {
             pullRequest(number: $number) {
-              title body isDraft headRefOid createdAt
+              title body isDraft headRefOid baseRefName createdAt
               author { login }
               reviewDecision mergeable mergeStateStatus
               comments(first: 100) { nodes { author { login } body createdAt url } }
@@ -104,6 +104,7 @@ struct GitHubClient {
             createdAt: node.createdAt,
             isDraft: node.isDraft,
             headOid: node.headRefOid,
+            baseRefName: node.baseRefName,
             review: node.reviewDecision.flatMap(ReviewDecision.init(rawValue:)),
             mergeable: node.mergeable,
             mergeState: node.mergeStateStatus,
@@ -112,9 +113,11 @@ struct GitHubClient {
         )
     }
 
-    /// The unified diff of a pull request, cut at `maxDiffBytes`.
-    func diff(_ pr: PullRequestSummary) async throws -> (text: String, truncated: Bool) {
-        var request = request(path: "/repos/\(pr.owner)/\(pr.repoName)/pulls/\(pr.number)")
+    /// The unified diff of a pull request at the head `detail` was read
+    /// with, cut at `maxDiffBytes`: the same as GitHub's for the pull
+    /// request, from the merge base, so the diff shown is the one merged.
+    func diff(_ pr: PullRequestSummary, at detail: PullRequestDetail) async throws -> (text: String, truncated: Bool) {
+        var request = request(path: "/repos/\(pr.owner)/\(pr.repoName)/compare/\(detail.baseRefName)...\(detail.headOid)")
         request.setValue("application/vnd.github.diff", forHTTPHeaderField: "Accept")
         let (data, response) = try await URLSession.shared.data(for: request)
         if (response as? HTTPURLResponse)?.statusCode == 406 {
@@ -300,6 +303,7 @@ struct PullRequestDetail {
     let createdAt: Date?
     let isDraft: Bool
     let headOid: String
+    let baseRefName: String
     let review: ReviewDecision?
     let mergeable: String
     let mergeState: String
@@ -411,6 +415,7 @@ private struct DetailData: Decodable {
         let body: String
         let isDraft: Bool
         let headRefOid: String
+        let baseRefName: String
         let createdAt: Date?
         let author: Login?
         let reviewDecision: String?
