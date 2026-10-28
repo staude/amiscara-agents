@@ -643,7 +643,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
 - Claude sessions of a folder (#304): "Claude-Sitzungen …" in a space's
-  menu lists the Claude Code sessions of its folder, the 30 newest with
+  menu lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), the 30 newest with
   title (from `/rename`, else Claude's own, else the first prompt), last
   activity and file size. "In neuer Pane fortsetzen" opens a tab in that
   folder and starts `claude --resume <id>` there, with the shell's current
