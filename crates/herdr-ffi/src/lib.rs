@@ -304,10 +304,17 @@ pub fn is_valid_session_name(name: String) -> bool {
 }
 
 /// Whether `name` can be an environment variable for a secret (#291):
-/// `[A-Z_][A-Z0-9_]*`, up to 128 characters.
+/// `[A-Z_][A-Z0-9_]*`, up to 128 characters, not a name the shells of herdr
+/// panes need (`PATH`, `HOME`, `LD_*`, `HERDR_*` ...).
 #[uniffi::export]
 pub fn is_valid_env_name(name: String) -> bool {
     herdr_session::is_valid_env_name(&name)
+}
+
+/// Whether `name` is one of the names the shells of herdr panes need.
+#[uniffi::export]
+pub fn is_reserved_env_name(name: String) -> bool {
+    herdr_session::is_reserved_env_name(&name)
 }
 
 /// The named herdr sessions on this machine, running or stopped. Empty on
