@@ -86,7 +86,7 @@ final class PaneSummary {
     private static func summary(of text: String) async throws -> String {
         do {
             return try await respond(to: text)
-        } catch LanguageModelSession.GenerationError.exceededContextWindowSize {
+        } catch LanguageModelError.contextSizeExceeded {
             return try await respond(to: String(text.suffix(text.count / 2)))
         }
     }
