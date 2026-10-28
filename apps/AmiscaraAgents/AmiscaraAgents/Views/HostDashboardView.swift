@@ -197,7 +197,7 @@ private struct SearchResults: View {
                     Text("Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft.")
                 }
                 if end.olderSkipped {
-                    Text("Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Mit Eingaben für diesen Host sucht die App auf dem Host selbst.")
+                    Text("Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Auf dem Host selbst sucht die App, wenn Eingaben erlaubt sind und ein Space offen ist.")
                 }
             }
         }

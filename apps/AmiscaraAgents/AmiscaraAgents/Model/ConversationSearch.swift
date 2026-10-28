@@ -44,6 +44,8 @@ final class ConversationSearch {
         do {
             handle = try connection.searchConversations(query: query, observer: bridge)
             running = true
+        } catch FfiError.Rejected {
+            self.error = String(localized: "Bitte mindestens zwei Zeichen auf einer Zeile suchen.")
         } catch {
             self.error = inputErrorMessage(error)
         }
@@ -99,7 +101,7 @@ final class ConversationSearch {
     struct SpaceGroup: Identifiable {
         let id: String
         let workspaceID: String?
-        /// The conversation's directory when no space is open for it.
+        /// The conversation's directory, shown when no space is open for it.
         let cwd: String?
         let sessions: [SessionGroup]
     }
@@ -133,7 +135,7 @@ final class ConversationSearch {
             return SpaceGroup(
                 id: key,
                 workspaceID: first?.workspaceId,
-                cwd: first?.workspaceId == nil ? first?.cwd : nil,
+                cwd: first?.cwd,
                 sessions: sessions
             )
         }

@@ -1375,6 +1375,16 @@
         }
       }
     },
+    "Bitte mindestens zwei Zeichen auf einer Zeile suchen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please search for at least two characters on one line."
+          }
+        }
+      }
+    },
     "Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host" : {
       "localizations" : {
         "en" : {
@@ -4091,12 +4101,12 @@
         }
       }
     },
-    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Mit Eingaben für diesen Host sucht die App auf dem Host selbst." : {
+    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Auf dem Host selbst sucht die App, wenn Eingaben erlaubt sind und ein Space offen ist." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. With input allowed for this host, the app searches on the host itself."
+            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
           }
         }
       }
