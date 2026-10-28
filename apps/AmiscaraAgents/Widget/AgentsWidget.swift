@@ -162,13 +162,23 @@ struct AgentsWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// How old the data is: on iOS it only changes while the app runs.
+    /// How old the data is: on iOS it only changes while the app runs. The
+    /// medium widget adds today's tokens per host when the app sends them
+    /// (#302, "Tageskosten im Widget").
     private var footer: some View {
-        Group {
+        HStack(spacing: 8) {
             if snapshot.updated == .distantPast {
                 Text("Keine Daten")
             } else {
                 Text("Stand \(snapshot.updated, style: .relative)")
+            }
+            if family == .systemMedium {
+                let hosts = snapshot.hosts.filter { $0.usageToday != nil }
+                ForEach(hosts) { host in
+                    if let usage = host.usageToday {
+                        Text(hosts.count > 1 || snapshot.hosts.count > 1 ? "\(host.name): \(usage.todayText)" : usage.todayText)
+                    }
+                }
             }
         }
         .font(.caption2)
