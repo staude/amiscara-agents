@@ -10,6 +10,7 @@ struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+    @State private var pullRequestShown: PullRequestTarget?
 
     var body: some View {
         let shown = Shown(connection, boards: store.cloudBoards)
@@ -37,12 +38,16 @@ struct HostDashboardView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                pullRequests
                 footer(shown)
                     .padding(.top, 8)
             }
             .frame(maxWidth: 520, alignment: .leading)
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .sheet(item: $pullRequestShown) { target in
+            PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
         }
         .navigationTitle(connection.config.name)
         #if os(iOS)
@@ -83,6 +88,42 @@ struct HostDashboardView: View {
         }
 
         var waiting: Int { agents.filter { $0.state == .blocked }.count }
+    }
+
+    /// The open pull requests of the spaces (#309), in sidebar order; none
+    /// without a token or pull request.
+    @ViewBuilder
+    private var pullRequests: some View {
+        let workspaces = connection.update?.workspaces ?? []
+        let rows = workspaces.compactMap { space in
+            connection.pullRequests.pullRequest(for: space.workspaceId).map { (space, $0) }
+        }
+        if !rows.isEmpty {
+            Text("Pull Requests")
+                .font(.headline)
+                .padding(.top, 12)
+            ForEach(rows, id: \.0.workspaceId) { space, pullRequest in
+                Button {
+                    pullRequestShown = PullRequestTarget(connection: connection, pullRequest: pullRequest)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(space.name)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(1)
+                            PullRequestBadge(pullRequest: pullRequest)
+                        }
+                        Text(pullRequest.title)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     /// "Live" while connected; otherwise the age of the shown agents.

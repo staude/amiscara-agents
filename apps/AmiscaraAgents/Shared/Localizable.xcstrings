@@ -1135,6 +1135,16 @@
         }
       }
     },
+    "Auf GitHub öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open on GitHub"
+          }
+        }
+      }
+    },
     "Aus einem Link. Prüfen Sie den Text, bevor Sie ihn an einen Agent geben." : {
       "localizations" : {
         "en" : {
@@ -1265,6 +1275,16 @@
         }
       }
     },
+    "Beschreibung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Description"
+          }
+        }
+      }
+    },
     "Bestätigen" : {
       "localizations" : {
         "en" : {
@@ -1375,6 +1395,16 @@
         }
       }
     },
+    "Blockiert: Es fehlen Reviews oder Checks, die das Repository verlangt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked: reviews or checks the repository requires are missing."
+          }
+        }
+      }
+    },
     "Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host" : {
       "localizations" : {
         "en" : {
@@ -1401,6 +1431,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Needs “Upload images” (file access)"
+          }
+        }
+      }
+    },
+    "Checks" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks"
+          }
+        }
+      }
+    },
+    "Checks erfolgreich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks passed"
+          }
+        }
+      }
+    },
+    "Checks fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks failed"
+          }
+        }
+      }
+    },
+    "Checks laufen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks running"
           }
         }
       }
@@ -1505,6 +1575,16 @@
         }
       }
     },
+    "Das Repository erlaubt keine Merge-Methode." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The repository allows no merge method."
+          }
+        }
+      }
+    },
     "Dashboard" : {
       "localizations" : {
         "en" : {
@@ -1591,6 +1671,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cannot read files on the host: %@"
+          }
+        }
+      }
+    },
+    "Dateien auf GitHub ansehen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View files on GitHub"
           }
         }
       }
@@ -1755,6 +1845,16 @@
         }
       }
     },
+    "Der Diff ist zu groß für GitHubs Schnittstelle. Auf GitHub ansehen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The diff is too large for GitHub's API. View it on GitHub."
+          }
+        }
+      }
+    },
     "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt." : {
       "localizations" : {
         "en" : {
@@ -1895,6 +1995,16 @@
         }
       }
     },
+    "Der Pull Request hat Konflikte mit dem Basisbranch." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pull request has conflicts with the base branch."
+          }
+        }
+      }
+    },
     "Der Rechner ist nicht erreichbar. Läuft das VPN (NetBird) auf diesem Gerät, und stimmt der Hostname?" : {
       "localizations" : {
         "en" : {
@@ -1935,12 +2045,32 @@
         }
       }
     },
+    "Der Token hat keinen Zugriff auf dieses Repository." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The token has no access to this repository."
+          }
+        }
+      }
+    },
     "Der Wert landet auf dem Host in ~/.amiscara-agents/env, nur für Sie lesbar, und bleibt auf diesem Gerät im Schlüsselbund. Neue Shells in herdr-Panes setzen die Variable, laufende Agenten lesen sie mit „amiscara-env NAME“." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The value goes to ~/.amiscara-agents/env on the host, readable only by you, and stays in this device’s Keychain. New shells in herdr panes set the variable; running agents read it with “amiscara-env NAME”."
+          }
+        }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
           }
         }
       }
@@ -2301,6 +2431,16 @@
         }
       }
     },
+    "Ein Entwurf lässt sich nicht mergen. Auf GitHub als fertig markieren." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A draft cannot be merged. Mark it as ready on GitHub."
+          }
+        }
+      }
+    },
     "Ein Space namens „Bereich/Name“ erscheint als „Name“ in der Gruppe „Bereich“. Ausgeschaltet zeigt die App alle Spaces mit vollem Namen in der Reihenfolge von herdr." : {
       "localizations" : {
         "en" : {
@@ -2397,6 +2537,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "Entwurf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draft"
           }
         }
       }
@@ -2557,6 +2707,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Asks for Touch ID or your password when you return to the app."
+          }
+        }
+      }
+    },
+    "freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "approved"
           }
         }
       }
@@ -2737,6 +2897,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Git changes in the pane's working directory"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        }
+      }
+    },
+    "GitHub lehnt den Token ab. Einen neuen Token in den Host-Einstellungen eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub refuses the token. Enter a new token in the host settings."
           }
         }
       }
@@ -3251,6 +3431,16 @@
         }
       }
     },
+    "Keine Beschreibung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No description."
+          }
+        }
+      }
+    },
     "Keine Daten" : {
       "localizations" : {
         "en" : {
@@ -3401,6 +3591,26 @@
         }
       }
     },
+    "Kommentare an Zeilen: %lld, auf GitHub zu lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Line comments: %lld, read them on GitHub"
+          }
+        }
+      }
+    },
+    "Kommentare und Reviews" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comments and reviews"
+          }
+        }
+      }
+    },
     "Kopiert" : {
       "localizations" : {
         "en" : {
@@ -3491,6 +3701,16 @@
         }
       }
     },
+    "Leere Antwort von GitHub." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty response from GitHub."
+          }
+        }
+      }
+    },
     "Lies die Übergabe in dieser Datei und setze sie um:" : {
       "localizations" : {
         "en" : {
@@ -3577,6 +3797,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "herdr delivers no more than %u lines."
+          }
+        }
+      }
+    },
+    "Merge-Commit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge commit"
+          }
+        }
+      }
+    },
+    "Mergen (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge (%@)"
+          }
+        }
+      }
+    },
+    "Mergen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge …"
           }
         }
       }
@@ -4297,6 +4547,66 @@
         }
       }
     },
+    "Pull Request #%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull Request #%lld"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld mergen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge pull request #%lld"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld mergen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge pull request #%lld?"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull Request #%lld …"
+          }
+        }
+      }
+    },
+    "Pull Request %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull request %lld"
+          }
+        }
+      }
+    },
+    "Pull Requests" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull Requests"
+          }
+        }
+      }
+    },
     "Push über iCloud" : {
       "localizations" : {
         "en" : {
@@ -4347,6 +4657,36 @@
         }
       }
     },
+    "Rebase" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase"
+          }
+        }
+      }
+    },
+    "Review ausstehend" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review required"
+          }
+        }
+      }
+    },
+    "Review freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review approved"
+          }
+        }
+      }
+    },
     "Richten Sie die Kamera auf den QR-Code, den Amiscara Agents auf dem Mac zeigt." : {
       "localizations" : {
         "en" : {
@@ -4393,6 +4733,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sort Spaces"
+          }
+        }
+      }
+    },
+    "Squash" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash"
           }
         }
       }
@@ -5267,6 +5617,16 @@
         }
       }
     },
+    "Token" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token"
+          }
+        }
+      }
+    },
     "Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen." : {
       "localizations" : {
         "en" : {
@@ -5287,12 +5647,42 @@
         }
       }
     },
+    "Unbekannt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        }
+      }
+    },
     "Verwerfen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discard"
+          }
+        }
+      }
+    },
+    "verworfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dismissed"
+          }
+        }
+      }
+    },
+    "von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "by %@"
           }
         }
       }
@@ -5357,6 +5747,16 @@
         }
       }
     },
+    "Zeigt zu jedem Space den offenen Pull Request seines Branches und mergt ihn. Ein fine-grained Token mit Lesezugriff auf Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests. Er bleibt auf diesem Gerät. Das Repository liest die App aus der Git-Konfiguration auf dem Host, über SSH braucht sie dafür „Bilder hochladen (SFTP)“. Leer lassen schaltet es aus." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the open pull request of each space's branch and merges it. A fine-grained token with read access to Checks, Commit statuses and Metadata and read and write access to Contents and Pull requests. It stays on this device. The app reads the repository from the Git configuration on the host; over SSH it needs \"Upload images (SFTP)\" for that. Leave empty to turn it off."
+          }
+        }
+      }
+    },
     "Zu %@ liegen gerade keine Daten vor. Der Host ist nicht erreichbar oder der Agent läuft nicht mehr." : {
       "localizations" : {
         "en" : {
@@ -5383,6 +5783,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Close summary"
+          }
+        }
+      }
+    },
+    "Änderungen verlangt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes requested"
           }
         }
       }

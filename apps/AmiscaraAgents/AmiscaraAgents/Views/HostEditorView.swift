@@ -28,6 +28,11 @@ struct HostEditorView: View {
     /// prompt applies.
     @State private var importedKey: ImportedKey?
     @State private var keyConfirmed = false
+    #if !os(tvOS)
+    /// The GitHub token for pull requests (#309), only on this device.
+    @State private var githubToken = ""
+    @State private var originalGitHubToken = ""
+    #endif
 
     private struct ImportedKey: Equatable {
         let key: String
@@ -41,6 +46,11 @@ struct HostEditorView: View {
         _config = State(initialValue: config)
         original = config
         self.importLink = importLink
+        #if !os(tvOS)
+        let token = GitHubToken.load(host: config.id) ?? ""
+        _githubToken = State(initialValue: token)
+        _originalGitHubToken = State(initialValue: token)
+        #endif
     }
 
     var body: some View {
@@ -113,6 +123,10 @@ struct HostEditorView: View {
                     Text("Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten.")
                 }
 
+                #if !os(tvOS)
+                githubSection
+                #endif
+
                 if let error {
                     Text(error).foregroundStyle(.red).selectableText()
                 }
@@ -137,7 +151,7 @@ struct HostEditorView: View {
         .frame(width: 520)
         #endif
         // A swipe down would drop changes silently on iPad.
-        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil)
+        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil || tokenEdited)
         .onChange(of: config.host) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.port) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.socketPath, initial: true) { showSessionOfSocket() }
@@ -159,6 +173,32 @@ struct HostEditorView: View {
         }
         #endif
     }
+
+    private var tokenEdited: Bool {
+        #if os(tvOS)
+        false
+        #else
+        githubToken != originalGitHubToken
+        #endif
+    }
+
+    #if !os(tvOS)
+    /// The token that shows the pull requests of the spaces (#309).
+    private var githubSection: some View {
+        Section {
+            SecureField("Token", text: $githubToken, prompt: Text(verbatim: "github_pat_…"))
+                .technicalInput()
+            if let tokenError = store.connection(for: original.id)?.pullRequests.tokenError, !tokenEdited {
+                Label(tokenError, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+            }
+        } header: {
+            Text("GitHub")
+        } footer: {
+            Text("Zeigt zu jedem Space den offenen Pull Request seines Branches und mergt ihn. Ein fine-grained Token mit Lesezugriff auf Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests. Er bleibt auf diesem Gerät. Das Repository liest die App aus der Git-Konfiguration auf dem Host, über SSH braucht sie dafür „Bilder hochladen (SFTP)“. Leer lassen schaltet es aus.")
+        }
+    }
+    #endif
 
     /// Fill in everything from a code another device shows (its host menu,
     /// "QR-Code zeigen"): nothing to type; the host key is pinned once its
@@ -470,11 +510,27 @@ struct HostEditorView: View {
             if config.kind == .ssh, let newPrivateKey {
                 try KeyStore.save(privateKey: newPrivateKey, for: config.id)
             }
+            #if !os(tvOS)
+            // Before the connection starts: a new one reads it once.
+            let token = githubToken.trimmingCharacters(in: .whitespacesAndNewlines)
+            if tokenEdited {
+                if token.isEmpty {
+                    GitHubToken.delete(host: config.id)
+                } else {
+                    try GitHubToken.save(token, host: config.id)
+                }
+            }
+            #endif
             if isNew {
                 store.add(config)
             } else {
                 store.update(config)
             }
+            #if !os(tvOS)
+            if tokenEdited, !isNew {
+                store.connection(for: config.id)?.pullRequests.tokenChanged(host: config.id)
+            }
+            #endif
             dismiss()
         } catch {
             self.error = error.localizedDescription

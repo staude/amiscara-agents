@@ -23,6 +23,10 @@ struct WorkspaceDetailView: View {
     @State private var startingAgent = false
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
+    #if !os(tvOS)
+    /// The space's pull request, shown (#309).
+    @State private var pullRequestShown: PullRequestTarget?
+    #endif
 
     var body: some View {
         Group {
@@ -95,6 +99,11 @@ struct WorkspaceDetailView: View {
             RenameView(target: target)
         }
         .closeConfirmation($closing)
+        #if !os(tvOS)
+        .sheet(item: $pullRequestShown) { target in
+            PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
+        }
+        #endif
         .sheet(item: $newWorktreeFrom) { source in
             NewWorktreeView(source: source) { created in
                 selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
@@ -209,6 +218,19 @@ struct WorkspaceDetailView: View {
                     .padding(.leading, 8)
                     agentTabMenu(in: workspace, on: connection)
                 }
+                #if !os(tvOS)
+                // Reading and merging go to GitHub, not the host's input.
+                if let pullRequest = connection.pullRequests.pullRequest(for: workspace.workspaceId) {
+                    Button {
+                        pullRequestShown = PullRequestTarget(connection: connection, pullRequest: pullRequest)
+                    } label: {
+                        PullRequestBadge(pullRequest: pullRequest)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.leading, 8)
+                    .help(String(localized: "Pull Request #\(pullRequest.number)"))
+                }
+                #endif
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

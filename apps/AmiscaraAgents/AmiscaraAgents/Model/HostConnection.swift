@@ -29,10 +29,18 @@ final class HostConnection: Identifiable {
     @ObservationIgnored private var demoOffline = false
     #endif
     nonisolated let id: UUID
+    #if !os(tvOS)
+    /// The open pull requests of the spaces (#309).
+    let pullRequests: PullRequests
+    #endif
 
     init(config: HostConfig) {
         self.config = config
         id = config.id
+        #if !os(tvOS)
+        pullRequests = PullRequests(host: config.id)
+        pullRequests.connection = self
+        #endif
     }
 
     var status: HostStatus? { update?.status }
@@ -57,6 +65,9 @@ final class HostConnection: Identifiable {
                     self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
                     if self.isLive { self.lastBoard = update.board }
                     self.onUpdate?(self, update)
+                    #if !os(tvOS)
+                    self.pullRequests.updated(update, live: self.isLive)
+                    #endif
                 }
             }
             session = try HostSession.start(
@@ -306,6 +317,17 @@ final class HostConnection: Identifiable {
             try session.workingTreeDiff(paneId: paneID)
         }.value
     }
+
+    #if !os(tvOS)
+    /// The GitHub repository of a space (#309), read from the Git
+    /// configuration over the file access, without a tab.
+    func githubRepository(workspaceID: String) async throws -> GitHubRepo? {
+        let session = try browseSession()
+        return try await Task.detached {
+            try session.githubRepository(workspaceId: workspaceID)
+        }.value
+    }
+    #endif
 
     /// The directory at the absolute `path` on the host, `""` for the home
     /// directory (#259). Read only, so no input needed, but over SSH it

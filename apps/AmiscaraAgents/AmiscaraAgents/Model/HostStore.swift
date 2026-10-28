@@ -244,6 +244,7 @@ final class HostStore {
         KeyStore.delete(for: id)
         #if !os(tvOS)
         SecretStore.deleteAll(for: id)
+        GitHubToken.delete(host: id)
         #endif
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)
