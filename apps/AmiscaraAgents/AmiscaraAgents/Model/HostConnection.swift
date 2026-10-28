@@ -371,6 +371,17 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The GitHub repositories of the host's spaces with their spaces
+    /// (#296), from the `origin` in each repository's Git config. Read
+    /// only, but over SSH it needs the same SFTP access as uploads.
+    func githubRepos() async throws -> [GitHubRepo] {
+        guard config.uploadAllowed else { throw ConnectionFailure.approvalsFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.githubRepos()
+        }.value
+    }
+
     /// The named herdr sessions on the host, running or stopped (#213).
     /// Read only, but over SSH it needs the same SFTP access as uploads.
     func herdrSessions() async throws -> [HerdrSession] {
@@ -553,6 +564,7 @@ enum ConnectionFailure: LocalizedError {
     case diffFilesOff
     case browseFilesOff
     case secretsFilesOff
+    case approvalsFilesOff
     case unsafePath
 
     var errorDescription: String? {
@@ -571,6 +583,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:
             String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .approvalsFilesOff:
+            String(localized: "Welche Repos der Host hat, liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
             String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:
