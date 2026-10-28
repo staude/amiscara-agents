@@ -194,6 +194,17 @@ pub fn parse_page(data: &[u8], start: u64) -> Page {
     }
 }
 
+/// The working directory a session ran in: the `cwd` of the first complete
+/// line in `data` that has one.
+pub fn session_cwd(data: &[u8]) -> Option<String> {
+    data.split(|&b| b == b'\n')
+        .filter(|line| line.windows(5).any(|w| w == b"\"cwd\""))
+        .find_map(|line| {
+            let value: Value = serde_json::from_slice(line).ok()?;
+            value["cwd"].as_str().map(str::to_owned)
+        })
+}
+
 fn entries_of(line: &Value) -> Vec<Entry> {
     // Subagents and meta lines (commands, reminders) are not the conversation.
     if line["isSidechain"].as_bool() == Some(true) || line["isMeta"].as_bool() == Some(true) {
@@ -372,6 +383,19 @@ mod tests {
         data.extend_from_slice(br#"{"type": "user", "message": {"content": "halb"#);
         let page = parse_page(&data, 0);
         assert_eq!(page.entries.len(), 1);
+    }
+
+    #[test]
+    fn cwd_of_the_first_complete_line() {
+        let mut data = br#"cut", "cwd": "/x"}"#.to_vec();
+        data.push(b'\n');
+        data.extend(lines(&[
+            json!({"type": "ai-title", "aiTitle": "T"}),
+            json!({"type": "user", "cwd": "/home/a/shop", "message": {"content": "x"}}),
+            json!({"type": "user", "cwd": "/home/a/other", "message": {"content": "y"}}),
+        ]));
+        assert_eq!(session_cwd(&data).as_deref(), Some("/home/a/shop"));
+        assert_eq!(session_cwd(b"{}\n"), None);
     }
 
     #[test]
