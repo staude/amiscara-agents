@@ -116,7 +116,10 @@ final class HostConnection: Identifiable {
             return
         }
         // Another machine or server: its agents are not ours.
-        if config.server != self.config.server { lastBoard = [] }
+        if config.server != self.config.server {
+            lastBoard = []
+            usage.reset()
+        }
         self.config = config
         update = nil
         start()

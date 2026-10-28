@@ -40,6 +40,8 @@ final class UsageStore {
     /// The session start whose state was restored from the cache file.
     @ObservationIgnored private var restored: Int?
     @ObservationIgnored private var refreshing = false
+    /// Asked for while a run was going, e.g. for a new agent's folder.
+    @ObservationIgnored private var refreshAgain = false
     @ObservationIgnored private var timer: Task<Void, Never>?
 
     func attach(_ connection: HostConnection) {
@@ -65,14 +67,24 @@ final class UsageStore {
 
     /// Reads today's usage again; a run already going is not repeated.
     func refreshToday() async {
-        guard let connection, !refreshing else { return }
+        guard let connection else { return }
+        guard !refreshing else {
+            refreshAgain = true
+            return
+        }
         guard connection.config.uploadAllowed else {
             phase = .filesOff
             return
         }
         guard connection.isLive else { return }
         refreshing = true
-        defer { refreshing = false }
+        defer {
+            refreshing = false
+            if refreshAgain {
+                refreshAgain = false
+                Task { await refreshToday() }
+            }
+        }
         let cwds = Self.claudeFolders(connection.update?.board ?? [])
         if todayRead == nil { phase = .loading }
         do {
@@ -117,14 +129,37 @@ final class UsageStore {
     /// read.
     func todaySum(cwd: String? = nil, prices: UsagePrices) -> WidgetSnapshot.Usage? {
         guard todayRead != nil else { return nil }
-        return Self.sum(today, from: Calendar.current.startOfDay(for: .now), cwd: cwd, prices: prices)
+        let day = Calendar.current.startOfDay(for: .now)
+        var usage = Self.sum(today, from: day, folder: cwd.map(Self.projectFolder), prices: prices)
+        usage.day = day
+        return usage
+    }
+
+    /// Claude Code's folder name for a working directory, as in the core
+    /// (`claude::project_dir`): directories that share it share their
+    /// usage, which the core reports under the first of them.
+    static func projectFolder(_ cwd: String) -> String {
+        String(cwd.map { $0.isASCII && ($0.isLetter || $0.isNumber) ? $0 : "-" })
+    }
+
+    /// Forgets what was read, e.g. when the entry now points at another
+    /// machine whose session files have the same names.
+    func reset() {
+        today = []
+        todayRead = nil
+        history = nil
+        phase = .idle
+        historyPhase = .idle
+        restored = nil
+        if let connection { Self.forget(host: connection.id) }
+        onChange?()
     }
 
     /// The sum of the buckets in `[from, to)`, for `cwd` or all.
-    static func sum(_ buckets: [UsageBucket], from: Date, to: Date = .distantFuture, cwd: String? = nil,
+    static func sum(_ buckets: [UsageBucket], from: Date, to: Date = .distantFuture, folder: String? = nil,
                     prices: UsagePrices) -> WidgetSnapshot.Usage {
         var usage = WidgetSnapshot.Usage()
-        for bucket in buckets where cwd == nil || bucket.cwd == cwd {
+        for bucket in buckets where folder == nil || projectFolder(bucket.cwd) == folder {
             let start = bucket.start
             guard start >= from, start < to else { continue }
             let tokens = UsageTokens(bucket)
@@ -139,6 +174,8 @@ final class UsageStore {
     }
 
     private func read(_ connection: HostConnection, cwds: [String], since: Date) async throws -> UsageReport {
+        // Without a connection the board is empty; that is no empty usage.
+        guard connection.isLive else { throw ConnectionFailure.notConnected }
         await restoreIfNeeded(connection)
         guard !cwds.isEmpty else { return UsageReport(buckets: []) }
         let report = try await connection.usage(cwds: cwds, since: since)
