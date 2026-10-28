@@ -248,10 +248,11 @@ struct ContentView: View {
     }
     #endif
 
-    /// The spaces of the selected host in sidebar order; without a selection
-    /// those of the first host that has any.
+    /// The spaces of the selected host (or the one whose dashboard is open)
+    /// in sidebar order; without a selection those of the first host that
+    /// has any.
     private var currentSpaces: [(hostID: UUID, workspaceID: String)] {
-        let connection = store.connection(for: selection?.hostID)
+        let connection = store.connection(for: selection?.hostID ?? dashboardHost)
             ?? store.connections.first { !($0.update?.workspaces.isEmpty ?? true) }
         guard let connection, let update = connection.update else { return [] }
         return SpaceOrder.arrange(update).map { (connection.id, $0.workspace.workspaceId) }
