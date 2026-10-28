@@ -298,7 +298,7 @@
         }
       }
     },
-    "%@: %@, seit %@." : {
+    "%@: %@, schon %@." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -308,7 +308,7 @@
         }
       }
     },
-    "%@: %@, seit mindestens %@." : {
+    "%@: %@, schon mindestens %@." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {

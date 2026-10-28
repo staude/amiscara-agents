@@ -11,7 +11,9 @@ enum AgentStatusText {
     }
 
     /// `since` is when the state began, `exact` false when it began at
-    /// that time or earlier. `linesMissingOffline` says why no lines come.
+    /// that time or earlier. The duration follows "schon", not "seit": the
+    /// format style has no dative ("seit 2 Tage"). `linesMissingOffline`
+    /// says why no lines come.
     static func text(
         name: String,
         space: String,
@@ -35,9 +37,9 @@ enum AgentStatusText {
         let duration = since.flatMap { duration(from: $0, to: now) }
         switch (since, duration, exact) {
         case (_, let duration?, true):
-            parts.append(String(localized: "\(who): \(status), seit \(duration)."))
+            parts.append(String(localized: "\(who): \(status), schon \(duration)."))
         case (_, let duration?, false):
-            parts.append(String(localized: "\(who): \(status), seit mindestens \(duration)."))
+            parts.append(String(localized: "\(who): \(status), schon mindestens \(duration)."))
         case (.some, nil, true):
             parts.append(String(localized: "\(who): \(status), gerade eben gewechselt."))
         default:

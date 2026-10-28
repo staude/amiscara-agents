@@ -62,7 +62,7 @@ let live = AgentStatusText.text(
     name: "claude", space: "Shop", status: "arbeitet", since: now - 5 * 60, exact: true, now: now,
     lines: ["a", "b", "c"], source: .live, linesMissingOffline: false
 )
-check(live.hasPrefix("claude in Shop: arbeitet, seit "), "live text: \(live)")
+check(live.hasPrefix("claude in Shop: arbeitet, schon "), "live text: \(live)")
 check(live.contains("5"), "live text has the duration: \(live)")
 check(!live.contains("mindestens"), "exact duration has no 'mindestens': \(live)")
 check(live.hasSuffix("Auf dem Bildschirm: a / b / c"), "live text ends with the lines: \(live)")
@@ -71,7 +71,7 @@ let inexact = AgentStatusText.text(
     name: "claude", space: "Shop", status: "wartet", since: now - 2 * 3600, exact: false, now: now,
     lines: [], source: .live, linesMissingOffline: false
 )
-check(inexact.contains("seit mindestens"), "inexact duration says 'mindestens': \(inexact)")
+check(inexact.contains("schon mindestens"), "inexact duration says 'mindestens': \(inexact)")
 check(!inexact.contains("Bildschirm"), "no lines, no lines part: \(inexact)")
 
 let fresh = AgentStatusText.text(
@@ -98,7 +98,7 @@ let macNow = AgentStatusText.text(
     name: "claude", space: "Shop", status: "wartet", since: now - 10 * 60, exact: true, now: now,
     lines: ["Proceed?"], source: .mac(updated: now - 5), linesMissingOffline: false
 )
-check(macNow.hasPrefix("Laut Mac (Stand gerade eben): claude in Shop: wartet, seit "), "fresh Mac board: \(macNow)")
+check(macNow.hasPrefix("Laut Mac (Stand gerade eben): claude in Shop: wartet, schon "), "fresh Mac board: \(macNow)")
 check(macNow.hasSuffix("Auf dem Bildschirm: Proceed?"), "waiting agent offline has lines: \(macNow)")
 
 // Done item 3 of #275: without data a clear message, no failure.
