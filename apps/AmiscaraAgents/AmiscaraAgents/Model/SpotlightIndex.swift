@@ -22,9 +22,18 @@ final class SpotlightIndex {
     private var pending: [UUID: [SpotlightEntry]] = [:]
     /// Entries as last written per host, to skip a write without a change.
     private var written: [UUID: [SpotlightEntry]] = [:]
+    /// A host's spaces as last seen live, kept while it is unreachable and
+    /// has only agents from iCloud (Entscheidung 3): iCloud boards carry no
+    /// space information, so without this a host that drops its connection
+    /// would lose its space entries even though nothing closed.
+    private var lastSpaces: [UUID: [SpotlightEntries.Space]] = [:]
     /// Debounces writes (Entscheidung 2 des Plans): at most every 30s,
     /// because agents change state often.
     private var pauseTask: Task<Void, Never>?
+    /// The batch of per-host writes currently running; cancelled when the
+    /// setting turns off so a write in flight cannot land after `clearAll()`
+    /// already cleared Spotlight.
+    private var writeTask: Task<Void, Never>?
     private static let pause: TimeInterval = 30
 
     private static let indexedHostsKey = "spotlightHosts"
@@ -50,9 +59,10 @@ final class SpotlightIndex {
                 let spaces = update.workspaces.map {
                     SpotlightEntries.Space(workspaceID: $0.workspaceId, name: $0.name, label: $0.label, branch: $0.branch)
                 }
+                lastSpaces[hostID] = spaces
                 pending[hostID] = SpotlightEntries.entries(hostID: hostID, hostName: hostName, spaces: spaces, agents: agents)
             } else if !agents.isEmpty {
-                pending[hostID] = SpotlightEntries.entries(hostID: hostID, hostName: hostName, spaces: [], agents: agents)
+                pending[hostID] = SpotlightEntries.entries(hostID: hostID, hostName: hostName, spaces: lastSpaces[hostID] ?? [], agents: agents)
             }
         }
         guard pauseTask == nil else { return }
@@ -79,26 +89,31 @@ final class SpotlightIndex {
         let key = id.uuidString
         pending[id] = nil
         written[id] = nil
+        lastSpaces[id] = nil
         indexedHosts.remove(key)
         Task { try? await CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: [key]) }
     }
 
-    /// Turning the setting off clears Spotlight at once; turning it on
-    /// writes what is pending right away, without waiting out the pause.
-    func settingChanged() {
+    /// Turning the setting off clears Spotlight at once. Turning it on asks
+    /// the store to publish again, which recomputes `pending` from the live
+    /// connections and, with no pause running, writes it right away.
+    func settingChanged(store: HostStore) {
         guard CSSearchableIndex.isIndexingAvailable() else { return }
         pauseTask?.cancel()
         pauseTask = nil
         if Self.isEnabled {
-            writeChanged()
+            store.widgets.publish(store, force: true)
         } else {
             clearAll()
         }
     }
 
     private func clearAll() {
+        writeTask?.cancel()
+        writeTask = nil
         pending = [:]
         written = [:]
+        lastSpaces = [:]
         indexedHosts = []
         Task { try? await CSSearchableIndex.default().deleteAllSearchableItems() }
     }
@@ -111,9 +126,10 @@ final class SpotlightIndex {
             pauseTask = nil
             return
         }
-        Task { [weak self] in
+        writeTask = Task { [weak self] in
             guard let self else { return }
             for (hostID, entries) in changed {
+                guard !Task.isCancelled else { return }
                 await self.write(hostID: hostID, entries: entries)
             }
         }
@@ -124,8 +140,8 @@ final class SpotlightIndex {
         }
     }
 
-    /// Replaces one host's items; a failure leaves `written` as is, so the
-    /// next write tries again.
+    /// Replaces one host's items; a failure, or a cancelled setting-off
+    /// in between, leaves `written` as is, so the next write tries again.
     private func write(hostID: UUID, entries: [SpotlightEntry]) async {
         let index = CSSearchableIndex.default()
         do {
@@ -138,6 +154,7 @@ final class SpotlightIndex {
                 return CSSearchableItem(uniqueIdentifier: entry.id, domainIdentifier: hostID.uuidString, attributeSet: attributes)
             }
             try await index.indexSearchableItems(items)
+            guard !Task.isCancelled else { return }
             written[hostID] = entries
             indexedHosts.insert(hostID.uuidString)
         } catch {
