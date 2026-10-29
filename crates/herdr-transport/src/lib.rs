@@ -1063,7 +1063,8 @@ async fn local_health_line() -> Result<HealthLine, TransportError> {
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true);
     let output = match tokio::time::timeout(HEALTH_TIMEOUT, command.output()).await {
-        Err(_) => return Ok(HealthLine::ScriptMissing),
+        // The script is there but slow, as over SSH: a failed reading.
+        Err(_) => return Err(TransportError::Timeout),
         Ok(Err(err))
             if matches!(
                 err.kind(),
