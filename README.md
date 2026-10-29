@@ -113,7 +113,10 @@ code), so a host is set up the same way everywhere.
   sidebar opens a page in the look of the widget: the number of waiting
   agents large, the working ones below, a row per agent that opens it.
   While the host reconnects its last agents stay; without a connection the
-  Mac's board in iCloud stands in. Mac, iPhone and iPad.
+  Mac's board in iCloud stands in. With `amiscara-health` on the host, small
+  tiles show its load, memory, free disk (orange under 10 % free), uptime
+  and herdr version, see [Setting up a host](#setting-up-a-host). Mac,
+  iPhone and iPad.
 - **Sorting spaces:** per host as herdr has them, by name (A–Z, Z–A) or
   manually by drag and drop, with a line where the space will land. The
   menu next to "Spaces" shows the current order as text. Not on the Apple
@@ -314,10 +317,10 @@ and a follower per visible pane that reads its screen.
 
 Each device creates its own SSH key. It is locked down in
 `~/.ssh/authorized_keys` on the host so that it reaches the herdr socket
-and nothing else:
+and, besides the health script below, nothing else:
 
 ```
-restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
+restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
 ```
 
 `restrict` turns off all forwarding (TCP and Unix sockets), the PTY and
@@ -325,6 +328,18 @@ agent forwarding; the forced command connects every session to the herdr
 socket, whatever the client asks to run. Every app shows this line for its
 key in the host editor, ready to copy. The desktop app can log in through
 the SSH agent instead; that key then needs such a line too.
+
+Every line also has a fixed case for the host's health (#306), after the
+`*sftp*` case:
+
+```
+amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;;
+```
+
+It runs nothing but the script at that path, which exists only if you put
+it there (step 8 of [Setting up a host](#setting-up-a-host)). Lines from
+before #306 lack it: the dashboard then shows no health tiles but asks for
+the new line.
 
 With "Lokale Webseiten weiterleiten" (Apple) or "Forward local web pages"
 (desktop, Android) on, the line gets one more case before `*)`, so the app
@@ -475,6 +490,13 @@ A `.deb` does not update itself; install the new one by hand.
    `NB_TOKEN=$(amiscara-env NB_TOKEN) netbird …` (with step 6, or the full
    path), so the value never appears in the pane. Only herdr panes get the
    variables, not every login.
+8. Optional, for the host's health on the dashboard (#306): copy
+   [`scripts/host/amiscara-health`](scripts/host/amiscara-health) to
+   `~/.amiscara-agents/bin/` too and `chmod +x` it. It only reads (load,
+   memory, disk of the home volume, uptime, OS; macOS and Linux) and prints
+   one JSON line. Key lines from before this need replacing once with the
+   one the app shows now, which has the `amiscara-health` case. The Mac
+   app's "Dieser Mac" runs the script directly.
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user
