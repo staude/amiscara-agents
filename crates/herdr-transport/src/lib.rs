@@ -67,7 +67,8 @@ pub enum TransportError {
     },
     /// The SSH connection did not open a channel within
     /// [`CHANNEL_OPEN_TIMEOUT`]; it is asked to close, so the session
-    /// reconnects.
+    /// reconnects. Also a health reading that took longer than
+    /// [`HEALTH_TIMEOUT`] (#306); that leaves the connection open.
     #[error("timed out opening a channel to herdr")]
     Timeout,
 }
@@ -503,34 +504,8 @@ impl Connection {
         .await
         .map_err(|_| TransportError::Timeout)??;
         let stream: Box<dyn Stream> = Box::new(channel.into_stream());
-        let mut reader = BufReader::new(stream);
-        let mut marked = false;
-        let mut result = HealthLine::Gated;
-        for _ in 0..5 {
-            let mut line = String::new();
-            match tokio::time::timeout_at(deadline, reader.read_line(&mut line)).await {
-                Ok(Ok(0)) => break,
-                // After the marker the script is there but slow (a busy
-                // host, a hanging mount): a failed reading, not a hint.
-                Err(_) if marked => return Err(TransportError::Timeout),
-                Err(_) => break,
-                Ok(Ok(_)) => {}
-                Ok(Err(err)) => return Err(err.into()),
-            }
-            let line = line.trim();
-            if !marked {
-                if line != HEALTH_GATE_READY {
-                    break;
-                }
-                marked = true;
-                result = HealthLine::ScriptMissing;
-            } else if line.starts_with('{') {
-                result = HealthLine::Json(line.to_owned());
-                break;
-            }
-        }
         // Dropping the channel closes it, without waiting on a stalled link.
-        Ok(result)
+        read_health_line(&mut BufReader::new(stream), deadline).await
     }
 
     /// Opens the channel for one future request ahead of time.
@@ -1048,6 +1023,42 @@ pub enum HealthLine {
     ScriptMissing,
     /// The key's line predates the case (#306).
     Gated,
+}
+
+/// Reads what the key's line answers to `amiscara-health` until
+/// `deadline`: no [`HEALTH_GATE_READY`] first means an older line, the
+/// marker without a JSON line a missing script, the marker and then
+/// silence a slow one ([`TransportError::Timeout`]).
+async fn read_health_line<R: tokio::io::AsyncBufRead + Unpin>(
+    reader: &mut R,
+    deadline: tokio::time::Instant,
+) -> Result<HealthLine, TransportError> {
+    let mut marked = false;
+    let mut result = HealthLine::Gated;
+    for _ in 0..5 {
+        let mut line = String::new();
+        match tokio::time::timeout_at(deadline, reader.read_line(&mut line)).await {
+            Ok(Ok(0)) => break,
+            // After the marker the script is there but slow (a busy
+            // host, a hanging mount): a failed reading, not a hint.
+            Err(_) if marked => return Err(TransportError::Timeout),
+            Err(_) => break,
+            Ok(Ok(_)) => {}
+            Ok(Err(err)) => return Err(err.into()),
+        }
+        let line = line.trim();
+        if !marked {
+            if line != HEALTH_GATE_READY {
+                break;
+            }
+            marked = true;
+            result = HealthLine::ScriptMissing;
+        } else if line.starts_with('{') {
+            result = HealthLine::Json(line.to_owned());
+            break;
+        }
+    }
+    Ok(result)
 }
 
 /// Runs `~/.amiscara-agents/bin/amiscara-health` on this machine.
@@ -1966,5 +1977,92 @@ mod browse_tests {
         assert!(!inside_home("/home/a", "/home"));
         assert!(!inside_home("/home/a", "/etc"));
         assert!(!inside_home("/home/a", "/home/a/../b"));
+    }
+}
+
+#[cfg(test)]
+mod health_tests {
+    use std::time::Duration;
+
+    use tokio::io::{AsyncWriteExt, BufReader};
+
+    use super::{HealthLine, TransportError, read_health_line};
+
+    fn read(answer: &[u8], wait: Duration) -> Result<HealthLine, TransportError> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(async {
+                // The writer stays open, so a short answer runs into the deadline.
+                let (mut host, app) = tokio::io::duplex(4096);
+                host.write_all(answer).await.expect("write");
+                let result =
+                    read_health_line(&mut BufReader::new(app), tokio::time::Instant::now() + wait)
+                        .await;
+                drop(host);
+                result
+            })
+    }
+
+    fn read_to_end(answer: &[u8]) -> Result<HealthLine, TransportError> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(async {
+                let mut reader = answer;
+                read_health_line(
+                    &mut reader,
+                    tokio::time::Instant::now() + Duration::from_secs(5),
+                )
+                .await
+            })
+    }
+
+    #[test]
+    fn the_script_line_follows_the_marker() {
+        assert_eq!(
+            read_to_end(b"amiscara-health\n{\"v\":1}\n").expect("line"),
+            HealthLine::Json(r#"{"v":1}"#.into())
+        );
+        assert_eq!(
+            read_to_end(b"amiscara-health\nnoise\n{\"v\":1}\n").expect("line"),
+            HealthLine::Json(r#"{"v":1}"#.into())
+        );
+    }
+
+    #[test]
+    fn the_marker_alone_means_no_script() {
+        assert_eq!(
+            read_to_end(b"amiscara-health\n").expect("line"),
+            HealthLine::ScriptMissing
+        );
+        assert_eq!(
+            read_to_end(b"amiscara-health\nsh: not found\n").expect("line"),
+            HealthLine::ScriptMissing
+        );
+    }
+
+    #[test]
+    fn no_marker_means_an_older_key_line() {
+        // `/usr/bin/false` ends at once, herdr's socket stays silent.
+        assert_eq!(read_to_end(b"").expect("line"), HealthLine::Gated);
+        assert_eq!(
+            read(b"", Duration::from_millis(50)).expect("line"),
+            HealthLine::Gated
+        );
+        assert_eq!(
+            read_to_end(b"{\"v\":1}\n").expect("line"),
+            HealthLine::Gated
+        );
+    }
+
+    #[test]
+    fn silence_after_the_marker_is_a_slow_script() {
+        assert!(matches!(
+            read(b"amiscara-health\n", Duration::from_millis(50)),
+            Err(TransportError::Timeout)
+        ));
     }
 }
