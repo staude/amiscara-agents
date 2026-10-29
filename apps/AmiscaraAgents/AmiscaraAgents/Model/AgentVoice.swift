@@ -41,6 +41,8 @@ final class AgentVoice {
     @ObservationIgnored private var stateChange = 0
     /// The pane's agent state as last reported, checked before sending.
     @ObservationIgnored private var agentState: AgentState?
+    /// The utterance is "Claude wartet auf eine Entscheidung."
+    @ObservationIgnored private var decisionSentence = false
     /// `Dictation.start` is still asking for permissions.
     @ObservationIgnored private var startingDictation = false
 
@@ -107,15 +109,21 @@ final class AgentVoice {
         let answered = voiceMode && old == .blocked && new != .blocked
             && (state == .waitingForDecision || afterSpeaking == .waitingForDecision)
         if answered {
-            silence()
-            state = .waiting
+            if decisionSentence {
+                silence()
+            } else if afterSpeaking == .waitingForDecision {
+                // A reply the user asked for plays to its end.
+                afterSpeaking = .waiting
+            }
+            if state == .waitingForDecision { state = .waiting }
         }
         guard let new, new != .working, state != .listening else { return }
-        guard old == .working || answered else { return }
+        // A decision, also one that did not follow seen work.
         if new == .blocked {
-            if voiceMode { speakDecision() }
+            if voiceMode, old != .blocked { speakDecision() }
             return
         }
+        guard old == .working || answered else { return }
         let reads = voiceMode
             || (Self.readsReplies(host: connection.id, pane: paneID) && !Dictation.isAnyRunning)
         guard reads else { return }
@@ -179,6 +187,7 @@ final class AgentVoice {
     /// Ends the utterance being spoken, without what was to follow it.
     private func silence() {
         afterSpeaking = nil
+        decisionSentence = false
         guard utterance != nil else { return }
         utterance = nil
         synthesizer.stopSpeaking(at: .immediate)
@@ -232,6 +241,9 @@ final class AgentVoice {
         lastRead = read
         let spoken = SpokenText.make(from: entry.text)
         guard !spoken.text.isEmpty else { return .noReply }
+        // Claude asked for a decision while the file loaded: that comes
+        // first, and no dictation after it.
+        if voiceMode, next == .listening, agentState == .blocked { return .failed }
         speak(spoken.text, language: spoken.language, automatic: automatic, then: voiceMode ? next : nil)
         return .spoken
     }
@@ -239,6 +251,7 @@ final class AgentVoice {
     private func speakDecision() {
         let text = String(localized: "Claude wartet auf eine Entscheidung.")
         speak(text, language: nil, automatic: false, then: .waitingForDecision)
+        decisionSentence = true
     }
 
     /// `automatic` reading follows the silent switch; reading the user asked
@@ -260,6 +273,7 @@ final class AgentVoice {
         utterance.voice = AVSpeechSynthesisVoice(language: language)
         self.utterance = ObjectIdentifier(utterance)
         afterSpeaking = next
+        decisionSentence = false
         state = .speaking
         synthesizer.speak(utterance)
     }
@@ -284,6 +298,17 @@ final class AgentVoice {
     /// Dictation after a reply; the speech sent once a pause ends it.
     private func listen() {
         guard voiceMode else { return }
+        // Claude started meanwhile (another device): no dictation into it.
+        switch agentState {
+        case .blocked:
+            speakDecision()
+            return
+        case .working:
+            state = .waiting
+            return
+        default:
+            break
+        }
         state = .listening
         let run = run
         dictation.onFinish = { [weak self] text in self?.heard(text, run: run) }
