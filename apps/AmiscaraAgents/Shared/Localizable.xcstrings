@@ -4101,6 +4101,56 @@
         }
       }
     },
+    "NetBird ist auf diesem Gerät nicht installiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not installed on this device."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht verbunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not connected on this device."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht verbunden. Im Symbol der Menüleiste „Connect“ wählen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not connected on this device. Choose “Connect” in the menu bar icon."
+          }
+        }
+      }
+    },
+    "NetBird öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open NetBird"
+          }
+        }
+      }
+    },
+    "NetBird-Adressen und -Domains erkennt die App selbst, eigene Domains lernt sie, sobald NetBird läuft. Mit dem Schalter lässt sich das überschreiben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app recognises NetBird addresses and domains itself and learns your own domains once NetBird is running. The switch overrides this."
+          }
+        }
+      }
+    },
     "Neu laden" : {
       "localizations" : {
         "en" : {
@@ -5627,6 +5677,16 @@
         }
       }
     },
+    "VPN aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN off"
+          }
+        }
+      }
+    },
     "VS Code ist nicht installiert." : {
       "localizations" : {
         "en" : {
@@ -5723,6 +5783,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discard changes?"
+          }
+        }
+      }
+    },
+    "Über NetBird" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Via NetBird"
           }
         }
       }

@@ -196,6 +196,11 @@ code), so a host is set up the same way everywhere.
   one with `claude --resume` in a new tab or the shown shell pane, e.g. to
   give an agent the environment of a changed `.zshrc`. Quit the old pane's
   Claude first. Needs SFTP like the conversation view. Mac, iPhone and iPad.
+- **NetBird status:** hosts behind NetBird show "VPN aus" while NetBird is
+  not connected on the device, and their status popover offers "NetBird
+  öffnen". The app recognises NetBird addresses and domains and learns your
+  own domains once NetBird runs; the host editor has a switch to override
+  it. Mac, iPhone and iPad.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the
