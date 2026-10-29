@@ -607,15 +607,30 @@ and the project uses [Semantic Versioning](https://semver.org/).
   the directory), then by session with its title, each with a snippet and
   date, newest first, at most 200 and 20 lines per session file. A tap
   opens the conversation at the hit, marked, with "Neuere Einträge laden"
-  below. Index-free: a local host's files are read directly; over SSH with input allowed and a space open a
-  script runs grep in a short-lived, unfocused tab (prompts, answers and
-  shown tool fields only, files of the last 30 days first, no subagents,
-  300 lines in all), otherwise the app reads the files of the last 30 days,
+  below. Index-free: a local host's files are read directly; over SSH with
+  input allowed and a space open a script runs grep in a short-lived,
+  unfocused tab (prompts, answers and shown tool fields only, files of the
+  last 30 days first, no subagents, 300 lines in all), otherwise the app reads the files of the last 30 days,
   newest first, up to 300 MB, and says so. Progress with "Abbrechen"; a
   cancel closes the tab. Needs file access. Core: `Connection::is_local`,
   `claude::Query`, `hits_in_line`, `snippet`, `search_script`,
   `read_hit_line`, `read_forward`, `Session::search_conversations`,
   `claude_history_at`, `claude_history_after`, `TranscriptSpan`.
+- Token usage (#302): the host dashboard (Mac, iPhone, iPad) shows "Heute:
+  n Tokens, ~$x" for the host and under each Claude agent, read from Claude
+  Code's session files in the working directories of the open Claude agents
+  (subagents included, each message counted once per `message.id` and
+  `requestId`). A tap opens the last 30 days per day, unfolding into model
+  and folder. Costs are estimated in US dollars from an editable price table
+  per model (Settings on the Mac, the sidebar menu on iPhone and iPad) with
+  Anthropic's list prices as defaults; models without a price count as
+  tokens only. "Tageskosten im Widget" (off by default) adds today's total
+  per host to the medium widget's footer. Needs file access like uploads;
+  each file is read once and afterwards only what was appended, kept in the
+  cache directory between runs. Core: `herdr_core::usage`,
+  `Session::usage`, `usage_state`, `restore_usage_state`;
+  `herdr-spike usage <cwd> [--days N]` prints tokens per local day and model.
+  `scripts/usage-sums-test.sh` checks the app's sums against the bindings.
 - Approvals (#296): with a GitHub token per host (host settings, section
   "GitHub", fine-grained with Issues: Read; only in this device's Keychain,
   `net.staude.amiscara.agents.github-token`, not in iCloud) the overview and

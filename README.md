@@ -189,6 +189,12 @@ code), so a host is set up the same way everywhere.
   New shells in herdr panes export them, running agents read one with
   `amiscara-env <NAME>`, see [Setting up a host](#setting-up-a-host). Needs
   SFTP like uploads and input allowed. Mac, iPhone and iPad.
+- **Tokens and cost:** the host dashboard shows today's Claude Code tokens
+  and an estimated cost in US dollars for the host and each Claude agent,
+  and on a tap the last 30 days per day, model and folder. Read from Claude
+  Code's session files in the working directories of the open Claude
+  agents; the prices per model are editable. Optionally in the medium
+  widget. Needs SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.

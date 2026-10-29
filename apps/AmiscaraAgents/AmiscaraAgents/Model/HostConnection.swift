@@ -23,6 +23,8 @@ final class HostConnection: Identifiable {
     private(set) var generation = 0
     /// Called on the main actor after every update, e.g. for notifications.
     @ObservationIgnored var onUpdate: ((HostConnection, SessionUpdate) -> Void)?
+    /// Token usage of the host's Claude agents (#302).
+    @ObservationIgnored let usage = UsageStore()
     #if DEBUG
     /// The screenshot demo took the host offline (#290); late updates of
     /// the stopped session must not bring it back.
@@ -33,6 +35,7 @@ final class HostConnection: Identifiable {
     init(config: HostConfig) {
         self.config = config
         id = config.id
+        usage.attach(self)
     }
 
     var status: HostStatus? { update?.status }
@@ -116,7 +119,10 @@ final class HostConnection: Identifiable {
             return
         }
         // Another machine or server: its agents are not ours.
-        if config.server != self.config.server { lastBoard = [] }
+        if config.server != self.config.server {
+            lastBoard = []
+            usage.reset()
+        }
         self.config = config
         update = nil
         start()
@@ -330,6 +336,30 @@ final class HostConnection: Identifiable {
         return try session.searchConversations(query: query, allowCommand: config.inputAllowed, observer: observer)
     }
     #endif
+
+    /// Token usage of Claude Code in the working directories `cwds` since
+    /// `since` (#302). Read only, but over SSH it needs the same SFTP access
+    /// as uploads; the first time a large read.
+    func usage(cwds: [String], since: Date) async throws -> UsageReport {
+        guard config.uploadAllowed else { throw ConnectionFailure.usageFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        let sinceSecs = UInt64(max(0, since.timeIntervalSince1970))
+        return try await Task.detached {
+            try session.usage(cwds: cwds, sinceSecs: sinceSecs)
+        }.value
+    }
+
+    /// What `usage` has read in this session, to keep between runs.
+    func usageState() async -> String? {
+        guard let session else { return nil }
+        return await Task.detached { session.usageState() }.value
+    }
+
+    /// Gives a new session what an earlier one had read.
+    func restoreUsageState(_ state: String) async {
+        guard let session else { return }
+        await Task.detached { session.restoreUsageState(state: state) }.value
+    }
 
     /// The Claude Code sessions of a folder on the host, newest first
     /// (#304). Read only, with the same SFTP access as `claudeHistory`.
@@ -630,6 +660,7 @@ enum ConnectionFailure: LocalizedError {
     case browseFilesOff
     case secretsFilesOff
     case searchFilesOff
+    case usageFilesOff
     case sessionsFilesOff
     case approvalsFilesOff
     case unsafePath
@@ -652,6 +683,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .searchFilesOff:
             String(localized: "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .usageFilesOff:
+            String(localized: "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .sessionsFilesOff:
             String(localized: "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .approvalsFilesOff:
