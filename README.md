@@ -325,7 +325,8 @@ restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-h
 
 `restrict` turns off all forwarding (TCP and Unix sockets), the PTY and
 agent forwarding; the forced command connects every session to the herdr
-socket, whatever the client asks to run. Every app shows this line for its
+socket, whatever the client asks to run, except SFTP (refused or allowed
+per host) and the health case below. Every app shows this line for its
 key in the host editor, ready to copy. The desktop app can log in through
 the SSH agent instead; that key then needs such a line too.
 
