@@ -39,6 +39,8 @@ final class AgentVoice {
     @ObservationIgnored private var run = 0
     /// Bumped on each agent state change, so an older retry loop stops.
     @ObservationIgnored private var stateChange = 0
+    /// The pane's agent state as last reported, checked before sending.
+    @ObservationIgnored private var agentState: AgentState?
     /// `Dictation.start` is still asking for permissions.
     @ObservationIgnored private var startingDictation = false
 
@@ -92,22 +94,24 @@ final class AgentVoice {
     /// work counts, not each text between two tool calls.
     func agentStateChanged(from old: AgentState?, to new: AgentState?, connection: HostConnection, paneID: String) {
         stateChange += 1
-        guard let new, new != .working, state != .listening else { return }
-        // A decision declined on the screen goes from blocked to idle, also
-        // while its sentence is still spoken.
-        let declined = voiceMode && old == .blocked
+        agentState = new
+        // Claude started on its own (another device, a hook): what is heard
+        // now must not go into its work or a permission prompt.
+        if voiceMode, state == .listening, new == .working || new == .blocked {
+            stopDictation()
+            if new == .blocked { speakDecision() } else { state = .waiting }
+            return
+        }
+        // A decision answered on the screen, also while its sentence is
+        // still spoken: approved goes on working, declined to idle.
+        let answered = voiceMode && old == .blocked && new != .blocked
             && (state == .waitingForDecision || afterSpeaking == .waitingForDecision)
-        guard old == .working || declined else { return }
-        if declined {
-            // Answered on the screen: wait for the reply as after a prompt.
-            if utterance != nil {
-                utterance = nil
-                afterSpeaking = nil
-                synthesizer.stopSpeaking(at: .immediate)
-                releaseAudioSession()
-            }
+        if answered {
+            silence()
             state = .waiting
         }
+        guard let new, new != .working, state != .listening else { return }
+        guard old == .working || answered else { return }
         if new == .blocked {
             if voiceMode { speakDecision() }
             return
@@ -136,6 +140,7 @@ final class AgentVoice {
     /// then listens; "Stopp" or a tap ends it.
     func startVoiceMode(connection: HostConnection, paneID: String, agentState: AgentState?) {
         stop()
+        self.agentState = agentState
         // Two recordings at once would hear each other.
         guard !Dictation.isAnyRunning else {
             error = String(localized: "Erst das Diktat in der Eingabeleiste beenden.")
@@ -163,17 +168,21 @@ final class AgentVoice {
     func stop() {
         run += 1
         stopDictation()
-        if utterance != nil {
-            utterance = nil
-            synthesizer.stopSpeaking(at: .immediate)
-            releaseAudioSession()
-        }
-        afterSpeaking = nil
+        silence()
         if voiceMode { keepScreenOn(false) }
         voiceMode = false
         target = nil
         state = .idle
         error = nil
+    }
+
+    /// Ends the utterance being spoken, without what was to follow it.
+    private func silence() {
+        afterSpeaking = nil
+        guard utterance != nil else { return }
+        utterance = nil
+        synthesizer.stopSpeaking(at: .immediate)
+        releaseAudioSession()
     }
 
     /// Hands the audio back to others, unless the composer's dictation
@@ -306,7 +315,13 @@ final class AgentVoice {
             end(error: nil)
             return
         }
+        // Never into a permission prompt or running work.
+        if agentState == .blocked {
+            speakDecision()
+            return
+        }
         state = .waiting
+        if agentState == .working { return }
         Task {
             do {
                 try await target.connection.submit(prompt, to: target.paneID, isAgent: true)
