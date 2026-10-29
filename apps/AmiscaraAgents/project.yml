@@ -360,6 +360,9 @@ targets:
           - Views/QRScannerView.swift
           - Views/InputBar.swift
           - Model/Dictation.swift
+          - Model/AgentVoice.swift
+          - Model/SpokenText.swift
+          - Views/AgentVoiceBar.swift
           - Model/AgentIntents.swift
           - Model/HostStore+MultiSend.swift
           - Views/MultiSendBar.swift

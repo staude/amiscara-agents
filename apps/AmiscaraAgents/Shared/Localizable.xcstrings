@@ -1142,6 +1142,16 @@
         }
       }
     },
+    "Antworten vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Replies Aloud"
+          }
+        }
+      }
+    },
     "App sperren" : {
       "localizations" : {
         "en" : {
@@ -1272,6 +1282,46 @@
         }
       }
     },
+    "Claude wartet auf eine Entscheidung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is waiting for a decision"
+          }
+        }
+      }
+    },
+    "Claude wartet auf eine Entscheidung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is waiting for a decision."
+          }
+        }
+      }
+    },
+    "Claudes Antworten vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Claude's replies aloud"
+          }
+        }
+      }
+    },
+    "Codeblock ausgelassen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code block skipped."
+          }
+        }
+      }
+    },
     "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
       "localizations" : {
         "en" : {
@@ -1358,6 +1408,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Once"
+          }
+        }
+      }
+    },
+    "Erst das Diktat in der Eingabeleiste beenden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop the dictation in the input bar first."
           }
         }
       }
@@ -1508,6 +1568,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Note for the implementation"
+          }
+        }
+      }
+    },
+    "Hört zu …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listening …"
+          }
+        }
+      }
+    },
+    "Hört zu: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listening: %@"
           }
         }
       }
@@ -1672,6 +1752,16 @@
         }
       }
     },
+    "Letzte Antwort vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Last Reply"
+          }
+        }
+      }
+    },
     "Liest die Sitzungsdateien der letzten 30 Tage. Beim ersten Mal dauert das eine Weile." : {
       "localizations" : {
         "en" : {
@@ -1682,12 +1772,42 @@
         }
       }
     },
+    "Liest vor …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading aloud …"
+          }
+        }
+      }
+    },
+    "Link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link"
+          }
+        }
+      }
+    },
     "Listenpreise wiederherstellen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore list prices"
+          }
+        }
+      }
+    },
+    "Meldung schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close message"
           }
         }
       }
@@ -1758,6 +1878,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not read again: %@"
+          }
+        }
+      }
+    },
+    "Noch keine Antwort zum Vorlesen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reply to read yet."
           }
         }
       }
@@ -1862,12 +1992,42 @@
         }
       }
     },
+    "Sprachmodus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice Mode"
+          }
+        }
+      }
+    },
+    "Sprachmodus beenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Voice Mode"
+          }
+        }
+      }
+    },
     "Später. Der Plan wartet weiter auf Freigabe." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Later. The plan still waits for approval."
+          }
+        }
+      }
+    },
+    "Stopp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
           }
         }
       }
@@ -1978,6 +2138,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "US dollars per million tokens. A model without a price counts toward the tokens but not the cost."
+          }
+        }
+      }
+    },
+    "Vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Aloud"
+          }
+        }
+      }
+    },
+    "Vorlesen beenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Reading"
+          }
+        }
+      }
+    },
+    "Vorlesen braucht Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading aloud needs file access like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
+    "Wartet auf Claude …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for Claude …"
           }
         }
       }
