@@ -16,6 +16,9 @@ use herdr_transport::{Connection, TransportError};
 pub const CHUNK: u64 = 1 << 20;
 /// Bytes from the end of a candidate file searched for its title.
 const TITLE_TAIL: u64 = 256 * 1024;
+/// Bytes from the end [`list_sessions`] reads first: Claude Code writes
+/// its title lines again and again, so they are mostly near the end.
+const TITLE_PEEK: u64 = 32 * 1024;
 /// Entries one step back should bring at least, if the file has them.
 pub const STEP_ENTRIES: usize = 30;
 /// Most bytes one step back reads: sessions hold large request copies,
@@ -25,6 +28,12 @@ pub const STEP_BYTES: u64 = 8 * CHUNK;
 const CANDIDATES: usize = 6;
 /// Longest tool summary shown.
 const TOOL_SUMMARY: usize = 160;
+/// Newest sessions [`list_sessions`] returns (#304): each costs two reads.
+pub const LIST_LIMIT: usize = 30;
+/// Bytes from the start of a session searched for its first prompt.
+const HEAD_BYTES: u64 = 64 * 1024;
+/// Longest first prompt used as a title.
+const PROMPT_TITLE: usize = 120;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClaudeError {
@@ -59,6 +68,18 @@ pub struct Entry {
 pub struct Session {
     /// Below the home directory.
     pub path: String,
+    pub size: u64,
+}
+
+/// A session of a folder, from [`list_sessions`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionSummary {
+    /// What `claude --resume` takes: the file name without `.jsonl`.
+    pub id: String,
+    pub title: String,
+    /// Seconds since 1970, 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file.
     pub size: u64,
 }
 
@@ -114,7 +135,9 @@ pub async fn find_session(conn: &Connection, pane_id: &str) -> Result<Session, C
                     TITLE_TAIL,
                 )
                 .await?;
-            if last_title(&tail).is_some_and(|title| plain_title(&title) == wanted) {
+            if last_title(&tail, "ai-title", "aiTitle")
+                .is_some_and(|title| plain_title(&title) == wanted)
+            {
                 return Ok(Session {
                     path: path(&file.name),
                     size: file.size,
@@ -126,6 +149,60 @@ pub async fn find_session(conn: &Connection, pane_id: &str) -> Result<Session, C
         path: path(&newest.name),
         size: newest.size,
     })
+}
+
+/// The Claude Code sessions of the working directory `cwd`, newest first
+/// and at most [`LIST_LIMIT`]. A folder Claude Code never ran in has none.
+/// Reads the end of each file (a little, then more) and, if no title is
+/// there, its start.
+pub async fn list_sessions(
+    conn: &Connection,
+    cwd: &str,
+) -> Result<Vec<SessionSummary>, ClaudeError> {
+    let dir = project_dir(cwd);
+    let mut files: Vec<_> = conn
+        .list_files_if_present(&dir)
+        .await?
+        .into_iter()
+        .filter(|file| file.name.ends_with(".jsonl"))
+        .collect();
+    files.sort_by_key(|file| std::cmp::Reverse(file.modified));
+    files.truncate(LIST_LIMIT);
+    let mut sessions = Vec::with_capacity(files.len());
+    for file in files {
+        let path = format!("{dir}/{}", file.name);
+        let mut title = None;
+        for len in [TITLE_PEEK, TITLE_TAIL] {
+            let tail = conn
+                .read_file_range(&path, file.size.saturating_sub(len), len)
+                .await?;
+            title = tail_title(&tail);
+            if title.is_some() || file.size <= len {
+                break;
+            }
+        }
+        if title.is_none() {
+            title = first_prompt(&conn.read_file_range(&path, 0, HEAD_BYTES).await?);
+        }
+        let id = file.name.trim_end_matches(".jsonl").to_owned();
+        let title = title
+            .map(|title| plain_title(&title))
+            .filter(|title| !title.is_empty())
+            .unwrap_or_else(|| id.chars().take(8).collect());
+        sessions.push(SessionSummary {
+            id,
+            title,
+            modified: file.modified,
+            size: file.size,
+        });
+    }
+    Ok(sessions)
+}
+
+/// Whether `id` can be a Claude Code session id (a UUID): only ASCII
+/// letters, digits and `-`, so it is safe as an argument of `claude`.
+pub fn is_session_id(id: &str) -> bool {
+    !id.is_empty() && id.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
 }
 
 /// The page that ends at byte `end` of `session` (its size for the newest).
@@ -286,15 +363,47 @@ fn tool_summary(block: &Value) -> String {
     format!("{name}: {short}")
 }
 
-/// The last `aiTitle` among the complete lines of `data`.
-fn last_title(data: &[u8]) -> Option<String> {
+/// The `key` of the last line of type `kind` among the complete lines of
+/// `data`, e.g. `aiTitle` of `ai-title`.
+fn last_title(data: &[u8], kind: &str, key: &str) -> Option<String> {
+    let kind = kind.as_bytes();
     data.split(|&b| b == b'\n')
         .rev()
-        .filter(|line| line.windows(8).any(|w| w == b"ai-title"))
+        .filter(|line| line.windows(kind.len()).any(|w| w == kind))
         .find_map(|line| {
             let value: Value = serde_json::from_slice(line).ok()?;
-            value["aiTitle"].as_str().map(str::to_owned)
+            value[key].as_str().map(str::to_owned)
         })
+}
+
+/// The title at the end of a session: a name given with `/rename` wins
+/// over the one Claude Code chose.
+fn tail_title(data: &[u8]) -> Option<String> {
+    last_title(data, "custom-title", "customTitle")
+        .or_else(|| last_title(data, "ai-title", "aiTitle"))
+}
+
+/// The first prompt among the complete lines of `data`, the start of a
+/// session: its first line that is no tag (pasted text, commands), at most
+/// [`PROMPT_TITLE`] characters.
+fn first_prompt(data: &[u8]) -> Option<String> {
+    data.split(|&b| b == b'\n').find_map(|line| {
+        let value: Value = serde_json::from_slice(line).ok()?;
+        let entry = entries_of(&value)
+            .into_iter()
+            .find(|entry| entry.kind == EntryKind::User)?;
+        let line = entry
+            .text
+            .lines()
+            .map(str::trim)
+            .find(|line| !line.is_empty() && !line.starts_with('<'))?
+            .to_owned();
+        let mut short: String = line.chars().take(PROMPT_TITLE).collect();
+        if short.len() < line.len() {
+            short.push('…');
+        }
+        Some(short)
+    })
 }
 
 /// A title without the status mark Claude Code puts in front (`◑ `, `✳ `).
@@ -406,7 +515,7 @@ mod tests {
             json!({"type": "user", "message": {"content": "x"}}),
         ]);
         assert_eq!(
-            last_title(&data).as_deref(),
+            last_title(&data, "ai-title", "aiTitle").as_deref(),
             Some("Offene Geräte-Schritte aus #84")
         );
         assert_eq!(
@@ -414,5 +523,52 @@ mod tests {
             "Offene Geräte-Schritte aus #84"
         );
         assert_eq!(plain_title("✳ Claude Code"), "Claude Code");
+    }
+
+    #[test]
+    fn rename_wins_over_ai_title() {
+        let data = lines(&[
+            json!({"type": "custom-title", "customTitle": "Umbenannt"}),
+            json!({"type": "ai-title", "aiTitle": "Von Claude"}),
+        ]);
+        assert_eq!(tail_title(&data).as_deref(), Some("Umbenannt"));
+        let data = lines(&[json!({"type": "ai-title", "aiTitle": "Von Claude"})]);
+        assert_eq!(tail_title(&data).as_deref(), Some("Von Claude"));
+        assert_eq!(tail_title(b"{\"type\": \"user\"}\n"), None);
+    }
+
+    #[test]
+    fn first_prompt_skips_meta_sidechain_and_tags() {
+        let data = lines(&[
+            json!({"type": "attachment", "attachment": {}}),
+            json!({"type": "user", "isMeta": true, "message": {"content": "meta"}}),
+            json!({"type": "user", "isSidechain": true, "message": {"content": "sub"}}),
+            json!({"type": "user", "message": {"content": "<command-name>/x</command-name>"}}),
+            json!({"type": "user", "message": {"content": [
+                {"type": "text", "text": "\n<pasted_content id=\"1\">\n  Erste Zeile  \nzweite"},
+            ]}}),
+        ]);
+        assert_eq!(first_prompt(&data).as_deref(), Some("Erste Zeile"));
+        assert_eq!(first_prompt(&lines(&[json!({"type": "ai-title"})])), None);
+    }
+
+    #[test]
+    fn first_prompt_is_cut() {
+        let long = "ä".repeat(PROMPT_TITLE + 5);
+        let data = lines(&[json!({"type": "user", "message": {"content": long}})]);
+        let title = first_prompt(&data).expect("title");
+        assert_eq!(title.chars().count(), PROMPT_TITLE + 1);
+        assert!(title.ends_with('…'));
+        let exact = "a".repeat(PROMPT_TITLE);
+        let data = lines(&[json!({"type": "user", "message": {"content": exact.clone()}})]);
+        assert_eq!(first_prompt(&data), Some(exact));
+    }
+
+    #[test]
+    fn session_ids_are_checked() {
+        assert!(is_session_id("1a809806-9573-40d1-a97b-f3362b079eb7"));
+        for id in ["", "a b", "x;rm -rf ~", "$(id)", "../x", "a\nb", "ä"] {
+            assert!(!is_session_id(id), "{id:?}");
+        }
     }
 }

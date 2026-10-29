@@ -121,6 +121,16 @@ code), so a host is set up the same way everywhere.
   "Zusammenfassen" turns the list into a few sentences with the on-device
   model (Apple Intelligence). Git runs in a short-lived tab, so it needs
   input and file access; nothing is stored. Mac, iPhone and iPad.
+- **Approvals:** with a GitHub token for a host (host settings, "GitHub",
+  fine-grained with Issues: Read, kept only on this device), the overview
+  and the host's dashboard list "Freigaben": issues in the host's GitHub
+  repositories whose enon-tools plan waits for approval
+  (`awaiting-approval`), with the plan's overview for the approval. If the
+  planning tab `plan-<nr>` waits for the answer, "Freigeben", "Später" and
+  "Mit Hinweis freigeben" answer it there; the workflow then sets
+  `approved` itself. Without such a tab the app shows `/issue-approve <nr>`
+  to copy. The repositories come from the Git configs on the host, so it
+  needs file access ("Bilder hochladen"). Mac, iPhone and iPad.
 - **Sorting spaces:** per host as herdr has them, by name (A–Z, Z–A) or
   manually by drag and drop, with a line where the space will land. The
   menu next to "Spaces" shows the current order as text. Not on the Apple
@@ -155,7 +165,10 @@ code), so a host is set up the same way everywhere.
   option with its text instead of 1, 2, 3. A
   prompt starting with `/` goes live into the agent's own input line, so
   Claude Code shows its commands and skills in the pane (↑↓ pick, Tab takes,
-  Enter runs).
+  Enter runs). Prompt templates with `{placeholders}`, for all repos or one,
+  sit next to the quick replies; a tap asks for the placeholders (`{nr}`
+  from the branch's issue number, `{branch}` and `{space}` prefilled) and
+  puts the text into the composer without sending it.
 - **Read-only switch per host**, for hosts you only want to watch.
 - **Manage:** new space, tab (optionally starting an agent) and worktree;
   rename and close spaces and tabs; name an agent.
@@ -184,6 +197,17 @@ code), so a host is set up the same way everywhere.
   space or pane, opens the folder in VS Code on the Mac or PC over
   Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop
   app.
+- **Resuming Claude sessions:** "Claude-Sitzungen …" in a space's menu
+  lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), newest first, and continues
+  one with `claude --resume` in a new tab or the shown shell pane, e.g. to
+  give an agent the environment of a changed `.zshrc`. Quit the old pane's
+  Claude first. Needs SFTP like the conversation view. Mac, iPhone and iPad.
+- **NetBird status:** hosts behind NetBird show "VPN aus" while NetBird is
+  not connected on the device, and their status popover offers "NetBird
+  öffnen". The app recognises NetBird addresses and domains and learns your
+  own domains once NetBird runs; the host editor has a switch to override
+  it. Mac, iPhone and iPad.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the

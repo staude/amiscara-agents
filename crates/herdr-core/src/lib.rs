@@ -8,7 +8,8 @@
 //! [`spaces`] orders the sidebar and groups spaces by
 //! name, [`browse`] reads files below the home directory. [`question`]
 //! finds an agent's choice question on the screen, [`daily`] what happened
-//! on a host on one day.
+//! on a host on one day, [`github`] the GitHub repositories of spaces and
+//! the overview of a plan waiting for approval.
 
 pub mod actions;
 pub mod browse;
@@ -16,6 +17,7 @@ pub mod claude;
 pub mod daily;
 pub mod diff;
 pub mod fullscreen;
+pub mod github;
 pub mod pane;
 pub mod question;
 pub mod spaces;

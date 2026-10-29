@@ -11,6 +11,8 @@ struct HostDashboardView: View {
     let connection: HostConnection
     let open: (SpaceRef) -> Void
     @State private var showsDay = false
+    /// The plan whose overview is shown (#296).
+    @State private var approval: Approvals.Item?
 
     var body: some View {
         let shown = Shown(connection, boards: store.cloudBoards)
@@ -23,6 +25,8 @@ struct HostDashboardView: View {
                     WaitingHeadline(waiting: snapshot.count(.blocked), working: snapshot.count(.working))
                 }
                 .padding(.bottom, 8)
+                ApprovalsSection(hostID: connection.id) { approval = $0 }
+                    .padding(.bottom, 8)
                 if snapshot.agents.isEmpty {
                     Text("Keine Agents.")
                         .font(.callout)
@@ -45,6 +49,7 @@ struct HostDashboardView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .refreshable { await store.approvals.load(store.connections, force: true) }
         .navigationTitle(connection.config.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -60,6 +65,7 @@ struct HostDashboardView: View {
         .sheet(isPresented: $showsDay) {
             DailyLogView(connection: connection)
         }
+        .approvals(store, selected: $approval, open: open)
     }
 
     /// The agents shown, how old they are and whether they came from
