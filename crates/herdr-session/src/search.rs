@@ -445,7 +445,12 @@ impl<S: SearchSink> Search<'_, S> {
                 .map_or(0, |at| at + 1);
             let mut start = rest_start;
             for line in rest[..complete].split(|&b| b == b'\n') {
-                let found = claude::hits_in_line(&file.path, line, start, &self.query);
+                // Like the host's route: the conversation cannot open such a line.
+                let found = if line.len() as u64 > claude::MAX_HIT_LINE {
+                    Vec::new()
+                } else {
+                    claude::hits_in_line(&file.path, line, start, &self.query)
+                };
                 if !found.is_empty() {
                     if lines == claude::HOST_HITS_PER_FILE {
                         cut = true;
