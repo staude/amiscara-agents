@@ -33,6 +33,7 @@ if $apple; then
     scripts/agent-overview-test.sh
     scripts/multi-send-test.sh
     scripts/agent-status-test.sh
+    scripts/spotlight-test.sh
     scripts/question-binding-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"

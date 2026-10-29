@@ -5398,6 +5398,16 @@
         }
       }
     },
+    "Namen, Branch und Status von Spaces und Agents gehen in die Systemsuche." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Names, branch and state of spaces and agents go into the system search."
+          }
+        }
+      }
+    },
     "Nennt die Agents, die auf eine Antwort warten, über alle Hosts." : {
       "localizations" : {
         "en" : {
@@ -6134,6 +6144,16 @@
         }
       }
     },
+    "Spaces und Agents in Spotlight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spaces and agents in Spotlight"
+          }
+        }
+      }
+    },
     "SSH" : {
       "localizations" : {
         "en" : {
@@ -6500,6 +6520,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toggle Sorting"
+          }
+        }
+      }
+    },
+    "Spotlight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight"
           }
         }
       }

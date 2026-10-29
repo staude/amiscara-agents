@@ -46,6 +46,7 @@
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>net.staude.amiscara.agents.pane</string>
+		<string>com.apple.corespotlightitem</string>
 	</array>
 	<key>SUAutomaticallyUpdate</key>
 	<true/>

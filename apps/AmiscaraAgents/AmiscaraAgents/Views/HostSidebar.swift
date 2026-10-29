@@ -138,6 +138,7 @@ struct HostSidebar: View {
                             .pickerStyle(.menu)
                     }
                     LiveActivityToggle()
+                    SpotlightToggle()
                     Section("Tokens und Kosten") {
                         UsageWidgetToggle()
                         Button("Preise je Modell …", systemImage: "dollarsign.circle") { editingPrices = true }

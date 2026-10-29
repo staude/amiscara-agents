@@ -260,7 +260,8 @@ code), so a host is set up the same way everywhere.
   state to the user's private iCloud database, which drives the push to
   iPhone and iPad and the boards on the Apple Watch (see below).
 - Widgets, Siri and Shortcuts ("Welche Agents warten?", "Was macht der
-  Agent?", "Agent öffnen"), dictation, and the "Tasten" menu with shortcuts
+  Agent?", "Agent öffnen"), Spotlight (spaces and agents, a setting turns it
+  off), dictation, and the "Tasten" menu with shortcuts
   for the pane (⌘. Esc, ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an
   agent waits for an answer, plain arrows, Enter and Esc go to its pane from
   anywhere in the window (not from other text fields such as the pane

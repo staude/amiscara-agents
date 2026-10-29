@@ -1,4 +1,7 @@
 import SwiftUI
+#if !os(tvOS)
+import CoreSpotlight
+#endif
 
 struct ContentView: View {
     @Environment(HostStore.self) private var store
@@ -109,48 +112,19 @@ struct ContentView: View {
             selection = ref
         }
         #endif
-        .onOpenURL { url in
-            #if os(iOS)
-            if let link = TVPairing.Link(url) {
-                pairingTV = link
-                return
-            }
-            #endif
-            #if !os(tvOS)
-            // amiscara-agents://prompt?text=... from another tool (#236).
-            if let request = Handoff.parsePromptURL(url) {
-                store.notifier.dictateRequest = nil
-                handoff = request
-                return
-            }
-            // The Mac's share extension saved a share and opens the app.
-            if url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "share" {
-                store.notifier.dictateRequest = nil
-                openPendingShare()
-                return
-            }
-            #endif
-            // amiscara-agents://open?... from a widget opens that pane.
-            if let target = WidgetSnapshot.parseOpenURL(url) {
-                let ref = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
-                selection = ref
-                // A control's "dictate to the last agent" (#227).
-                store.notifier.dictateRequest = WidgetSnapshot.wantsDictation(url)
-                    ? DictateRequest(hostID: target.host, paneID: target.paneID, at: .now)
-                    : nil
-                return
-            }
-            store.notifier.dictateRequest = nil
-            // amiscara-agents://add-host?... from a QR code or a pasted link;
-            // any other link (amiscara-agents://open) just opens the app.
-            guard url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "add-host" else { return }
-            let config = HostConfig(name: "", kind: .ssh)
-            pendingImport = (config.id, url.absoluteString)
-            editing = config
-        }
+        .onOpenURL { url in open(url) }
         // Open links in the existing window instead of a new one.
         #if !os(tvOS)
         .handlesExternalEvents(preferring: ["amiscara-agents"], allowing: ["*"])
+        #endif
+        #if !os(tvOS)
+        // Tapped Spotlight result for a space or an agent (#308).
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String,
+                  let url = URL(string: id)
+            else { return }
+            open(url)
+        }
         #endif
         #if os(iOS)
         .sheet(item: $pairingTV) { link in
@@ -235,6 +209,54 @@ struct ContentView: View {
             }
             try? await Task.sleep(for: .milliseconds(100))
         }
+    }
+
+    /// A link opened from a widget, a Spotlight result (#308) or a tapped
+    /// link: `amiscara-agents://open`, `prompt`, `share` or `add-host`.
+    private func open(_ url: URL) {
+        #if os(iOS)
+        if let link = TVPairing.Link(url) {
+            pairingTV = link
+            return
+        }
+        #endif
+        #if !os(tvOS)
+        // amiscara-agents://prompt?text=... from another tool (#236).
+        if let request = Handoff.parsePromptURL(url) {
+            store.notifier.dictateRequest = nil
+            handoff = request
+            return
+        }
+        // The Mac's share extension saved a share and opens the app.
+        if url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "share" {
+            store.notifier.dictateRequest = nil
+            openPendingShare()
+            return
+        }
+        #endif
+        // amiscara-agents://open?... from a widget opens that pane.
+        if let target = WidgetSnapshot.parseOpenURL(url) {
+            let ref = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: target.paneID)
+            selection = ref
+            // A control's "dictate to the last agent" (#227).
+            store.notifier.dictateRequest = WidgetSnapshot.wantsDictation(url)
+                ? DictateRequest(hostID: target.host, paneID: target.paneID, at: .now)
+                : nil
+            return
+        }
+        // A Spotlight result for a space (#308), without a pane.
+        if let target = WidgetSnapshot.parseSpaceURL(url) {
+            selection = SpaceRef(hostID: target.host, workspaceID: target.workspaceID, paneID: nil)
+            store.notifier.dictateRequest = nil
+            return
+        }
+        store.notifier.dictateRequest = nil
+        // amiscara-agents://add-host?... from a QR code or a pasted link;
+        // any other link (amiscara-agents://open) just opens the app.
+        guard url.scheme?.lowercased() == "amiscara-agents", url.host()?.lowercased() == "add-host" else { return }
+        let config = HostConfig(name: "", kind: .ssh)
+        pendingImport = (config.id, url.absoluteString)
+        editing = config
     }
 
     /// The clipboard's text as a handoff (#236); nothing without text.

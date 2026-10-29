@@ -155,6 +155,18 @@ struct WidgetSnapshot: Codable, Equatable {
     /// Opens the app without a pane.
     static let appURL = URL(string: "amiscara-agents://open")!
 
+    /// Opens a space without picking a pane (a Spotlight space result, #308).
+    static func spaceURL(host: UUID, workspaceID: String) -> URL {
+        var components = URLComponents()
+        components.scheme = "amiscara-agents"
+        components.host = "open"
+        components.queryItems = [
+            URLQueryItem(name: "host", value: host.uuidString),
+            URLQueryItem(name: "space", value: workspaceID),
+        ]
+        return components.url!
+    }
+
     /// Whether an `openURL` link asks for dictation.
     static func wantsDictation(_ url: URL) -> Bool {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "dictate" && $0.value == "1" } == true
@@ -187,6 +199,18 @@ struct WidgetSnapshot: Codable, Equatable {
               let pane = items.first(where: { $0.name == "pane" })?.value
         else { return nil }
         return (host, space, pane)
+    }
+
+    /// The parts of a `spaceURL` link, or `nil` for any other URL, including
+    /// an `openURL` link that names a pane.
+    static func parseSpaceURL(_ url: URL) -> (host: UUID, workspaceID: String)? {
+        guard url.scheme?.lowercased() == "amiscara-agents", url.host() == "open",
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+              items.first(where: { $0.name == "pane" }) == nil,
+              let host = items.first(where: { $0.name == "host" })?.value.flatMap(UUID.init(uuidString:)),
+              let space = items.first(where: { $0.name == "space" })?.value
+        else { return nil }
+        return (host, space)
     }
 }
 

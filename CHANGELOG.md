@@ -693,6 +693,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
+- Spotlight (#308): spaces (name, host, branch) and agents (name, space,
+  status) of every host are indexed, so typing a name in the system search
+  finds it; a tapped result opens the app on that space or agent, even with
+  the window closed. Written at most every 30 seconds; a host without a
+  connection keeps its last entries until it is removed, a space closes or
+  an agent finishes. "Spaces und Agents in Spotlight" in the Mac's settings
+  window and the iPhone's "Erscheinungsbild" menu turns it off. Mac and
+  iPhone/iPad; not tvOS or Watch.
 - Host health on the dashboard (#306): a row of tiles under the counts with
   load (orange from one per core), memory, free disk (orange under 10 %
   free), uptime with the OS and the herdr version, read every 60 seconds

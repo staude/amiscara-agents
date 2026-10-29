@@ -104,9 +104,11 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
-        # Handoff of the open pane (#231).
+        # Handoff of the open pane (#231); CSSearchableItemActionType opens
+        # a tapped Spotlight result (#308) even with no window open.
         NSUserActivityTypes:
           - net.staude.amiscara.agents.pane
+          - com.apple.corespotlightitem
         CFBundleURLTypes:
           # "Add host" links, see crates/herdr-ffi/src/add_host.rs.
           - CFBundleURLName: net.staude.amiscara.agents.add-host
@@ -184,9 +186,11 @@ targets:
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
         NSCameraUsageDescription: "Zum Scannen des QR-Codes, mit dem Sie einen Host hinzufügen."
-        # Handoff of the open pane (#231).
+        # Handoff of the open pane (#231); CSSearchableItemActionType opens
+        # a tapped Spotlight result (#308) even with the app not running.
         NSUserActivityTypes:
           - net.staude.amiscara.agents.pane
+          - com.apple.corespotlightitem
         # App lock (#232).
         NSFaceIDUsageDescription: "Zum Entsperren der App, wenn Sie die App-Sperre eingeschaltet haben."
         # Working and waiting agents on the Lock Screen (#224).
