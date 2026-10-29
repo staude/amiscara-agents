@@ -49,7 +49,8 @@ final class Notifier: NSObject {
     /// answers already.
     private static let maxQuestionActions = 3
     /// Panes with an "agent waits" notification, by notification
-    /// identifier; withdrawn once the agent no longer waits (#286).
+    /// identifier, also those still delivered from an earlier run;
+    /// withdrawn once the agent no longer waits (#286).
     @ObservationIgnored private var waitingNotified: Set<String> = []
 
     override init() {
@@ -64,6 +65,13 @@ final class Notifier: NSObject {
         super.init()
         center.delegate = self
         center.setNotificationCategories([blockedCategory])
+        // Notifications of an earlier run stay delivered; withdraw them too.
+        Task {
+            let delivered = await center.deliveredNotifications()
+            waitingNotified.formUnion(delivered
+                .filter { $0.request.content.categoryIdentifier.hasPrefix(AgentNotification.blockedCategory) }
+                .map(\.request.identifier))
+        }
     }
 
     /// Posts one notification per agent that needs the user. `question`
