@@ -32,16 +32,14 @@ struct HostHealthRow: View {
         }
     }
 
-    /// Reads until the view goes away. A hint ends it, since the host
-    /// needs a change by hand; a failed reading keeps the last values.
+    /// Reads until the view goes away. A hint keeps asking too: an old
+    /// key line is only told by a host that stays silent, which a slow
+    /// link can mimic, and the tiles appear once the host is set up. A
+    /// failed reading keeps the last values.
     private func poll() async {
         while !Task.isCancelled {
             if connection.isLive, let next = try? await connection.health() {
                 status = next
-                switch next {
-                case .ready: break
-                case .scriptMissing, .keyLineOld: return
-                }
             }
             try? await Task.sleep(for: Self.interval)
         }
