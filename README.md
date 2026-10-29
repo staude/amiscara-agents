@@ -266,6 +266,10 @@ code), so a host is set up the same way everywhere.
   anywhere in the window (not from other text fields such as the pane
   search; in the composer arrows and Enter only while it is empty, Esc
   always).
+- Quick composer: ⌃⌥Space opens a small floating window from any app, like
+  Spotlight, for a prompt to the last agent; the agent can be switched
+  there, Enter sends, Esc closes. The shortcut can be changed or cleared in
+  the settings.
 - Publishes its Bonjour name in iCloud so the Apple TV finds it.
 - Distributed outside the App Store, signed with Developer ID and
   notarized; the App Sandbox would block the socket and SSH to arbitrary

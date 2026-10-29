@@ -133,6 +133,16 @@ final class AppLock {
         promptPending = isLocked
     }
 
+    /// For a window that shows without activating the app, such as the
+    /// quick composer (#307): locks once the delay is over, as a return
+    /// would. `leftAt` and the prompt stay for the next activation.
+    func checkWithoutActivation() {
+        guard isEnabled else { return }
+        if let leftAt, Date.now.timeIntervalSince(leftAt) >= Double(delay.rawValue) {
+            isLocked = true
+        }
+    }
+
     /// Turning the setting on does not lock the running app, only the next
     /// return. Turning it off goes through `confirmOwner` first.
     func settingChanged() {

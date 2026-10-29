@@ -1,6 +1,7 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+import KeyboardShortcuts
 #endif
 
 /// Light or dark look of the app: as the system (default) or fixed.
@@ -70,6 +71,13 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
             Section("Terminal") {
                 TerminalSettings()
+            }
+            Section {
+                KeyboardShortcuts.Recorder("Kürzel", name: .quickComposer)
+            } header: {
+                Text("Schnelleingabe")
+            } footer: {
+                Text("Öffnet aus jeder App ein Fenster für einen Prompt an den letzten Agent.")
             }
             Section {
                 AppLockSettings()

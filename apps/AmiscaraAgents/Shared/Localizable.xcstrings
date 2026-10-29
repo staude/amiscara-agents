@@ -900,6 +900,26 @@
         }
       }
     },
+    "Agent suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Agents"
+          }
+        }
+      }
+    },
+    "Agent wählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Agent"
+          }
+        }
+      }
+    },
     "Agents" : {
       "localizations" : {
         "en" : {
@@ -5068,6 +5088,16 @@
         }
       }
     },
+    "Kürzel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shortcut"
+          }
+        }
+      }
+    },
     "Lange Zeilen an der Fensterbreite umbrechen statt seitlich zu scrollen" : {
       "localizations" : {
         "en" : {
@@ -5718,6 +5748,16 @@
         }
       }
     },
+    "Öffnet aus jeder App ein Fenster für einen Prompt an den letzten Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens a window from any app for a prompt to the last agent."
+          }
+        }
+      }
+    },
     "OK" : {
       "localizations" : {
         "en" : {
@@ -6040,6 +6080,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search Backward"
+          }
+        }
+      }
+    },
+    "Schnelleingabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Composer"
           }
         }
       }
