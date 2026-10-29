@@ -138,6 +138,8 @@ fn files_error(err: TransportError) -> SessionError {
 fn health_error(err: TransportError) -> SessionError {
     match err {
         TransportError::Io(err) => SessionError::Health(err.to_string()),
+        // The connection stands; the host or its script did not answer in time.
+        TransportError::Timeout => SessionError::Health(err.to_string()),
         other => SessionError::NotConnected(other.to_string()),
     }
 }
@@ -1407,7 +1409,7 @@ fn upload_name(ext: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionError, TransportError, files_error, named_upload};
+    use super::{SessionError, TransportError, files_error, health_error, named_upload};
 
     #[test]
     fn a_file_changed_on_the_host_gets_its_own_error() {
@@ -1429,6 +1431,18 @@ mod tests {
         ));
         assert!(matches!(
             files_error(TransportError::Timeout),
+            SessionError::NotConnected(_)
+        ));
+    }
+
+    #[test]
+    fn a_slow_health_reading_is_no_lost_connection() {
+        assert!(matches!(
+            health_error(TransportError::Timeout),
+            SessionError::Health(_)
+        ));
+        assert!(matches!(
+            health_error(TransportError::Closed),
             SessionError::NotConnected(_)
         ));
     }
