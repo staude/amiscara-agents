@@ -415,3 +415,14 @@ pub struct FilePreview {
     /// (#271).
     pub editable: bool,
 }
+
+pub use herdr_session::GitHubRepo;
+
+/// A GitHub repository of the spaces on a host (#296), with the spaces
+/// that show it.
+#[uniffi::remote(Record)]
+pub struct GitHubRepo {
+    /// `owner/name`.
+    pub repo: String,
+    pub workspace_ids: Vec<String>,
+}
