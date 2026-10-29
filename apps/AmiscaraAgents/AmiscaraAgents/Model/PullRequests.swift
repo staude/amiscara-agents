@@ -156,8 +156,10 @@ final class PullRequests {
                 allowed[name] = result.methods
                 for space in ownSpaces {
                     found[space.workspaceID] = result.pullRequests.first { pr in
-                        pr.headRefName == space.branch
-                            && pr.headOwner?.lowercased() == repo.owner.lowercased()
+                        pullRequestMatches(
+                            headRefName: pr.headRefName, headOwner: pr.headOwner,
+                            branch: space.branch, repoOwner: repo.owner
+                        )
                     }
                 }
             } catch GitHubError.tokenInvalid {

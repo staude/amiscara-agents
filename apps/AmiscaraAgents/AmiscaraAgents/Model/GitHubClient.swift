@@ -218,42 +218,6 @@ enum GitHubError: LocalizedError {
     }
 }
 
-/// How a pull request is merged, as GitHub's `merge_method`.
-enum MergeMethod: String {
-    case squash
-    case merge
-    case rebase
-}
-
-struct MergeMethods: Hashable {
-    var squash: Bool
-    var merge: Bool
-    var rebase: Bool
-
-    /// Squash where allowed, else a merge commit, else rebase.
-    var preferred: MergeMethod? {
-        if squash { return .squash }
-        if merge { return .merge }
-        if rebase { return .rebase }
-        return nil
-    }
-}
-
-/// The combined state of a commit's checks and statuses.
-enum CheckState: Hashable {
-    case success
-    case failure
-    case pending
-
-    init(rollup state: String) {
-        switch state {
-        case "SUCCESS": self = .success
-        case "PENDING", "EXPECTED": self = .pending
-        default: self = .failure
-        }
-    }
-}
-
 /// GitHub's `reviewDecision`.
 enum ReviewDecision: String, Hashable {
     case approved = "APPROVED"
@@ -452,12 +416,7 @@ private struct Context: Decodable {
 
     var check: PullRequestDetail.Check? {
         if let name {
-            let state: CheckState = switch (status, conclusion) {
-            case ("COMPLETED", "SUCCESS"), ("COMPLETED", "NEUTRAL"), ("COMPLETED", "SKIPPED"): .success
-            case ("COMPLETED", _): .failure
-            default: .pending
-            }
-            return .init(name: name, state: state, url: detailsUrl)
+            return .init(name: name, state: CheckState(status: status, conclusion: conclusion), url: detailsUrl)
         }
         if let context, let state {
             return .init(name: context, state: CheckState(rollup: state), url: targetUrl)
