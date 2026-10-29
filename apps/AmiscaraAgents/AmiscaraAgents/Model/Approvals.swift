@@ -217,6 +217,10 @@ final class Approvals {
                 .joined(separator: " ")
             let up = Array(repeating: "up", count: question.options.count + 1)
             try await connection.send(keys: up + ["n"], to: tab.paneId)
+            // Typed into the list, a digit of the note would pick an option:
+            // the text only goes once the field is open, which the hint
+            // `ctrl+g to edit` shows.
+            guard await Self.notesOpen(in: tab, on: connection) else { throw AnswerFailure.noNotes }
             try await connection.send(text: note, to: tab.paneId)
             try await connection.send(keys: ["esc", "enter"], to: tab.paneId)
         }
@@ -225,6 +229,18 @@ final class Approvals {
         } else {
             answered[item.id] = true
         }
+    }
+
+    /// Whether the question's notes field opened, asked for about 1.5 s.
+    private static func notesOpen(in tab: BoardItem, on connection: HostConnection) async -> Bool {
+        for _ in 0..<5 {
+            try? await Task.sleep(for: .milliseconds(300))
+            if let screen = await connection.screenExcerpt(paneID: tab.paneId, lines: 6),
+               screen.contains("ctrl+g to edit") {
+                return true
+            }
+        }
+        return false
     }
 
     // MARK: - GitHub
