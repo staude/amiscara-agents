@@ -524,7 +524,7 @@ impl Connection {
                 break;
             }
         }
-        let _ = reader.shutdown().await;
+        // Dropping the channel closes it, without waiting on a stalled link.
         Ok(result)
     }
 
