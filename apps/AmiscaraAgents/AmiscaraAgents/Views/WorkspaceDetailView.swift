@@ -13,6 +13,10 @@ struct WorkspaceDetailView: View {
     /// Long presses in the sidebar are unreliable on iPad, so the worktree
     /// sheet is also reachable from the menu next to the tab "+".
     @State private var newWorktreeFrom: WorktreeSource?
+    #if !os(tvOS)
+    /// Claude Code sessions of the space's folder to resume (#304).
+    @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    #endif
     @State private var tabID: String?
     @State private var paneID: String?
     /// The choice question in the selected pane of a split tab (#272).
@@ -100,6 +104,14 @@ struct WorkspaceDetailView: View {
                 selection = SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId)
             }
         }
+        #if !os(tvOS)
+        .sheet(item: $claudeSessionsFor) { target in
+            ClaudeSessionsView(target: target) { created in
+                tabID = created.tabId
+                paneID = created.paneId
+            }
+        }
+        #endif
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection)
         }
@@ -228,6 +240,11 @@ struct WorkspaceDetailView: View {
                     newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
                 }
             }
+            #if !os(tvOS)
+            Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
+                claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
+            }
+            #endif
             Section("Neuer Tab mit Agent") {
                 ForEach(common, id: \.self) { kind in
                     Button(kind) { newTab(in: workspace, on: connection, agent: kind) }

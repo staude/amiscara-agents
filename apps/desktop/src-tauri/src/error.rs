@@ -79,6 +79,7 @@ impl AppError {
                 SessionError::Forward(_) => "forward",
                 SessionError::FileChanged(_) => "fileChanged",
                 SessionError::SavedNotRead(_) => "savedNotRead",
+                SessionError::Health(_) => "health",
             },
             Self::Store(_) => "store",
             Self::KeyStore(_) => "keyStore",

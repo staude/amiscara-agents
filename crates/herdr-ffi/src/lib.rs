@@ -21,14 +21,16 @@ pub use add_host::{
     encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
-    PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout,
-    StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry,
-    TranscriptKind, TranscriptPage, WorkspaceItem,
+    AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
+    ChoiceQuestion, ClaudeSessionItem, EditorRequest, HostStatus, OpenRequest, PaneContent,
+    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
+    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage, TranscriptSpan, UsageBucket, UsageReport, WorkspaceItem,
 };
+pub use convert::{ConversationHit, SearchEnd};
 pub use convert::{
-    DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
-    EntryKind, FileContent, FilePreview, WorkingTreeDiff,
+    DailyItem, DailyItemKind, DailyLog, DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind,
+    Directory, DirectoryEntry, EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -72,6 +74,9 @@ pub enum FfiError {
     /// A file was saved but could not be read back (#271); reload it.
     #[error("{0}")]
     SavedNotRead(String),
+    /// The host's health could not be read (#306).
+    #[error("{0}")]
+    Health(String),
 }
 
 impl From<SessionError> for FfiError {
@@ -90,6 +95,7 @@ impl From<SessionError> for FfiError {
             SessionError::Forward(message) => Self::Forward(message),
             SessionError::FileChanged(message) => Self::FileChanged(message),
             SessionError::SavedNotRead(message) => Self::SavedNotRead(message),
+            SessionError::Health(message) => Self::Health(message),
         }
     }
 }
@@ -284,6 +290,66 @@ impl From<herdr_session::HerdrSessionEntry> for HerdrSession {
     }
 }
 
+/// One reading of the host script `amiscara-health` (#306). Only `v` is
+/// certain; a value the host's system does not give is `None`.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct Health {
+    pub v: u32,
+    /// The operating system, e.g. `macOS 27.0`.
+    pub os: Option<String>,
+    /// Load average over one minute.
+    pub load1: Option<f64>,
+    pub cpus: Option<u32>,
+    /// Memory in use (total minus available) and in all, bytes.
+    pub mem_used: Option<u64>,
+    pub mem_total: Option<u64>,
+    /// Free and total bytes of the volume holding the home directory.
+    pub disk_free: Option<u64>,
+    pub disk_total: Option<u64>,
+    /// Seconds since boot.
+    pub uptime: Option<u64>,
+}
+
+impl From<herdr_session::Health> for Health {
+    fn from(health: herdr_session::Health) -> Self {
+        Self {
+            v: health.v,
+            os: health.os,
+            load1: health.load1,
+            cpus: health.cpus,
+            mem_used: health.mem_used,
+            mem_total: health.mem_total,
+            disk_free: health.disk_free,
+            disk_total: health.disk_total,
+            uptime: health.uptime,
+        }
+    }
+}
+
+/// What a host answers when asked for its health.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum HealthStatus {
+    Ready {
+        health: Health,
+    },
+    /// `~/.amiscara-agents/bin/amiscara-health` is missing or not executable.
+    ScriptMissing,
+    /// The key's `authorized_keys` line predates the health case; renew it.
+    KeyLineOld,
+}
+
+impl From<herdr_session::HealthStatus> for HealthStatus {
+    fn from(status: herdr_session::HealthStatus) -> Self {
+        match status {
+            herdr_session::HealthStatus::Ready(health) => Self::Ready {
+                health: health.into(),
+            },
+            herdr_session::HealthStatus::ScriptMissing => Self::ScriptMissing,
+            herdr_session::HealthStatus::KeyLineOld => Self::KeyLineOld,
+        }
+    }
+}
+
 /// The socket of herdr session `name` next to `default_socket` (or next to
 /// another session's socket); an empty name is the default session.
 #[uniffi::export]
@@ -349,6 +415,14 @@ pub fn vscode_url(target: Option<String>, path: String) -> String {
     herdr_core::vscode_url(target.as_deref(), &path)
 }
 
+/// The overview for the approval from an enon-tools plan comment (#296):
+/// the text below `### Überblick für die Freigabe` up to `<details>`.
+/// `None` when the comment is no plan or has no such section.
+#[uniffi::export]
+pub fn plan_overview(body: String) -> Option<String> {
+    herdr_core::github::plan_overview(&body)
+}
+
 #[uniffi::export]
 pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL
@@ -371,6 +445,17 @@ pub trait PaneObserver: Send + Sync {
     /// The pane could not be read, e.g. because it was closed or the
     /// connection dropped. Following continues once a connection is back.
     fn on_error(&self, message: String);
+}
+
+/// Receives what a conversation search finds, on a background thread.
+#[uniffi::export(callback_interface)]
+pub trait ConversationSearchObserver: Send + Sync {
+    /// `done` of `total` steps (bytes or files, depending on the route).
+    fn on_progress(&self, done: u64, total: u64);
+    /// Hits found since the last call.
+    fn on_hits(&self, hits: Vec<ConversationHit>);
+    /// Always the last call, once; after `cancel` the only one.
+    fn on_finished(&self, end: SearchEnd);
 }
 
 /// One live host: keeps the session state current until stopped or dropped.
@@ -414,6 +499,41 @@ impl HostSession {
     /// right away, without reconnecting.
     pub fn set_space_sort(&self, sort: SpaceSort) {
         self.session.set_space_sort(sort.into());
+    }
+
+    /// Lets this session run chains (#300) as the device `device_id`, a
+    /// stable id of this device; `None` (the default) runs none. Only for
+    /// a host that takes input from this device.
+    pub fn set_chain_runner(&self, device_id: Option<String>) {
+        self.session.set_chain_runner(device_id);
+    }
+
+    /// Adds a chain to the agent in `pane_id` (#300) and returns its id:
+    /// on `trigger`, `text` goes as a prompt to `target_pane_id`, once or
+    /// with `repeat` every time. Refused with `Rejected` for a 4th chain,
+    /// a text over 160 characters or a repeating chain to the same agent.
+    /// Blocks for one round trip; call it off the main thread.
+    pub fn set_chain(
+        &self,
+        pane_id: String,
+        trigger: ChainTrigger,
+        repeat: bool,
+        target_pane_id: String,
+        text: String,
+    ) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.set_chain(
+            &pane_id,
+            trigger,
+            repeat,
+            &target_pane_id,
+            &text,
+        ))?)
+    }
+
+    /// Removes a chain of the agent in `pane_id`. Blocks for one round
+    /// trip; call it off the main thread.
+    pub fn remove_chain(&self, pane_id: String, chain_id: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.remove_chain(&pane_id, &chain_id))?)
     }
 
     /// Ends the session and closes the connection. Pane followers stop too.
@@ -585,6 +705,81 @@ impl HostSession {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
     }
 
+    /// The conversation in the session file `session_path` around the line
+    /// at byte `offset`, from a search hit (#303); older entries continue
+    /// with `claude_history` and a cursor at `start`, newer ones with
+    /// `claude_history_after` at `end`. Read only. Blocks; call it off the
+    /// main thread.
+    pub fn claude_history_at(
+        &self,
+        session_path: String,
+        offset: u64,
+    ) -> Result<TranscriptSpan, FfiError> {
+        Ok(runtime().block_on(self.session.claude_history_at(&session_path, offset))?)
+    }
+
+    /// The entries after byte `from` of the session file `session_path`:
+    /// a span's `end`. Read only. Blocks; call it off the main thread.
+    pub fn claude_history_after(
+        &self,
+        session_path: String,
+        from: u64,
+    ) -> Result<TranscriptSpan, FfiError> {
+        Ok(runtime().block_on(self.session.claude_history_after(&session_path, from))?)
+    }
+
+    /// Searches all Claude Code conversations of the host for `query`
+    /// (#303), ignoring case, until the returned handle is cancelled or
+    /// dropped. `allow_command` lets it run grep on the host in a
+    /// short-lived tab, over SSH the fast way; without it, or without an
+    /// open space, only the newest conversations are read. Needs file access like uploads. Fails right
+    /// away for a query under two characters or on several lines.
+    pub fn search_conversations(
+        &self,
+        query: String,
+        allow_command: bool,
+        observer: Box<dyn ConversationSearchObserver>,
+    ) -> Result<Arc<ConversationSearchHandle>, FfiError> {
+        let search =
+            self.session
+                .search_conversations(&query, allow_command, SearchSink(observer))?;
+        Ok(Arc::new(ConversationSearchHandle { search }))
+    }
+
+    /// Token usage of Claude Code in the working directories `cwds` (#302):
+    /// the hours that end after `since_secs`, per directory and model.
+    /// Reads only session files changed since then, and of those only what
+    /// was added since the last call (SFTP over SSH). Read only. Blocks,
+    /// long the first time; call it off the main thread.
+    pub fn usage(&self, cwds: Vec<String>, since_secs: u64) -> Result<UsageReport, FfiError> {
+        Ok(runtime().block_on(self.session.usage(&cwds, since_secs))?)
+    }
+
+    /// What `usage` has read so far, as JSON to keep between runs. Waits
+    /// for a running `usage` call.
+    pub fn usage_state(&self) -> String {
+        runtime().block_on(self.session.usage_state())
+    }
+
+    /// Takes back a state from `usage_state`; anything else starts empty.
+    pub fn restore_usage_state(&self, state: String) {
+        runtime().block_on(self.session.restore_usage_state(&state));
+    }
+
+    /// The Claude Code sessions of `folder` on the host (#304), newest
+    /// first and at most 30, read from their files (SFTP over SSH). Read
+    /// only. Blocks for several round trips; call it off the main thread.
+    pub fn claude_sessions(&self, folder: String) -> Result<Vec<ClaudeSessionItem>, FfiError> {
+        Ok(runtime().block_on(self.session.claude_sessions(&folder))?)
+    }
+
+    /// Continues the Claude Code session `session_id` in a pane at its
+    /// shell prompt (`claude --resume <id>`) and returns the agent's name.
+    /// The pane must be in the session's folder.
+    pub fn resume_claude(&self, pane_id: String, session_id: String) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.resume_claude(&pane_id, &session_id))?)
+    }
+
     /// What changed in the working directory of a pane (#228): `git diff`
     /// against `HEAD` plus untracked files, read only. Runs a small script
     /// in a short-lived, unfocused tab and reads its output through SFTP,
@@ -592,6 +787,16 @@ impl HostSession {
     /// off the main thread.
     pub fn working_tree_diff(&self, pane_id: String) -> Result<WorkingTreeDiff, FfiError> {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
+    }
+
+    /// What happened on the host between the Unix seconds `since_secs` and
+    /// `until_secs` (#301): Claude Code prompts and finished turns, and the
+    /// commits of every space, oldest first. Read only; runs a small script
+    /// in a short-lived, unfocused tab and reads files through SFTP, so it
+    /// needs input and file access. Blocks for a moment; call it off the
+    /// main thread.
+    pub fn daily_log(&self, since_secs: u64, until_secs: u64) -> Result<DailyLog, FfiError> {
+        Ok(runtime().block_on(self.session.daily_log(since_secs, until_secs))?)
     }
 
     /// The directory at the absolute `path` on the host, empty for the home
@@ -719,6 +924,20 @@ impl HostSession {
         Ok(runtime().block_on(self.session.secret_names())?)
     }
 
+    /// The host's health for the dashboard (#306). Blocks for up to a few
+    /// seconds; call it off the main thread.
+    pub fn host_health(&self) -> Result<HealthStatus, FfiError> {
+        Ok(runtime().block_on(self.session.host_health())?.into())
+    }
+
+    /// The GitHub repositories of the spaces on the host (#296), sorted,
+    /// each with its spaces, from the `origin` of their Git repositories.
+    /// Needs file access like uploads; fails only without a connection.
+    /// Blocks; call it off the main thread.
+    pub fn github_repos(&self) -> Result<Vec<GitHubRepo>, FfiError> {
+        Ok(runtime().block_on(self.session.github_repos())?)
+    }
+
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path. Blocks
     /// until the upload is done; call it off the main thread.
@@ -758,6 +977,37 @@ impl herdr_session::PaneSink for Sink {
 
     fn on_error(&self, message: String) {
         self.0.on_error(message);
+    }
+}
+
+/// Hands what a search finds to the app's observer.
+struct SearchSink(Box<dyn ConversationSearchObserver>);
+
+impl herdr_session::SearchSink for SearchSink {
+    fn on_progress(&self, done: u64, total: u64) {
+        self.0.on_progress(done, total);
+    }
+
+    fn on_hits(&self, hits: Vec<ConversationHit>) {
+        self.0.on_hits(hits);
+    }
+
+    fn on_finished(&self, end: SearchEnd) {
+        self.0.on_finished(end);
+    }
+}
+
+/// Handle for [`HostSession::search_conversations`]; dropping it cancels.
+#[derive(uniffi::Object)]
+pub struct ConversationSearchHandle {
+    search: herdr_session::ConversationSearch,
+}
+
+#[uniffi::export]
+impl ConversationSearchHandle {
+    /// Ends the search; the observer then only gets `on_finished`.
+    pub fn cancel(&self) {
+        self.search.cancel();
     }
 }
 

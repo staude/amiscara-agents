@@ -2,9 +2,10 @@
 //! types: same names and fields, so the Swift side is unchanged.
 
 pub use herdr_session::view::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
-    PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine,
-    StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
+    AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
+    ChoiceQuestion, EditorRequest, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
+    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
+    WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -49,6 +50,53 @@ pub struct SessionUpdate {
     /// Folders agents on the host want opened in VS Code (#288), all
     /// pending ones; always empty for a local host.
     pub editor_requests: Vec<EditorRequest>,
+    /// What chains this device ran since the previous update (#300);
+    /// empty unless `set_chain_runner` named a device.
+    pub chain_results: Vec<ChainResult>,
+}
+
+/// When a chain sends its prompt (#300).
+#[uniffi::remote(Enum)]
+pub enum ChainTrigger {
+    Done,
+    Blocked,
+}
+
+/// A chain of an agent, stored on the host.
+#[uniffi::remote(Record)]
+pub struct ChainItem {
+    /// Pass it back to `remove_chain`.
+    pub id: String,
+    pub trigger: ChainTrigger,
+    /// Runs on every matching change; otherwise it is removed once sent.
+    pub repeat: bool,
+    /// The target was gone or refused the prompt; it never runs again.
+    pub failed: bool,
+    pub target_pane_id: String,
+    /// The target agent's name, else its kind and tab; empty when gone.
+    pub target_label: String,
+    pub text: String,
+}
+
+#[uniffi::remote(Enum)]
+pub enum ChainOutcome {
+    Sent,
+    Failed,
+    Skipped,
+}
+
+/// One run of a chain on this device, for the app's log.
+#[uniffi::remote(Record)]
+pub struct ChainResult {
+    pub chain_id: String,
+    pub trigger_pane_id: String,
+    pub trigger_label: String,
+    pub target_label: String,
+    pub text: String,
+    pub outcome: ChainOutcome,
+    pub reason: Option<String>,
+    /// Unix milliseconds.
+    pub at_ms: u64,
 }
 
 /// A folder an agent on the host wants opened in VS Code.
@@ -101,6 +149,9 @@ pub struct WorkspaceItem {
     pub active_tab_id: String,
     /// Git repository of the space, shared by all its worktrees.
     pub repo_key: Option<String>,
+    /// Folder name of the repository's main checkout, e.g. `amiscara-agents`;
+    /// the same for all its worktrees.
+    pub repo_name: Option<String>,
     /// For a linked worktree: its directory name, e.g. `docs-herdr-remote`.
     /// herdr shows such spaces indented under the repository's space.
     pub worktree_name: Option<String>,
@@ -183,6 +234,8 @@ pub struct BoardItem {
     /// Since when the agent is in its state, in Unix milliseconds; `None`
     /// when it already was in it as the session started.
     pub state_since_ms: Option<u64>,
+    /// Prompts that follow this agent's change (#300).
+    pub chains: Vec<ChainItem>,
 }
 
 #[uniffi::remote(Record)]
@@ -247,7 +300,8 @@ pub enum TermColor {
 }
 
 pub use herdr_session::{
-    ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage,
+    ClaudeSessionItem, ConversationHit, ScrollStep, SearchEnd, TranscriptCursor, TranscriptEntry,
+    TranscriptKind, TranscriptPage, TranscriptSpan,
 };
 
 /// A step through a full-screen agent's own view.
@@ -292,6 +346,93 @@ pub struct TranscriptPage {
     pub entries: Vec<TranscriptEntry>,
     /// Byte offset this page starts at; 0 means the conversation's start.
     pub start: u64,
+}
+
+/// Part of a Claude Code conversation around a search hit (#303), oldest
+/// entry first; continues backwards like a [`TranscriptPage`] and forwards
+/// from `end`.
+#[uniffi::remote(Record)]
+pub struct TranscriptSpan {
+    /// The session file below the host's home directory.
+    pub session_path: String,
+    pub entries: Vec<TranscriptEntry>,
+    /// Byte offset the span starts at; 0 means the conversation's start.
+    pub start: u64,
+    /// Where newer entries continue.
+    pub end: u64,
+    /// Whether the file has no newer entries for now.
+    pub at_end: bool,
+    /// Index in `entries` of the hit's first entry.
+    pub highlight: Option<u32>,
+}
+
+/// An entry of a Claude Code conversation that contains the search text.
+#[uniffi::remote(Record)]
+pub struct ConversationHit {
+    /// The session file below the host's home directory.
+    pub session_path: String,
+    /// Where the entry's line starts in the file; pass both to
+    /// `claude_history_at`.
+    pub offset: u64,
+    /// The open space whose pane works in the conversation's directory or
+    /// above it; `None` when no space does.
+    pub workspace_id: Option<String>,
+    /// The directory Claude Code ran in.
+    pub cwd: Option<String>,
+    /// The session's last AI title.
+    pub session_title: Option<String>,
+    pub kind: TranscriptKind,
+    /// The text around the first match; line breaks became spaces, `…`
+    /// marks a cut.
+    pub snippet: String,
+    /// ISO 8601, as Claude Code wrote it.
+    pub timestamp: Option<String>,
+}
+
+/// How a search ended.
+#[uniffi::remote(Record)]
+pub struct SearchEnd {
+    pub error: Option<String>,
+    pub cancelled: bool,
+    /// More hits than reported.
+    pub truncated: bool,
+    /// Older or more conversations than the search read were left out
+    /// (no grep on the host).
+    pub older_skipped: bool,
+}
+
+pub use herdr_session::{UsageBucket, UsageReport};
+
+/// The tokens one model used in one working directory in one hour (#302).
+#[uniffi::remote(Record)]
+pub struct UsageBucket {
+    pub cwd: String,
+    /// Start of the hour (UTC) in Unix milliseconds.
+    pub hour_start_ms: u64,
+    pub model: String,
+    pub input: u64,
+    pub output: u64,
+    pub cache_write_5m: u64,
+    pub cache_write_1h: u64,
+    pub cache_read: u64,
+}
+
+/// Token usage of some working directories, oldest hour first.
+#[uniffi::remote(Record)]
+pub struct UsageReport {
+    pub buckets: Vec<UsageBucket>,
+}
+
+/// A Claude Code session of a folder (#304).
+#[uniffi::remote(Record)]
+pub struct ClaudeSessionItem {
+    /// What `claude --resume` takes.
+    pub id: String,
+    pub title: String,
+    /// Last activity, seconds since 1970; 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file, in place of a message count.
+    pub size: u64,
 }
 
 pub use herdr_session::{
@@ -357,6 +498,39 @@ pub struct WorkingTreeDiff {
     pub truncated: bool,
 }
 
+pub use herdr_session::{DailyItem, DailyItemKind, DailyLog};
+
+/// What an entry of a host's day is (#301).
+#[uniffi::remote(Enum)]
+pub enum DailyItemKind {
+    /// The user gave a Claude agent a task.
+    Prompt,
+    /// The agent ended its turn with an answer.
+    Done,
+    Commit,
+}
+
+#[uniffi::remote(Record)]
+pub struct DailyItem {
+    pub kind: DailyItemKind,
+    /// Unix milliseconds.
+    pub time_ms: u64,
+    /// The space it happened in, else the folder's name.
+    pub place: String,
+    /// First line of the prompt, the answer or the commit message.
+    pub text: String,
+    /// A commit's author.
+    pub author: Option<String>,
+}
+
+/// One day of a host, oldest first; `truncated` when not every session
+/// file was read to the day's start.
+#[uniffi::remote(Record)]
+pub struct DailyLog {
+    pub items: Vec<DailyItem>,
+    pub truncated: bool,
+}
+
 pub use herdr_session::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
 
 /// What an entry of the file browser is (#259).
@@ -414,4 +588,15 @@ pub struct FilePreview {
     /// Whole text up to 256 KB, UTF-8 without `\r`: can be saved back
     /// (#271).
     pub editable: bool,
+}
+
+pub use herdr_session::GitHubRepo;
+
+/// A GitHub repository of the spaces on a host (#296), with the spaces
+/// that show it.
+#[uniffi::remote(Record)]
+pub struct GitHubRepo {
+    /// `owner/name`.
+    pub repo: String,
+    pub workspace_ids: Vec<String>,
 }

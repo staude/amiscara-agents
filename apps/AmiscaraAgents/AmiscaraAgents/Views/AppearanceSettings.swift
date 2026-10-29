@@ -63,7 +63,7 @@ extension View {
 /// Turns Spotlight indexing of spaces and agents on and off (#308); on the
 /// Mac in the settings window, on iOS in the "Erscheinungsbild" menu.
 struct SpotlightToggle: View {
-    let store: HostStore
+    @Environment(HostStore.self) private var store
     @AppStorage(SpotlightIndex.enabledKey) private var enabled = true
 
     var body: some View {
@@ -76,7 +76,7 @@ struct SpotlightToggle: View {
 #if os(macOS)
 /// The app's settings window (⌘,).
 struct SettingsView: View {
-    let store: HostStore
+    @State private var editingPrices = false
 
     var body: some View {
         Form {
@@ -93,14 +93,25 @@ struct SettingsView: View {
                 Text("Fragt nach Touch ID oder dem Passwort, wenn Sie zur App zurückkehren.")
             }
             Section {
-                SpotlightToggle(store: store)
+                SpotlightToggle()
             } header: {
                 Text("Spotlight")
             } footer: {
                 Text("Namen, Branch und Status von Spaces und Agents gehen in die Systemsuche.")
             }
+            Section {
+                UsageWidgetToggle()
+                LabeledContent("Preise je Modell") {
+                    Button("Bearbeiten …") { editingPrices = true }
+                }
+            } header: {
+                Text("Tokens und Kosten")
+            } footer: {
+                Text("Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host.")
+            }
             UpdateSettings()
         }
+        .sheet(isPresented: $editingPrices) { UsagePricesView() }
         .formStyle(.grouped)
         .frame(width: 420)
         .appLock()
