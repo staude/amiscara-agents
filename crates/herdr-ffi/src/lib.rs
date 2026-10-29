@@ -28,8 +28,8 @@ pub use convert::{
     TranscriptPage, UsageBucket, UsageReport, WorkspaceItem,
 };
 pub use convert::{
-    DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
-    EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
+    DailyItem, DailyItemKind, DailyLog, DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind,
+    Directory, DirectoryEntry, EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -670,6 +670,16 @@ impl HostSession {
     /// off the main thread.
     pub fn working_tree_diff(&self, pane_id: String) -> Result<WorkingTreeDiff, FfiError> {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
+    }
+
+    /// What happened on the host between the Unix seconds `since_secs` and
+    /// `until_secs` (#301): Claude Code prompts and finished turns, and the
+    /// commits of every space, oldest first. Read only; runs a small script
+    /// in a short-lived, unfocused tab and reads files through SFTP, so it
+    /// needs input and file access. Blocks for a moment; call it off the
+    /// main thread.
+    pub fn daily_log(&self, since_secs: u64, until_secs: u64) -> Result<DailyLog, FfiError> {
+        Ok(runtime().block_on(self.session.daily_log(since_secs, until_secs))?)
     }
 
     /// The directory at the absolute `path` on the host, empty for the home

@@ -9,7 +9,7 @@ use herdr_core::chains::{self, Chain};
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, diff, fullscreen, github, usage};
+use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, usage};
 use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
@@ -1099,66 +1099,136 @@ impl Session {
         let (workspace_id, cwd) = self.pane_directory(pane_id).ok_or_else(|| {
             SessionError::Files(format!("no working directory known for pane {pane_id}"))
         })?;
+        let output = run_script(
+            &conn,
+            &workspace_id,
+            &cwd,
+            "diff",
+            diff::diff_script,
+            MAX_DIFF_BYTES,
+            |text| text.trim().is_empty() || text.trim() == diff::UNTRACKED_MARK,
+        )
+        .await?;
+        Ok(diff::WorkingTreeDiff {
+            files: diff::parse(&output.text),
+            truncated: output.truncated,
+        })
+    }
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-        let stamp = format!("diff-{}-{:09}", now.as_secs(), now.subsec_nanos());
-        let out = format!("{UPLOAD_DIR}/{stamp}.txt");
-        let script = conn
-            .upload(
-                UPLOAD_DIR,
-                &format!("{stamp}.sh"),
-                diff::diff_script(&out).as_bytes(),
-            )
-            .await
-            .map_err(|err| SessionError::Files(err.to_string()))?;
-        let script_rel = format!("{UPLOAD_DIR}/{stamp}.sh");
-        let done = format!("{out}.done");
-        let err_file = format!("{out}.err");
-
-        let result = async {
-            // A leading space keeps it out of the shell's history where the
-            // shell honours that (fish, zsh/bash with ignorespace).
-            let tab =
-                run_in_tab(&conn, &workspace_id, &cwd, &format!(" sh '{script}'; exit")).await?;
-            let finished = wait_for_file(&conn, &format!("{stamp}.txt.done")).await;
-            // The shell exits by itself; close the tab in case it stayed.
-            let _ = actions::close_tab(&conn, &tab).await;
-            finished?;
-            let mut data = conn
-                .read_file_range(&done, 0, MAX_DIFF_BYTES + 1)
-                .await
-                .map_err(|err| SessionError::Files(err.to_string()))?;
-            let truncated = data.len() as u64 > MAX_DIFF_BYTES;
-            if truncated {
-                // Up to the last complete line.
-                data.truncate(MAX_DIFF_BYTES as usize);
-                if let Some(end) = data.iter().rposition(|byte| *byte == b'\n') {
-                    data.truncate(end + 1);
-                }
+    /// What happened on the host between the Unix seconds `since` and
+    /// `until` (#301): Claude Code prompts and finished turns from the
+    /// session files, commits of all local branches in every space's
+    /// repository, oldest first. Like [`Session::working_tree_diff`] a
+    /// script runs in a short-lived tab (of the first space with a folder)
+    /// and the files come through SFTP, so it needs input and file access.
+    /// Read only; takes a moment.
+    pub async fn daily_log(
+        &self,
+        since_secs: u64,
+        until_secs: u64,
+    ) -> Result<daily::DailyLog, SessionError> {
+        let conn = self.connection()?;
+        let (folders, run_in) = self.day_folders();
+        let (workspace_id, cwd) =
+            run_in.ok_or_else(|| SessionError::Files("no space to run in".into()))?;
+        let mut dirs: Vec<String> = Vec::new();
+        for (dir, _) in &folders {
+            if !dirs.contains(dir) {
+                dirs.push(dir.clone());
             }
-            let text = String::from_utf8_lossy(&data).into_owned();
-            if text.trim().is_empty() || text.trim() == diff::UNTRACKED_MARK {
-                let errors = conn
-                    .read_file_range(&err_file, 0, 4096)
-                    .await
-                    .unwrap_or_default();
-                let errors = String::from_utf8_lossy(&errors).trim().to_owned();
-                if !errors.is_empty() {
-                    return Err(SessionError::Files(errors));
-                }
-            }
-            Ok(diff::WorkingTreeDiff {
-                files: diff::parse(&text),
-                truncated,
+        }
+        // Session files changed since the day began, a minute to spare.
+        let minutes = (unix_ms() / 1000).saturating_sub(since_secs).div_ceil(60) + 1;
+        let output = run_script(
+            &conn,
+            &workspace_id,
+            &cwd,
+            "day",
+            |out| daily::day_script(out, since_secs, until_secs, minutes, &dirs),
+            MAX_DAY_BYTES,
+            |text| !text.contains(daily::CLAUDE_MARK),
+        )
+        .await?;
+        let (commits, files) = daily::parse_script(&output.text);
+        let (since_ms, until_ms) = (since_secs * 1000, until_secs * 1000);
+        let mut items: Vec<daily::DailyItem> = commits
+            .into_iter()
+            .map(|commit| daily::DailyItem {
+                kind: daily::DailyItemKind::Commit,
+                time_ms: commit.time_secs * 1000,
+                place: daily::place_for(&commit.repo, &folders),
+                text: commit.subject,
+                author: Some(commit.author),
             })
+            .filter(|item| since_ms <= item.time_ms && item.time_ms < until_ms)
+            .collect();
+        let mut truncated = output.truncated || files.len() > MAX_DAY_SESSIONS;
+        // Bytes still to read over all session files.
+        let mut budget = MAX_DAY_TOTAL_BYTES;
+        for file in files.iter().take(MAX_DAY_SESSIONS) {
+            if budget == 0 {
+                truncated = true;
+                break;
+            }
+            let limit = budget.min(MAX_DAY_SESSION_BYTES);
+            let read = match read_day(&conn, file, since_ms, limit).await {
+                Ok(read) => read,
+                // Gone or unreadable since the script listed it: the day
+                // may miss entries.
+                Err(TransportError::Files(_) | TransportError::Io(_)) => {
+                    truncated = true;
+                    continue;
+                }
+                Err(err) => return Err(SessionError::NotConnected(err.to_string())),
+            };
+            truncated |= read.cut;
+            budget = budget.saturating_sub(read.bytes);
+            let place = match read.cwd {
+                Some(cwd) => daily::place_for(&cwd, &folders),
+                None => daily::last_part(file.path.rsplit_once('/').map_or("", |(dir, _)| dir)),
+            };
+            items.extend(
+                daily::turns(&read.entries, since_ms, until_ms)
+                    .into_iter()
+                    .map(|item| daily::DailyItem {
+                        place: place.clone(),
+                        ..item
+                    }),
+            );
         }
-        .await;
-        for file in [&script_rel, &done, &err_file, &out] {
-            let _ = conn.remove_file(file).await;
-        }
-        result
+        items.sort_by_key(|item| item.time_ms);
+        Ok(daily::DailyLog { items, truncated })
+    }
+
+    /// The working directories of all panes with their space's name, and
+    /// the space and folder to run a script in: the first space with one.
+    fn day_folders(&self) -> (Vec<(String, String)>, Option<SpaceDir>) {
+        let Some(session) = self
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().session.clone()))
+        else {
+            return (Vec::new(), None);
+        };
+        let folders = session
+            .panes
+            .iter()
+            .filter_map(|pane| {
+                let dir = pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())?;
+                let label = session
+                    .workspace(&pane.workspace_id)
+                    .map(|ws| ws.label.clone())
+                    .filter(|label| !label.is_empty())
+                    .unwrap_or_else(|| daily::last_part(&dir));
+                Some((dir, label))
+            })
+            .collect();
+        let run_in = session.workspaces.iter().find_map(|ws| {
+            self.space_folder(&ws.workspace_id)
+                .map(|dir| (ws.workspace_id.clone(), dir))
+        });
+        (folders, run_in)
     }
 
     /// The space and working directory of a pane: its foreground process's
@@ -1913,6 +1983,160 @@ fn named_upload(file_name: &str) -> String {
 /// listing of the upload folder says what is what.
 /// The most of a diff the apps read; a bigger one is cut off.
 const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+/// The same for the day script's output (#301).
+const MAX_DAY_BYTES: u64 = 4 * 1024 * 1024;
+/// Session files read for a day, the newest; more mark the day truncated.
+const MAX_DAY_SESSIONS: usize = 40;
+/// Bytes read back from the end of one session file for a day, and from
+/// all of them.
+const MAX_DAY_SESSION_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_DAY_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
+/// Bytes read at once from a session file for a day: over SSH every read
+/// opens its own SFTP session, so few large reads.
+const DAY_CHUNK: u64 = 4 * 1024 * 1024;
+
+/// A space's id and a folder in it.
+type SpaceDir = (String, String);
+
+/// What a script left: its output up to the limit, as text up to the last
+/// complete line when cut off.
+struct ScriptOutput {
+    text: String,
+    truncated: bool,
+}
+
+/// Runs a script in a short-lived, unfocused tab of `workspace_id` in
+/// `cwd` and reads what it wrote (#228). `script` gets the output path
+/// below the home directory; the script writes it next to itself and
+/// renames it to `.done` when complete, errors to `.err`. When `failed`
+/// says the output is empty of results, the errors become the error.
+/// Everything is removed afterwards.
+async fn run_script(
+    conn: &Connection,
+    workspace_id: &str,
+    cwd: &str,
+    kind: &str,
+    script: impl FnOnce(&str) -> String,
+    max_bytes: u64,
+    failed: impl FnOnce(&str) -> bool,
+) -> Result<ScriptOutput, SessionError> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let stamp = format!("{kind}-{}-{:09}", now.as_secs(), now.subsec_nanos());
+    let out = format!("{UPLOAD_DIR}/{stamp}.txt");
+    let script_path = conn
+        .upload(UPLOAD_DIR, &format!("{stamp}.sh"), script(&out).as_bytes())
+        .await
+        .map_err(|err| SessionError::Files(err.to_string()))?;
+    let script_rel = format!("{UPLOAD_DIR}/{stamp}.sh");
+    let done = format!("{out}.done");
+    let err_file = format!("{out}.err");
+
+    let result = async {
+        // A leading space keeps it out of the shell's history where the
+        // shell honours that (fish, zsh/bash with ignorespace).
+        let tab = run_in_tab(
+            conn,
+            workspace_id,
+            cwd,
+            &format!(" sh '{script_path}'; exit"),
+        )
+        .await?;
+        let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
+        // The shell exits by itself; close the tab in case it stayed.
+        let _ = actions::close_tab(conn, &tab).await;
+        finished?;
+        let mut data = conn
+            .read_file_range(&done, 0, max_bytes + 1)
+            .await
+            .map_err(|err| SessionError::Files(err.to_string()))?;
+        let truncated = data.len() as u64 > max_bytes;
+        if truncated {
+            // Up to the last complete line.
+            data.truncate(max_bytes as usize);
+            if let Some(end) = data.iter().rposition(|byte| *byte == b'\n') {
+                data.truncate(end + 1);
+            }
+        }
+        let text = String::from_utf8_lossy(&data).into_owned();
+        if failed(&text) {
+            let errors = conn
+                .read_file_range(&err_file, 0, 4096)
+                .await
+                .unwrap_or_default();
+            let errors = String::from_utf8_lossy(&errors).trim().to_owned();
+            if !errors.is_empty() {
+                return Err(SessionError::Files(errors));
+            }
+        }
+        Ok(ScriptOutput { text, truncated })
+    }
+    .await;
+    for file in [&script_rel, &done, &err_file, &out] {
+        let _ = conn.remove_file(file).await;
+    }
+    result
+}
+
+/// What [`read_day`] got from one session file.
+struct DayRead {
+    entries: Vec<claude::Entry>,
+    /// The session's working directory.
+    cwd: Option<String>,
+    /// Stopped at the byte limit before the day's start.
+    cut: bool,
+    bytes: u64,
+}
+
+/// The entries of a session file back from the end of its day's lines to
+/// the first one before `since_ms`, at most `limit` bytes.
+async fn read_day(
+    conn: &Connection,
+    file: &daily::SessionFile,
+    since_ms: u64,
+    limit: u64,
+) -> Result<DayRead, TransportError> {
+    let mut entries = Vec::new();
+    let mut cwd = None;
+    let mut end = file.end;
+    while end > 0 {
+        let bytes = file.end - end;
+        if bytes >= limit {
+            return Ok(DayRead {
+                entries,
+                cwd,
+                cut: true,
+                bytes,
+            });
+        }
+        let start = end.saturating_sub(DAY_CHUNK.min(limit - bytes));
+        let data = conn.read_file_range(&file.path, start, end - start).await?;
+        if cwd.is_none() {
+            cwd = claude::session_cwd(&data);
+        }
+        let page = claude::parse_page(&data, start);
+        let reached = page.entries.iter().any(|entry| {
+            entry
+                .timestamp
+                .as_deref()
+                .and_then(daily::parse_utc_ms)
+                .is_some_and(|time| time < since_ms)
+        });
+        entries.splice(0..0, page.entries);
+        end = page.start;
+        if reached {
+            break;
+        }
+    }
+    Ok(DayRead {
+        entries,
+        cwd,
+        cut: false,
+        bytes: file.end - end,
+    })
+}
+
 /// The spaces of each Git repository, by its `.git` path (#296); spaces
 /// outside a repository are left out.
 fn spaces_by_repo_key<'a>(
@@ -1984,7 +2208,7 @@ async fn wait_for_file(conn: &Connection, name: &str) -> Result<(), SessionError
         }
         if tokio::time::Instant::now() >= deadline {
             return Err(SessionError::Files(
-                "git diff did not finish in time".into(),
+                "the script on the host did not finish in time".into(),
             ));
         }
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;

@@ -445,6 +445,39 @@ pub struct WorkingTreeDiff {
     pub truncated: bool,
 }
 
+pub use herdr_session::{DailyItem, DailyItemKind, DailyLog};
+
+/// What an entry of a host's day is (#301).
+#[uniffi::remote(Enum)]
+pub enum DailyItemKind {
+    /// The user gave a Claude agent a task.
+    Prompt,
+    /// The agent ended its turn with an answer.
+    Done,
+    Commit,
+}
+
+#[uniffi::remote(Record)]
+pub struct DailyItem {
+    pub kind: DailyItemKind,
+    /// Unix milliseconds.
+    pub time_ms: u64,
+    /// The space it happened in, else the folder's name.
+    pub place: String,
+    /// First line of the prompt, the answer or the commit message.
+    pub text: String,
+    /// A commit's author.
+    pub author: Option<String>,
+}
+
+/// One day of a host, oldest first; `truncated` when not every session
+/// file was read to the day's start.
+#[uniffi::remote(Record)]
+pub struct DailyLog {
+    pub items: Vec<DailyItem>,
+    pub truncated: bool,
+}
+
 pub use herdr_session::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
 
 /// What an entry of the file browser is (#259).
