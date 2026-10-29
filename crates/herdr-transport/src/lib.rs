@@ -485,7 +485,8 @@ impl Connection {
     /// through the `amiscara-health` case of the key's line, which first
     /// prints [`HEALTH_GATE_READY`]; a line without that case connects to
     /// `herdr.sock` instead, which says nothing, so this gives up after
-    /// [`HEALTH_TIMEOUT`]. Locally the script runs directly.
+    /// [`HEALTH_TIMEOUT`]. A script that starts but does not answer in
+    /// time is [`TransportError::Timeout`]. Locally the script runs directly.
     pub async fn health_line(&self) -> Result<HealthLine, TransportError> {
         // A `match`, since on Windows `Ssh` is the only variant.
         let handle = match &self.inner {
@@ -508,7 +509,11 @@ impl Connection {
         for _ in 0..5 {
             let mut line = String::new();
             match tokio::time::timeout_at(deadline, reader.read_line(&mut line)).await {
-                Ok(Ok(0)) | Err(_) => break,
+                Ok(Ok(0)) => break,
+                // After the marker the script is there but slow (a busy
+                // host, a hanging mount): a failed reading, not a hint.
+                Err(_) if marked => return Err(TransportError::Timeout),
+                Err(_) => break,
                 Ok(Ok(_)) => {}
                 Ok(Err(err)) => return Err(err.into()),
             }
