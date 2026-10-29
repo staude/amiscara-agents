@@ -16,6 +16,9 @@ use herdr_transport::{Connection, TransportError};
 pub const CHUNK: u64 = 1 << 20;
 /// Bytes from the end of a candidate file searched for its title.
 const TITLE_TAIL: u64 = 256 * 1024;
+/// Bytes from the end [`list_sessions`] reads first: Claude Code writes
+/// its title lines again and again, so they are mostly near the end.
+const TITLE_PEEK: u64 = 32 * 1024;
 /// Entries one step back should bring at least, if the file has them.
 pub const STEP_ENTRIES: usize = 30;
 /// Most bytes one step back reads: sessions hold large request copies,
@@ -150,7 +153,8 @@ pub async fn find_session(conn: &Connection, pane_id: &str) -> Result<Session, C
 
 /// The Claude Code sessions of the working directory `cwd`, newest first
 /// and at most [`LIST_LIMIT`]. A folder Claude Code never ran in has none.
-/// Reads the end of each file and, if no title is there, its start.
+/// Reads the end of each file (a little, then more) and, if no title is
+/// there, its start.
 pub async fn list_sessions(
     conn: &Connection,
     cwd: &str,
@@ -167,13 +171,19 @@ pub async fn list_sessions(
     let mut sessions = Vec::with_capacity(files.len());
     for file in files {
         let path = format!("{dir}/{}", file.name);
-        let tail = conn
-            .read_file_range(&path, file.size.saturating_sub(TITLE_TAIL), TITLE_TAIL)
-            .await?;
-        let title = match tail_title(&tail) {
-            Some(title) => Some(title),
-            None => first_prompt(&conn.read_file_range(&path, 0, HEAD_BYTES).await?),
-        };
+        let mut title = None;
+        for len in [TITLE_PEEK, TITLE_TAIL] {
+            let tail = conn
+                .read_file_range(&path, file.size.saturating_sub(len), len)
+                .await?;
+            title = tail_title(&tail);
+            if title.is_some() || file.size <= len {
+                break;
+            }
+        }
+        if title.is_none() {
+            title = first_prompt(&conn.read_file_range(&path, 0, HEAD_BYTES).await?);
+        }
         let id = file.name.trim_end_matches(".jsonl").to_owned();
         let title = title
             .map(|title| plain_title(&title))
