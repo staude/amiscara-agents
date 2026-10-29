@@ -167,13 +167,15 @@ struct ClaudeSessionsView: View {
                 actionError = inputErrorMessage(error)
                 return
             }
-            onCreated(created)
             do {
                 _ = try await connection.resumeClaude(session.id, in: created.paneId)
             } catch {
                 actionError = agentStartErrorMessage(error)
+                // No empty shell left behind; it opened for the session only.
+                try? await connection.closeTab(created.tabId)
                 return
             }
+            onCreated(created)
             dismiss()
         }
     }
