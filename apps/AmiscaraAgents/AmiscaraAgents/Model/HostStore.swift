@@ -133,8 +133,9 @@ final class HostStore {
     func answerError(_ key: String, to paneID: String, on hostID: UUID) async -> String? {
         switch await answerResult(key, to: paneID, on: hostID, shown: nil) {
         case .sent: nil
-        case .questionChanged: String(localized: "Der Agent fragt inzwischen etwas anderes.")
         case .failed(let message): message
+        // Not compared without `shown`; kept for an exhaustive switch.
+        case .questionChanged: String(localized: "Der Agent wartet nicht mehr.")
         }
     }
 
