@@ -80,6 +80,13 @@ enum Command {
         #[arg(long, default_value_t = 1)]
         pages: usize,
     },
+    /// Claude Code tokens per local day and model in a working directory,
+    /// from its session files (read only).
+    Usage {
+        cwd: String,
+        #[arg(long, default_value_t = 30)]
+        days: u64,
+    },
     /// Measure request round trips.
     Bench {
         #[arg(long, default_value_t = 50)]
@@ -110,6 +117,7 @@ async fn main() -> Result<()> {
         Command::Check => check(&conn).await,
         Command::View { pane, seconds } => view(&conn, &pane, seconds).await,
         Command::History { pane, pages } => history(&conn, &pane, pages).await,
+        Command::Usage { cwd, days } => usage(&conn, &cwd, days).await,
         Command::Board { .. } => Ok(()),
     }
 }
@@ -495,6 +503,53 @@ fn print_board(at: f64, session: &SessionState) {
             title
         );
     }
+}
+
+async fn usage(conn: &Connection, cwd: &str, days: u64) -> Result<()> {
+    use chrono::{Local, TimeZone};
+    use herdr_core::usage::{self, Tokens, UsageCache};
+
+    let now = Local::now();
+    let start = (now.date_naive() - chrono::Days::new(days.saturating_sub(1)))
+        .and_hms_opt(0, 0, 0)
+        .and_then(|time| Local.from_local_datetime(&time).earliest())
+        .context("no local day start")?;
+    let since = u64::try_from(start.timestamp()).context("before 1970")?;
+    let now_ms = u64::try_from(now.timestamp_millis()).context("before 1970")?;
+    let mut cache = UsageCache::default();
+    let started = Instant::now();
+    usage::scan(conn, cwd, &mut cache, since, now_ms).await?;
+    eprintln!("scanned in {:.0} ms", ms(started.elapsed()));
+    let mut days: std::collections::BTreeMap<(String, String), Tokens> = Default::default();
+    for bucket in cache.buckets_since(since * 1000) {
+        let Some(hour) = i64::try_from(bucket.hour_start_ms)
+            .ok()
+            .and_then(|ms| Local.timestamp_millis_opt(ms).single())
+        else {
+            continue;
+        };
+        if hour < start {
+            continue;
+        }
+        let sum = days
+            .entry((hour.format("%Y-%m-%d").to_string(), bucket.model))
+            .or_default();
+        sum.input += bucket.tokens.input;
+        sum.output += bucket.tokens.output;
+        sum.cache_write_5m += bucket.tokens.cache_write_5m;
+        sum.cache_write_1h += bucket.tokens.cache_write_1h;
+        sum.cache_read += bucket.tokens.cache_read;
+    }
+    println!(
+        "day        model                    input     output   write 5m   write 1h   cache read"
+    );
+    for ((day, model), t) in days {
+        println!(
+            "{day} {model:<20} {:>10} {:>10} {:>10} {:>10} {:>12}",
+            t.input, t.output, t.cache_write_5m, t.cache_write_1h, t.cache_read
+        );
+    }
+    Ok(())
 }
 
 fn report(label: &str, samples: &mut [Duration]) {

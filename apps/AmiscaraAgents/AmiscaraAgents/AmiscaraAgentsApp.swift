@@ -119,6 +119,7 @@ struct AmiscaraAgentsApp: App {
         #if os(macOS)
         Settings {
             SettingsView()
+                .environment(store)
         }
         // Owned by the app like the store, so hosts stay connected and
         // notifications keep coming while the window is closed.

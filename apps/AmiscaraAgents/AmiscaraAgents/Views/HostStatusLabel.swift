@@ -14,7 +14,11 @@ struct HostStatusLabel: View {
             Button {
                 showDetails = true
             } label: {
-                icon
+                if connection.vpnDown {
+                    vpnBadge
+                } else {
+                    icon
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(summary)
@@ -28,6 +32,16 @@ struct HostStatusLabel: View {
             }
             #endif
         }
+    }
+
+    /// NetBird is off on this device, so the host cannot answer (#305).
+    private var vpnBadge: some View {
+        Label("VPN aus", systemImage: "network.slash")
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.orange.opacity(0.15), in: Capsule())
     }
 
     @ViewBuilder
@@ -51,18 +65,25 @@ struct HostStatusLabel: View {
     }
 
     private var summary: String {
-        connection.statusSummary
+        connection.vpnDown ? String(localized: "VPN aus") : connection.statusSummary
     }
 }
 
 private struct HostStatusDetails: View {
     let connection: HostConnection
     let close: () -> Void
+    @State private var notInstalled = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(connection.config.name).font(.headline)
             Text(connection.statusSummary)
+            if connection.vpnDown {
+                Text(connection.vpnHint).font(.callout)
+            }
+            if notInstalled {
+                Text("NetBird ist auf diesem Gerät nicht installiert.").font(.callout).foregroundStyle(.red)
+            }
             if let detail = connection.statusDetail {
                 Text(detail)
                     .font(.system(.callout, design: .monospaced))
@@ -75,6 +96,15 @@ private struct HostStatusDetails: View {
             }
             HStack {
                 Spacer()
+                #if !os(tvOS)
+                if connection.config.behindNetBird {
+                    Button("NetBird öffnen", systemImage: "network") {
+                        Task {
+                            if await NetBirdMonitor.shared.open() { close() } else { notInstalled = true }
+                        }
+                    }
+                }
+                #endif
                 Button("Jetzt verbinden", systemImage: "arrow.clockwise") {
                     connection.start()
                     close()
@@ -88,7 +118,26 @@ private struct HostStatusDetails: View {
     }
 }
 
+private extension HostConnection {
+    var vpnHint: String {
+        #if os(macOS)
+        String(localized: "NetBird ist auf diesem Gerät nicht verbunden. Im Symbol der Menüleiste „Connect“ wählen.")
+        #else
+        String(localized: "NetBird ist auf diesem Gerät nicht verbunden.")
+        #endif
+    }
+}
+
 extension HostConnection {
+    /// The host sits behind NetBird, which is off here (#305).
+    var vpnDown: Bool {
+        #if os(tvOS)
+        false
+        #else
+        config.behindNetBird && NetBirdMonitor.shared.isUp == false && !isLive
+        #endif
+    }
+
     var statusSummary: String {
         if startError != nil { return String(localized: "Verbindung kann nicht starten") }
         switch status {
@@ -113,6 +162,7 @@ extension HostConnection {
 
     /// A pointer for the usual causes.
     var statusHint: String? {
+        if vpnDown { return nil }
         switch status {
         case .retrying(_, let error):
             let lower = error.lowercased()

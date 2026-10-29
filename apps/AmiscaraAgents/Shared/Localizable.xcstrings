@@ -149,6 +149,48 @@
         }
       }
     },
+    "%@ Tokens, ohne Preis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tokens, no price"
+          }
+        }
+      }
+    },
+    "%@ Tokens, ~%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tokens, ~%2$@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Tokens, ~%2$@"
+          }
+        }
+      }
+    },
+    "%@ Tokens, ~%@ (teils ohne Preis)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tokens, ~%2$@ (partly without price)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Tokens, ~%2$@ (teils ohne Preis)"
+          }
+        }
+      }
+    },
     "%@ wartet" : {
       "localizations" : {
         "en" : {
@@ -287,6 +329,9 @@
           }
         }
       }
+    },
+    "%@: %@" : {
+      "shouldTranslate" : false
     },
     "%@: %@, gerade eben gewechselt." : {
       "localizations" : {
@@ -691,6 +736,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "3. The hosts appear here after a few seconds. iPhone and Apple TV need the same Apple Account."
+          }
+        }
+      }
+    },
+    "30 Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 days"
           }
         }
       }
@@ -1147,6 +1202,546 @@
         }
       }
     },
+    "Cache lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache read"
+          }
+        }
+      }
+    },
+    "Cache schreiben (1 Std.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache write (1 h)"
+          }
+        }
+      }
+    },
+    "Cache schreiben (5 Min.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache write (5 min)"
+          }
+        }
+      }
+    },
+    "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The medium widget shows the day's tokens and estimated cost per host at the bottom."
+          }
+        }
+      }
+    },
+    "Der Planungs-Tab stellt gerade eine andere Frage, z. B. offene Fragen des Plans. Erst dort beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The planning tab is asking another question right now, such as the plan's open questions. Answer it there first."
+          }
+        }
+      }
+    },
+    "Der Planungs-Tab stellt gerade eine andere Frage. Im Tab beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The planning tab is asking another question. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Die Frage im Planungs-Tab nimmt keine Notiz an. Im Tab beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The question in the planning tab takes no note. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads tokens from the session files on the host and needs file access like “Upload images” for that (Edit host)."
+          }
+        }
+      }
+    },
+    "Eingaben sind für diesen Host ausgeschaltet. Im Planungs-Tab freigeben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input is turned off for this host. Approve in the planning tab."
+          }
+        }
+      }
+    },
+    "Freigaben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approvals"
+          }
+        }
+      }
+    },
+    "Freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve"
+          }
+        }
+      }
+    },
+    "Freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved"
+          }
+        }
+      }
+    },
+    "Freigegeben. Der Planungs-Tab startet die Umsetzung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved. The planning tab starts the implementation."
+          }
+        }
+      }
+    },
+    "Geschätzt mit den Preisen aus den Einstellungen, in US-Dollar. Gezählt werden die Ordner der offenen Claude-Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated with the prices from the settings, in US dollars. Counts the folders of the open Claude agents."
+          }
+        }
+      }
+    },
+    "GitHub antwortet mit Status %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub answers with status %lld."
+          }
+        }
+      }
+    },
+    "GitHub lehnt den Token ab (401). Token in den Host-Einstellungen prüfen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub refuses the token (401). Check the token in the host settings."
+          }
+        }
+      }
+    },
+    "GitHub verweigert den Zugriff (403): Rechte des Tokens oder Rate-Limit." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub denies access (403): token permissions or rate limit."
+          }
+        }
+      }
+    },
+    "Heute: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today: %@"
+          }
+        }
+      }
+    },
+    "Hinweis zur Umsetzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note for the implementation"
+          }
+        }
+      }
+    },
+    "Input" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input"
+          }
+        }
+      }
+    },
+    "Issue auf GitHub öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open issue on GitHub"
+          }
+        }
+      }
+    },
+    "Kein Dateizugriff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No file access"
+          }
+        }
+      }
+    },
+    "Kein Plan gefunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No plan found"
+          }
+        }
+      }
+    },
+    "Kein wartender Planungs-Tab auf diesem Host. Freigeben in einer Claude-Sitzung im Repo mit:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No waiting planning tab on this host. Approve in a Claude session in the repository with:"
+          }
+        }
+      }
+    },
+    "Kein wartender Planungs-Tab für dieses Issue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No waiting planning tab for this issue."
+          }
+        }
+      }
+    },
+    "Keine Tokens in diesen Ordnern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tokens in these folders."
+          }
+        }
+      }
+    },
+    "Kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Liest die Sitzungsdateien der letzten 30 Tage. Beim ersten Mal dauert das eine Weile." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the session files of the last 30 days. The first time this takes a while."
+          }
+        }
+      }
+    },
+    "Listenpreise wiederherstellen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore list prices"
+          }
+        }
+      }
+    },
+    "Mit Hinweis freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve with note"
+          }
+        }
+      }
+    },
+    "Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten. Ein Fine-grained Token mit dem Recht Issues: Read genügt. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With a token, the overview and the dashboard show under “Approvals” the plans waiting for approval in this host's repositories. A fine-grained token with Issues: Read is enough. It stays in this device's Keychain only; empty removes it. The app reads the repositories through file access, like “Upload images”."
+          }
+        }
+      }
+    },
+    "Modell hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add model"
+          }
+        }
+      }
+    },
+    "Modell-ID, z. B. claude-opus-5-5" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model ID, e.g. claude-opus-5-5"
+          }
+        }
+      }
+    },
+    "Neu lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read again"
+          }
+        }
+      }
+    },
+    "Nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not readable"
+          }
+        }
+      }
+    },
+    "Nicht neu gelesen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not read again: %@"
+          }
+        }
+      }
+    },
+    "Output" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output"
+          }
+        }
+      }
+    },
+    "Planungs-Tab wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planning tab waiting"
+          }
+        }
+      }
+    },
+    "Preise" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices"
+          }
+        }
+      }
+    },
+    "Preise je Modell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices per model"
+          }
+        }
+      }
+    },
+    "Preise je Modell …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices per model …"
+          }
+        }
+      }
+    },
+    "Später. Der Plan wartet weiter auf Freigabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later. The plan still waits for approval."
+          }
+        }
+      }
+    },
+    "Tab öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open tab"
+          }
+        }
+      }
+    },
+    "Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days"
+          }
+        }
+      }
+    },
+    "Tageskosten im Widget" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily cost in widget"
+          }
+        }
+      }
+    },
+    "Token" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token"
+          }
+        }
+      }
+    },
+    "Tokens nicht lesbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens not readable: %@"
+          }
+        }
+      }
+    },
+    "Tokens und Kosten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost"
+          }
+        }
+      }
+    },
+    "Tokens und Kosten brauchen Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost need file access like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
+    "Tokens und Kosten der letzten 30 Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost of the last 30 days"
+          }
+        }
+      }
+    },
+    "Tokens werden gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading tokens …"
+          }
+        }
+      }
+    },
+    "Tokens · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens · %@"
+          }
+        }
+      }
+    },
+    "US-Dollar je Million Tokens. Ein Modell ohne Preis zählt bei den Tokens mit, aber nicht bei den Kosten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "US dollars per million tokens. A model without a price counts toward the tokens but not the cost."
+          }
+        }
+      }
+    },
+    "Welche Repos der Host hat, liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads which repositories the host has through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
     "auf dem Host" : {
       "localizations" : {
         "en" : {
@@ -1483,6 +2078,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Needs “Upload images” (file access)"
+          }
+        }
+      }
+    },
+    "Claude-Sitzungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Sessions"
+          }
+        }
+      }
+    },
+    "Claude-Sitzungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Sessions …"
           }
         }
       }
@@ -2083,6 +2698,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The app is not ready."
+          }
+        }
+      }
+    },
+    "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the Claude sessions through file access like “Upload images” (Edit Host)."
           }
         }
       }
@@ -2913,6 +3538,26 @@
         }
       }
     },
+    "herdr kennt den Ordner dieser Pane nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this pane's folder."
+          }
+        }
+      }
+    },
+    "herdr kennt den Ordner dieses Space nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this space's folder."
+          }
+        }
+      }
+    },
     "Hinzufügen" : {
       "localizations" : {
         "en" : {
@@ -3143,6 +3788,16 @@
         }
       }
     },
+    "In dieser Pane fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume in This Pane"
+          }
+        }
+      }
+    },
     "In Eingabe übernehmen" : {
       "localizations" : {
         "en" : {
@@ -3179,6 +3834,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "In the clipboard"
+          }
+        }
+      }
+    },
+    "In neuer Pane fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume in New Pane"
           }
         }
       }
@@ -3419,6 +4084,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No Pane Selected"
+          }
+        }
+      }
+    },
+    "Keine Sitzungen in diesem Ordner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Sessions in This Folder"
           }
         }
       }
@@ -3683,6 +4358,16 @@
         }
       }
     },
+    "Läuft eine Sitzung noch in einer anderen Pane, dort Claude vorher beenden: Sonst schreiben zwei Claude-Prozesse in dieselbe Sitzung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If a session is still running in another pane, quit Claude there first: otherwise two Claude processes write to the same session."
+          }
+        }
+      }
+    },
     "Löschen" : {
       "localizations" : {
         "en" : {
@@ -3899,6 +4584,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tells an agent's status, for how long, and the last lines of its screen."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht installiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not installed on this device."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht verbunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not connected on this device."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht verbunden. Im Symbol der Menüleiste „Connect“ wählen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not connected on this device. Choose “Connect” in the menu bar icon."
+          }
+        }
+      }
+    },
+    "NetBird öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open NetBird"
+          }
+        }
+      }
+    },
+    "NetBird-Adressen und -Domains erkennt die App selbst, eigene Domains lernt sie, sobald NetBird läuft. Mit dem Schalter lässt sich das überschreiben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app recognises NetBird addresses and domains itself and learns your own domains once NetBird is running. The switch overrides this."
           }
         }
       }
@@ -5459,6 +6194,16 @@
         }
       }
     },
+    "VPN aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VPN off"
+          }
+        }
+      }
+    },
     "VS Code ist nicht installiert." : {
       "localizations" : {
         "en" : {
@@ -5555,6 +6300,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discard changes?"
+          }
+        }
+      }
+    },
+    "Über NetBird" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Via NetBird"
+          }
+        }
+      }
+    },
+    "Überblick für die Freigabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview for approval"
           }
         }
       }
@@ -6694,6 +7459,116 @@
     },
     "└" : {
       "shouldTranslate" : false
+    },
+    "Text mit {Platzhaltern}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text with {placeholders}"
+          }
+        }
+      }
+    },
+    "Repository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "Alle Repos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All repos"
+          }
+        }
+      }
+    },
+    "Ein Tipp auf eine Vorlage fragt die Platzhalter ab und setzt den Text in die Eingabe, ohne ihn zu senden. Vorbelegt sind {nr} (Issue-Nummer des Branches), {branch} und {space}." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapping a template asks for its placeholders and puts the text into the composer without sending it. Prefilled are {nr} (issue number of the branch), {branch} and {space}."
+          }
+        }
+      }
+    },
+    "Vorlage hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Template"
+          }
+        }
+      }
+    },
+    "Vorlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Templates"
+          }
+        }
+      }
+    },
+    "Vorschau" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "Vorlage: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template: %@"
+          }
+        }
+      }
+    },
+    "Schnellantworten bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Quick Replies …"
+          }
+        }
+      }
+    },
+    "Vorlagen bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Templates …"
+          }
+        }
+      }
+    },
+    "Schnellantworten und Vorlagen bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit quick replies and templates"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -24,11 +24,14 @@ cargo test --workspace --locked
 
 if $apple; then
     scripts/last-tabs-test.sh
+    scripts/netbird-test.sh
+    scripts/prompt-templates-test.sh
     scripts/pane-visits-test.sh
     scripts/pane-cache-test.sh
     scripts/agent-overview-test.sh
     scripts/multi-send-test.sh
     scripts/agent-status-test.sh
+    scripts/question-binding-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
         [[ "$scheme" == AmiscaraAgents-iOS ]] && destination="generic/platform=iOS"
@@ -38,6 +41,7 @@ if $apple; then
     done
     # Needs the bindings the Xcode build made.
     scripts/pane-cache-ffi-test.sh
+    scripts/usage-sums-test.sh
 fi
 if $android; then
     # Code under cfg(target_os = "android") only compiles for the phone.
