@@ -369,6 +369,7 @@ targets:
           - Views/MenuBarMenu.swift
           - Views/SecretsView.swift
           - Model/SecretStore.swift
+          - Views/ChainEditor.swift
           - Views/ClaudeSessionsView.swift
           - Model/PromptTemplates.swift
           - Views/PromptTemplateEditor.swift

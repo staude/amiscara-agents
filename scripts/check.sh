@@ -27,6 +27,7 @@ if $apple; then
     scripts/netbird-test.sh
     scripts/prompt-templates-test.sh
     scripts/pane-visits-test.sh
+    scripts/chain-log-test.sh
     scripts/spoken-text-test.sh
     scripts/pane-cache-test.sh
     scripts/agent-overview-test.sh
