@@ -13,6 +13,8 @@ final class HostStore {
     let cloudPush = CloudPushSender()
     #endif
     #if !os(tvOS)
+    /// Plans waiting for approval in the hosts' repositories (#296).
+    let approvals = Approvals()
     /// The agents as last seen and as Siri last learned them by name
     /// (#275), and the pause between two updates; see `updateShortcutAgents(_:)`.
     @ObservationIgnored private var shortcutAgentsSeen: Set<String> = []
@@ -43,8 +45,20 @@ final class HostStore {
             save()
         }
         connections.forEach { $0.start() }
-        notifier.answer = { [weak self] host, pane, key in
-            await self?.answer(key, to: pane, on: host) ?? false
+        // NetBird just connected (#305): the hosts behind it were failing,
+        // so connect now instead of waiting out the backoff.
+        NetBirdMonitor.shared.onCameUp = { [weak self] in
+            guard let self else { return }
+            self.learnNetBird()
+            for connection in self.connections
+            where connection.config.behindNetBird && !connection.isLive && !connection.needsHostKeyDecision {
+                connection.reconnect()
+            }
+        }
+        learnNetBird()
+        notifier.answer = { [weak self] host, pane, key, shown in
+            await self?.answerResult(key, to: pane, on: host, shown: shown)
+                ?? .failed(String(localized: "Die App ist nicht bereit."))
         }
         #if os(iOS)
         WatchBridge.shared.answer = { [weak self] host, pane, key in
@@ -76,10 +90,17 @@ final class HostStore {
     /// A connection wired to notifications and the badge.
     private func connect(_ config: HostConfig) -> HostConnection {
         let connection = HostConnection(config: config)
+        connection.usage.onChange = { [weak self] in
+            guard let self, !DemoMode.isOn || DemoMode.widgets else { return }
+            self.widgets.publish(self)
+        }
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
             self.notifier.notify(update.attention, on: connection.config) { [weak connection] paneID in
                 await connection?.choiceQuestion(paneID: paneID)
+            }
+            if connection.isLive {
+                self.notifier.withdraw(answeredIn: update.board, hostID: connection.config.id)
             }
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
@@ -121,13 +142,55 @@ final class HostStore {
     /// background, the app first has to reconnect; iOS gives it some
     /// seconds for that.
     func answer(_ key: String, to paneID: String, on hostID: UUID) async -> Bool {
-        await answerError(key, to: paneID, on: hostID) == nil
+        await answerResult(key, to: paneID, on: hostID, shown: nil) == .sent
     }
 
     /// Like `answer`, with the reason when the key did not go out, e.g.
     /// for the Watch (#157).
     func answerError(_ key: String, to paneID: String, on hostID: UUID) async -> String? {
-        await sendError(on: hostID) { try await $0.send(keys: [key], to: paneID) }
+        switch await answerResult(key, to: paneID, on: hostID, shown: nil) {
+        case .sent: nil
+        case .failed(let message): message
+        // Not compared without `shown`; kept for an exhaustive switch.
+        case .questionChanged: String(localized: "Der Agent wartet nicht mehr.")
+        }
+    }
+
+    /// Sends an answer key only while the agent waits and, for a button
+    /// showing a question's options (`shown`), still asks that question
+    /// (#286). A changed question gets a new notification instead.
+    func answerResult(_ key: String, to paneID: String, on hostID: UUID, shown: [[String]]?) async -> AnswerResult {
+        guard let connection = await reconnected(hostID) else { return .failed(Self.hostGone) }
+        // Offline the board may be empty or old: say why nothing went out.
+        guard connection.isLive else { return .failed(inputErrorMessage(ConnectionFailure.notConnected)) }
+        // A new session starts with an empty board.
+        for _ in 0..<20 where connection.update?.board.contains(where: { $0.paneId == paneID }) != true {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        guard connection.isLive else { return .failed(inputErrorMessage(ConnectionFailure.notConnected)) }
+        guard let item = connection.update?.board.first(where: { $0.paneId == paneID }),
+              item.agentState == .blocked
+        else { return .failed(String(localized: "Der Agent wartet nicht mehr.")) }
+        if let shown {
+            let asked = await connection.choiceQuestion(paneID: paneID)
+            let now = asked?.binding
+            guard QuestionBinding.stillAsked(shown: shown, now: now) else {
+                // No question read (none detected, or a read error): only
+                // the pane opens. A new notification would carry the fixed
+                // answers, unbound.
+                if let asked {
+                    // The question just read, not a second read that may fail.
+                    notifier.notify([item], on: connection.config) { _ in asked }
+                }
+                return .questionChanged
+            }
+        }
+        do {
+            try await connection.send(keys: [key], to: paneID)
+            return .sent
+        } catch {
+            return .failed(inputErrorMessage(error))
+        }
     }
 
     /// Sends `text` as a prompt to the agent in `paneID`, for the Watch
@@ -139,21 +202,30 @@ final class HostStore {
     /// Runs `send` on the host's connection, reconnecting first: launched
     /// in the background, the app has some seconds for that.
     private func sendError(on hostID: UUID, _ send: (HostConnection) async throws -> Void) async -> String? {
-        guard let connection = connection(for: hostID) else {
-            return String(localized: "Diesen Host gibt es auf dem iPhone nicht mehr.")
-        }
-        if !connection.isLive, !connection.needsHostKeyDecision {
-            connection.start()
-        }
-        for _ in 0..<60 where !connection.isLive {
-            try? await Task.sleep(for: .milliseconds(250))
-        }
+        guard let connection = await reconnected(hostID) else { return Self.hostGone }
         do {
             try await send(connection)
             return nil
         } catch {
             return inputErrorMessage(error)
         }
+    }
+
+    /// The host's connection, reconnected first and waited for up to 15 s;
+    /// `nil` when the host is gone.
+    private func reconnected(_ hostID: UUID) async -> HostConnection? {
+        guard let connection = connection(for: hostID) else { return nil }
+        if !connection.isLive, !connection.needsHostKeyDecision {
+            connection.start()
+        }
+        for _ in 0..<60 where !connection.isLive {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return connection
+    }
+
+    private static var hostGone: String {
+        String(localized: "Diesen Host gibt es auf dem iPhone nicht mehr.")
     }
 
     /// Agents waiting for an answer, over all hosts in sidebar order.
@@ -214,6 +286,7 @@ final class HostStore {
         connections.append(connection)
         save()
         connection.start()
+        learnNetBird()
     }
 
     func update(_ config: HostConfig) {
@@ -222,8 +295,32 @@ final class HostStore {
         var config = config
         config.spaceSort = connection.config.spaceSort
         config.spaceOrder = connection.config.spaceOrder
+        // Learned for the old name only.
+        config.netBirdLearned = config.host == connection.config.host ? connection.config.netBirdLearned : nil
         connection.apply(config)
         save()
+        learnNetBird()
+    }
+
+    private func needsLearning(_ config: HostConfig) -> Bool {
+        guard config.kind == .ssh, config.viaNetBird == nil, config.netBirdLearned == nil else { return false }
+        return !config.host.isEmpty && !NetBird.looksLikeNetBirdHost(config.host)
+    }
+
+    /// While NetBird is up, remembers which hosts resolve to a NetBird
+    /// address, so own domains need no entry (#305).
+    private func learnNetBird() {
+        guard NetBirdMonitor.shared.isUp == true else { return }
+        let pending = connections.map(\.config).filter(needsLearning)
+        for config in pending {
+            Task { [weak self] in
+                guard let learned = await NetBirdMonitor.shared.resolvesToNetBird(config.host) else { return }
+                guard let self, var current = self.connection(for: config.id)?.config,
+                      current.host == config.host, current.netBirdLearned == nil else { return }
+                current.netBirdLearned = learned
+                self.update(current)
+            }
+        }
     }
 
     func setSpaceSort(_ mode: SpaceSortMode, order: [String]?, for id: UUID) {
@@ -244,10 +341,13 @@ final class HostStore {
         KeyStore.delete(for: id)
         #if !os(tvOS)
         SecretStore.deleteAll(for: id)
+        GitHubToken.delete(for: id)
+        approvals.reset(id)
         #endif
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)
         PaneVisits.shared.forget(host: id)
+        UsageStore.forget(host: id)
         PaneCache.shared.forget(host: id)
         connections.remove(at: index)
         save()
@@ -341,6 +441,15 @@ final class HostStore {
         // Added, removed or renamed hosts show in the widgets at once.
         widgets.publish(self)
     }
+}
+
+/// What became of an answer key from a notification, the Watch or the
+/// Live Activity (#286).
+enum AnswerResult: Equatable {
+    case sent
+    /// The pane asks another question than the button was made for.
+    case questionChanged
+    case failed(String)
 }
 
 /// A folder an agent on a host wants opened in VS Code, with its host.

@@ -31,10 +31,18 @@ struct HostSidebar: View {
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
+    #if !os(tvOS)
+    /// Claude Code sessions of a space's folder to resume (#304).
+    @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    #endif
     @State private var addingSessionTo: HostConnection?
     #if !os(tvOS)
     /// The host whose secrets are shown (#291).
     @State private var secretsFor: HostConnection?
+    #endif
+    #if os(iOS)
+    /// The price table of the token costs (#302).
+    @State private var editingPrices = false
     #endif
     /// Why a swipe action on an agent row could not be sent.
     @State private var swipeError: String?
@@ -128,6 +136,10 @@ struct HostSidebar: View {
                             .pickerStyle(.menu)
                     }
                     LiveActivityToggle()
+                    Section("Tokens und Kosten") {
+                        UsageWidgetToggle()
+                        Button("Preise je Modell …", systemImage: "dollarsign.circle") { editingPrices = true }
+                    }
                 }
             }
             #endif
@@ -137,6 +149,9 @@ struct HostSidebar: View {
                 NoHostsView(editing: $editing)
             }
         }
+        #if os(iOS)
+        .sheet(isPresented: $editingPrices) { UsagePricesView() }
+        #endif
         .sheet(item: $showingQR) { config in
             HostQRView(config: config)
         }
@@ -178,6 +193,13 @@ struct HostSidebar: View {
                 selection = .space(SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
             }
         }
+        #if !os(tvOS)
+        .sheet(item: $claudeSessionsFor) { target in
+            ClaudeSessionsView(target: target) { created in
+                selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
+            }
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -394,6 +416,11 @@ struct HostSidebar: View {
                         newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
                     }
                 }
+                #if !os(tvOS)
+                Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
+                    claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: key)
+                }
+                #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
                     closing = .space(entry.workspace, on: connection)
                 }
