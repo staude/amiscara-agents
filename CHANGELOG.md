@@ -600,6 +600,22 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Conversation search (#303): a search field in the host dashboard (Mac,
+  iPhone, iPad) searches all Claude Code conversations of the host on
+  Return, ignoring case, at least two characters. Hits are grouped by space
+  (the pane's directory or the deepest one above it, else "Ohne Space" with
+  the directory), then by session with its title, each with a snippet and
+  date, newest first, at most 200 and 20 lines per session file. A tap
+  opens the conversation at the hit, marked, with "Neuere Einträge laden"
+  below. Index-free: a local host's files are read directly; over SSH with
+  input allowed and a space open a script runs grep in a short-lived,
+  unfocused tab (prompts, answers and shown tool fields only, files of the
+  last 30 days first, no subagents, 300 lines in all), otherwise the app reads the files of the last 30 days,
+  newest first, up to 300 MB, and says so. Progress with "Abbrechen"; a
+  cancel closes the tab. Needs file access. Core: `Connection::is_local`,
+  `claude::Query`, `hits_in_line`, `snippet`, `search_script`,
+  `read_hit_line`, `read_forward`, `Session::search_conversations`,
+  `claude_history_at`, `claude_history_after`, `TranscriptSpan`.
 - Token usage (#302): the host dashboard (Mac, iPhone, iPad) shows "Heute:
   n Tokens, ~$x" for the host and under each Claude agent, read from Claude
   Code's session files in the working directories of the open Claude agents

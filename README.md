@@ -166,6 +166,12 @@ code), so a host is set up the same way everywhere.
 - **Claude Code conversation:** for Claude panes the conversation itself
   (prompts, answers, tool calls), read from `~/.claude/projects` on the host
   over SFTP.
+- **Conversation search:** the search field of a host's dashboard finds a
+  word in all Claude Code conversations of the host, grouped by space and
+  session with a snippet and date; a hit opens the conversation there.
+  Over SSH with input allowed and a space open, grep runs on the host in a
+  short-lived tab, otherwise only the last 30 days are read. Needs SFTP
+  like the conversation. Mac, iPhone and iPad.
 - **Read aloud and voice mode:** "Vorlesen" in the header of a Claude pane
   reads Claude's last reply with the system voice, in the reply's language,
   code blocks skipped. "Antworten vorlesen" reads each reply once Claude has
@@ -406,12 +412,19 @@ the host editor shows now. `permitlisten="none"` is not accepted in
 
 ### Uploads and the Claude conversation
 
-Uploads, the Claude Code conversation, the Git changes and the file browser
-need SFTP. Turn on the per-host switch "Bilder hochladen (SFTP)" (Apple) or
+Uploads, the Claude Code conversation and its search, the Git changes and
+the file browser need SFTP. Turn on the per-host switch "Bilder hochladen (SFTP)" (Apple) or
 "Dateien hochladen (SFTP)" (desktop, Android) and use the key line with
 `*sftp*) exec /usr/libexec/sftp-server ;;` instead of `*sftp*) exit 1 ;;`;
 the host editor shows the right one. On Linux hosts the path of
 `sftp-server` differs, e.g. `/usr/lib/openssh/sftp-server`.
+
+The conversation search over SSH runs grep on the host when input is
+allowed: a script and the search text go to `~/.amiscara-agents/uploads`,
+a short-lived, unfocused tab in the first space runs the script and closes
+again, the app reads the result and removes the files. Without input or
+without an open space it downloads the session files of the last 30
+days, newest first, at most 300 MB.
 
 **Be aware:** a key with SFTP can read and write every file of the user,
 including `~/.ssh/authorized_keys`, so it is effectively full access to

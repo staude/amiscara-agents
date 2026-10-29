@@ -1272,6 +1272,16 @@
         }
       }
     },
+    "Bitte mindestens zwei Zeichen auf einer Zeile suchen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please search for at least two characters on one line."
+          }
+        }
+      }
+    },
     "Cache lesen" : {
       "localizations" : {
         "en" : {
@@ -1432,12 +1442,32 @@
         }
       }
     },
+    "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search reads the session files on the host and needs file access for that, like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
     "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The app reads tokens from the session files on the host and needs file access like “Upload images” for that (Edit host)."
+          }
+        }
+      }
+    },
+    "Durchsucht die Gespräche auf dem Host …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching the conversations on the host …"
           }
         }
       }
@@ -1458,6 +1488,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Once"
+          }
+        }
+      }
+    },
+    "Ende der Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End of the session"
           }
         }
       }
@@ -1568,6 +1608,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "sent"
+          }
+        }
+      }
+    },
+    "Gespräche durchsuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search conversations"
           }
         }
       }
@@ -1762,6 +1812,16 @@
         }
       }
     },
+    "Keine Treffer für „%@“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results for “%@”."
+          }
+        }
+      }
+    },
     "Kette anlegen" : {
       "localizations" : {
         "en" : {
@@ -1882,6 +1942,16 @@
         }
       }
     },
+    "Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More results than the search shows. A more specific word helps."
+          }
+        }
+      }
+    },
     "Meldung schließen" : {
       "localizations" : {
         "en" : {
@@ -1942,6 +2012,16 @@
         }
       }
     },
+    "Neuere Einträge laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load newer entries"
+          }
+        }
+      }
+    },
     "Nicht alle Claude-Verläufe wurden bis zum Tagesbeginn gelesen; frühe Einträge können fehlen." : {
       "localizations" : {
         "en" : {
@@ -1978,6 +2058,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No reply to read yet."
+          }
+        }
+      }
+    },
+    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Auf dem Host selbst sucht die App, wenn Eingaben erlaubt sind und ein Space offen ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
+          }
+        }
+      }
+    },
+    "Ohne Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No space"
           }
         }
       }
@@ -2072,6 +2172,26 @@
         }
       }
     },
+    "Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "Sitzung vom %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session from %@"
+          }
+        }
+      }
+    },
     "Sonst nur beim nächsten Mal; danach ist die Kette weg." : {
       "localizations" : {
         "en" : {
@@ -2118,6 +2238,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop"
+          }
+        }
+      }
+    },
+    "Suche abgebrochen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search cancelled."
+          }
+        }
+      }
+    },
+    "Suche fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search failed: %@"
           }
         }
       }

@@ -5,6 +5,7 @@
 pub mod access;
 mod forward;
 pub mod link;
+mod search;
 pub mod secrets;
 pub mod session;
 pub mod sessions;
@@ -22,11 +23,12 @@ pub use link::{
     ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, LinkError, decode_add_host_link,
     encode_add_host_link, public_key_fingerprint,
 };
+pub use search::{ConversationHit, ConversationSearch, Route, SearchEnd, SearchSink};
 pub use secrets::{ENV_DIR, is_reserved_env_name, is_valid_env_name};
 pub use session::{
     ClaudeSessionItem, Endpoint, PaneFollow, PaneSink, ScrollStep, Session, SessionError,
-    SshIdentity, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, UPLOAD_DIR,
-    UsageBucket, UsageReport,
+    SshIdentity, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, TranscriptSpan,
+    UPLOAD_DIR, UsageBucket, UsageReport,
 };
 #[cfg(unix)]
 pub use sessions::local_herdr_sessions;

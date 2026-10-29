@@ -459,6 +459,16 @@ impl Connection {
         }
     }
 
+    /// Whether this is the Unix socket on this machine, so the host's files
+    /// are this machine's files.
+    pub fn is_local(&self) -> bool {
+        match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => true,
+            Inner::Ssh { .. } => false,
+        }
+    }
+
     /// Checks that `localhost:<port>` on the host can be reached, with one
     /// short connection to it.
     pub async fn check_tcp(&self, port: u16) -> Result<(), TransportError> {
