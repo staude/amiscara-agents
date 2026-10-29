@@ -84,7 +84,8 @@ final class AgentVoice {
     func readLast(connection: HostConnection, paneID: String) {
         if !voiceMode { stop() }
         let run = run
-        let after: State = state == .waiting || state == .waitingForDecision ? state : .listening
+        let current = state == .speaking ? afterSpeaking ?? .listening : state
+        let after: State = current == .waiting || current == .waitingForDecision ? current : .listening
         Task {
             if await read(connection: connection, paneID: paneID, automatic: false, onlyNew: false, run: run, then: after) == .noReply {
                 error = String(localized: "Noch keine Antwort zum Vorlesen.")
@@ -111,9 +112,11 @@ final class AgentVoice {
         if answered {
             if decisionSentence {
                 silence()
+                state = .waiting
             } else if afterSpeaking == .waitingForDecision {
-                // A reply the user asked for plays to its end.
-                afterSpeaking = .waiting
+                // A reply the user asked for plays to its end; `listen`
+                // then sees whether Claude works.
+                afterSpeaking = .listening
             }
             if state == .waitingForDecision { state = .waiting }
         }
@@ -238,12 +241,13 @@ final class AgentVoice {
         guard let entry = page.entries.last(where: { $0.kind == .assistant }) else { return .noReply }
         let read = Read(sessionPath: page.sessionPath, timestamp: entry.timestamp, text: entry.text)
         if onlyNew, read == lastRead { return .same }
+        // Claude asked for a decision while the file loaded: that comes
+        // first, and no dictation after it. Not marked read, so the reply
+        // comes after the decision.
+        if voiceMode, next == .listening, agentState == .blocked { return .failed }
         lastRead = read
         let spoken = SpokenText.make(from: entry.text)
         guard !spoken.text.isEmpty else { return .noReply }
-        // Claude asked for a decision while the file loaded: that comes
-        // first, and no dictation after it.
-        if voiceMode, next == .listening, agentState == .blocked { return .failed }
         speak(spoken.text, language: spoken.language, automatic: automatic, then: voiceMode ? next : nil)
         return .spoken
     }
@@ -288,7 +292,9 @@ final class AgentVoice {
             state = .idle
             return
         }
-        if next == .listening {
+        // Waiting for a Claude that is done already: nothing else will come.
+        let done = next == .waiting && agentState != .working && agentState != .blocked
+        if next == .listening || done {
             listen()
         } else {
             state = next ?? .waiting
