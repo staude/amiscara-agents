@@ -7,7 +7,7 @@ use std::time::Duration;
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, diff, fullscreen};
+use herdr_core::{actions, browse, claude, diff, fullscreen, github};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
 };
@@ -253,6 +253,31 @@ pub struct TranscriptSpan {
     pub at_end: bool,
     /// Index in `entries` of the hit's first entry.
     pub highlight: Option<u32>,
+}
+
+/// A Claude Code session of a folder (#304), newest first in
+/// [`Session::claude_sessions`].
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeSessionItem {
+    /// What `claude --resume` takes.
+    pub id: String,
+    pub title: String,
+    /// Last activity, seconds since 1970; 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file, in place of a message count.
+    pub size: u64,
+}
+
+impl From<claude::SessionSummary> for ClaudeSessionItem {
+    fn from(summary: claude::SessionSummary) -> Self {
+        Self {
+            id: summary.id,
+            title: summary.title,
+            modified: summary.modified,
+            size: summary.size,
+        }
+    }
 }
 
 impl From<claude::Entry> for TranscriptEntry {
@@ -628,7 +653,9 @@ impl Session {
         name: Option<&str>,
     ) -> Result<String, SessionError> {
         let conn = self.connection()?;
-        Ok(actions::start_agent(&conn, pane_id, kind, name).await?.name)
+        Ok(actions::start_agent(&conn, pane_id, kind, name, &[])
+            .await?
+            .name)
     }
 
     /// Agent kinds the server can start, the usual ones first. Never fails:
@@ -730,6 +757,42 @@ impl Session {
             at_end: after.at_end,
             highlight: None,
         })
+    }
+
+    /// The Claude Code sessions of `folder` on the host, newest first and
+    /// at most 30, read from their files (SFTP over SSH). A folder Claude
+    /// Code never ran in has none. Read only.
+    pub async fn claude_sessions(
+        &self,
+        folder: &str,
+    ) -> Result<Vec<ClaudeSessionItem>, SessionError> {
+        let conn = self.connection()?;
+        Ok(claude::list_sessions(&conn, folder)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    /// Continues the Claude Code session `session_id` in a pane at its
+    /// shell prompt (`claude --resume <id>`) and returns the agent's name.
+    /// herdr starts it like [`Session::start_agent`], so it knows the agent.
+    /// The pane must be in the session's folder.
+    pub async fn resume_claude(
+        &self,
+        pane_id: &str,
+        session_id: &str,
+    ) -> Result<String, SessionError> {
+        if !claude::is_session_id(session_id) {
+            return Err(SessionError::Rejected(format!(
+                "not a Claude Code session id: {session_id}"
+            )));
+        }
+        let conn = self.connection()?;
+        let args = ["--resume".to_owned(), session_id.to_owned()];
+        Ok(actions::start_agent(&conn, pane_id, "claude", None, &args)
+            .await?
+            .name)
     }
 
     /// The transcript of a full-screen agent such as Claude Code, which
@@ -1068,6 +1131,40 @@ impl Session {
         Ok(names)
     }
 
+    /// The GitHub repositories of the spaces on the host (#296), sorted,
+    /// each with its spaces: the `origin` in the `config` of each Git
+    /// repository the spaces show. Repositories elsewhere and unreadable
+    /// configs are left out; it fails only without a connection. Needs
+    /// file access like uploads.
+    pub async fn github_repos(&self) -> Result<Vec<github::GitHubRepo>, SessionError> {
+        let conn = self.connection()?;
+        let by_key = {
+            let state = self.state.lock().ok();
+            let session = state
+                .as_ref()
+                .and_then(|state| state.as_ref())
+                .and_then(|rx| rx.borrow().session.clone());
+            spaces_by_repo_key(session.iter().flat_map(|session| &session.workspaces))
+        };
+        let mut origins = Vec::new();
+        for (key, workspace_ids) in by_key {
+            // The key is absolute, so `read_file_head` and not
+            // `read_file_range`, which reads relative to the home.
+            let Ok(head) = conn
+                .read_file_head(&format!("{key}/config"), |size| {
+                    size.min(MAX_GIT_CONFIG_BYTES)
+                })
+                .await
+            else {
+                continue;
+            };
+            if let Some(repo) = github::origin_repo(&String::from_utf8_lossy(&head.data)) {
+                origins.push((repo, workspace_ids));
+            }
+        }
+        Ok(merge_github_repos(origins))
+    }
+
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
     /// on the host under a fresh name and returns its absolute path.
     pub async fn upload_file(
@@ -1393,6 +1490,41 @@ fn named_upload(file_name: &str) -> String {
 /// listing of the upload folder says what is what.
 /// The most of a diff the apps read; a bigger one is cut off.
 const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+/// The spaces of each Git repository, by its `.git` path (#296); spaces
+/// outside a repository are left out.
+fn spaces_by_repo_key<'a>(
+    workspaces: impl IntoIterator<Item = &'a herdr_proto::WorkspaceInfo>,
+) -> std::collections::BTreeMap<String, Vec<String>> {
+    let mut by_key: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for ws in workspaces {
+        if let Some(wt) = ws.worktree.as_ref().filter(|wt| !wt.repo_key.is_empty()) {
+            by_key
+                .entry(wt.repo_key.clone())
+                .or_default()
+                .push(ws.workspace_id.clone());
+        }
+    }
+    by_key
+}
+
+/// One entry per GitHub repository, sorted: two clones of the same
+/// repository share it with the spaces of both.
+fn merge_github_repos(origins: Vec<(String, Vec<String>)>) -> Vec<github::GitHubRepo> {
+    let mut repos: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for (repo, workspace_ids) in origins {
+        repos.entry(repo).or_default().extend(workspace_ids);
+    }
+    repos
+        .into_iter()
+        .map(|(repo, workspace_ids)| github::GitHubRepo {
+            repo,
+            workspace_ids,
+        })
+        .collect()
+}
+
+/// The most of a Git `config` read for its `origin` (#296).
+const MAX_GIT_CONFIG_BYTES: u64 = 64 * 1024;
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
 /// returns the tab's id.
@@ -1458,7 +1590,65 @@ fn upload_name(ext: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionError, TransportError, files_error, named_upload};
+    use super::{
+        SessionError, TransportError, files_error, merge_github_repos, named_upload,
+        spaces_by_repo_key,
+    };
+
+    fn workspace(value: serde_json::Value) -> herdr_proto::WorkspaceInfo {
+        match serde_json::from_value(value) {
+            Ok(ws) => ws,
+            Err(err) => panic!("fixture: {err}"),
+        }
+    }
+
+    #[test]
+    fn spaces_are_grouped_by_their_repository() {
+        let spaces = [
+            workspace(
+                serde_json::json!({"workspace_id": "w1", "number": 1, "label": "app",
+                "worktree": {"repo_key": "/Users/a/app/.git", "repo_name": "app", "checkout_path": "/Users/a/app"}}),
+            ),
+            workspace(serde_json::json!({"workspace_id": "w2", "number": 2, "label": "notes"})),
+            workspace(
+                serde_json::json!({"workspace_id": "w3", "number": 3, "label": "app-wt",
+                "worktree": {"repo_key": "/Users/a/app/.git", "repo_name": "app",
+                             "checkout_path": "/Users/a/app/.worktrees/x", "is_linked_worktree": true}}),
+            ),
+            workspace(
+                serde_json::json!({"workspace_id": "w4", "number": 4, "label": "empty",
+                "worktree": {"repo_key": "", "repo_name": "e", "checkout_path": "/e"}}),
+            ),
+        ];
+        let by_key = spaces_by_repo_key(&spaces);
+        assert_eq!(by_key.len(), 1);
+        assert_eq!(
+            by_key.get("/Users/a/app/.git").map(Vec::as_slice),
+            Some(["w1".to_owned(), "w3".to_owned()].as_slice())
+        );
+    }
+
+    #[test]
+    fn clones_of_one_github_repository_share_an_entry() {
+        let repos = merge_github_repos(vec![
+            ("o/zeta".into(), vec!["w5".into()]),
+            ("o/app".into(), vec!["w1".into(), "w3".into()]),
+            ("o/app".into(), vec!["w7".into()]),
+        ]);
+        let shown: Vec<(&str, Vec<&str>)> = repos
+            .iter()
+            .map(|r| {
+                (
+                    r.repo.as_str(),
+                    r.workspace_ids.iter().map(String::as_str).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            vec![("o/app", vec!["w1", "w3", "w7"]), ("o/zeta", vec!["w5"])]
+        );
+    }
 
     #[test]
     fn a_file_changed_on_the_host_gets_its_own_error() {

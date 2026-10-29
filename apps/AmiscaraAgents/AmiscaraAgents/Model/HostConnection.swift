@@ -107,6 +107,9 @@ final class HostConnection: Identifiable {
         regrouped.allowWebForward = config.allowWebForward
         // Only read when opening VS Code (#288).
         regrouped.sshTarget = config.sshTarget
+        // Only decides whether "VPN aus" shows (#305).
+        regrouped.viaNetBird = config.viaNetBird
+        regrouped.netBirdLearned = config.netBirdLearned
         if regrouped == config, let session {
             self.config = config
             session.setGroupSpacesByName(on: config.groupSpacesByName)
@@ -154,11 +157,11 @@ final class HostConnection: Identifiable {
         }.value
     }
 
-    /// Creates a tab in a space; herdr picks the directory.
-    func createTab(in workspaceID: String) async throws -> Created {
+    /// Creates a tab in a space, in `cwd` or the directory herdr picks.
+    func createTab(in workspaceID: String, cwd: String? = nil) async throws -> Created {
         let session = try writableSession()
         return try await Task.detached {
-            try session.createTab(workspaceId: workspaceID, cwd: nil)
+            try session.createTab(workspaceId: workspaceID, cwd: cwd)
         }.value
     }
 
@@ -328,6 +331,25 @@ final class HostConnection: Identifiable {
     }
     #endif
 
+    /// The Claude Code sessions of a folder on the host, newest first
+    /// (#304). Read only, with the same SFTP access as `claudeHistory`.
+    func claudeSessions(folder: String) async throws -> [ClaudeSessionItem] {
+        guard config.uploadAllowed else { throw ConnectionFailure.sessionsFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeSessions(folder: folder)
+        }.value
+    }
+
+    /// Continues a Claude Code session in a pane at its shell prompt
+    /// (`claude --resume <id>`) and returns the agent's name (#304).
+    func resumeClaude(_ sessionID: String, in paneID: String) async throws -> String {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.resumeClaude(paneId: paneID, sessionId: sessionID)
+        }.value
+    }
+
     /// The last `lines` rows of a pane including scrollback as plain text,
     /// joined where the terminal wrapped them with `unwrap` (#273). Read
     /// only, a plain terminal read without file access.
@@ -411,6 +433,17 @@ final class HostConnection: Identifiable {
         let session = try secretsSession()
         try await Task.detached {
             try session.removeSecret(name: name)
+        }.value
+    }
+
+    /// The GitHub repositories of the host's spaces with their spaces
+    /// (#296), from the `origin` in each repository's Git config. Read
+    /// only, but over SSH it needs the same SFTP access as uploads.
+    func githubRepos() async throws -> [GitHubRepo] {
+        guard config.uploadAllowed else { throw ConnectionFailure.approvalsFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.githubRepos()
         }.value
     }
 
@@ -597,6 +630,8 @@ enum ConnectionFailure: LocalizedError {
     case browseFilesOff
     case secretsFilesOff
     case searchFilesOff
+    case sessionsFilesOff
+    case approvalsFilesOff
     case unsafePath
 
     var errorDescription: String? {
@@ -617,6 +652,10 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .searchFilesOff:
             String(localized: "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .sessionsFilesOff:
+            String(localized: "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .approvalsFilesOff:
+            String(localized: "Welche Repos der Host hat, liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
             String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:

@@ -11,6 +11,8 @@ struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+    /// The plan whose overview is shown (#296).
+    @State private var approval: Approvals.Item?
     @State private var searchText = ""
     @State private var search = ConversationSearch()
     /// The hit whose conversation is open.
@@ -33,6 +35,8 @@ struct HostDashboardView: View {
                     WaitingHeadline(waiting: snapshot.count(.blocked), working: snapshot.count(.working))
                 }
                 .padding(.bottom, 8)
+                ApprovalsSection(hostID: connection.id) { approval = $0 }
+                    .padding(.bottom, 8)
                 if search.started, !searchText.isEmpty {
                     SearchResults(search: search, connection: connection) { hit in
                         opened = OpenedHit(sessionPath: hit.sessionPath, offset: hit.offset)
@@ -59,10 +63,12 @@ struct HostDashboardView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .refreshable { await store.approvals.load(store.connections, force: true) }
         .navigationTitle(connection.config.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .approvals(store, selected: $approval, open: open)
         .searchable(text: $searchText, prompt: Text("Gespräche durchsuchen"))
         // Each search scans the host's files, so only on Return.
         .onSubmit(of: .search) {
