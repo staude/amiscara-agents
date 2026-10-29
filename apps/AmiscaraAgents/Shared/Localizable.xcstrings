@@ -1645,6 +1645,26 @@
         }
       }
     },
+    "Claude-Sitzungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Sessions"
+          }
+        }
+      }
+    },
+    "Claude-Sitzungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Sessions …"
+          }
+        }
+      }
+    },
     "Commit und PR erstellen" : {
       "localizations" : {
         "en" : {
@@ -2231,6 +2251,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The app is not ready."
+          }
+        }
+      }
+    },
+    "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the Claude sessions through file access like “Upload images” (Edit Host)."
           }
         }
       }
@@ -3031,6 +3061,26 @@
         }
       }
     },
+    "herdr kennt den Ordner dieser Pane nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this pane's folder."
+          }
+        }
+      }
+    },
+    "herdr kennt den Ordner dieses Space nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this space's folder."
+          }
+        }
+      }
+    },
     "Hinzufügen" : {
       "localizations" : {
         "en" : {
@@ -3261,6 +3311,16 @@
         }
       }
     },
+    "In dieser Pane fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume in This Pane"
+          }
+        }
+      }
+    },
     "In Eingabe übernehmen" : {
       "localizations" : {
         "en" : {
@@ -3297,6 +3357,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "In the clipboard"
+          }
+        }
+      }
+    },
+    "In neuer Pane fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume in New Pane"
           }
         }
       }
@@ -3527,6 +3597,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No Pane Selected"
+          }
+        }
+      }
+    },
+    "Keine Sitzungen in diesem Ordner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Sessions in This Folder"
           }
         }
       }
@@ -3787,6 +3867,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Forward local web pages"
+          }
+        }
+      }
+    },
+    "Läuft eine Sitzung noch in einer anderen Pane, dort Claude vorher beenden: Sonst schreiben zwei Claude-Prozesse in dieselbe Sitzung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If a session is still running in another pane, quit Claude there first: otherwise two Claude processes write to the same session."
           }
         }
       }

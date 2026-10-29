@@ -250,7 +250,8 @@ pub enum TermColor {
 }
 
 pub use herdr_session::{
-    ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage,
+    ClaudeSessionItem, ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage,
 };
 
 /// A step through a full-screen agent's own view.
@@ -295,6 +296,18 @@ pub struct TranscriptPage {
     pub entries: Vec<TranscriptEntry>,
     /// Byte offset this page starts at; 0 means the conversation's start.
     pub start: u64,
+}
+
+/// A Claude Code session of a folder (#304).
+#[uniffi::remote(Record)]
+pub struct ClaudeSessionItem {
+    /// What `claude --resume` takes.
+    pub id: String,
+    pub title: String,
+    /// Last activity, seconds since 1970; 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file, in place of a message count.
+    pub size: u64,
 }
 
 pub use herdr_session::{

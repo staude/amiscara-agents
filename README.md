@@ -190,6 +190,12 @@ code), so a host is set up the same way everywhere.
   space or pane, opens the folder in VS Code on the Mac or PC over
   Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop
   app.
+- **Resuming Claude sessions:** "Claude-Sitzungen …" in a space's menu
+  lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), newest first, and continues
+  one with `claude --resume` in a new tab or the shown shell pane, e.g. to
+  give an agent the environment of a changed `.zshrc`. Quit the old pane's
+  Claude first. Needs SFTP like the conversation view. Mac, iPhone and iPad.
 - **NetBird status:** hosts behind NetBird show "VPN aus" while NetBird is
   not connected on the device, and their status popover offers "NetBird
   öffnen". The app recognises NetBird addresses and domains and learns your
