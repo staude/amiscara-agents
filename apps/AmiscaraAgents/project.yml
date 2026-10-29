@@ -364,6 +364,9 @@ targets:
           - Views/MenuBarMenu.swift
           - Views/SecretsView.swift
           - Model/SecretStore.swift
+          - Model/PromptTemplates.swift
+          - Views/PromptTemplateEditor.swift
+          - Views/PromptTemplateForm.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

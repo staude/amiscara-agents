@@ -18,6 +18,7 @@ class SpacesTest {
             agentState = AgentState.IDLE,
             activeTabId = "",
             repoKey = null,
+            repoName = null,
             worktreeName = if (nested) id else null,
             branch = null,
             tokens = emptyList(),

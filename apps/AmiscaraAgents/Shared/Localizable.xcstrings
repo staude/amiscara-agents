@@ -6782,6 +6782,116 @@
     },
     "└" : {
       "shouldTranslate" : false
+    },
+    "Text mit {Platzhaltern}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text with {placeholders}"
+          }
+        }
+      }
+    },
+    "Repository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "Alle Repos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All repos"
+          }
+        }
+      }
+    },
+    "Ein Tipp auf eine Vorlage fragt die Platzhalter ab und setzt den Text in die Eingabe, ohne ihn zu senden. Vorbelegt sind {nr} (Issue-Nummer des Branches), {branch} und {space}." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapping a template asks for its placeholders and puts the text into the composer without sending it. Prefilled are {nr} (issue number of the branch), {branch} and {space}."
+          }
+        }
+      }
+    },
+    "Vorlage hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Template"
+          }
+        }
+      }
+    },
+    "Vorlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Templates"
+          }
+        }
+      }
+    },
+    "Vorschau" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "Vorlage: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template: %@"
+          }
+        }
+      }
+    },
+    "Schnellantworten bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Quick Replies …"
+          }
+        }
+      }
+    },
+    "Vorlagen bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Templates …"
+          }
+        }
+      }
+    },
+    "Schnellantworten und Vorlagen bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit quick replies and templates"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

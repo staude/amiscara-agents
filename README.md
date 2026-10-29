@@ -158,7 +158,10 @@ code), so a host is set up the same way everywhere.
   option with its text instead of 1, 2, 3. A
   prompt starting with `/` goes live into the agent's own input line, so
   Claude Code shows its commands and skills in the pane (↑↓ pick, Tab takes,
-  Enter runs).
+  Enter runs). Prompt templates with `{placeholders}`, for all repos or one,
+  sit next to the quick replies; a tap asks for the placeholders (`{nr}`
+  from the branch's issue number, `{branch}` and `{space}` prefilled) and
+  puts the text into the composer without sending it.
 - **Read-only switch per host**, for hosts you only want to watch.
 - **Manage:** new space, tab (optionally starting an agent) and worktree;
   rename and close spaces and tabs; name an agent.
