@@ -5,15 +5,20 @@ import NaturalLanguage
 /// synthesizer (#297): code blocks and links are named instead of read,
 /// heading and list marks dropped, the rest of the Markdown made plain.
 enum SpokenText {
+    /// Stand for the named parts until the language is known.
+    private static let codeMark = "\u{E000}"
+    private static let linkMark = "\u{E001}"
+
     /// The text to speak and its language (BCP 47, e.g. `de`), from the
-    /// text itself, else the app's language. Empty Markdown gives empty text.
+    /// text itself, else the app's language; the named parts are in that
+    /// language too. Empty Markdown gives empty text.
     static func make(from markdown: String) -> (text: String, language: String) {
         var lines: [String] = []
         var inCode = false
         for line in markdown.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
-                if !inCode { lines.append(String(localized: "Codeblock ausgelassen.")) }
+                if !inCode { lines.append(codeMark) }
                 inCode.toggle()
                 continue
             }
@@ -24,10 +29,23 @@ enum SpokenText {
             markdown: joined,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         )).map { String($0.characters) } ?? joined
-        let text = inline
+        let marked = inline
             .replacing(#/\n{3,}/#, with: "\n\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return (text, language(of: text))
+        let language = language(of: marked.replacing(codeMark, with: "").replacing(linkMark, with: ""))
+        let text = marked
+            .replacing(codeMark, with: phrase("Codeblock ausgelassen.", String(localized: "Codeblock ausgelassen."), in: language))
+            .replacing(linkMark, with: phrase("Link", String(localized: "Link"), in: language))
+        return (text, language)
+    }
+
+    /// `key` in `language` where the app has that language, else `inApp`.
+    /// The keys are the German source text.
+    private static func phrase(_ key: String, _ inApp: String, in language: String) -> String {
+        if language == "de" { return key }
+        guard let path = Bundle.main.path(forResource: language, ofType: "lproj"),
+              let bundle = Bundle(path: path) else { return inApp }
+        return bundle.localizedString(forKey: key, value: inApp, table: nil)
     }
 
     /// A line without its heading, list or quote mark; a rule is dropped.
@@ -39,7 +57,7 @@ enum SpokenText {
     /// Bare URLs (also `<…>`) become "Link"; the text of a Markdown link
     /// stays, its target goes with the Markdown.
     private static func withoutURLs(_ text: String) -> String {
-        let link = String(localized: "Link")
+        let link = linkMark
         return text
             .replacing(#/<https?:\/\/[^\s>]+>/#, with: link)
             .replacing(#/(\]\()?https?:\/\/[^\s)>\]]+/#) { match in

@@ -26,6 +26,10 @@ check(german.language == "de", "German recognized: \(german.language)")
 let english = SpokenText.make(from: "I ran the tests and they all pass. Should I push the branch now?")
 check(english.language == "en", "English recognized: \(english.language)")
 
+let englishCode = SpokenText.make(from: "Here is the fix for the failing test:\n\n```\nlet x = 1\n```\n\nSee https://example.com for details.")
+check(englishCode.language == "en", "language ignores the named parts: \(englishCode.language)")
+check(!englishCode.text.contains("\u{E000}") && !englishCode.text.contains("\u{E001}"), "no marks left: \(englishCode.text)")
+
 let empty = SpokenText.make(from: "  \n\n ")
 check(empty.text.isEmpty, "empty stays empty")
 check(!empty.language.isEmpty, "empty still has a language")
