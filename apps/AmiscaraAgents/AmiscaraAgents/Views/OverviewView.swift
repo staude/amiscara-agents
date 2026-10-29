@@ -2,15 +2,25 @@ import SwiftUI
 
 #if !os(tvOS)
 /// The agents of all hosts in one list (#274): waiting, working, done,
-/// newest first in each group. A tap opens the agent's pane.
+/// newest first in each group. A tap opens the agent's pane; in the
+/// selection mode it picks the agent for one prompt to several (#299).
 struct OverviewView: View {
     @Environment(HostStore.self) private var store
     let open: (SpaceRef) -> Void
 
+    @State private var selecting = false
+    @State private var selected: Set<String> = []
+    @State private var sending = false
+    /// The plan whose overview is shown (#296).
+    @State private var approval: Approvals.Item?
+
     var body: some View {
         let overview = store.overview
+        let targets = targets(overview)
+        let approvals = store.approvals.items(for: nil, in: store.connections)
+        let approvalErrors = store.approvals.errors(for: nil, in: store.connections)
         Group {
-            if overview.isEmpty {
+            if overview.isEmpty, approvals.isEmpty, approvalErrors.isEmpty {
                 ContentUnavailableView(
                     "Keine Agents",
                     systemImage: "sparkles",
@@ -18,22 +28,82 @@ struct OverviewView: View {
                 )
             } else {
                 List {
+                    ApprovalsSection(hostID: nil) { approval = $0 }
                     ForEach(overview.sections) { section in
                         Section(section.group.title) {
                             ForEach(section.rows) { row in
+                                let target = targets.first { $0.id == row.id }
                                 Button {
-                                    open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
+                                    if selecting, let target {
+                                        MultiSend.toggle(target, in: &selected)
+                                    } else if !selecting {
+                                        open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
+                                    }
                                 } label: {
-                                    OverviewRow(row: row)
+                                    if selecting, let target {
+                                        MultiSendRow(target: target, selected: selected.contains(target.id)) {
+                                            OverviewRow(row: row)
+                                        }
+                                    } else {
+                                        OverviewRow(row: row)
+                                    }
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
                 }
+                .refreshable { await store.approvals.load(store.connections, force: true) }
             }
         }
         .navigationTitle("Übersicht")
+        .approvals(store, selected: $approval, open: open)
+        .toolbar {
+            ToolbarItemGroup {
+                if selecting {
+                    Menu("Auswahl", systemImage: "checklist") {
+                        ForEach(MultiSend.Preset.allCases, id: \.self) { preset in
+                            Button(preset.title) { selected = MultiSend.select(preset, in: targets) }
+                        }
+                        Button("Keine") { selected = [] }
+                    }
+                }
+                Button(selecting ? "Fertig" : "Auswählen") {
+                    selecting.toggle()
+                    selected = []
+                }
+                // Leaving the selection while sending would stop it.
+                .disabled(sending || !selecting && overview.isEmpty)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if selecting {
+                MultiSendBar(targets: targets.filter { selected.contains($0.id) }, sending: $sending) {
+                    selecting = false
+                    selected = []
+                }
+            }
+        }
+        // A picked agent that starts waiting or loses its host stays picked,
+        // dimmed with the reason, so the result names it; a gone one leaves.
+        .onChange(of: targets) { _, targets in
+            selected.formIntersection(targets.map(\.id))
+        }
+    }
+
+    /// Every agent of the list as a target; a row from a host without a
+    /// connection counts as not live, also when it came from iCloud.
+    private func targets(_ overview: AgentOverview) -> [MultiSend.Target] {
+        overview.sections.flatMap(\.rows).map { row in
+            let connection = store.connection(for: row.hostID)
+            return MultiSend.Target(
+                hostID: row.hostID,
+                hostName: row.hostName,
+                agent: row.agent,
+                live: row.staleAt == nil && connection?.isLive == true,
+                inputAllowed: connection?.config.inputAllowed == true
+            )
+        }
     }
 }
 

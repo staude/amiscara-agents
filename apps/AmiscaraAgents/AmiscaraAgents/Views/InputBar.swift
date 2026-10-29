@@ -32,6 +32,9 @@ struct InputBar: View {
     /// The iPhone Duo's vertical bar is shown; the microphone moves there.
     @State private var verticalBar = false
     @State private var editingQuickReplies = false
+    @State private var editingTemplates = false
+    /// The template whose placeholders are being asked for.
+    @State private var fillingTemplate: PromptTemplate?
     @State private var showingHistory = false
     private let history = PromptHistory.shared
     /// Live mode: while an agent's composer starts with "/", or after a
@@ -43,6 +46,7 @@ struct InputBar: View {
     /// Live input in order, without blocking the bar like `perform`.
     @State private var liveQueue: Task<Void, Never>?
     private let quickReplies = QuickReplyStore.shared
+    private let templates = PromptTemplateStore.shared
     #if os(macOS)
     /// Key monitor for ⌘V in the composer, see `catchImagePaste`.
     @State private var pasteMonitor: Any?
@@ -198,6 +202,15 @@ struct InputBar: View {
         .sheet(isPresented: $editingQuickReplies) {
             QuickReplyEditor(store: quickReplies)
         }
+        .sheet(isPresented: $editingTemplates) {
+            PromptTemplateEditor(store: templates, repos: knownRepos)
+        }
+        .sheet(item: $fillingTemplate) { template in
+            PromptTemplateForm(
+                template: template,
+                prefills: PromptPlaceholders.prefills(branch: workspace?.branch, space: workspace?.name)
+            ) { insertIntoComposer($0) }
+        }
         .sheet(isPresented: $showingHistory) {
             PromptHistoryView(history: history, key: historyKey) { prompt in
                 text = prompt
@@ -297,27 +310,71 @@ struct InputBar: View {
                     .help(String(localized: "Senden: \(reply.trimmed)"))
                     .contextMenu {
                         Button("In Eingabe übernehmen", systemImage: "text.cursor") {
-                            text = text.isEmpty ? reply.trimmed : text + " " + reply.trimmed
-                            composerFocused = true
+                            insertIntoComposer(reply.trimmed)
                         }
                         Button("Bearbeiten …", systemImage: "pencil") { editingQuickReplies = true }
                     }
                 }
-                Button {
-                    editingQuickReplies = true
+                ForEach(templates.matching(repo: workspace?.repoName)) { template in
+                    Button {
+                        use(template)
+                    } label: {
+                        Label(template.title, systemImage: "doc.text")
+                            .lineLimit(1)
+                            .frame(maxWidth: 220)
+                    }
+                    .help(String(localized: "Vorlage: \(template.trimmedText)"))
+                }
+                Menu {
+                    Button("Schnellantworten bearbeiten …", systemImage: "text.bubble") {
+                        editingQuickReplies = true
+                    }
+                    Button("Vorlagen bearbeiten …", systemImage: "doc.text") {
+                        editingTemplates = true
+                    }
                 } label: {
-                    if quickReplies.usable.isEmpty {
+                    if quickReplies.usable.isEmpty && templates.templates.isEmpty {
                         Label("Schnellantworten", systemImage: "text.bubble")
                     } else {
                         Image(systemName: "text.bubble")
                     }
                 }
-                .help(String(localized: "Schnellantworten bearbeiten"))
-                .accessibilityLabel("Schnellantworten bearbeiten")
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(String(localized: "Schnellantworten und Vorlagen bearbeiten"))
+                .accessibilityLabel("Schnellantworten und Vorlagen bearbeiten")
             }
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+    }
+
+    /// The space this pane is in, for the branch, name and repository.
+    private var workspace: WorkspaceItem? {
+        connection.update?.workspaces.first { space in
+            space.tabs.contains { tab in tab.panes.contains { $0.paneId == pane.paneId } }
+        }
+    }
+
+    /// Repositories of all connected hosts, for the template scope.
+    private var knownRepos: [String] {
+        let names = store.connections.flatMap { $0.update?.workspaces ?? [] }.compactMap(\.repoName)
+        return Array(Set(names))
+    }
+
+    /// Without placeholders the text goes straight to the composer, else the
+    /// form asks for them first.
+    private func use(_ template: PromptTemplate) {
+        if PromptPlaceholders.names(in: template.text).isEmpty {
+            insertIntoComposer(template.trimmedText)
+        } else {
+            fillingTemplate = template
+        }
+    }
+
+    private func insertIntoComposer(_ addition: String) {
+        text = text.isEmpty ? addition : text + " " + addition
+        composerFocused = true
     }
 
     private var attachmentRow: some View {
