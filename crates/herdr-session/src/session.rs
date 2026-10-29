@@ -1,7 +1,7 @@
 //! One live host: connection with reconnects, updates for the view, pane
-//! followers, actions, uploads and the Claude Code history.
+//! followers, actions, uploads, the Claude Code history and its token usage.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -9,7 +9,7 @@ use herdr_core::chains::{self, Chain};
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, diff, fullscreen, github};
+use herdr_core::{actions, browse, claude, diff, fullscreen, github, usage};
 use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
     Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
@@ -282,6 +282,30 @@ impl From<claude::Entry> for TranscriptEntry {
     }
 }
 
+/// The tokens one model used in one working directory in one hour
+/// (#302), from Claude Code's session files.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageBucket {
+    pub cwd: String,
+    /// Start of the hour (UTC) in Unix milliseconds.
+    pub hour_start_ms: u64,
+    pub model: String,
+    pub input: u64,
+    pub output: u64,
+    pub cache_write_5m: u64,
+    pub cache_write_1h: u64,
+    pub cache_read: u64,
+}
+
+/// Token usage of some working directories, from [`Session::usage`].
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageReport {
+    /// Oldest hour first, per directory.
+    pub buckets: Vec<UsageBucket>,
+}
+
 /// Receives what a pane follower reads, on a runtime thread.
 pub trait PaneSink: Send + Sync + 'static {
     fn on_content(&self, content: PaneContent);
@@ -307,6 +331,10 @@ pub struct Session {
     remote: bool,
     /// Listeners for pages on the host's `localhost`, see [`Session::open_url`].
     forwards: Forwards,
+    /// What was read of the session files, by Claude Code's project folder
+    /// (#302). Held during a scan, so two scans of a folder do not read
+    /// the same lines.
+    usage: tokio::sync::Mutex<HashMap<String, usage::UsageCache>>,
     runtime: Handle,
 }
 
@@ -396,6 +424,7 @@ impl Session {
             forward,
             remote,
             forwards: Forwards::default(),
+            usage: tokio::sync::Mutex::default(),
             runtime,
         })
     }
@@ -844,6 +873,62 @@ impl Session {
             entries: page.entries.into_iter().map(Into::into).collect(),
             start: page.start,
         })
+    }
+
+    /// Token usage of Claude Code in the working directories `cwds` (#302):
+    /// the hours that end after `since_secs` (seconds since 1970), per
+    /// directory and model. Reads only session files changed since then,
+    /// and of those only the lines added since the last call; over SSH via
+    /// SFTP. Directories that share a project folder count once, under the
+    /// first. Read only.
+    pub async fn usage(
+        &self,
+        cwds: &[String],
+        since_secs: u64,
+    ) -> Result<UsageReport, SessionError> {
+        let conn = self.connection()?;
+        let now = unix_ms();
+        let mut caches = self.usage.lock().await;
+        let mut report = UsageReport::default();
+        let mut done = Vec::new();
+        for cwd in cwds {
+            let dir = claude::project_dir(cwd);
+            if done.contains(&dir) {
+                continue;
+            }
+            let cache = caches.entry(dir.clone()).or_default();
+            usage::scan(&conn, cwd, cache, since_secs, now).await?;
+            report.buckets.extend(
+                cache
+                    .buckets_since(since_secs.saturating_mul(1000))
+                    .into_iter()
+                    .map(|bucket| UsageBucket {
+                        cwd: cwd.clone(),
+                        hour_start_ms: bucket.hour_start_ms,
+                        model: bucket.model,
+                        input: bucket.tokens.input,
+                        output: bucket.tokens.output,
+                        cache_write_5m: bucket.tokens.cache_write_5m,
+                        cache_write_1h: bucket.tokens.cache_write_1h,
+                        cache_read: bucket.tokens.cache_read,
+                    }),
+            );
+            done.push(dir);
+        }
+        Ok(report)
+    }
+
+    /// What [`Session::usage`] has read so far, as JSON for the app to keep
+    /// between runs; waits for a running scan.
+    pub async fn usage_state(&self) -> String {
+        serde_json::to_string(&*self.usage.lock().await).unwrap_or_default()
+    }
+
+    /// Takes back a state from [`Session::usage_state`]. Anything that is
+    /// no such state (an older format, a broken file) starts empty: the
+    /// files are then read again.
+    pub async fn restore_usage_state(&self, state: &str) {
+        *self.usage.lock().await = serde_json::from_str(state).unwrap_or_default();
     }
 
     /// The Claude Code sessions of `folder` on the host, newest first and
@@ -2372,6 +2457,7 @@ mod tests {
                 forward: tokio::spawn(async {}),
                 remote: false,
                 forwards: Forwards::default(),
+                usage: tokio::sync::Mutex::default(),
                 runtime: Handle::current(),
             };
             let refused = session

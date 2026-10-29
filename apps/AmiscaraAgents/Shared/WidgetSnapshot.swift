@@ -17,6 +17,38 @@ struct WidgetSnapshot: Codable, Equatable {
         /// Fingerprint of the host's SSH host key, to match the Mac's
         /// boards in iCloud (`CloudBoard`); `nil` when unknown.
         var hostKey: String? = nil
+        /// Today's Claude Code tokens (#302), only with "Tageskosten im
+        /// Widget" switched on.
+        var usageToday: Usage? = nil
+    }
+
+    /// Tokens of Claude Code and their estimated cost (#302).
+    struct Usage: Codable, Equatable {
+        var tokens: UInt64 = 0
+        /// In US dollars, over the models with a price.
+        var cost: Double = 0
+        /// Some tokens came from a model without a price.
+        var unpriced = false
+        /// Start of the day the tokens are of, for "Heute"; `nil` for a sum
+        /// over several days.
+        var day: Date? = nil
+
+        /// "1,2 Mio. Tokens, ~3,40 $".
+        var summary: String {
+            let tokens = tokens.formatted(.number.notation(.compactName))
+            let cost = cost.formatted(.currency(code: "USD"))
+            if unpriced && self.cost == 0 {
+                return String(localized: "\(tokens) Tokens, ohne Preis")
+            }
+            if unpriced {
+                return String(localized: "\(tokens) Tokens, ~\(cost) (teils ohne Preis)")
+            }
+            return String(localized: "\(tokens) Tokens, ~\(cost)")
+        }
+
+        var todayText: String {
+            String(localized: "Heute: \(summary)")
+        }
     }
 
     struct Agent: Codable, Equatable, Identifiable {

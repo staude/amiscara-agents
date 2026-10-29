@@ -169,6 +169,48 @@
         }
       }
     },
+    "%@ Tokens, ohne Preis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tokens, no price"
+          }
+        }
+      }
+    },
+    "%@ Tokens, ~%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tokens, ~%2$@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Tokens, ~%2$@"
+          }
+        }
+      }
+    },
+    "%@ Tokens, ~%@ (teils ohne Preis)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tokens, ~%2$@ (partly without price)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Tokens, ~%2$@ (teils ohne Preis)"
+          }
+        }
+      }
+    },
     "%@ wartet" : {
       "localizations" : {
         "en" : {
@@ -317,6 +359,9 @@
           }
         }
       }
+    },
+    "%@: %@" : {
+      "shouldTranslate" : false
     },
     "%@: %@, gerade eben gewechselt." : {
       "localizations" : {
@@ -721,6 +766,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "3. The hosts appear here after a few seconds. iPhone and Apple TV need the same Apple Account."
+          }
+        }
+      }
+    },
+    "30 Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 days"
           }
         }
       }
@@ -1135,6 +1190,46 @@
         }
       }
     },
+    "Cache lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache read"
+          }
+        }
+      }
+    },
+    "Cache schreiben (1 Std.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache write (1 h)"
+          }
+        }
+      }
+    },
+    "Cache schreiben (5 Min.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache write (5 min)"
+          }
+        }
+      }
+    },
+    "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The medium widget shows the day's tokens and estimated cost per host at the bottom."
+          }
+        }
+      }
+    },
     "Der Planungs-Tab stellt gerade eine andere Frage, z. B. offene Fragen des Plans. Erst dort beantworten." : {
       "localizations" : {
         "en" : {
@@ -1161,6 +1256,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The question in the planning tab takes no note. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads tokens from the session files on the host and needs file access like “Upload images” for that (Edit host)."
           }
         }
       }
@@ -1215,6 +1320,16 @@
         }
       }
     },
+    "Geschätzt mit den Preisen aus den Einstellungen, in US-Dollar. Gezählt werden die Ordner der offenen Claude-Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated with the prices from the settings, in US dollars. Counts the folders of the open Claude agents."
+          }
+        }
+      }
+    },
     "GitHub antwortet mit Status %lld." : {
       "localizations" : {
         "en" : {
@@ -1245,6 +1360,16 @@
         }
       }
     },
+    "Heute: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today: %@"
+          }
+        }
+      }
+    },
     "Hinweis zur Umsetzung" : {
       "localizations" : {
         "en" : {
@@ -1255,12 +1380,32 @@
         }
       }
     },
+    "Input" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input"
+          }
+        }
+      }
+    },
     "Issue auf GitHub öffnen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open issue on GitHub"
+          }
+        }
+      }
+    },
+    "Kein Dateizugriff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No file access"
           }
         }
       }
@@ -1295,12 +1440,42 @@
         }
       }
     },
+    "Keine Tokens in diesen Ordnern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tokens in these folders."
+          }
+        }
+      }
+    },
     "Kopieren" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Liest die Sitzungsdateien der letzten 30 Tage. Beim ersten Mal dauert das eine Weile." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the session files of the last 30 days. The first time this takes a while."
+          }
+        }
+      }
+    },
+    "Listenpreise wiederherstellen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore list prices"
           }
         }
       }
@@ -1325,12 +1500,102 @@
         }
       }
     },
+    "Modell hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add model"
+          }
+        }
+      }
+    },
+    "Modell-ID, z. B. claude-opus-5-5" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model ID, e.g. claude-opus-5-5"
+          }
+        }
+      }
+    },
+    "Neu lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read again"
+          }
+        }
+      }
+    },
+    "Nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not readable"
+          }
+        }
+      }
+    },
+    "Nicht neu gelesen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not read again: %@"
+          }
+        }
+      }
+    },
+    "Output" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output"
+          }
+        }
+      }
+    },
     "Planungs-Tab wartet" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Planning tab waiting"
+          }
+        }
+      }
+    },
+    "Preise" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices"
+          }
+        }
+      }
+    },
+    "Preise je Modell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices per model"
+          }
+        }
+      }
+    },
+    "Preise je Modell …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices per model …"
           }
         }
       }
@@ -1355,12 +1620,102 @@
         }
       }
     },
+    "Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days"
+          }
+        }
+      }
+    },
+    "Tageskosten im Widget" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily cost in widget"
+          }
+        }
+      }
+    },
     "Token" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Token"
+          }
+        }
+      }
+    },
+    "Tokens nicht lesbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens not readable: %@"
+          }
+        }
+      }
+    },
+    "Tokens und Kosten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost"
+          }
+        }
+      }
+    },
+    "Tokens und Kosten brauchen Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost need file access like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
+    "Tokens und Kosten der letzten 30 Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost of the last 30 days"
+          }
+        }
+      }
+    },
+    "Tokens werden gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading tokens …"
+          }
+        }
+      }
+    },
+    "Tokens · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens · %@"
+          }
+        }
+      }
+    },
+    "US-Dollar je Million Tokens. Ein Modell ohne Preis zählt bei den Tokens mit, aber nicht bei den Kosten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "US dollars per million tokens. A model without a price counts toward the tokens but not the cost."
           }
         }
       }

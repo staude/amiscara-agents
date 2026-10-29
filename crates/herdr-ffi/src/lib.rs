@@ -25,7 +25,7 @@ pub use convert::{
     ChoiceQuestion, ClaudeSessionItem, EditorRequest, HostStatus, OpenRequest, PaneContent,
     PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
     TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
-    TranscriptPage, WorkspaceItem,
+    TranscriptPage, UsageBucket, UsageReport, WorkspaceItem,
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
@@ -627,6 +627,26 @@ impl HostSession {
         before: Option<TranscriptCursor>,
     ) -> Result<TranscriptPage, FfiError> {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
+    }
+
+    /// Token usage of Claude Code in the working directories `cwds` (#302):
+    /// the hours that end after `since_secs`, per directory and model.
+    /// Reads only session files changed since then, and of those only what
+    /// was added since the last call (SFTP over SSH). Read only. Blocks,
+    /// long the first time; call it off the main thread.
+    pub fn usage(&self, cwds: Vec<String>, since_secs: u64) -> Result<UsageReport, FfiError> {
+        Ok(runtime().block_on(self.session.usage(&cwds, since_secs))?)
+    }
+
+    /// What `usage` has read so far, as JSON to keep between runs. Waits
+    /// for a running `usage` call.
+    pub fn usage_state(&self) -> String {
+        runtime().block_on(self.session.usage_state())
+    }
+
+    /// Takes back a state from `usage_state`; anything else starts empty.
+    pub fn restore_usage_state(&self, state: String) {
+        runtime().block_on(self.session.restore_usage_state(&state));
     }
 
     /// The Claude Code sessions of `folder` on the host (#304), newest

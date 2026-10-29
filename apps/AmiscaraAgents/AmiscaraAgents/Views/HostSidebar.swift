@@ -42,6 +42,10 @@ struct HostSidebar: View {
     /// The agent a chain is being added to (#300).
     @State private var chainFrom: ChainSource?
     #endif
+    #if os(iOS)
+    /// The price table of the token costs (#302).
+    @State private var editingPrices = false
+    #endif
     /// Why a swipe action on an agent row could not be sent.
     @State private var swipeError: String?
     /// Bumped after a swipe action went out, for the haptic.
@@ -134,6 +138,10 @@ struct HostSidebar: View {
                             .pickerStyle(.menu)
                     }
                     LiveActivityToggle()
+                    Section("Tokens und Kosten") {
+                        UsageWidgetToggle()
+                        Button("Preise je Modell …", systemImage: "dollarsign.circle") { editingPrices = true }
+                    }
                 }
             }
             #endif
@@ -143,6 +151,9 @@ struct HostSidebar: View {
                 NoHostsView(editing: $editing)
             }
         }
+        #if os(iOS)
+        .sheet(isPresented: $editingPrices) { UsagePricesView() }
+        #endif
         .sheet(item: $showingQR) { config in
             HostQRView(config: config)
         }

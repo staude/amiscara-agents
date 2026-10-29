@@ -600,6 +600,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Token usage (#302): the host dashboard (Mac, iPhone, iPad) shows "Heute:
+  n Tokens, ~$x" for the host and under each Claude agent, read from Claude
+  Code's session files in the working directories of the open Claude agents
+  (subagents included, each message counted once per `message.id` and
+  `requestId`). A tap opens the last 30 days per day, unfolding into model
+  and folder. Costs are estimated in US dollars from an editable price table
+  per model (Settings on the Mac, the sidebar menu on iPhone and iPad) with
+  Anthropic's list prices as defaults; models without a price count as
+  tokens only. "Tageskosten im Widget" (off by default) adds today's total
+  per host to the medium widget's footer. Needs file access like uploads;
+  each file is read once and afterwards only what was appended, kept in the
+  cache directory between runs. Core: `herdr_core::usage`,
+  `Session::usage`, `usage_state`, `restore_usage_state`;
+  `herdr-spike usage <cwd> [--days N]` prints tokens per local day and model.
+  `scripts/usage-sums-test.sh` checks the app's sums against the bindings.
 - Approvals (#296): with a GitHub token per host (host settings, section
   "GitHub", fine-grained with Issues: Read; only in this device's Keychain,
   `net.staude.amiscara.agents.github-token`, not in iCloud) the overview and

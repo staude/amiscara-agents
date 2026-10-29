@@ -348,6 +348,28 @@ pub struct TranscriptPage {
     pub start: u64,
 }
 
+pub use herdr_session::{UsageBucket, UsageReport};
+
+/// The tokens one model used in one working directory in one hour (#302).
+#[uniffi::remote(Record)]
+pub struct UsageBucket {
+    pub cwd: String,
+    /// Start of the hour (UTC) in Unix milliseconds.
+    pub hour_start_ms: u64,
+    pub model: String,
+    pub input: u64,
+    pub output: u64,
+    pub cache_write_5m: u64,
+    pub cache_write_1h: u64,
+    pub cache_read: u64,
+}
+
+/// Token usage of some working directories, oldest hour first.
+#[uniffi::remote(Record)]
+pub struct UsageReport {
+    pub buckets: Vec<UsageBucket>,
+}
+
 /// A Claude Code session of a folder (#304).
 #[uniffi::remote(Record)]
 pub struct ClaudeSessionItem {
