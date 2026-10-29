@@ -37,6 +37,10 @@ final class NetBirdMonitor {
         if up, !wasUp { onCameUp?() }
     }
 
+    private nonisolated static func string(_ buffer: [CChar]) -> String {
+        String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
     private nonisolated static func tunnelIsUp() -> Bool {
         var list: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&list) == 0, let first = list else { return false }
@@ -49,7 +53,7 @@ final class NetBirdMonitor {
             var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             let status = getnameinfo(address, socklen_t(address.pointee.sa_len), &buffer, socklen_t(buffer.count),
                                      nil, 0, NI_NUMERICHOST)
-            if status == 0, NetBird.isNetBirdAddress(String(cString: buffer)) { return true }
+            if status == 0, NetBird.isNetBirdAddress(Self.string(buffer)) { return true }
         }
         return false
     }
@@ -69,7 +73,7 @@ final class NetBirdMonitor {
                 var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                 let status = getnameinfo(address, pointer.pointee.ai_addrlen, &buffer, socklen_t(buffer.count),
                                          nil, 0, NI_NUMERICHOST)
-                if status == 0, NetBird.isNetBirdAddress(String(cString: buffer)) { return true }
+                if status == 0, NetBird.isNetBirdAddress(Self.string(buffer)) { return true }
             }
             return false
         }.value

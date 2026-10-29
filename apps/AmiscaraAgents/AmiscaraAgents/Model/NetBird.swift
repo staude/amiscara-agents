@@ -25,4 +25,10 @@ enum NetBird {
         guard !name.isEmpty else { return false }
         return isNetBirdAddress(name) || name.hasSuffix(".netbird.cloud") || name.hasSuffix(".netbird.selfhosted")
     }
+
+    /// Whether a host counts as behind NetBird: the user's switch wins over
+    /// the host entry, and that over what was learned.
+    static func isBehind(switch userChoice: Bool?, host: String, learned: Bool?) -> Bool {
+        userChoice ?? (looksLikeNetBirdHost(host) || learned == true)
+    }
 }

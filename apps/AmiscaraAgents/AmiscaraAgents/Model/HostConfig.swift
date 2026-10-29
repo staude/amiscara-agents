@@ -106,7 +106,7 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
     /// Whether the app expects NetBird to be needed for this host.
     var behindNetBird: Bool {
         guard kind == .ssh else { return false }
-        return viaNetBird ?? (NetBird.looksLikeNetBirdHost(host) || netBirdLearned == true)
+        return NetBird.isBehind(switch: viaNetBird, host: host, learned: netBirdLearned)
     }
 
     static func local() -> HostConfig {
