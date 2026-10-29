@@ -605,11 +605,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Return, ignoring case, at least two characters. Hits are grouped by space
   (the pane's directory or the deepest one above it, else "Ohne Space" with
   the directory), then by session with its title, each with a snippet and
-  date, newest first, at most 200. A tap opens the conversation at the hit,
-  marked, with "Neuere Einträge laden" below. Index-free: a local host's
+  date, newest first, at most 200 and 20 lines per session file. A tap
+  opens the conversation at the hit, marked, with "Neuere Einträge laden"
+  below. Index-free: a local host's
   files are read directly; over SSH with input allowed and a space open a
-  script runs grep in a short-lived, unfocused tab (prompts and answers
-  only, newest files first, 20 lines per file, 300 in all), otherwise the app reads the files of the last 30 days,
+  script runs grep in a short-lived, unfocused tab (prompts, answers and
+  shown tool fields only, files of the last 30 days first, no subagents,
+  300 lines in all), otherwise the app reads the files of the last 30 days,
   newest first, up to 300 MB, and says so. Progress with "Abbrechen"; a
   cancel closes the tab. Needs file access. Core: `Connection::is_local`,
   `claude::Query`, `hits_in_line`, `snippet`, `search_script`,
