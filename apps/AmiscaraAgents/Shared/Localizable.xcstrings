@@ -1545,6 +1545,16 @@
         }
       }
     },
+    "Das Ziel sendet schon jedes Mal hierher; jedes Mal in beide Richtungen liefe ohne Ende." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The target already sends here every time; every time both ways would never end."
+          }
+        }
+      }
+    },
     "Dashboard" : {
       "localizations" : {
         "en" : {

@@ -32,6 +32,14 @@ struct ChainEditor: View {
 
     private var toItself: Bool { target == source.agent.paneId }
 
+    /// The target prompts this agent every time already; both ways every
+    /// time would never end.
+    private var loopsBack: Bool {
+        agents.first { $0.paneId == target }?.chains.contains {
+            $0.repeat && !$0.failed && $0.targetPaneId == source.agent.paneId
+        } ?? false
+    }
+
     /// Counted as the core does: Unicode scalars, not what shows as one
     /// character (an emoji with skin tone is two).
     private var characters: Int {
@@ -82,10 +90,12 @@ struct ChainEditor: View {
                 }
                 Section {
                     Toggle("Jedes Mal senden", isOn: $repeats)
-                        .disabled(toItself)
+                        .disabled(toItself || loopsBack)
                 } footer: {
                     if toItself {
                         Text("An sich selbst nur einmal: Jedes Mal hielte den Agent für immer beschäftigt.")
+                    } else if loopsBack {
+                        Text("Das Ziel sendet schon jedes Mal hierher; jedes Mal in beide Richtungen liefe ohne Ende.")
                     } else {
                         Text("Sonst nur beim nächsten Mal; danach ist die Kette weg.")
                     }
@@ -113,7 +123,7 @@ struct ChainEditor: View {
                 }
             }
             .onChange(of: target) {
-                if toItself { repeats = false }
+                if toItself || loopsBack { repeats = false }
             }
             .onChange(of: trigger) {
                 if trigger == .blocked, toItself, let other = targets.first {
@@ -136,7 +146,7 @@ struct ChainEditor: View {
         guard canSave else { return }
         saving = true
         error = nil
-        let (trigger, repeats, target, text) = (trigger, repeats && !toItself, target, text)
+        let (trigger, repeats, target, text) = (trigger, repeats && !toItself && !loopsBack, target, text)
         Task {
             defer { saving = false }
             do {

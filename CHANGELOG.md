@@ -645,7 +645,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Chains (#300): "Kette anlegen …" in an agent's context menu (Mac, iPhone,
   iPad) sends a saved prompt of up to 160 characters to an agent of the same
   host, itself included, when this one finishes or starts waiting; once or
-  every time, but every time and on waiting only to another agent. A chain is kept on the
+  every time, but every time and on waiting only to another agent, and
+  not every time both ways between two agents. A chain is kept on the
   host as metadata of its pane (up to 3 per agent), so every device shows it
   as "Kette: → <Ziel>" under the agent and it ends with the pane. It runs on
   a device that is connected with input allowed; with several, the first to

@@ -414,8 +414,9 @@ impl Session {
     /// device shows it; returns its id. At most
     /// [`chains::MAX_CHAINS_PER_PANE`] per pane, the text one line of at most
     /// [`chains::MAX_CHAIN_TEXT`] characters, and a repeating chain must not
-    /// prompt its own agent, which would keep it busy for good; nor can a
-    /// chain on waiting, since a waiting agent refuses prompts.
+    /// prompt its own agent, or one that prompts this agent every time,
+    /// which would keep them busy for good; nor can a chain on waiting,
+    /// since a waiting agent refuses prompts.
     pub async fn set_chain(
         &self,
         pane_id: &str,
@@ -451,6 +452,19 @@ impl Session {
             return Err(SessionError::Rejected(format!(
                 "no pane {target_pane_id} to prompt"
             )));
+        }
+        // Two repeating chains back and forth would prompt each other for
+        // good.
+        if repeat
+            && session.pane(target_pane_id).is_some_and(|target| {
+                chains::chains_of(target)
+                    .iter()
+                    .any(|back| back.repeat && !back.failed && back.target_pane_id == pane_id)
+            })
+        {
+            return Err(SessionError::Rejected(
+                "the target already prompts this agent every time; make one of them once".into(),
+            ));
         }
         let existing = chains::chains_of(pane);
         if existing.len() >= chains::MAX_CHAINS_PER_PANE {
@@ -2149,6 +2163,42 @@ mod tests {
             assert_eq!(results.len(), 1, "{results:?}");
             assert_eq!(fake.lock().expect("fake").prompts.len(), 1);
             let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn repeating_chains_both_ways_are_refused() {
+            let mut back = chain_tokens(&Arc::new(Mutex::new(Fake::default())));
+            // w1:p1 prompts w1:p2 every time; seen from w1:p2 that is "back".
+            back.insert("chain_0a1b2c".into(), "dran|w1:p2".into());
+            let (_tx, rx) = watch::channel(SyncState {
+                session: Some(state("idle", &back)),
+                ..Default::default()
+            });
+            let session = Session {
+                state: Mutex::new(Some(rx)),
+                group_by_name: watch::channel(false).0,
+                space_sort: watch::channel(SpaceSort::default()).0,
+                chain_runner: watch::channel(None).0,
+                forward: tokio::spawn(async {}),
+                remote: false,
+                forwards: Forwards::default(),
+                runtime: Handle::current(),
+            };
+            let refused = session
+                .set_chain("w1:p2", ChainTrigger::Done, true, "w1:p1", "weiter")
+                .await;
+            assert!(
+                matches!(refused, Err(SessionError::Rejected(_))),
+                "{refused:?}"
+            );
+            // Once is fine: without a connection it gets as far as sending.
+            let once = session
+                .set_chain("w1:p2", ChainTrigger::Done, false, "w1:p1", "weiter")
+                .await;
+            assert!(
+                matches!(once, Err(SessionError::NotConnected(_))),
+                "{once:?}"
+            );
         }
 
         #[tokio::test]
