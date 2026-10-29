@@ -30,7 +30,7 @@ struct OverviewView: View {
                                 let target = targets.first { $0.id == row.id }
                                 Button {
                                     if selecting, let target {
-                                        selected.toggle(target)
+                                        MultiSend.toggle(target, in: &selected)
                                     } else if !selecting {
                                         open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
                                     }

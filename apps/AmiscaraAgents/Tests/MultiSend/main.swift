@@ -47,5 +47,16 @@ do {
     check(MultiSend.select(.all, in: [target("b", .blocked)]).isEmpty, "only waiting: nothing")
 }
 
+// A tap picks only what can be picked, but always unpicks.
+do {
+    var selected: Set<String> = []
+    MultiSend.toggle(target("w", .blocked), in: &selected)
+    check(selected.isEmpty, "a waiting agent is not picked")
+    MultiSend.toggle(target("d", .done), in: &selected)
+    check(selected == ids("d"), "a finished one is")
+    MultiSend.toggle(target("d", .blocked), in: &selected)
+    check(selected.isEmpty, "a picked one that started waiting can be unpicked")
+}
+
 if failures > 0 { exit(1) }
 print("multi-send: ok")

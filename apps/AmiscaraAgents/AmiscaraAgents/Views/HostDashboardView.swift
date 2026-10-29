@@ -45,7 +45,7 @@ struct HostDashboardView: View {
                     ForEach(rows, id: \.target.id) { agent, target in
                         Button {
                             if selecting {
-                                selected.toggle(target)
+                                MultiSend.toggle(target, in: &selected)
                             } else {
                                 open(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceID, paneID: agent.paneID))
                             }

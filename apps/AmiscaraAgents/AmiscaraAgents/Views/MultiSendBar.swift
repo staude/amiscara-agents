@@ -162,15 +162,4 @@ struct MultiSendRow<Content: View>: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
-
-extension Set where Element == String {
-    /// Picks an agent that can be picked, or unpicks one.
-    mutating func toggle(_ target: MultiSend.Target) {
-        if contains(target.id) {
-            remove(target.id)
-        } else if target.isSelectable {
-            insert(target.id)
-        }
-    }
-}
 #endif

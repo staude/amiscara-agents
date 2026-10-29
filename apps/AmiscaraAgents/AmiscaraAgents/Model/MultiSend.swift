@@ -66,6 +66,15 @@ enum MultiSend {
         }.map(\.id))
     }
 
+    /// Picks an agent that can be picked, or unpicks one.
+    static func toggle(_ target: Target, in selected: inout Set<String>) {
+        if selected.contains(target.id) {
+            selected.remove(target.id)
+        } else if target.isSelectable {
+            selected.insert(target.id)
+        }
+    }
+
     enum Outcome: Equatable {
         case sent
         case skipped(String)
