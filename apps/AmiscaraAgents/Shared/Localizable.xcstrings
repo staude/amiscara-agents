@@ -870,6 +870,36 @@
         }
       }
     },
+    "Alle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "Alle arbeitenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All working"
+          }
+        }
+      }
+    },
+    "Alle fertigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All finished"
+          }
+        }
+      }
+    },
     "Alles kopieren" : {
       "localizations" : {
         "en" : {
@@ -956,6 +986,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amiscara Agents opens the agent with this prompt; it is only sent from there."
+          }
+        }
+      }
+    },
+    "An %lld Agenten senden" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agent"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agents"
+                }
+              }
+            }
           }
         }
       }
@@ -1770,6 +1822,36 @@
         }
       }
     },
+    "Auswahl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection"
+          }
+        }
+      }
+    },
+    "Auswahlfrage offen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choice question open"
+          }
+        }
+      }
+    },
+    "Auswählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
+          }
+        }
+      }
+    },
     "Automatisch nach Updates suchen" : {
       "localizations" : {
         "en" : {
@@ -2266,6 +2348,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The agent is working. The history is available once it is done; paging works already."
+          }
+        }
+      }
+    },
+    "Der Agent wartet auf eine Antwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is waiting for an answer."
           }
         }
       }
@@ -2956,6 +3048,16 @@
         }
       }
     },
+    "Eingabe aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input off"
+          }
+        }
+      }
+    },
     "Eingaben erlauben" : {
       "localizations" : {
         "en" : {
@@ -3022,6 +3124,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "Ergebnis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
           }
         }
       }
@@ -3302,6 +3414,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only works while the agent is not working"
+          }
+        }
+      }
+    },
+    "Gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent"
           }
         }
       }
@@ -3862,6 +3984,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No history: herdr keeps none for full-screen programs such as Claude Code. Paging can be turned on in the settings."
+          }
+        }
+      }
+    },
+    "Keine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
           }
         }
       }
@@ -5002,6 +5134,16 @@
         }
       }
     },
+    "Prompt an mehrere Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt to several agents"
+          }
+        }
+      }
+    },
     "Prompt für %@ bereit" : {
       "localizations" : {
         "en" : {
@@ -5118,6 +5260,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file changed on the host since it was opened. “Reload” discards the changes made in the app; copy them first to keep them."
+          }
+        }
+      }
+    },
+    "Sende %lld von %lld …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending %1$lld of %2$lld …"
           }
         }
       }
@@ -6018,6 +6170,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter above the name at which this Mac can be reached."
+          }
+        }
+      }
+    },
+    "Übersprungen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: %@"
           }
         }
       }
