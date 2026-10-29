@@ -124,6 +124,7 @@ export interface WorkspaceItem {
   agentState: AgentState;
   activeTabId: string;
   repoKey: string | null;
+  repoName: string | null;
   worktreeName: string | null;
   branch: string | null;
   tokens: TokenItem[];

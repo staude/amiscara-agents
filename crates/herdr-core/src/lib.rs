@@ -7,19 +7,27 @@
 //! open pane current, [`fullscreen`] looks back in a full-screen agent.
 //! [`spaces`] orders the sidebar and groups spaces by
 //! name, [`browse`] reads files below the home directory. [`question`]
-//! finds an agent's choice question on the screen.
+//! finds an agent's choice question on the screen, [`daily`] what happened
+//! on a host on one day, [`github`] the GitHub repositories of spaces and
+//! the overview of a plan waiting for approval. [`usage`] sums the tokens
+//! of Claude Code from its session files.
+//! [`chains`] stores and fires prompts that follow an agent's change (#300).
 
 pub mod actions;
 pub mod browse;
+pub mod chains;
 pub mod claude;
+pub mod daily;
 pub mod diff;
 pub mod fullscreen;
+pub mod github;
 pub mod pane;
 pub mod question;
 pub mod spaces;
 mod state;
 pub mod sync;
 pub mod terminal;
+pub mod usage;
 
 pub use state::{
     Applied, BoardEntry, EDITOR_DONE_TOKEN, EDITOR_ID_TOKEN, EDITOR_PATH_TOKEN_PREFIX,

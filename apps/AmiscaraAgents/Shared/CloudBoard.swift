@@ -104,7 +104,7 @@ extension WidgetSnapshot {
             let recent = now.timeIntervalSince(board.updated) < CloudBoard.maxAge
             guard board.updated > updated || (!host.live && recent) else { return host }
             newest = max(newest, board.updated)
-            return Host(id: host.id, name: host.name, live: board.live && recent, agents: board.agents, hostKey: key)
+            return Host(id: host.id, name: host.name, live: board.live && recent, agents: board.agents, hostKey: key, usageToday: host.usageToday)
         }
         return WidgetSnapshot(updated: newest, hosts: merged)
     }

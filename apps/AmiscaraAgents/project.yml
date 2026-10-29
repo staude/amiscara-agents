@@ -367,10 +367,20 @@ targets:
           - Views/QRScannerView.swift
           - Views/InputBar.swift
           - Model/Dictation.swift
+          - Model/AgentVoice.swift
+          - Model/SpokenText.swift
+          - Views/AgentVoiceBar.swift
           - Model/AgentIntents.swift
+          - Model/HostStore+MultiSend.swift
+          - Views/MultiSendBar.swift
           - Views/MenuBarMenu.swift
           - Views/SecretsView.swift
           - Model/SecretStore.swift
+          - Views/ChainEditor.swift
+          - Views/ClaudeSessionsView.swift
+          - Model/PromptTemplates.swift
+          - Views/PromptTemplateEditor.swift
+          - Views/PromptTemplateForm.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

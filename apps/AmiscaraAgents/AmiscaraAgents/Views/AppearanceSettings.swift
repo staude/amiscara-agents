@@ -63,6 +63,8 @@ extension View {
 #if os(macOS)
 /// The app's settings window (⌘,).
 struct SettingsView: View {
+    @State private var editingPrices = false
+
     var body: some View {
         Form {
             AppearancePicker()
@@ -84,8 +86,19 @@ struct SettingsView: View {
             } footer: {
                 Text("Fragt nach Touch ID oder dem Passwort, wenn Sie zur App zurückkehren.")
             }
+            Section {
+                UsageWidgetToggle()
+                LabeledContent("Preise je Modell") {
+                    Button("Bearbeiten …") { editingPrices = true }
+                }
+            } header: {
+                Text("Tokens und Kosten")
+            } footer: {
+                Text("Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host.")
+            }
             UpdateSettings()
         }
+        .sheet(isPresented: $editingPrices) { UsagePricesView() }
         .formStyle(.grouped)
         .frame(width: 420)
         .appLock()

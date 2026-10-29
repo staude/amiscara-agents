@@ -1,24 +1,31 @@
 //! One live host: connection with reconnects, updates for the view, pane
-//! followers, actions, uploads and the Claude Code history.
+//! followers, actions, uploads, the Claude Code history and its token usage.
 
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use herdr_core::chains::{self, Chain};
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, diff, fullscreen};
+use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, usage};
+use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
-    Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
+    Connection, HealthLine, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError,
+    keys,
 };
 use tokio::runtime::Handle;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
+use crate::health::{self, HealthStatus};
 use crate::secrets;
-use crate::view::{self, ChoiceQuestion, PaneContent, SessionUpdate};
+use crate::view::{
+    self, ChainOutcome, ChainResult, ChainTrigger, ChoiceQuestion, PaneContent, SessionUpdate,
+};
 
 /// Where uploads land, relative to the login's home directory.
 pub const UPLOAD_DIR: &str = ".amiscara-agents/uploads";
@@ -33,6 +40,9 @@ const OPEN_TTL_MS: u64 = 120_000;
 /// once the request ran out unmarked.
 const EDITOR_DONE_SOURCE: &str = "amiscara-agents-editor-done";
 const EDITOR_TTL_MS: u64 = 30_000;
+/// How long a device's claim on one run of a chain stays (#300): herdr's
+/// longest time to live, so a late device still finds it.
+const CHAIN_CLAIM_TTL_MS: u64 = 86_400_000;
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -77,6 +87,9 @@ pub enum SessionError {
     /// device is out of date, reload it.
     #[error("{0}")]
     SavedNotRead(String),
+    /// The host's health could not be read (#306).
+    #[error("{0}")]
+    Health(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -84,6 +97,7 @@ impl From<claude::ClaudeError> for SessionError {
         match err {
             claude::ClaudeError::Transport(TransportError::Files(message)) => Self::Files(message),
             claude::ClaudeError::Transport(other) => Self::NotConnected(other.to_string()),
+            claude::ClaudeError::Query(message) => Self::Rejected(message),
             other => Self::Files(other.to_string()),
         }
     }
@@ -117,7 +131,7 @@ impl From<actions::ActionError> for SessionError {
     }
 }
 
-fn files_error(err: TransportError) -> SessionError {
+pub(crate) fn files_error(err: TransportError) -> SessionError {
     match err {
         TransportError::Files(message) if message.ends_with(herdr_transport::CHANGED_ON_HOST) => {
             SessionError::FileChanged(message)
@@ -126,6 +140,15 @@ fn files_error(err: TransportError) -> SessionError {
             SessionError::SavedNotRead(message)
         }
         TransportError::Files(message) => SessionError::Files(message),
+        other => SessionError::NotConnected(other.to_string()),
+    }
+}
+
+fn health_error(err: TransportError) -> SessionError {
+    match err {
+        TransportError::Io(err) => SessionError::Health(err.to_string()),
+        // The connection stands; the host or its script did not answer in time.
+        TransportError::Timeout => SessionError::Health(err.to_string()),
         other => SessionError::NotConnected(other.to_string()),
     }
 }
@@ -235,6 +258,50 @@ pub struct TranscriptPage {
     pub start: u64,
 }
 
+/// Part of a Claude Code conversation around a search hit (#303), oldest
+/// entry first; continues backwards like a [`TranscriptPage`] and forwards
+/// from `end`.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptSpan {
+    /// The session file below the host's home directory.
+    pub session_path: String,
+    pub entries: Vec<TranscriptEntry>,
+    /// Byte offset the span starts at; 0 means the conversation's start.
+    pub start: u64,
+    /// Where newer entries continue.
+    pub end: u64,
+    /// Whether the file has no newer entries for now.
+    pub at_end: bool,
+    /// Index in `entries` of the hit's first entry.
+    pub highlight: Option<u32>,
+}
+
+/// A Claude Code session of a folder (#304), newest first in
+/// [`Session::claude_sessions`].
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeSessionItem {
+    /// What `claude --resume` takes.
+    pub id: String,
+    pub title: String,
+    /// Last activity, seconds since 1970; 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file, in place of a message count.
+    pub size: u64,
+}
+
+impl From<claude::SessionSummary> for ClaudeSessionItem {
+    fn from(summary: claude::SessionSummary) -> Self {
+        Self {
+            id: summary.id,
+            title: summary.title,
+            modified: summary.modified,
+            size: summary.size,
+        }
+    }
+}
+
 impl From<claude::Entry> for TranscriptEntry {
     fn from(entry: claude::Entry) -> Self {
         Self {
@@ -249,6 +316,30 @@ impl From<claude::Entry> for TranscriptEntry {
     }
 }
 
+/// The tokens one model used in one working directory in one hour
+/// (#302), from Claude Code's session files.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageBucket {
+    pub cwd: String,
+    /// Start of the hour (UTC) in Unix milliseconds.
+    pub hour_start_ms: u64,
+    pub model: String,
+    pub input: u64,
+    pub output: u64,
+    pub cache_write_5m: u64,
+    pub cache_write_1h: u64,
+    pub cache_read: u64,
+}
+
+/// Token usage of some working directories, from [`Session::usage`].
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageReport {
+    /// Oldest hour first, per directory.
+    pub buckets: Vec<UsageBucket>,
+}
+
 /// Receives what a pane follower reads, on a runtime thread.
 pub trait PaneSink: Send + Sync + 'static {
     fn on_content(&self, content: PaneContent);
@@ -259,19 +350,23 @@ pub trait PaneSink: Send + Sync + 'static {
 
 /// One live host: keeps the session state current until stopped or dropped.
 pub struct Session {
-    state: Mutex<Option<watch::Receiver<SyncState>>>,
+    pub(crate) state: Mutex<Option<watch::Receiver<SyncState>>>,
     /// Whether spaces are grouped by their "Bereich/Name" labels. A change
     /// rebuilds the last update, so the app needs no reconnect.
     group_by_name: watch::Sender<bool>,
     /// How spaces are sorted in the sidebar; a change rebuilds the same way.
     space_sort: watch::Sender<SpaceSort>,
+    /// This device's id when it runs chains (#300), see
+    /// [`Session::set_chain_runner`].
+    chain_runner: watch::Sender<Option<String>>,
     forward: JoinHandle<()>,
     /// Over SSH: pages on the host's `localhost` need forwarding, and open
     /// requests are reported (a local host opens them itself).
     remote: bool,
     /// Listeners for pages on the host's `localhost`, see [`Session::open_url`].
     forwards: Forwards,
-    runtime: Handle,
+    usage: tokio::sync::Mutex<HashMap<String, usage::UsageCache>>,
+    pub(crate) runtime: Handle,
 }
 
 impl Session {
@@ -296,24 +391,45 @@ impl Session {
         let mut updates = rx.clone();
         let (group_by_name, mut grouping) = watch::channel(group_spaces_by_name);
         let (space_sort, mut sorting) = watch::channel(space_sort);
+        let (chain_runner, runner) = watch::channel(None);
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
             let mut previous: Option<Arc<herdr_core::SessionState>> = None;
             // Since when each agent is in its state; kept across reconnects.
             let mut clock = view::StateClock::default();
+            let (results_tx, mut results) = mpsc::unbounded_channel();
+            // Chain runs finished since the last update.
+            let mut ran = Vec::new();
+            let claimed = Arc::new(Mutex::new(HashSet::new()));
             loop {
                 let state = updates.borrow_and_update().clone();
                 let by_name = *grouping.borrow_and_update();
                 let sort = sorting.borrow_and_update().clone();
                 let mut update =
                     view::session_update(&state, previous.as_deref(), by_name, &sort, remote);
-                if state.session.is_some() {
+                if let Some(now) = &state.session {
                     clock.stamp(&mut update.board, &mut update.attention, unix_ms());
+                    let device = runner.borrow().clone();
+                    if let (Some(device), Some(before), Some(conn)) =
+                        (device, &previous, &state.connection)
+                        && !Arc::ptr_eq(before, now)
+                    {
+                        let runs = ChainRuns {
+                            conn: conn.clone(),
+                            device,
+                            state: now.clone(),
+                            claimed: claimed.clone(),
+                            results: results_tx.clone(),
+                        };
+                        runs.start(before);
+                    }
                     previous = state.session.clone();
                 }
+                update.chain_results = std::mem::take(&mut ran);
                 on_update(update);
                 // A changed setting alone rebuilds the same state; its
                 // attention is then empty, so nothing is notified twice.
+                // A finished chain run does the same to report its result.
                 tokio::select! {
                     changed = updates.changed() => {
                         if changed.is_err() {
@@ -322,6 +438,12 @@ impl Session {
                     }
                     Ok(()) = grouping.changed() => {}
                     Ok(()) = sorting.changed() => {}
+                    Some(result) = results.recv() => {
+                        ran.push(result);
+                        while let Ok(result) = results.try_recv() {
+                            ran.push(result);
+                        }
+                    }
                 }
             }
         });
@@ -329,9 +451,11 @@ impl Session {
             state: Mutex::new(Some(rx)),
             group_by_name,
             space_sort,
+            chain_runner,
             forward,
             remote,
             forwards: Forwards::default(),
+            usage: tokio::sync::Mutex::default(),
             runtime,
         })
     }
@@ -354,6 +478,131 @@ impl Session {
             *current = sort;
             changed
         });
+    }
+
+    /// Lets this session run chains (#300) as the device `device_id`, or
+    /// stops it with `None` (the default). Only one device sends per state
+    /// change: the first to claim it on the host. A device that cannot
+    /// send input to the host must not run them.
+    pub fn set_chain_runner(&self, device_id: Option<String>) {
+        let device_id = device_id.filter(|id| !id.trim().is_empty());
+        self.chain_runner.send_if_modified(|current| {
+            let changed = *current != device_id;
+            *current = device_id;
+            changed
+        });
+    }
+
+    /// Adds a chain to the agent in `pane_id` (#300): when it reaches
+    /// `trigger`, `text` goes as a prompt to the agent in `target_pane_id`,
+    /// once or with `repeat` every time. Stored on the host, so every
+    /// device shows it; returns its id. At most
+    /// [`chains::MAX_CHAINS_PER_PANE`] per pane, the text one line of at most
+    /// [`chains::MAX_CHAIN_TEXT`] characters, and a repeating chain must not
+    /// prompt its own agent, or one that prompts this agent every time,
+    /// which would keep them busy for good; nor can a chain on waiting,
+    /// since a waiting agent refuses prompts.
+    pub async fn set_chain(
+        &self,
+        pane_id: &str,
+        trigger: ChainTrigger,
+        repeat: bool,
+        target_pane_id: &str,
+        text: &str,
+    ) -> Result<String, SessionError> {
+        let text = chains::normalize_text(text).ok_or_else(|| {
+            SessionError::Rejected(format!(
+                "a chain's prompt needs 1 to {} characters without control characters",
+                chains::MAX_CHAIN_TEXT
+            ))
+        })?;
+        if repeat && target_pane_id == pane_id {
+            return Err(SessionError::Rejected(
+                "a repeating chain cannot prompt its own agent".into(),
+            ));
+        }
+        // It waits at a dialog then, which refuses prompts.
+        if trigger == ChainTrigger::Blocked && target_pane_id == pane_id {
+            return Err(SessionError::Rejected(
+                "a waiting agent takes no prompt; chain it to another agent".into(),
+            ));
+        }
+        let session = self
+            .session_state()
+            .ok_or_else(|| SessionError::NotConnected("not connected to herdr".into()))?;
+        let pane = session
+            .pane(pane_id)
+            .ok_or_else(|| SessionError::Rejected(format!("no pane {pane_id}")))?;
+        if session.pane(target_pane_id).is_none() {
+            return Err(SessionError::Rejected(format!(
+                "no pane {target_pane_id} to prompt"
+            )));
+        }
+        // Two repeating chains back and forth would prompt each other for
+        // good.
+        if repeat
+            && session.pane(target_pane_id).is_some_and(|target| {
+                chains::chains_of(target)
+                    .iter()
+                    .any(|back| back.repeat && !back.failed && back.target_pane_id == pane_id)
+            })
+        {
+            return Err(SessionError::Rejected(
+                "the target already prompts this agent every time; make one of them once".into(),
+            ));
+        }
+        let existing = chains::chains_of(pane);
+        if existing.len() >= chains::MAX_CHAINS_PER_PANE {
+            return Err(SessionError::Rejected(format!(
+                "an agent has at most {} chains",
+                chains::MAX_CHAINS_PER_PANE
+            )));
+        }
+        let chain = Chain {
+            id: chains::new_chain_id(&existing),
+            trigger: trigger.into(),
+            repeat,
+            failed: false,
+            target_pane_id: target_pane_id.to_owned(),
+            text,
+        };
+        let conn = self.connection()?;
+        write_chain_tokens(&conn, pane_id, chains::chain_tokens(&chain))
+            .await
+            .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        Ok(chain.id)
+    }
+
+    /// Removes a chain of the agent in `pane_id`; an unknown one is no
+    /// error.
+    pub async fn remove_chain(&self, pane_id: &str, chain_id: &str) -> Result<(), SessionError> {
+        if !chains::is_chain_id(chain_id) {
+            return Err(SessionError::Rejected(format!("no chain {chain_id:?}")));
+        }
+        let conn = self.connection()?;
+        write_chain_tokens(&conn, pane_id, chains::clear_tokens(chain_id))
+            .await
+            .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        // Its claim would otherwise take one of the pane's tokens for a day.
+        let _ = conn
+            .request(
+                "pane.report_metadata",
+                serde_json::json!({
+                    "pane_id": pane_id,
+                    "source": chains::claim_source(chain_id),
+                    "tokens": { chains::claim_token(chain_id): null },
+                }),
+            )
+            .await;
+        Ok(())
+    }
+
+    /// The last known state of the server, if any.
+    fn session_state(&self) -> Option<Arc<herdr_core::SessionState>> {
+        self.state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref()?.borrow().session.clone())
     }
 
     /// Ends the session and closes the connection. Pane followers stop too.
@@ -385,7 +634,7 @@ impl Session {
         }
     }
 
-    fn connection(&self) -> Result<Arc<Connection>, SessionError> {
+    pub(crate) fn connection(&self) -> Result<Arc<Connection>, SessionError> {
         self.state
             .lock()
             .ok()
@@ -608,7 +857,9 @@ impl Session {
         name: Option<&str>,
     ) -> Result<String, SessionError> {
         let conn = self.connection()?;
-        Ok(actions::start_agent(&conn, pane_id, kind, name).await?.name)
+        Ok(actions::start_agent(&conn, pane_id, kind, name, &[])
+            .await?
+            .name)
     }
 
     /// Agent kinds the server can start, the usual ones first. Never fails:
@@ -653,6 +904,155 @@ impl Session {
             entries: page.entries.into_iter().map(Into::into).collect(),
             start: page.start,
         })
+    }
+
+    /// The conversation in the session file `session_path` around the line
+    /// that starts at byte `offset`, from a search hit (#303): entries
+    /// before it, the line's own and those after it. Read only.
+    pub async fn claude_history_at(
+        &self,
+        session_path: &str,
+        offset: u64,
+    ) -> Result<TranscriptSpan, SessionError> {
+        let conn = self.connection()?;
+        let line = claude::read_hit_line(&conn, session_path, offset)
+            .await?
+            .unwrap_or_default();
+        let own = claude::entries_in_line(&line);
+        let line_end = offset + line.len() as u64 + 1;
+        let session = claude::Session {
+            path: session_path.to_owned(),
+            size: offset,
+        };
+        let before = claude::read_back(&conn, &session, offset).await?;
+        let after = claude::read_forward(&conn, session_path, line_end).await?;
+        let highlight = (!own.is_empty()).then_some(before.entries.len() as u32);
+        let entries = before
+            .entries
+            .into_iter()
+            .chain(own)
+            .chain(after.entries)
+            .map(Into::into)
+            .collect();
+        Ok(TranscriptSpan {
+            session_path: session_path.to_owned(),
+            entries,
+            start: before.start,
+            end: after.end,
+            at_end: after.at_end,
+            highlight,
+        })
+    }
+
+    /// The entries after byte `from` of the session file `session_path`:
+    /// a span's `end`. Read only.
+    pub async fn claude_history_after(
+        &self,
+        session_path: &str,
+        from: u64,
+    ) -> Result<TranscriptSpan, SessionError> {
+        let conn = self.connection()?;
+        let after = claude::read_forward(&conn, session_path, from).await?;
+        Ok(TranscriptSpan {
+            session_path: session_path.to_owned(),
+            entries: after.entries.into_iter().map(Into::into).collect(),
+            start: from,
+            end: after.end,
+            at_end: after.at_end,
+            highlight: None,
+        })
+    }
+
+    /// Token usage of Claude Code in the working directories `cwds` (#302):
+    /// the hours that end after `since_secs` (seconds since 1970), per
+    /// directory and model. Reads only session files changed since then,
+    /// and of those only the lines added since the last call; over SSH via
+    /// SFTP. Directories that share a project folder count once, under the
+    /// first. Read only.
+    pub async fn usage(
+        &self,
+        cwds: &[String],
+        since_secs: u64,
+    ) -> Result<UsageReport, SessionError> {
+        let conn = self.connection()?;
+        let now = unix_ms();
+        let mut caches = self.usage.lock().await;
+        let mut report = UsageReport::default();
+        let mut done = Vec::new();
+        for cwd in cwds {
+            let dir = claude::project_dir(cwd);
+            if done.contains(&dir) {
+                continue;
+            }
+            let cache = caches.entry(dir.clone()).or_default();
+            usage::scan(&conn, cwd, cache, since_secs, now).await?;
+            report.buckets.extend(
+                cache
+                    .buckets_since(since_secs.saturating_mul(1000))
+                    .into_iter()
+                    .map(|bucket| UsageBucket {
+                        cwd: cwd.clone(),
+                        hour_start_ms: bucket.hour_start_ms,
+                        model: bucket.model,
+                        input: bucket.tokens.input,
+                        output: bucket.tokens.output,
+                        cache_write_5m: bucket.tokens.cache_write_5m,
+                        cache_write_1h: bucket.tokens.cache_write_1h,
+                        cache_read: bucket.tokens.cache_read,
+                    }),
+            );
+            done.push(dir);
+        }
+        Ok(report)
+    }
+
+    /// What [`Session::usage`] has read so far, as JSON for the app to keep
+    /// between runs; waits for a running scan.
+    pub async fn usage_state(&self) -> String {
+        serde_json::to_string(&*self.usage.lock().await).unwrap_or_default()
+    }
+
+    /// Takes back a state from [`Session::usage_state`]. Anything that is
+    /// no such state (an older format, a broken file) starts empty: the
+    /// files are then read again.
+    pub async fn restore_usage_state(&self, state: &str) {
+        *self.usage.lock().await = serde_json::from_str(state).unwrap_or_default();
+    }
+
+    /// The Claude Code sessions of `folder` on the host, newest first and
+    /// at most 30, read from their files (SFTP over SSH). A folder Claude
+    /// Code never ran in has none. Read only.
+    pub async fn claude_sessions(
+        &self,
+        folder: &str,
+    ) -> Result<Vec<ClaudeSessionItem>, SessionError> {
+        let conn = self.connection()?;
+        Ok(claude::list_sessions(&conn, folder)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    /// Continues the Claude Code session `session_id` in a pane at its
+    /// shell prompt (`claude --resume <id>`) and returns the agent's name.
+    /// herdr starts it like [`Session::start_agent`], so it knows the agent.
+    /// The pane must be in the session's folder.
+    pub async fn resume_claude(
+        &self,
+        pane_id: &str,
+        session_id: &str,
+    ) -> Result<String, SessionError> {
+        if !claude::is_session_id(session_id) {
+            return Err(SessionError::Rejected(format!(
+                "not a Claude Code session id: {session_id}"
+            )));
+        }
+        let conn = self.connection()?;
+        let args = ["--resume".to_owned(), session_id.to_owned()];
+        Ok(actions::start_agent(&conn, pane_id, "claude", None, &args)
+            .await?
+            .name)
     }
 
     /// The transcript of a full-screen agent such as Claude Code, which
@@ -787,66 +1187,136 @@ impl Session {
         let (workspace_id, cwd) = self.pane_directory(pane_id).ok_or_else(|| {
             SessionError::Files(format!("no working directory known for pane {pane_id}"))
         })?;
+        let output = run_script(
+            &conn,
+            &workspace_id,
+            &cwd,
+            "diff",
+            diff::diff_script,
+            MAX_DIFF_BYTES,
+            |text| text.trim().is_empty() || text.trim() == diff::UNTRACKED_MARK,
+        )
+        .await?;
+        Ok(diff::WorkingTreeDiff {
+            files: diff::parse(&output.text),
+            truncated: output.truncated,
+        })
+    }
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default();
-        let stamp = format!("diff-{}-{:09}", now.as_secs(), now.subsec_nanos());
-        let out = format!("{UPLOAD_DIR}/{stamp}.txt");
-        let script = conn
-            .upload(
-                UPLOAD_DIR,
-                &format!("{stamp}.sh"),
-                diff::diff_script(&out).as_bytes(),
-            )
-            .await
-            .map_err(|err| SessionError::Files(err.to_string()))?;
-        let script_rel = format!("{UPLOAD_DIR}/{stamp}.sh");
-        let done = format!("{out}.done");
-        let err_file = format!("{out}.err");
-
-        let result = async {
-            // A leading space keeps it out of the shell's history where the
-            // shell honours that (fish, zsh/bash with ignorespace).
-            let tab =
-                run_in_tab(&conn, &workspace_id, &cwd, &format!(" sh '{script}'; exit")).await?;
-            let finished = wait_for_file(&conn, &format!("{stamp}.txt.done")).await;
-            // The shell exits by itself; close the tab in case it stayed.
-            let _ = actions::close_tab(&conn, &tab).await;
-            finished?;
-            let mut data = conn
-                .read_file_range(&done, 0, MAX_DIFF_BYTES + 1)
-                .await
-                .map_err(|err| SessionError::Files(err.to_string()))?;
-            let truncated = data.len() as u64 > MAX_DIFF_BYTES;
-            if truncated {
-                // Up to the last complete line.
-                data.truncate(MAX_DIFF_BYTES as usize);
-                if let Some(end) = data.iter().rposition(|byte| *byte == b'\n') {
-                    data.truncate(end + 1);
-                }
+    /// What happened on the host between the Unix seconds `since` and
+    /// `until` (#301): Claude Code prompts and finished turns from the
+    /// session files, commits of all local branches in every space's
+    /// repository, oldest first. Like [`Session::working_tree_diff`] a
+    /// script runs in a short-lived tab (of the first space with a folder)
+    /// and the files come through SFTP, so it needs input and file access.
+    /// Read only; takes a moment.
+    pub async fn daily_log(
+        &self,
+        since_secs: u64,
+        until_secs: u64,
+    ) -> Result<daily::DailyLog, SessionError> {
+        let conn = self.connection()?;
+        let (folders, run_in) = self.day_folders();
+        let (workspace_id, cwd) =
+            run_in.ok_or_else(|| SessionError::Files("no space to run in".into()))?;
+        let mut dirs: Vec<String> = Vec::new();
+        for (dir, _) in &folders {
+            if !dirs.contains(dir) {
+                dirs.push(dir.clone());
             }
-            let text = String::from_utf8_lossy(&data).into_owned();
-            if text.trim().is_empty() || text.trim() == diff::UNTRACKED_MARK {
-                let errors = conn
-                    .read_file_range(&err_file, 0, 4096)
-                    .await
-                    .unwrap_or_default();
-                let errors = String::from_utf8_lossy(&errors).trim().to_owned();
-                if !errors.is_empty() {
-                    return Err(SessionError::Files(errors));
-                }
-            }
-            Ok(diff::WorkingTreeDiff {
-                files: diff::parse(&text),
-                truncated,
+        }
+        // Session files changed since the day began, a minute to spare.
+        let minutes = (unix_ms() / 1000).saturating_sub(since_secs).div_ceil(60) + 1;
+        let output = run_script(
+            &conn,
+            &workspace_id,
+            &cwd,
+            "day",
+            |out| daily::day_script(out, since_secs, until_secs, minutes, &dirs),
+            MAX_DAY_BYTES,
+            |text| !text.contains(daily::CLAUDE_MARK),
+        )
+        .await?;
+        let (commits, files) = daily::parse_script(&output.text);
+        let (since_ms, until_ms) = (since_secs * 1000, until_secs * 1000);
+        let mut items: Vec<daily::DailyItem> = commits
+            .into_iter()
+            .map(|commit| daily::DailyItem {
+                kind: daily::DailyItemKind::Commit,
+                time_ms: commit.time_secs * 1000,
+                place: daily::place_for(&commit.repo, &folders),
+                text: commit.subject,
+                author: Some(commit.author),
             })
+            .filter(|item| since_ms <= item.time_ms && item.time_ms < until_ms)
+            .collect();
+        let mut truncated = output.truncated || files.len() > MAX_DAY_SESSIONS;
+        // Bytes still to read over all session files.
+        let mut budget = MAX_DAY_TOTAL_BYTES;
+        for file in files.iter().take(MAX_DAY_SESSIONS) {
+            if budget == 0 {
+                truncated = true;
+                break;
+            }
+            let limit = budget.min(MAX_DAY_SESSION_BYTES);
+            let read = match read_day(&conn, file, since_ms, limit).await {
+                Ok(read) => read,
+                // Gone or unreadable since the script listed it: the day
+                // may miss entries.
+                Err(TransportError::Files(_) | TransportError::Io(_)) => {
+                    truncated = true;
+                    continue;
+                }
+                Err(err) => return Err(SessionError::NotConnected(err.to_string())),
+            };
+            truncated |= read.cut;
+            budget = budget.saturating_sub(read.bytes);
+            let place = match read.cwd {
+                Some(cwd) => daily::place_for(&cwd, &folders),
+                None => daily::last_part(file.path.rsplit_once('/').map_or("", |(dir, _)| dir)),
+            };
+            items.extend(
+                daily::turns(&read.entries, since_ms, until_ms)
+                    .into_iter()
+                    .map(|item| daily::DailyItem {
+                        place: place.clone(),
+                        ..item
+                    }),
+            );
         }
-        .await;
-        for file in [&script_rel, &done, &err_file, &out] {
-            let _ = conn.remove_file(file).await;
-        }
-        result
+        items.sort_by_key(|item| item.time_ms);
+        Ok(daily::DailyLog { items, truncated })
+    }
+
+    /// The working directories of all panes with their space's name, and
+    /// the space and folder to run a script in: the first space with one.
+    fn day_folders(&self) -> (Vec<(String, String)>, Option<SpaceDir>) {
+        let Some(session) = self
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().session.clone()))
+        else {
+            return (Vec::new(), None);
+        };
+        let folders = session
+            .panes
+            .iter()
+            .filter_map(|pane| {
+                let dir = pane.foreground_cwd.clone().or_else(|| pane.cwd.clone())?;
+                let label = session
+                    .workspace(&pane.workspace_id)
+                    .map(|ws| ws.label.clone())
+                    .filter(|label| !label.is_empty())
+                    .unwrap_or_else(|| daily::last_part(&dir));
+                Some((dir, label))
+            })
+            .collect();
+        let run_in = session.workspaces.iter().find_map(|ws| {
+            self.space_folder(&ws.workspace_id)
+                .map(|dir| (ws.workspace_id.clone(), dir))
+        });
+        (folders, run_in)
     }
 
     /// The space and working directory of a pane: its foreground process's
@@ -975,6 +1445,20 @@ impl Session {
             .map_err(files_error)
     }
 
+    /// The host's health for the dashboard (#306), from the host script
+    /// `amiscara-health`. Only reads; without a connection
+    /// [`SessionError::NotConnected`].
+    pub async fn host_health(&self) -> Result<HealthStatus, SessionError> {
+        let conn = self.connection()?;
+        Ok(match conn.health_line().await.map_err(health_error)? {
+            HealthLine::Json(line) => {
+                health::parse(&line).map_or(HealthStatus::ScriptMissing, HealthStatus::Ready)
+            }
+            HealthLine::ScriptMissing => HealthStatus::ScriptMissing,
+            HealthLine::Gated => HealthStatus::KeyLineOld,
+        })
+    }
+
     /// The names of the secrets on the host, sorted; files whose name is no
     /// variable are left out. Only names: values are never read back.
     pub async fn secret_names(&self) -> Result<Vec<String>, SessionError> {
@@ -989,6 +1473,40 @@ impl Session {
             .collect();
         names.sort();
         Ok(names)
+    }
+
+    /// The GitHub repositories of the spaces on the host (#296), sorted,
+    /// each with its spaces: the `origin` in the `config` of each Git
+    /// repository the spaces show. Repositories elsewhere and unreadable
+    /// configs are left out; it fails only without a connection. Needs
+    /// file access like uploads.
+    pub async fn github_repos(&self) -> Result<Vec<github::GitHubRepo>, SessionError> {
+        let conn = self.connection()?;
+        let by_key = {
+            let state = self.state.lock().ok();
+            let session = state
+                .as_ref()
+                .and_then(|state| state.as_ref())
+                .and_then(|rx| rx.borrow().session.clone());
+            spaces_by_repo_key(session.iter().flat_map(|session| &session.workspaces))
+        };
+        let mut origins = Vec::new();
+        for (key, workspace_ids) in by_key {
+            // The key is absolute, so `read_file_head` and not
+            // `read_file_range`, which reads relative to the home.
+            let Ok(head) = conn
+                .read_file_head(&format!("{key}/config"), |size| {
+                    size.min(MAX_GIT_CONFIG_BYTES)
+                })
+                .await
+            else {
+                continue;
+            };
+            if let Some(repo) = github::origin_repo(&String::from_utf8_lossy(&head.data)) {
+                origins.push((repo, workspace_ids));
+            }
+        }
+        Ok(merge_github_repos(origins))
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`
@@ -1036,6 +1554,257 @@ impl Drop for Session {
     fn drop(&mut self) {
         self.forward.abort();
     }
+}
+
+/// Writes tokens of [`chains::CHAINS_SOURCE`] to a pane; `None` removes one.
+async fn write_chain_tokens(
+    conn: &Connection,
+    pane_id: &str,
+    tokens: std::collections::BTreeMap<String, Option<String>>,
+) -> Result<(), TransportError> {
+    conn.request(
+        "pane.report_metadata",
+        serde_json::json!({
+            "pane_id": pane_id,
+            "source": chains::CHAINS_SOURCE,
+            "tokens": tokens,
+        }),
+    )
+    .await
+    .map(|_| ())
+}
+
+/// The chains to run after a state change (#300), with what they share.
+struct ChainRuns {
+    conn: Arc<Connection>,
+    device: String,
+    /// The state the change was seen in: chains, targets and names.
+    state: Arc<herdr_core::SessionState>,
+    /// Chain id and state change each run on this device already handled,
+    /// so seeing a change again (e.g. around a reconnect) sends nothing.
+    claimed: Arc<Mutex<HashSet<(String, u64)>>>,
+    results: mpsc::UnboundedSender<ChainResult>,
+}
+
+impl ChainRuns {
+    /// Starts a task per chain whose agent changed to its trigger since
+    /// `before`; each reports its result unless another device ran it.
+    fn start(&self, before: &herdr_core::SessionState) {
+        for (pane_id, trigger) in chains::fired(before, &self.state) {
+            let Some(pane) = self.state.pane(&pane_id) else {
+                continue;
+            };
+            for chain in chains::chains_of(pane) {
+                if chain.trigger != trigger || chain.failed {
+                    continue;
+                }
+                let trigger_label = view::pane_label(&self.state, &pane_id);
+                let target_label = view::pane_label(&self.state, &chain.target_pane_id);
+                let run = ChainRun {
+                    conn: self.conn.clone(),
+                    device: self.device.clone(),
+                    pane_id: pane_id.clone(),
+                    target_present: self.state.pane(&chain.target_pane_id).is_some(),
+                    claimed: self.claimed.clone(),
+                    chain,
+                };
+                let results = self.results.clone();
+                tokio::spawn(async move {
+                    let (chain_id, text) = (run.chain.id.clone(), run.chain.text.clone());
+                    let trigger_pane_id = run.pane_id.clone();
+                    if let Some((outcome, reason)) = run.run().await {
+                        let _ = results.send(ChainResult {
+                            chain_id,
+                            trigger_pane_id,
+                            trigger_label,
+                            target_label,
+                            text,
+                            outcome,
+                            reason,
+                            at_ms: unix_ms(),
+                        });
+                    }
+                });
+            }
+        }
+    }
+}
+
+/// One chain after its agent changed.
+struct ChainRun {
+    conn: Arc<Connection>,
+    device: String,
+    pane_id: String,
+    chain: Chain,
+    target_present: bool,
+    claimed: Arc<Mutex<HashSet<(String, u64)>>>,
+}
+
+impl ChainRun {
+    /// Checks the change, claims it, sends. `None` when another device
+    /// claimed it or this one handled it already.
+    async fn run(self) -> Option<(ChainOutcome, Option<String>)> {
+        let skipped = |reason: String| Some((ChainOutcome::Skipped, Some(reason)));
+        let agent = match self.agent().await {
+            Ok(agent) => agent,
+            Err(reason) => return skipped(reason),
+        };
+        let holds = match self.chain.trigger {
+            chains::ChainTrigger::Blocked => agent.agent_status == AgentStatus::Blocked,
+            // herdr 0.9.5 sets `completion_seq` after an Esc as well, so an
+            // interrupted turn counts as done.
+            chains::ChainTrigger::Done => {
+                matches!(agent.agent_status, AgentStatus::Done | AgentStatus::Idle)
+                    && agent.completion_seq == Some(agent.state_change_seq)
+            }
+        };
+        if !holds {
+            return skipped("the agent changed again before the chain ran".into());
+        }
+        let seq = agent.state_change_seq;
+        if seq == 0 {
+            return skipped("this herdr version does not count state changes".into());
+        }
+        let first_here = self
+            .claimed
+            .lock()
+            .is_ok_and(|mut claimed| claimed.insert((self.chain.id.clone(), seq)));
+        if !first_here {
+            return None;
+        }
+        // herdr ignores a report whose `seq` is not newer than the last one
+        // of its source and has no compare-and-set: every device writes its
+        // claim with the change's number, only the first one sticks.
+        // The mark names this run, not only the device: two sessions with
+        // one device id (the same host added twice, a device restored from
+        // another's backup) must not both take it.
+        let claim = chains::claim_token(&self.chain.id);
+        let mark = format!("{}:{}:{seq}", self.device, run_nonce());
+        let claimed = self
+            .conn
+            .request(
+                "pane.report_metadata",
+                serde_json::json!({
+                    "pane_id": self.pane_id,
+                    "source": chains::claim_source(&self.chain.id),
+                    "tokens": { &claim: &mark },
+                    "seq": seq,
+                    "ttl_ms": CHAIN_CLAIM_TTL_MS,
+                }),
+            )
+            .await;
+        if let Err(err) = claimed {
+            return skipped(err.to_string());
+        }
+        let pane = match self.pane().await {
+            Ok(pane) => pane,
+            Err(reason) => return skipped(reason),
+        };
+        if pane.tokens.get(&claim) != Some(&mark) {
+            return None;
+        }
+        // Deleted, failed or sent by now (e.g. a slower device that saw it
+        // before a one-shot chain went): the host's copy decides.
+        if !chains::chains_of(&pane)
+            .iter()
+            .any(|chain| chain.id == self.chain.id && !chain.failed)
+        {
+            return None;
+        }
+        if !self.target_present {
+            self.mark_failed().await;
+            return Some((ChainOutcome::Failed, Some("the target pane is gone".into())));
+        }
+        // A one-shot chain goes before it sends: left behind after a send,
+        // the agent's next change would claim it anew and send again.
+        if !self.chain.repeat
+            && let Err(err) = write_chain_tokens(
+                &self.conn,
+                &self.pane_id,
+                chains::clear_tokens(&self.chain.id),
+            )
+            .await
+        {
+            return skipped(err.to_string());
+        }
+        match actions::send_prompt(&self.conn, &self.chain.target_pane_id, &self.chain.text).await {
+            Ok(()) => {}
+            // The target waits at a dialog or the link dropped: this time
+            // only. A one-shot chain comes back to run on the next change.
+            Err(
+                err @ (actions::ActionError::AgentBlocked | actions::ActionError::Transport(_)),
+            ) => {
+                if !self.chain.repeat {
+                    let _ = write_chain_tokens(
+                        &self.conn,
+                        &self.pane_id,
+                        chains::chain_tokens(&self.chain),
+                    )
+                    .await;
+                }
+                return skipped(err.to_string());
+            }
+            Err(err) => {
+                self.mark_failed().await;
+                return Some((ChainOutcome::Failed, Some(err.to_string())));
+            }
+        }
+        if !self.chain.repeat {
+            // The chain is gone; its claim need not wait out its time.
+            let _ = self
+                .conn
+                .request(
+                    "pane.report_metadata",
+                    serde_json::json!({
+                        "pane_id": self.pane_id,
+                        "source": chains::claim_source(&self.chain.id),
+                        "tokens": { &claim: null },
+                    }),
+                )
+                .await;
+        }
+        Some((ChainOutcome::Sent, None))
+    }
+
+    async fn agent(&self) -> Result<herdr_proto::AgentInfo, String> {
+        let value = self
+            .conn
+            .request("agent.get", serde_json::json!({ "target": self.pane_id }))
+            .await
+            .map_err(|err| err.to_string())?;
+        serde_json::from_value::<AgentGetResult>(value)
+            .map(|got| got.agent)
+            .map_err(|err| err.to_string())
+    }
+
+    async fn pane(&self) -> Result<herdr_proto::PaneInfo, String> {
+        let value = self
+            .conn
+            .request("pane.get", serde_json::json!({ "pane_id": self.pane_id }))
+            .await
+            .map_err(|err| err.to_string())?;
+        let got: PaneGetResult = serde_json::from_value(value).map_err(|err| err.to_string())?;
+        Ok(got.pane)
+    }
+
+    /// Keeps the chain, marked failed, so it shows and never runs again.
+    /// Best effort: on a dropped connection it stays active.
+    async fn mark_failed(&self) {
+        let failed = Chain {
+            failed: true,
+            ..self.chain.clone()
+        };
+        let _ = write_chain_tokens(&self.conn, &self.pane_id, chains::chain_tokens(&failed)).await;
+    }
+}
+
+/// Eight random hex digits that tell one chain run's claim from another's.
+fn run_nonce() -> String {
+    use std::hash::BuildHasher;
+    format!(
+        "{:08x}",
+        std::collections::hash_map::RandomState::new().hash_one(unix_ms()) & 0xffff_ffff
+    )
 }
 
 /// Whether the sync driver behind `rx` has ended. It drops its sender when
@@ -1316,10 +2085,199 @@ fn named_upload(file_name: &str) -> String {
 /// listing of the upload folder says what is what.
 /// The most of a diff the apps read; a bigger one is cut off.
 const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+/// The same for the day script's output (#301).
+const MAX_DAY_BYTES: u64 = 4 * 1024 * 1024;
+/// Session files read for a day, the newest; more mark the day truncated.
+const MAX_DAY_SESSIONS: usize = 40;
+/// Bytes read back from the end of one session file for a day, and from
+/// all of them.
+const MAX_DAY_SESSION_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_DAY_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
+/// Bytes read at once from a session file for a day: over SSH every read
+/// opens its own SFTP session, so few large reads.
+const DAY_CHUNK: u64 = 4 * 1024 * 1024;
+
+/// A space's id and a folder in it.
+type SpaceDir = (String, String);
+
+/// What a script left: its output up to the limit, as text up to the last
+/// complete line when cut off.
+struct ScriptOutput {
+    text: String,
+    truncated: bool,
+}
+
+/// Runs a script in a short-lived, unfocused tab of `workspace_id` in
+/// `cwd` and reads what it wrote (#228). `script` gets the output path
+/// below the home directory; the script writes it next to itself and
+/// renames it to `.done` when complete, errors to `.err`. When `failed`
+/// says the output is empty of results, the errors become the error.
+/// Everything is removed afterwards.
+async fn run_script(
+    conn: &Connection,
+    workspace_id: &str,
+    cwd: &str,
+    kind: &str,
+    script: impl FnOnce(&str) -> String,
+    max_bytes: u64,
+    failed: impl FnOnce(&str) -> bool,
+) -> Result<ScriptOutput, SessionError> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let stamp = format!("{kind}-{}-{:09}", now.as_secs(), now.subsec_nanos());
+    let out = format!("{UPLOAD_DIR}/{stamp}.txt");
+    let script_path = conn
+        .upload(UPLOAD_DIR, &format!("{stamp}.sh"), script(&out).as_bytes())
+        .await
+        .map_err(|err| SessionError::Files(err.to_string()))?;
+    let script_rel = format!("{UPLOAD_DIR}/{stamp}.sh");
+    let done = format!("{out}.done");
+    let err_file = format!("{out}.err");
+
+    let result = async {
+        // A leading space keeps it out of the shell's history where the
+        // shell honours that (fish, zsh/bash with ignorespace).
+        let tab = run_in_tab(
+            conn,
+            workspace_id,
+            cwd,
+            &format!(" sh '{script_path}'; exit"),
+        )
+        .await?;
+        let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
+        // The shell exits by itself; close the tab in case it stayed.
+        let _ = actions::close_tab(conn, &tab).await;
+        finished?;
+        let mut data = conn
+            .read_file_range(&done, 0, max_bytes + 1)
+            .await
+            .map_err(|err| SessionError::Files(err.to_string()))?;
+        let truncated = data.len() as u64 > max_bytes;
+        if truncated {
+            // Up to the last complete line.
+            data.truncate(max_bytes as usize);
+            if let Some(end) = data.iter().rposition(|byte| *byte == b'\n') {
+                data.truncate(end + 1);
+            }
+        }
+        let text = String::from_utf8_lossy(&data).into_owned();
+        if failed(&text) {
+            let errors = conn
+                .read_file_range(&err_file, 0, 4096)
+                .await
+                .unwrap_or_default();
+            let errors = String::from_utf8_lossy(&errors).trim().to_owned();
+            if !errors.is_empty() {
+                return Err(SessionError::Files(errors));
+            }
+        }
+        Ok(ScriptOutput { text, truncated })
+    }
+    .await;
+    for file in [&script_rel, &done, &err_file, &out] {
+        let _ = conn.remove_file(file).await;
+    }
+    result
+}
+
+/// What [`read_day`] got from one session file.
+struct DayRead {
+    entries: Vec<claude::Entry>,
+    /// The session's working directory.
+    cwd: Option<String>,
+    /// Stopped at the byte limit before the day's start.
+    cut: bool,
+    bytes: u64,
+}
+
+/// The entries of a session file back from the end of its day's lines to
+/// the first one before `since_ms`, at most `limit` bytes.
+async fn read_day(
+    conn: &Connection,
+    file: &daily::SessionFile,
+    since_ms: u64,
+    limit: u64,
+) -> Result<DayRead, TransportError> {
+    let mut entries = Vec::new();
+    let mut cwd = None;
+    let mut end = file.end;
+    while end > 0 {
+        let bytes = file.end - end;
+        if bytes >= limit {
+            return Ok(DayRead {
+                entries,
+                cwd,
+                cut: true,
+                bytes,
+            });
+        }
+        let start = end.saturating_sub(DAY_CHUNK.min(limit - bytes));
+        let data = conn.read_file_range(&file.path, start, end - start).await?;
+        if cwd.is_none() {
+            cwd = claude::session_cwd(&data);
+        }
+        let page = claude::parse_page(&data, start);
+        let reached = page.entries.iter().any(|entry| {
+            entry
+                .timestamp
+                .as_deref()
+                .and_then(daily::parse_utc_ms)
+                .is_some_and(|time| time < since_ms)
+        });
+        entries.splice(0..0, page.entries);
+        end = page.start;
+        if reached {
+            break;
+        }
+    }
+    Ok(DayRead {
+        entries,
+        cwd,
+        cut: false,
+        bytes: file.end - end,
+    })
+}
+
+/// The spaces of each Git repository, by its `.git` path (#296); spaces
+/// outside a repository are left out.
+fn spaces_by_repo_key<'a>(
+    workspaces: impl IntoIterator<Item = &'a herdr_proto::WorkspaceInfo>,
+) -> std::collections::BTreeMap<String, Vec<String>> {
+    let mut by_key: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for ws in workspaces {
+        if let Some(wt) = ws.worktree.as_ref().filter(|wt| !wt.repo_key.is_empty()) {
+            by_key
+                .entry(wt.repo_key.clone())
+                .or_default()
+                .push(ws.workspace_id.clone());
+        }
+    }
+    by_key
+}
+
+/// One entry per GitHub repository, sorted: two clones of the same
+/// repository share it with the spaces of both.
+fn merge_github_repos(origins: Vec<(String, Vec<String>)>) -> Vec<github::GitHubRepo> {
+    let mut repos: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for (repo, workspace_ids) in origins {
+        repos.entry(repo).or_default().extend(workspace_ids);
+    }
+    repos
+        .into_iter()
+        .map(|(repo, workspace_ids)| github::GitHubRepo {
+            repo,
+            workspace_ids,
+        })
+        .collect()
+}
+
+/// The most of a Git `config` read for its `origin` (#296).
+const MAX_GIT_CONFIG_BYTES: u64 = 64 * 1024;
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
 /// returns the tab's id.
-async fn run_in_tab(
+pub(crate) async fn run_in_tab(
     conn: &Connection,
     workspace_id: &str,
     cwd: &str,
@@ -1352,7 +2310,7 @@ async fn wait_for_file(conn: &Connection, name: &str) -> Result<(), SessionError
         }
         if tokio::time::Instant::now() >= deadline {
             return Err(SessionError::Files(
-                "git diff did not finish in time".into(),
+                "the script on the host did not finish in time".into(),
             ));
         }
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
@@ -1381,7 +2339,65 @@ fn upload_name(ext: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionError, TransportError, files_error, named_upload};
+    use super::{
+        SessionError, TransportError, files_error, health_error, merge_github_repos, named_upload,
+        spaces_by_repo_key,
+    };
+
+    fn workspace(value: serde_json::Value) -> herdr_proto::WorkspaceInfo {
+        match serde_json::from_value(value) {
+            Ok(ws) => ws,
+            Err(err) => panic!("fixture: {err}"),
+        }
+    }
+
+    #[test]
+    fn spaces_are_grouped_by_their_repository() {
+        let spaces = [
+            workspace(
+                serde_json::json!({"workspace_id": "w1", "number": 1, "label": "app",
+                "worktree": {"repo_key": "/Users/a/app/.git", "repo_name": "app", "checkout_path": "/Users/a/app"}}),
+            ),
+            workspace(serde_json::json!({"workspace_id": "w2", "number": 2, "label": "notes"})),
+            workspace(
+                serde_json::json!({"workspace_id": "w3", "number": 3, "label": "app-wt",
+                "worktree": {"repo_key": "/Users/a/app/.git", "repo_name": "app",
+                             "checkout_path": "/Users/a/app/.worktrees/x", "is_linked_worktree": true}}),
+            ),
+            workspace(
+                serde_json::json!({"workspace_id": "w4", "number": 4, "label": "empty",
+                "worktree": {"repo_key": "", "repo_name": "e", "checkout_path": "/e"}}),
+            ),
+        ];
+        let by_key = spaces_by_repo_key(&spaces);
+        assert_eq!(by_key.len(), 1);
+        assert_eq!(
+            by_key.get("/Users/a/app/.git").map(Vec::as_slice),
+            Some(["w1".to_owned(), "w3".to_owned()].as_slice())
+        );
+    }
+
+    #[test]
+    fn clones_of_one_github_repository_share_an_entry() {
+        let repos = merge_github_repos(vec![
+            ("o/zeta".into(), vec!["w5".into()]),
+            ("o/app".into(), vec!["w1".into(), "w3".into()]),
+            ("o/app".into(), vec!["w7".into()]),
+        ]);
+        let shown: Vec<(&str, Vec<&str>)> = repos
+            .iter()
+            .map(|r| {
+                (
+                    r.repo.as_str(),
+                    r.workspace_ids.iter().map(String::as_str).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            vec![("o/app", vec!["w1", "w3", "w7"]), ("o/zeta", vec!["w5"])]
+        );
+    }
 
     #[test]
     fn a_file_changed_on_the_host_gets_its_own_error() {
@@ -1403,6 +2419,18 @@ mod tests {
         ));
         assert!(matches!(
             files_error(TransportError::Timeout),
+            SessionError::NotConnected(_)
+        ));
+    }
+
+    #[test]
+    fn a_slow_health_reading_is_no_lost_connection() {
+        assert!(matches!(
+            health_error(TransportError::Timeout),
+            SessionError::Health(_)
+        ));
+        assert!(matches!(
+            health_error(TransportError::Closed),
             SessionError::NotConnected(_)
         ));
     }
@@ -1433,6 +2461,382 @@ mod tests {
             name.ends_with(".textClipping") && name.len() < 160,
             "{name}"
         );
+    }
+
+    // A herdr stand-in for chains (#300): one agent pane `w1:p1` with a
+    // chain to `w1:p2`, metadata with herdr's `seq` rule, prompts counted.
+    #[cfg(unix)]
+    mod chain_runs {
+        use super::super::*;
+        use std::collections::BTreeMap;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        #[derive(Default)]
+        struct Fake {
+            status: &'static str,
+            seq: u64,
+            /// Source to its tokens and the last `seq` it took.
+            sources: BTreeMap<String, (BTreeMap<String, String>, Option<u64>)>,
+            panes: Vec<&'static str>,
+            /// Targets waiting at a dialog, which refuse prompts.
+            blocked: Vec<&'static str>,
+            prompts: Vec<(String, String)>,
+        }
+
+        impl Fake {
+            fn tokens(&self) -> BTreeMap<String, String> {
+                self.sources
+                    .values()
+                    .flat_map(|(tokens, _)| tokens.clone())
+                    .collect()
+            }
+
+            fn answer(&mut self, method: &str, params: &serde_json::Value) -> serde_json::Value {
+                use serde_json::json;
+                match method {
+                    "agent.get" => json!({"result": {"type": "agent_info", "agent": {
+                        "pane_id": "w1:p1", "agent_status": self.status,
+                        "state_change_seq": self.seq, "completion_seq": self.seq
+                    }}}),
+                    "pane.get" => json!({"result": {"type": "pane_info", "pane": {
+                        "pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                        "tokens": self.tokens()
+                    }}}),
+                    "pane.report_metadata" => {
+                        let source = params["source"].as_str().unwrap_or_default().to_owned();
+                        let entry = self.sources.entry(source).or_default();
+                        let seq = params["seq"].as_u64();
+                        if let (Some(seq), Some(last)) = (seq, entry.1)
+                            && seq <= last
+                        {
+                            return json!({"result": {"type": "ok"}});
+                        }
+                        if seq.is_some() {
+                            entry.1 = seq;
+                        }
+                        for (key, value) in params["tokens"].as_object().into_iter().flatten() {
+                            match value.as_str() {
+                                Some(value) => entry.0.insert(key.clone(), value.to_owned()),
+                                None => entry.0.remove(key),
+                            };
+                        }
+                        json!({"result": {"type": "ok"}})
+                    }
+                    "agent.prompt" => {
+                        let target = params["target"].as_str().unwrap_or_default();
+                        if self.blocked.contains(&target) {
+                            return json!({"error": {"code": "agent_blocked", "message": "waits"}});
+                        }
+                        if !self.panes.contains(&target) {
+                            return json!({"error": {"code": "agent_not_found", "message": "gone"}});
+                        }
+                        self.prompts.push((
+                            target.to_owned(),
+                            params["text"].as_str().unwrap_or_default().to_owned(),
+                        ));
+                        json!({"result": {"type": "agent_prompted"}})
+                    }
+                    _ => json!({"error": {"code": "unknown_method", "message": method}}),
+                }
+            }
+        }
+
+        fn fake_herdr(name: &str, fake: Arc<Mutex<Fake>>) -> std::path::PathBuf {
+            let path = std::env::temp_dir()
+                .join(format!("herdr-chains-{name}-{}.sock", std::process::id()));
+            let _ = std::fs::remove_file(&path);
+            let listener = UnixListener::bind(&path).expect("bind fake socket");
+            tokio::spawn(async move {
+                while let Ok((stream, _)) = listener.accept().await {
+                    let fake = fake.clone();
+                    tokio::spawn(async move {
+                        let (read, mut write) = stream.into_split();
+                        let mut lines = BufReader::new(read).lines();
+                        while let Ok(Some(line)) = lines.next_line().await {
+                            let request: serde_json::Value =
+                                serde_json::from_str(&line).expect("json");
+                            let mut reply = fake.lock().expect("fake").answer(
+                                request["method"].as_str().unwrap_or_default(),
+                                &request["params"],
+                            );
+                            reply["id"] = request["id"].clone();
+                            let _ = write.write_all(format!("{reply}\n").as_bytes()).await;
+                        }
+                    });
+                }
+            });
+            path
+        }
+
+        fn state(status: &str, tokens: &BTreeMap<String, String>) -> Arc<herdr_core::SessionState> {
+            Arc::new(herdr_core::SessionState::from_snapshot(
+                serde_json::from_value(serde_json::json!({
+                    "version": "0.9.5", "protocol": 22,
+                    "workspaces": [{"workspace_id": "w1", "number": 1, "label": "space"}],
+                    "tabs": [{"tab_id": "w1:t1", "workspace_id": "w1", "number": 1, "label": "1"}],
+                    "panes": [
+                        {"pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                         "agent": "claude", "agent_status": status, "tokens": tokens},
+                        {"pane_id": "w1:p2", "workspace_id": "w1", "tab_id": "w1:t1",
+                         "agent": "codex", "agent_status": "idle"}
+                    ],
+                    "agents": [{"pane_id": "w1:p2", "name": "reviewer"}]
+                }))
+                .expect("snapshot"),
+            ))
+        }
+
+        fn chain_tokens(fake: &Arc<Mutex<Fake>>) -> BTreeMap<String, String> {
+            let chain = Chain {
+                id: "0a1b2c".into(),
+                trigger: chains::ChainTrigger::Done,
+                repeat: false,
+                failed: false,
+                target_pane_id: "w1:p2".into(),
+                text: "/issue-approve 1".into(),
+            };
+            let tokens: BTreeMap<String, String> = chains::chain_tokens(&chain)
+                .into_iter()
+                .filter_map(|(key, value)| Some((key, value?)))
+                .collect();
+            fake.lock()
+                .expect("fake")
+                .sources
+                .insert(chains::CHAINS_SOURCE.into(), (tokens.clone(), None));
+            tokens
+        }
+
+        /// Runs the chains `before` → `now` on the devices and collects
+        /// what they report within a second.
+        async fn run(
+            path: &std::path::Path,
+            devices: &[&str],
+            before: &herdr_core::SessionState,
+            now: &Arc<herdr_core::SessionState>,
+        ) -> Vec<ChainResult> {
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            for device in devices {
+                ChainRuns {
+                    conn: Arc::new(Connection::local(path)),
+                    device: (*device).to_owned(),
+                    state: now.clone(),
+                    claimed: Arc::new(Mutex::new(HashSet::new())),
+                    results: tx.clone(),
+                }
+                .start(before);
+            }
+            drop(tx);
+            let mut results = Vec::new();
+            while let Ok(Some(result)) =
+                tokio::time::timeout(Duration::from_secs(1), rx.recv()).await
+            {
+                results.push(result);
+            }
+            results
+        }
+
+        #[tokio::test]
+        async fn two_devices_send_once_and_a_one_shot_chain_ends() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1", "w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("once", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac", "iphone"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Sent);
+            assert_eq!(results[0].target_label, "reviewer");
+            assert_eq!(results[0].trigger_label, "claude · Tab 1");
+            let fake = fake.lock().expect("fake");
+            assert_eq!(
+                fake.prompts,
+                [("w1:p2".to_owned(), "/issue-approve 1".to_owned())]
+            );
+            assert!(
+                chains::chains_of(&state("done", &fake.tokens()).panes[0]).is_empty(),
+                "a one-shot chain is gone once sent"
+            );
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_missing_target_fails_for_good() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("gone", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let mut now = (*state("done", &tokens)).clone();
+            now.panes.retain(|pane| pane.pane_id != "w1:p2");
+            let now = Arc::new(now);
+            let results = run(&path, &["mac"], &state("working", &tokens), &now).await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Failed);
+            assert!(fake.lock().expect("fake").prompts.is_empty());
+
+            // The next change finds the chain marked failed and sends nothing.
+            let tokens = fake.lock().expect("fake").tokens();
+            let chains = chains::chains_of(&state("done", &tokens).panes[0]);
+            assert!(chains.len() == 1 && chains[0].failed, "{chains:?}");
+            fake.lock().expect("fake").seq = 12;
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert!(results.is_empty(), "{results:?}");
+            assert!(fake.lock().expect("fake").prompts.is_empty());
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_waiting_target_skips_and_keeps_the_chain() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1", "w1:p2"],
+                blocked: vec!["w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("blocked", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Skipped);
+            let chains =
+                chains::chains_of(&state("done", &fake.lock().expect("fake").tokens()).panes[0]);
+            assert!(chains.len() == 1 && !chains[0].failed, "{chains:?}");
+
+            // Once the target is free, the next change sends.
+            {
+                let mut fake = fake.lock().expect("fake");
+                fake.blocked.clear();
+                fake.seq = 12;
+            }
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Sent);
+            let fake = fake.lock().expect("fake");
+            assert_eq!(fake.prompts.len(), 1);
+            assert!(
+                !fake
+                    .tokens()
+                    .keys()
+                    .any(|key| key.starts_with("chain_0a1b2c")),
+                "chain and claim gone: {:?}",
+                fake.tokens()
+            );
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn one_device_id_twice_still_sends_once() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                panes: vec!["w1:p1", "w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("twice", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac", "mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(fake.lock().expect("fake").prompts.len(), 1);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn repeating_chains_both_ways_are_refused() {
+            let mut back = chain_tokens(&Arc::new(Mutex::new(Fake::default())));
+            // w1:p1 prompts w1:p2 every time; seen from w1:p2 that is "back".
+            back.insert("chain_0a1b2c".into(), "dran|w1:p2".into());
+            let (_tx, rx) = watch::channel(SyncState {
+                session: Some(state("idle", &back)),
+                ..Default::default()
+            });
+            let session = Session {
+                state: Mutex::new(Some(rx)),
+                group_by_name: watch::channel(false).0,
+                space_sort: watch::channel(SpaceSort::default()).0,
+                chain_runner: watch::channel(None).0,
+                forward: tokio::spawn(async {}),
+                remote: false,
+                forwards: Forwards::default(),
+                usage: tokio::sync::Mutex::default(),
+                runtime: Handle::current(),
+            };
+            let refused = session
+                .set_chain("w1:p2", ChainTrigger::Done, true, "w1:p1", "weiter")
+                .await;
+            assert!(
+                matches!(refused, Err(SessionError::Rejected(_))),
+                "{refused:?}"
+            );
+            // Once is fine: without a connection it gets as far as sending.
+            let once = session
+                .set_chain("w1:p2", ChainTrigger::Done, false, "w1:p1", "weiter")
+                .await;
+            assert!(
+                matches!(once, Err(SessionError::NotConnected(_))),
+                "{once:?}"
+            );
+        }
+
+        #[tokio::test]
+        async fn a_change_gone_by_is_skipped() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "working",
+                seq: 11,
+                panes: vec!["w1:p1", "w1:p2"],
+                ..Fake::default()
+            }));
+            let path = fake_herdr("skip", fake.clone());
+            let tokens = chain_tokens(&fake);
+            let results = run(
+                &path,
+                &["mac"],
+                &state("working", &tokens),
+                &state("done", &tokens),
+            )
+            .await;
+            assert_eq!(results.len(), 1, "{results:?}");
+            assert_eq!(results[0].outcome, ChainOutcome::Skipped);
+            assert!(fake.lock().expect("fake").prompts.is_empty());
+            let _ = std::fs::remove_file(&path);
+        }
     }
 
     // The fake servers listen on Unix sockets, which `Connection::local` needs.

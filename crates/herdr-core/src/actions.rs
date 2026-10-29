@@ -278,19 +278,24 @@ const BUSY_PAUSE: std::time::Duration = std::time::Duration::from_millis(400);
 /// Agent names must be unique on the server. Without `name` the agent is
 /// named after its kind; a taken name gets a number (`claude-2`), so a
 /// second agent of the same kind needs no input. A pane that is still
-/// starting its shell gets a few seconds to reach the prompt.
+/// starting its shell gets a few seconds to reach the prompt. `args` go
+/// after the agent's command, e.g. `--resume <id>` (#304).
 pub async fn start_agent(
     conn: &Connection,
     pane_id: &str,
     kind: &str,
     name: Option<&str>,
+    args: &[String],
 ) -> Result<StartedAgent, ActionError> {
     let base = agent_name(name.filter(|name| !name.trim().is_empty()).unwrap_or(kind));
     let mut attempt = 1;
     let mut busy = 0;
     loop {
         let name = numbered_name(&base, attempt);
-        let params = json!({ "name": name, "kind": kind, "pane_id": pane_id });
+        let mut params = json!({ "name": name, "kind": kind, "pane_id": pane_id });
+        if !args.is_empty() {
+            params["args"] = json!(args);
+        }
         match conn.request("agent.start", params).await {
             Ok(_) => {
                 return Ok(StartedAgent {
