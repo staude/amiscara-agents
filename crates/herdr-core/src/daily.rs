@@ -10,8 +10,8 @@ use crate::claude::{Entry, EntryKind};
 /// Starts a repository's commits in the script's output: the mark, a
 /// space, the folder it was found in.
 pub const REPO_MARK: &str = "#amiscara-repo";
-/// Starts the Claude Code session files: `<bytes> <path below home>`,
-/// newest first.
+/// Starts the Claude Code session files with entries of the day:
+/// `<end> <path below home>`, newest first.
 pub const CLAUDE_MARK: &str = "#amiscara-claude";
 /// Longest text of an item.
 const TEXT_LEN: usize = 160;
@@ -61,21 +61,37 @@ pub struct Commit {
 pub struct SessionFile {
     /// Below the home directory.
     pub path: String,
-    pub size: u64,
+    /// The byte after the last line written on the day's UTC dates; later
+    /// lines need no reading.
+    pub end: u64,
 }
 
 /// A POSIX shell script that writes the commits of all local branches in
 /// the repositories of `dirs` between the Unix seconds `since` and `until`,
-/// and the Claude Code session files changed in the last `minutes`, to the
-/// file `out` next to the script; renamed to `out` + `.done` when complete,
-/// errors to `out` + `.err`. Read only, like the diff script. A repository
-/// with several worktrees is listed once.
+/// and the Claude Code session files changed in the last `minutes` that
+/// hold lines of the day's UTC dates, to the file `out` next to the
+/// script; renamed to `out` + `.done` when complete, errors to `out` +
+/// `.err`. Read only, like the diff script. A repository with several
+/// worktrees is listed once.
 pub fn day_script(out: &str, since: u64, until: u64, minutes: u64, dirs: &[String]) -> String {
     let out = out.rsplit('/').next().unwrap_or(out);
     let dirs: Vec<String> = dirs.iter().map(|dir| quote(dir)).collect();
     let dirs = dirs.join(" ");
+    // Claude Code writes compact JSON with UTC times; a local day touches
+    // one or two UTC dates.
+    let mut dates = vec![utc_date(since)];
+    let last = utc_date(until.saturating_sub(1).max(since));
+    if !dates.contains(&last) {
+        dates.push(last);
+    }
+    let patterns: Vec<String> = dates
+        .iter()
+        .map(|date| format!("-e {}", quote(&format!(r#""timestamp":"{date}T"#))))
+        .collect();
+    let patterns = patterns.join(" ");
     // `ls -t` puts the newest first; `find` runs it only when it found
-    // something. `-mmin` exists in GNU and BSD find alike.
+    // something. `-mmin` exists in GNU and BSD find alike. `grep -b -o`
+    // gives the offset of the last match, the rest of its line ends it.
     format!(
         r#"#!/bin/sh
 # Amiscara Agents: commits and Claude Code sessions of a day for the app (read only).
@@ -95,7 +111,10 @@ out="$(dirname "$0")/{out}"
   echo '{claude}'
   if cd "$HOME/.claude/projects" 2>/dev/null; then
     find . -mindepth 2 -maxdepth 2 -name '*.jsonl' -mmin -{minutes} -exec ls -t {{}} + | while IFS= read -r f; do
-      printf '%s %s\n' "$(wc -c < "$f" | tr -d ' ')" ".claude/projects/${{f#./}}"
+      at=$(grep -b -o -F {patterns} "$f" | tail -n 1 | cut -d: -f1)
+      [ -n "$at" ] || continue
+      rest=$(tail -c +"$((at + 1))" "$f" | head -n 1 | wc -c | tr -d ' ')
+      printf '%s %s\n' "$((at + rest))" ".claude/projects/${{f#./}}"
     done
   fi
 ) >"$out" 2>"$out.err"
@@ -104,6 +123,26 @@ mv "$out" "$out.done"
         repo = REPO_MARK,
         claude = CLAUDE_MARK,
     )
+}
+
+/// The UTC date of Unix seconds as `YYYY-MM-DD`.
+fn utc_date(secs: u64) -> String {
+    // Days to civil date, the inverse of `days_from_civil`.
+    let days = secs / 86_400 + 719_468;
+    let era = days / 146_097;
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_index = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_index + 2) / 5 + 1;
+    let month = if month_index < 10 {
+        month_index + 3
+    } else {
+        month_index - 9
+    };
+    let year = year_of_era + era * 400 + u64::from(month <= 2);
+    format!("{year:04}-{month:02}-{day:02}")
 }
 
 /// `text` in single quotes for the shell.
@@ -122,13 +161,13 @@ pub fn parse_script(output: &str) -> (Vec<Commit>, Vec<SessionFile>) {
         if line == CLAUDE_MARK {
             in_claude = true;
         } else if in_claude {
-            if let Some((size, path)) = line.split_once(' ')
-                && let Ok(size) = size.parse()
+            if let Some((end, path)) = line.split_once(' ')
+                && let Ok(end) = end.parse()
                 && !path.is_empty()
             {
                 files.push(SessionFile {
                     path: path.to_owned(),
-                    size,
+                    end,
                 });
             }
         } else if let Some(top) = line
@@ -416,6 +455,8 @@ mod tests {
         assert!(script.contains(r#"out="$(dirname "$0")/day-1.txt""#));
         assert!(script.contains("--since=@100 --until=@200"));
         assert!(script.contains("-mmin -5 -exec ls -t {} +"));
+        // 100 and 200 seconds: one UTC date.
+        assert!(script.contains(r#"grep -b -o -F -e '"timestamp":"1970-01-01T' "$f""#));
         assert!(script.contains(r#"".claude/projects/${f#./}""#));
     }
 
@@ -458,14 +499,32 @@ mod tests {
             [
                 SessionFile {
                     path: ".claude/projects/-home-a-shop/s1.jsonl".into(),
-                    size: 2048
+                    end: 2048
                 },
                 SessionFile {
                     path: ".claude/projects/-home-a-kino/s2.jsonl".into(),
-                    size: 17
+                    end: 17
                 },
             ]
         );
+    }
+
+    #[test]
+    fn script_greps_the_day_utc_dates() {
+        // 2026-10-28 in UTC+1: 27th 23:00 to 28th 23:00 UTC.
+        let since = parse_utc_ms("2026-10-27T23:00:00Z").expect("since") / 1000;
+        let script = day_script("o.txt", since, since + 86_400, 60, &[]);
+        assert!(
+            script
+                .contains(r#"-F -e '"timestamp":"2026-10-27T' -e '"timestamp":"2026-10-28T' "$f""#)
+        );
+        assert_eq!(utc_date(0), "1970-01-01");
+        assert_eq!(utc_date(951_782_400), "2000-02-29");
+        assert_eq!(utc_date(1_793_178_902), "2026-10-28");
+        // A UTC day: one date.
+        let since = parse_utc_ms("2026-10-28T00:00:00Z").expect("since") / 1000;
+        let script = day_script("o.txt", since, since + 86_400, 60, &[]);
+        assert!(script.contains(r#"-F -e '"timestamp":"2026-10-28T' "$f""#));
     }
 
     #[test]

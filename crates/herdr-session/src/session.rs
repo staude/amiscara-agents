@@ -851,8 +851,15 @@ impl Session {
             .filter(|item| since_ms <= item.time_ms && item.time_ms < until_ms)
             .collect();
         let mut truncated = output.truncated || files.len() > MAX_DAY_SESSIONS;
+        // Bytes still to read over all session files.
+        let mut budget = MAX_DAY_TOTAL_BYTES;
         for file in files.iter().take(MAX_DAY_SESSIONS) {
-            let (entries, cwd, cut) = match read_day(&conn, file, since_ms).await {
+            if budget == 0 {
+                truncated = true;
+                break;
+            }
+            let limit = budget.min(MAX_DAY_SESSION_BYTES);
+            let read = match read_day(&conn, file, since_ms, limit).await {
                 Ok(read) => read,
                 // Gone or unreadable since the script listed it: the day
                 // may miss entries.
@@ -862,13 +869,14 @@ impl Session {
                 }
                 Err(err) => return Err(SessionError::NotConnected(err.to_string())),
             };
-            truncated |= cut;
-            let place = match cwd {
+            truncated |= read.cut;
+            budget = budget.saturating_sub(read.bytes);
+            let place = match read.cwd {
                 Some(cwd) => daily::place_for(&cwd, &folders),
                 None => daily::last_part(file.path.rsplit_once('/').map_or("", |(dir, _)| dir)),
             };
             items.extend(
-                daily::turns(&entries, since_ms, until_ms)
+                daily::turns(&read.entries, since_ms, until_ms)
                     .into_iter()
                     .map(|item| daily::DailyItem {
                         place: place.clone(),
@@ -1382,8 +1390,10 @@ const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_DAY_BYTES: u64 = 4 * 1024 * 1024;
 /// Session files read for a day, the newest; more mark the day truncated.
 const MAX_DAY_SESSIONS: usize = 40;
-/// Bytes read back from the end of one session file for a day.
+/// Bytes read back from the end of one session file for a day, and from
+/// all of them.
 const MAX_DAY_SESSION_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_DAY_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
 /// Bytes read at once from a session file for a day: over SSH every read
 /// opens its own SFTP session, so few large reads.
 const DAY_CHUNK: u64 = 4 * 1024 * 1024;
@@ -1472,22 +1482,38 @@ async fn run_script(
     result
 }
 
-/// The entries of a session file back from its end to the first one
-/// before `since_ms`, its working directory, and whether it stopped at
-/// [`MAX_DAY_SESSION_BYTES`] first.
+/// What [`read_day`] got from one session file.
+struct DayRead {
+    entries: Vec<claude::Entry>,
+    /// The session's working directory.
+    cwd: Option<String>,
+    /// Stopped at the byte limit before the day's start.
+    cut: bool,
+    bytes: u64,
+}
+
+/// The entries of a session file back from the end of its day's lines to
+/// the first one before `since_ms`, at most `limit` bytes.
 async fn read_day(
     conn: &Connection,
     file: &daily::SessionFile,
     since_ms: u64,
-) -> Result<(Vec<claude::Entry>, Option<String>, bool), TransportError> {
+    limit: u64,
+) -> Result<DayRead, TransportError> {
     let mut entries = Vec::new();
     let mut cwd = None;
-    let mut end = file.size;
+    let mut end = file.end;
     while end > 0 {
-        if file.size - end >= MAX_DAY_SESSION_BYTES {
-            return Ok((entries, cwd, true));
+        let bytes = file.end - end;
+        if bytes >= limit {
+            return Ok(DayRead {
+                entries,
+                cwd,
+                cut: true,
+                bytes,
+            });
         }
-        let start = end.saturating_sub(DAY_CHUNK);
+        let start = end.saturating_sub(DAY_CHUNK.min(limit - bytes));
         let data = conn.read_file_range(&file.path, start, end - start).await?;
         if cwd.is_none() {
             cwd = claude::session_cwd(&data);
@@ -1506,7 +1532,12 @@ async fn read_day(
             break;
         }
     }
-    Ok((entries, cwd, false))
+    Ok(DayRead {
+        entries,
+        cwd,
+        cut: false,
+        bytes: file.end - end,
+    })
 }
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
