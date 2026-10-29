@@ -247,6 +247,98 @@ fn transcript_kind(kind: claude::EntryKind) -> TranscriptKind {
     }
 }
 
+/// Keeps of `files` (newest first) those changed in the last
+/// [`RECENT_DAYS`] before `now`, up to [`RECENT_BYTES`] in all; whether
+/// any were left out.
+fn keep_recent(files: &mut Vec<SessionFile>, now: u64) -> bool {
+    let cutoff = now.saturating_sub(RECENT_DAYS * 24 * 60 * 60);
+    let all = files.len();
+    let mut budget = RECENT_BYTES;
+    files.retain(|file| {
+        let keep = file.modified >= cutoff && file.size <= budget;
+        if keep {
+            budget -= file.size;
+        }
+        keep
+    });
+    files.len() < all
+}
+
+/// The hits of one session file, fed in pieces: at most
+/// [`claude::HOST_HITS_PER_FILE`] lines, like grep on the host; lines
+/// longer than [`claude::MAX_HIT_LINE`] are skipped, the conversation
+/// cannot open them.
+struct LineScan<'a> {
+    path: &'a str,
+    hits: Vec<claude::Hit>,
+    lines: usize,
+    /// The file has more lines with hits than kept.
+    cut: bool,
+    /// Bytes of a line not yet complete, and where it starts.
+    rest: Vec<u8>,
+    rest_start: u64,
+    /// Inside a line that is too long.
+    skipping: bool,
+}
+
+impl<'a> LineScan<'a> {
+    fn new(path: &'a str) -> Self {
+        Self {
+            path,
+            hits: Vec::new(),
+            lines: 0,
+            cut: false,
+            rest: Vec::new(),
+            rest_start: 0,
+            skipping: false,
+        }
+    }
+
+    /// The next piece of the file, which starts at byte `pos`.
+    fn feed(&mut self, pos: u64, data: &[u8], query: &Query) {
+        let mut data = data;
+        if self.skipping {
+            match data.iter().position(|&b| b == b'\n') {
+                Some(at) => {
+                    data = &data[at + 1..];
+                    self.rest_start = pos + at as u64 + 1;
+                    self.skipping = false;
+                }
+                None => return,
+            }
+        }
+        self.rest.extend_from_slice(data);
+        let complete = self
+            .rest
+            .iter()
+            .rposition(|&b| b == b'\n')
+            .map_or(0, |at| at + 1);
+        let mut start = self.rest_start;
+        for line in self.rest[..complete].split(|&b| b == b'\n') {
+            let found = if line.len() as u64 > claude::MAX_HIT_LINE {
+                Vec::new()
+            } else {
+                claude::hits_in_line(self.path, line, start, query)
+            };
+            if !found.is_empty() {
+                if self.lines == claude::HOST_HITS_PER_FILE {
+                    self.cut = true;
+                    return;
+                }
+                self.lines += 1;
+                self.hits.extend(found);
+            }
+            start += line.len() as u64 + 1;
+        }
+        self.rest.drain(..complete);
+        self.rest_start += complete as u64;
+        if self.rest.len() as u64 > claude::MAX_HIT_LINE {
+            self.rest.clear();
+            self.skipping = true;
+        }
+    }
+}
+
 /// A session file to read.
 struct SessionFile {
     path: String,
@@ -364,17 +456,7 @@ impl<S: SearchSink> Search<'_, S> {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
-            let cutoff = now.saturating_sub(RECENT_DAYS * 24 * 60 * 60);
-            let all = files.len();
-            let mut budget = RECENT_BYTES;
-            files.retain(|file| {
-                let keep = file.modified >= cutoff && file.size <= budget;
-                if keep {
-                    budget -= file.size;
-                }
-                keep
-            });
-            self.end.older_skipped = files.len() < all;
+            self.end.older_skipped = keep_recent(&mut files, now);
         }
         let total: u64 = files.iter().map(|file| file.size).sum();
         let mut done = 0;
@@ -404,16 +486,9 @@ impl<S: SearchSink> Search<'_, S> {
         done: u64,
         total: u64,
     ) -> Result<(Vec<claude::Hit>, bool), SessionError> {
-        let mut hits = Vec::new();
-        let mut lines = 0;
-        let mut cut = false;
-        // Bytes of a line not yet complete, and where it starts.
-        let mut rest: Vec<u8> = Vec::new();
-        let mut rest_start = 0;
-        // Inside a line longer than [`claude::MAX_HIT_LINE`], which is skipped.
-        let mut skipping = false;
+        let mut scan = LineScan::new(&file.path);
         let mut pos = 0;
-        while pos < file.size && !cut {
+        while pos < file.size && !scan.cut {
             if self.stopped() {
                 break;
             }
@@ -425,52 +500,12 @@ impl<S: SearchSink> Search<'_, S> {
             if data.is_empty() {
                 break;
             }
-            let read = data.len() as u64;
-            let mut data = &data[..];
-            if skipping {
-                match data.iter().position(|&b| b == b'\n') {
-                    Some(at) => {
-                        data = &data[at + 1..];
-                        rest_start = pos + at as u64 + 1;
-                        skipping = false;
-                    }
-                    None => data = &[],
-                }
-            }
-            pos += read;
-            rest.extend_from_slice(data);
-            let complete = rest
-                .iter()
-                .rposition(|&b| b == b'\n')
-                .map_or(0, |at| at + 1);
-            let mut start = rest_start;
-            for line in rest[..complete].split(|&b| b == b'\n') {
-                // Like the host's route: the conversation cannot open such a line.
-                let found = if line.len() as u64 > claude::MAX_HIT_LINE {
-                    Vec::new()
-                } else {
-                    claude::hits_in_line(&file.path, line, start, &self.query)
-                };
-                if !found.is_empty() {
-                    if lines == claude::HOST_HITS_PER_FILE {
-                        cut = true;
-                        break;
-                    }
-                    lines += 1;
-                    hits.extend(found);
-                }
-                start += line.len() as u64 + 1;
-            }
-            rest.drain(..complete);
-            rest_start += complete as u64;
-            if rest.len() as u64 > claude::MAX_HIT_LINE {
-                rest.clear();
-                skipping = true;
-            }
+            scan.feed(pos, &data, &self.query);
+            pos += data.len() as u64;
             self.sink.progress(done + pos, total);
         }
         // The rest is a line still being written.
-        Ok((hits, cut))
+        Ok((scan.hits, scan.cut))
     }
 
     /// Runs [`claude::search_script`] in a tab of `space` and reads the
@@ -674,7 +709,91 @@ impl<S: SearchSink> Search<'_, S> {
 
 #[cfg(test)]
 mod tests {
-    use super::space_of;
+    use super::{LineScan, RECENT_BYTES, SessionFile, keep_recent, space_of};
+    use herdr_core::claude::{self, Query};
+
+    fn line(text: &str) -> Vec<u8> {
+        format!(
+            "{}\n",
+            serde_json::json!({"type": "user", "message": {"content": text}})
+        )
+        .into_bytes()
+    }
+
+    /// Feeds `data` in pieces of `step` bytes.
+    fn scan(data: &[u8], step: usize) -> (Vec<u64>, bool) {
+        let query = Query::new("treffer").expect("query");
+        let mut scan = LineScan::new("s.jsonl");
+        for (index, piece) in data.chunks(step).enumerate() {
+            scan.feed((index * step) as u64, piece, &query);
+            if scan.cut {
+                break;
+            }
+        }
+        (scan.hits.iter().map(|hit| hit.offset).collect(), scan.cut)
+    }
+
+    #[test]
+    fn scanning_in_pieces_keeps_line_offsets() {
+        let mut data = line("nichts");
+        let first = data.len() as u64;
+        data.extend(line("ein Treffer"));
+        let second = data.len() as u64;
+        data.extend(line("noch ein TREFFER"));
+        // A last line still being written does not count.
+        data.extend_from_slice(br#"{"type":"user","message":{"content":"treffer"#);
+        for step in [1, 7, 64, data.len()] {
+            assert_eq!(
+                scan(&data, step),
+                (vec![first, second], false),
+                "step {step}"
+            );
+        }
+    }
+
+    #[test]
+    fn scanning_skips_too_long_lines() {
+        let long = "x".repeat(claude::MAX_HIT_LINE as usize + 10);
+        let mut data = line(&format!("treffer {long}"));
+        let after = data.len() as u64;
+        data.extend(line("treffer danach"));
+        // Whole in one piece, and across pieces smaller than the line.
+        for step in [data.len(), 300_000] {
+            assert_eq!(scan(&data, step), (vec![after], false), "step {step}");
+        }
+    }
+
+    #[test]
+    fn scanning_stops_after_the_lines_per_file() {
+        let data: Vec<u8> = (0..=claude::HOST_HITS_PER_FILE)
+            .flat_map(|i| line(&format!("treffer {i}")))
+            .collect();
+        let (hits, cut) = scan(&data, 100);
+        assert_eq!(hits.len(), claude::HOST_HITS_PER_FILE);
+        assert!(cut);
+    }
+
+    #[test]
+    fn recent_files_by_age_and_size() {
+        let day = 24 * 60 * 60;
+        let now = 100 * day;
+        let file = |name: &str, size, age| SessionFile {
+            path: name.to_owned(),
+            size,
+            modified: now - age * day,
+        };
+        let mut files = vec![
+            file("a", RECENT_BYTES / 2, 0),
+            file("b", RECENT_BYTES / 2 + 1, 1),
+            file("c", 10, 2),
+            file("d", 10, 31),
+        ];
+        assert!(keep_recent(&mut files, now));
+        let kept: Vec<_> = files.iter().map(|file| file.path.as_str()).collect();
+        assert_eq!(kept, ["a", "c"]);
+        let mut files = vec![file("a", 10, 0)];
+        assert!(!keep_recent(&mut files, now));
+    }
 
     #[test]
     fn a_conversation_belongs_to_the_closest_space() {
