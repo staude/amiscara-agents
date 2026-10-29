@@ -673,6 +673,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `herdr_core::chains`, `BoardItem::chains`, `SessionUpdate::chain_results`,
   `Session::set_chain_runner`, `set_chain`, `remove_chain`; `AgentInfo` reads
   `state_change_seq` and `completion_seq`.
+- Claude sessions of a folder (#304): "Claude-Sitzungen …" in a space's
+  menu lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), the 30 newest with
+  title (from `/rename`, else Claude's own, else the first prompt), last
+  activity and file size. "In neuer Pane fortsetzen" opens a tab in that
+  folder and starts `claude --resume <id>` there, with the shell's current
+  environment; "In dieser Pane fortsetzen" does it in the shown shell pane
+  of the same folder. Needs file access like the conversation view; Mac,
+  iPhone and iPad. Core: `claude::list_sessions`, `start_agent` takes agent
+  arguments, `Session::claude_sessions`, `resume_claude`.
 
 ### Changed
 

@@ -31,6 +31,10 @@ struct HostSidebar: View {
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
+    #if !os(tvOS)
+    /// Claude Code sessions of a space's folder to resume (#304).
+    @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    #endif
     @State private var addingSessionTo: HostConnection?
     #if !os(tvOS)
     /// The host whose secrets are shown (#291).
@@ -183,6 +187,13 @@ struct HostSidebar: View {
                 selection = .space(SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
             }
         }
+        #if !os(tvOS)
+        .sheet(item: $claudeSessionsFor) { target in
+            ClaudeSessionsView(target: target) { created in
+                selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
+            }
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -405,6 +416,11 @@ struct HostSidebar: View {
                         newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
                     }
                 }
+                #if !os(tvOS)
+                Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
+                    claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: key)
+                }
+                #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
                     closing = .space(entry.workspace, on: connection)
                 }

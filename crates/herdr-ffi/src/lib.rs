@@ -22,9 +22,10 @@ pub use add_host::{
 };
 pub use convert::{
     AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
-    ChoiceQuestion, EditorRequest, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
-    ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor,
-    TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
+    ChoiceQuestion, ClaudeSessionItem, EditorRequest, HostStatus, OpenRequest, PaneContent,
+    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
+    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage, WorkspaceItem,
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
@@ -626,6 +627,20 @@ impl HostSession {
         before: Option<TranscriptCursor>,
     ) -> Result<TranscriptPage, FfiError> {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
+    }
+
+    /// The Claude Code sessions of `folder` on the host (#304), newest
+    /// first and at most 30, read from their files (SFTP over SSH). Read
+    /// only. Blocks for several round trips; call it off the main thread.
+    pub fn claude_sessions(&self, folder: String) -> Result<Vec<ClaudeSessionItem>, FfiError> {
+        Ok(runtime().block_on(self.session.claude_sessions(&folder))?)
+    }
+
+    /// Continues the Claude Code session `session_id` in a pane at its
+    /// shell prompt (`claude --resume <id>`) and returns the agent's name.
+    /// The pane must be in the session's folder.
+    pub fn resume_claude(&self, pane_id: String, session_id: String) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.resume_claude(&pane_id, &session_id))?)
     }
 
     /// What changed in the working directory of a pane (#228): `git diff`

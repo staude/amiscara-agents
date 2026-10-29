@@ -67,7 +67,7 @@ struct HostEditorView: View {
 
                 if config.kind == .ssh {
                     importSection
-                    Section("Server") {
+                    Section {
                         TextField("Host", text: $config.host, prompt: Text("mac.example.internal"))
                             .technicalInput()
                         TextField("Port", value: $config.port, format: .number.grouping(.never))
@@ -76,9 +76,21 @@ struct HostEditorView: View {
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
                             .technicalInput()
                         sessionField
+                        #if !os(tvOS)
+                        Toggle("Über NetBird", isOn: Binding(
+                            get: { config.behindNetBird },
+                            set: { config.viaNetBird = $0 }
+                        ))
+                        #endif
                         #if os(macOS)
                         TextField("SSH-Ziel für VS Code", text: sshTarget, prompt: Text(verbatim: sshTargetPlaceholder))
                             .technicalInput()
+                        #endif
+                    } header: {
+                        Text("Server")
+                    } footer: {
+                        #if !os(tvOS)
+                        Text("NetBird-Adressen und -Domains erkennt die App selbst, eigene Domains lernt sie, sobald NetBird läuft. Mit dem Schalter lässt sich das überschreiben.")
                         #endif
                     }
                     importedKeySection
