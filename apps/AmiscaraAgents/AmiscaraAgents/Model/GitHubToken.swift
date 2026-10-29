@@ -2,13 +2,13 @@
 import Foundation
 import Security
 
-/// The GitHub token of a host (#309) in the Keychain of this device, one
-/// item per host. It lets the app show and merge the pull requests of the
-/// host's spaces. Never synced through iCloud, like secrets (#291).
+/// A GitHub token per host (#296) in the Keychain of this device, for the
+/// plans waiting for approval in the host's repositories. Like the secrets
+/// (#291) never synced through iCloud, so each device gets it once.
 enum GitHubToken {
     private static let service = "net.staude.amiscara.agents.github-token"
 
-    static func save(_ token: String, host hostID: UUID) throws {
+    static func save(_ token: String, for hostID: UUID) throws {
         let data = Data(token.utf8)
         let query = baseQuery(hostID)
         let update: [String: Any] = [kSecValueData as String: data]
@@ -23,19 +23,20 @@ enum GitHubToken {
         guard status == errSecSuccess else { throw KeyStore.Failure.status(status) }
     }
 
-    static func load(host hostID: UUID) -> String? {
+    static func load(for hostID: UUID) throws -> String? {
         var query = baseQuery(hostID)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data
-        else { return nil }
-        let token = String(decoding: data, as: UTF8.self)
-        return token.isEmpty ? nil : token
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data else {
+            throw KeyStore.Failure.status(status)
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 
-    static func delete(host hostID: UUID) {
+    static func delete(for hostID: UUID) {
         SecItemDelete(baseQuery(hostID) as CFDictionary)
     }
 

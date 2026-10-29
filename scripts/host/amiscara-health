@@ -1,0 +1,91 @@
+#!/bin/sh
+# Health of a host for the dashboard of the Amiscara Agents apps (#306).
+# The `amiscara-health` case of the key's authorized_keys line runs it from
+# `~/.amiscara-agents/bin/amiscara-health`, every 60 seconds while the
+# dashboard is open. It only reads and prints one JSON line:
+#
+#   {"v":1,"os":"macOS 27.0","load1":1.25,"cpus":10,"mem_used":…,
+#    "mem_total":…,"disk_free":…,"disk_total":…,"uptime":…}
+#
+# Memory and disk in bytes (disk: the file system of $HOME), uptime in
+# seconds. Used memory is the total minus what the system reports as
+# available, so caches do not count. A value the system does not give is
+# left out. macOS and Linux; always exits 0.
+
+LC_ALL=C
+export LC_ALL
+
+json='"v":1'
+
+# Adds `"name":value` when value is not empty; a string when $3 is set.
+field() {
+    [ -n "$2" ] || return 0
+    if [ -n "${3-}" ]; then
+        json="$json,\"$1\":\"$2\""
+    else
+        json="$json,\"$1\":$2"
+    fi
+}
+
+# Only plain numbers get through.
+number() {
+    case $1 in
+        '' | *[!0-9.]* | *.*.* | .*) ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+os= load1= cpus= mem_used= mem_total= uptime=
+case $(uname -s 2>/dev/null) in
+Darwin)
+    os="macOS $(sw_vers -productVersion 2>/dev/null)"
+    load1=$(sysctl -n vm.loadavg 2>/dev/null | awk '{ printf "%.2f", $2 }')
+    cpus=$(sysctl -n hw.ncpu 2>/dev/null)
+    mem_total=$(sysctl -n hw.memsize 2>/dev/null)
+    if [ -n "$(number "$mem_total")" ]; then
+        mem_used=$(vm_stat 2>/dev/null | awk -v total="$mem_total" '
+            /page size of/ { for (i = 1; i <= NF; i++) if ($i == "of") size = $(i + 1) }
+            /^Pages free:/ { free = $3 + 0 }
+            /^Pages inactive:/ { inactive = $3 + 0 }
+            END { if (size > 0) printf "%.0f", total - (free + inactive) * size }')
+    fi
+    boot=$(sysctl -n kern.boottime 2>/dev/null | sed -n 's/^{ sec = \([0-9]*\).*/\1/p')
+    [ -n "$boot" ] && uptime=$(($(date +%s) - boot))
+    ;;
+Linux)
+    os=$(uname -sr 2>/dev/null)
+    [ -r /proc/loadavg ] && load1=$(awk '{ printf "%.2f", $1 }' /proc/loadavg)
+    cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)
+    if [ -r /proc/meminfo ]; then
+        mem_total=$(awk '/^MemTotal:/ { printf "%.0f", $2 * 1024 }' /proc/meminfo)
+        mem_used=$(awk '
+            /^MemTotal:/ { total = $2 }
+            /^MemAvailable:/ { avail = $2; seen = 1 }
+            END { if (seen) printf "%.0f", (total - avail) * 1024 }' /proc/meminfo)
+    fi
+    [ -r /proc/uptime ] && uptime=$(awk '{ printf "%d", $1 }' /proc/uptime)
+    ;;
+esac
+
+# The first run of four numbers (blocks, used, available, capacity), so a
+# device name with spaces does not shift the columns.
+disk=$(df -Pk "$HOME" 2>/dev/null | awk 'NR == 2 {
+    for (i = 1; i + 3 <= NF; i++)
+        if ($i ~ /^[0-9]+$/ && $(i + 1) ~ /^[0-9]+$/ && $(i + 2) ~ /^[0-9]+$/ && $(i + 3) ~ /%$/) {
+            printf "%.0f %.0f", $(i + 2) * 1024, $i * 1024
+            exit
+        }
+}')
+disk_free=${disk% *}
+disk_total=${disk#* }
+
+field os "$(printf '%s' "$os" | tr -cd 'A-Za-z0-9 ._-')" string
+field load1 "$(number "$load1")"
+field cpus "$(number "$cpus")"
+field mem_used "$(number "$mem_used")"
+field mem_total "$(number "$mem_total")"
+field disk_free "$(number "$disk_free")"
+field disk_total "$(number "$disk_total")"
+field uptime "$(number "$uptime")"
+printf '{%s}\n' "$json"
+exit 0

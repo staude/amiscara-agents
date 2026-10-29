@@ -245,6 +245,8 @@ enum PromptIntentError: Error, CustomLocalizedStringResourceConvertible {
     case hostGone
     case unreachable(String)
     case inputOff(String)
+    /// herdr refuses prompts while the agent waits at a dialog.
+    case blocked
     case failed(String)
 
     var localizedStringResource: LocalizedStringResource {
@@ -254,6 +256,7 @@ enum PromptIntentError: Error, CustomLocalizedStringResourceConvertible {
         case .hostGone: "Der Host dieses Agents ist auf diesem Gerät nicht eingerichtet."
         case .unreachable(let host): "\(host) ist gerade nicht erreichbar."
         case .inputOff(let host): "Eingaben sind für \(host) ausgeschaltet."
+        case .blocked: "Der Agent wartet auf eine Antwort."
         case .failed(let message): "Senden fehlgeschlagen: \(message)"
         }
     }
@@ -369,9 +372,13 @@ extension HostStore {
         while connection.isSettling, ContinuousClock.now < deadline, !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(100))
         }
+        // Closing the quick composer while waiting sends nothing (#307).
+        try Task.checkCancellation()
         guard connection.isLive else { throw PromptIntentError.unreachable(connection.config.name) }
         do {
             try await connection.submit(text, to: paneID, isAgent: true)
+        } catch FfiError.AgentBlocked {
+            throw PromptIntentError.blocked
         } catch {
             throw PromptIntentError.failed(inputErrorMessage(error))
         }

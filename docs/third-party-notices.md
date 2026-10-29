@@ -11,6 +11,7 @@ credit. All dependencies allow that:
   MPL-2.0 (`lightningcss`, build only).
 - Android (Gradle): AndroidX, kotlinx and ZXing under Apache-2.0; JNA under
   LGPL-2.1 or Apache-2.0, used under Apache-2.0.
+- Swift packages (Mac): Sparkle and KeyboardShortcuts under MIT.
 
 MPL-2.0 is copyleft per file only: the crates are used unchanged, so a
 notice is enough.

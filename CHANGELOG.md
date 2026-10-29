@@ -600,6 +600,57 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Conversation search (#303): a search field in the host dashboard (Mac,
+  iPhone, iPad) searches all Claude Code conversations of the host on
+  Return, ignoring case, at least two characters. Hits are grouped by space
+  (the pane's directory or the deepest one above it, else "Ohne Space" with
+  the directory), then by session with its title, each with a snippet and
+  date, newest first, at most 200 and 20 lines per session file. A tap
+  opens the conversation at the hit, marked, with "Neuere Einträge laden"
+  below. Index-free: a local host's files are read directly; over SSH with
+  input allowed and a space open a script runs grep in a short-lived,
+  unfocused tab (prompts, answers and shown tool fields only, files of the
+  last 30 days first, no subagents, 300 lines in all), otherwise the app reads the files of the last 30 days,
+  newest first, up to 300 MB, and says so. Progress with "Abbrechen"; a
+  cancel closes the tab. Needs file access. Core: `Connection::is_local`,
+  `claude::Query`, `hits_in_line`, `snippet`, `search_script`,
+  `read_hit_line`, `read_forward`, `Session::search_conversations`,
+  `claude_history_at`, `claude_history_after`, `TranscriptSpan`.
+- Token usage (#302): the host dashboard (Mac, iPhone, iPad) shows "Heute:
+  n Tokens, ~$x" for the host and under each Claude agent, read from Claude
+  Code's session files in the working directories of the open Claude agents
+  (subagents included, each message counted once per `message.id` and
+  `requestId`). A tap opens the last 30 days per day, unfolding into model
+  and folder. Costs are estimated in US dollars from an editable price table
+  per model (Settings on the Mac, the sidebar menu on iPhone and iPad) with
+  Anthropic's list prices as defaults; models without a price count as
+  tokens only. "Tageskosten im Widget" (off by default) adds today's total
+  per host to the medium widget's footer. Needs file access like uploads;
+  each file is read once and afterwards only what was appended, kept in the
+  cache directory between runs. Core: `herdr_core::usage`,
+  `Session::usage`, `usage_state`, `restore_usage_state`;
+  `herdr-spike usage <cwd> [--days N]` prints tokens per local day and model.
+  `scripts/usage-sums-test.sh` checks the app's sums against the bindings.
+- Approvals (#296): with a GitHub token per host (host settings, section
+  "GitHub", fine-grained with Issues: Read; only in this device's Keychain,
+  `net.staude.amiscara.agents.github-token`, not in iCloud) the overview and
+  the host dashboard show "Freigaben": open issues with `awaiting-approval`
+  in the GitHub repositories of the host's spaces, with the "Überblick für
+  die Freigabe" of the latest enon-tools plan comment. When the issue's
+  planning tab `plan-<nr>` waits with the question "Ja"/"Später", the app
+  answers it there ("Freigeben", "Später", "Mit Hinweis freigeben", which
+  adds a note to "Ja"); otherwise it shows `/issue-approve <nr>` to copy, or
+  "Tab öffnen" while the tab asks something else. The app never sets a
+  label itself. Needs file access to read the repositories' Git configs.
+  Mac, iPhone, iPad. Core: `herdr_core::github` (`origin_repo`,
+  `plan_overview`), `Session::github_repos`.
+- Quick composer on the Mac (#307): ⌃⌥Space opens a floating window from
+  any app, without bringing the app to the front, for a prompt to the last
+  agent; the agent can be switched in the window, Enter sends, Esc closes,
+  and the key bar's Esc and ⌃C go to the target pane. The shortcut can be
+  changed or cleared under "Schnelleingabe" in the settings (Swift package
+  KeyboardShortcuts). With the app lock on, the shortcut brings up the lock
+  instead once the delay is over.
 - Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
   Z–A) or manually; manual starts from the order shown and changes by drag
   and drop in the sidebar, within a group and only on the same host. Stored
@@ -642,20 +693,63 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
-- Pull requests (#309): with a GitHub token in the host settings (fine-grained,
-  kept in this device's Keychain under `net.staude.amiscara.agents.github-token`,
-  not in iCloud) a space whose branch has an open pull request shows its
+- Spotlight (#308): spaces (name, host, branch) and agents (name, space,
+  status) of every host are indexed, so typing a name in the system search
+  finds it; a tapped result opens the app on that space or agent, even with
+  the window closed. Written at most every 30 seconds; a host without a
+  connection keeps its last entries until it is removed, a space closes or
+  an agent finishes. "Spaces und Agents in Spotlight" in the Mac's settings
+  window and the iPhone's "Erscheinungsbild" menu turns it off. Mac and
+  iPhone/iPad; not tvOS or Watch.
+- Host health on the dashboard (#306): a row of tiles under the counts with
+  load (orange from one per core), memory, free disk (orange under 10 %
+  free), uptime with the OS and the herdr version, read every 60 seconds
+  while the dashboard is open. `scripts/host/amiscara-health` prints them as
+  one JSON line (macOS and Linux); the key's line gets a fixed
+  `amiscara-health` case that prints a marker and runs it from
+  `~/.amiscara-agents/bin/`, "Dieser Mac" runs it directly. Without the
+  script or with an older key line the dashboard says what to do instead.
+  Mac, iPhone and iPad. Core: `Connection::health_line`,
+  `herdr_session::health`, `Session::host_health`.
+- Chains (#300): "Kette anlegen …" in an agent's context menu (Mac, iPhone,
+  iPad) sends a saved prompt of up to 160 characters to an agent of the same
+  host, itself included, when this one finishes or starts waiting; once or
+  every time, but every time and on waiting only to another agent, and
+  not every time both ways between two agents. A chain is kept on the
+  host as metadata of its pane (up to 3 per agent), so every device shows it
+  as "Kette: → <Ziel>" under the agent and it ends with the pane. It runs on
+  a device that is connected with input allowed; with several, the first to
+  claim the state change on the host sends, so the prompt goes out once. A
+  target that is gone or refuses the prompt marks the chain failed ("Kette
+  fehlgeschlagen") and it never runs again; a target waiting at a dialog or
+  a dropped connection skips this run only. The host's dashboard lists the
+  chains with delete and this device's log of the last 50 runs (gesendet,
+  fehlgeschlagen, übersprungen). herdr 0.9.5 reports a turn interrupted with
+  Esc as done too, so it fires a "fertig" chain. Core:
+  `herdr_core::chains`, `BoardItem::chains`, `SessionUpdate::chain_results`,
+  `Session::set_chain_runner`, `set_chain`, `remove_chain`; `AgentInfo` reads
+  `state_change_seq` and `completion_seq`.
+- Claude sessions of a folder (#304): "Claude-Sitzungen …" in a space's
+  menu lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), the 30 newest with
+  title (from `/rename`, else Claude's own, else the first prompt), last
+  activity and file size. "In neuer Pane fortsetzen" opens a tab in that
+  folder and starts `claude --resume <id>` there, with the shell's current
+  environment; "In dieser Pane fortsetzen" does it in the shown shell pane
+  of the same folder. Needs file access like the conversation view; Mac,
+  iPhone and iPad. Core: `claude::list_sessions`, `start_agent` takes agent
+  arguments, `Session::claude_sessions`, `resume_claude`.
+- Pull requests (#309): with the host's GitHub token of the approvals (#296),
+  given the rights for pull requests, a space whose branch has an open pull request shows its
   number, checks and review state in the sidebar, next to the tabs and on
   the dashboard. The pull request view shows description, checks, comments
   and reviews (line comments only as a count) and the diff, and merges after
   Face ID or the passcode, also with the app lock off: squash where the
   repository allows it, else a merge commit, else rebase. The diff is read
   at the head merged, so merging needs it loaded; GitHub refuses the merge
-  when a commit came in since. The repository comes from the
-  `origin` remote in the Git configuration on the host, read over the file
-  access without a tab. Without a token nothing changes. Mac, iPhone and
-  iPad. Core: `herdr_core::github::origin_repository`,
-  `Session::github_repository`, FFI `parse_diff`.
+  when a commit came in since. The repositories come from
+  `Session::github_repos` like the approvals'. Without a token nothing
+  changes. Mac, iPhone and iPad. FFI `parse_diff`.
 
 ### Changed
 

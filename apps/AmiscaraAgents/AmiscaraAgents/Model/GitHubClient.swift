@@ -12,8 +12,8 @@ struct GitHubClient {
     /// Diffs are read up to this size, then cut at a line end.
     static let maxDiffBytes = 4 * 1024 * 1024
 
-    /// The open pull requests of `repo` and the merge methods it allows.
-    func pullRequests(_ repo: GitHubRepo) async throws -> RepoPullRequests {
+    /// The open pull requests of `owner/name` and the merge methods it allows.
+    func pullRequests(owner: String, name: String) async throws -> RepoPullRequests {
         let query = """
         query($owner: String!, $name: String!) {
           repository(owner: $owner, name: $name) {
@@ -29,7 +29,7 @@ struct GitHubClient {
           }
         }
         """
-        let data: ListData = try await graphQL(query, ["owner": repo.owner, "name": repo.name])
+        let data: ListData = try await graphQL(query, ["owner": owner, "name": name])
         guard let repository = data.repository else { throw GitHubError.noAccess }
         return RepoPullRequests(
             methods: MergeMethods(
@@ -39,8 +39,8 @@ struct GitHubClient {
             ),
             pullRequests: repository.pullRequests.nodes.map { node in
                 PullRequestSummary(
-                    owner: repo.owner,
-                    repoName: repo.name,
+                    owner: owner,
+                    repoName: name,
                     number: node.number,
                     title: node.title,
                     url: node.url,

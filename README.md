@@ -109,11 +109,39 @@ code), so a host is set up the same way everywhere.
   working and done, newest first, with the time in that state. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
+- **One prompt to several agents:** "Auswählen" in the overview or a host's
+  dashboard picks agents (all, all finished, all working, or one by one,
+  also across hosts in the overview), and one composer sends the same text
+  to each of them in turn, for example `/compact` or "Status?". A list
+  shows per agent whether it was sent, skipped or failed and why. Agents
+  waiting for an answer cannot be picked (herdr refuses prompts to them),
+  nor agents of hosts without a connection or with input off; text only,
+  no attachments. Mac, iPhone and iPad.
 - **Dashboard per host:** a host's name (or "Dashboard" under it) in the
   sidebar opens a page in the look of the widget: the number of waiting
   agents large, the working ones below, a row per agent that opens it.
   While the host reconnects its last agents stay; without a connection the
-  Mac's board in iCloud stands in. Mac, iPhone and iPad.
+  Mac's board in iCloud stands in. With `amiscara-health` on the host, small
+  tiles show its load, memory, free disk (orange under 10 % free), uptime
+  and herdr version, see [Setting up a host](#setting-up-a-host). Mac,
+  iPhone and iPad.
+- **Daily log per host:** "Heute" on a connected host's dashboard lists
+  what happened that day by time: tasks given to Claude agents and the
+  turns they finished (from the session files in `~/.claude/projects`)
+  and the commits of all spaces. A menu picks one of the last seven days;
+  "Zusammenfassen" turns the list into a few sentences with the on-device
+  model (Apple Intelligence). Git runs in a short-lived tab, so it needs
+  input and file access; nothing is stored. Mac, iPhone and iPad.
+- **Approvals:** with a GitHub token for a host (host settings, "GitHub",
+  fine-grained with Issues: Read, kept only on this device), the overview
+  and the host's dashboard list "Freigaben": issues in the host's GitHub
+  repositories whose enon-tools plan waits for approval
+  (`awaiting-approval`), with the plan's overview for the approval. If the
+  planning tab `plan-<nr>` waits for the answer, "Freigeben", "Später" and
+  "Mit Hinweis freigeben" answer it there; the workflow then sets
+  `approved` itself. Without such a tab the app shows `/issue-approve <nr>`
+  to copy. The repositories come from the Git configs on the host, so it
+  needs file access ("Bilder hochladen"). Mac, iPhone and iPad.
 - **Sorting spaces:** per host as herdr has them, by name (A–Z, Z–A) or
   manually by drag and drop, with a line where the space will land. The
   menu next to "Spaces" shows the current order as text. Not on the Apple
@@ -141,6 +169,20 @@ code), so a host is set up the same way everywhere.
 - **Claude Code conversation:** for Claude panes the conversation itself
   (prompts, answers, tool calls), read from `~/.claude/projects` on the host
   over SFTP.
+- **Conversation search:** the search field of a host's dashboard finds a
+  word in all Claude Code conversations of the host, grouped by space and
+  session with a snippet and date; a hit opens the conversation there.
+  Over SSH with input allowed and a space open, grep runs on the host in a
+  short-lived tab, otherwise only the last 30 days are read. Needs SFTP
+  like the conversation. Mac, iPhone and iPad.
+- **Read aloud and voice mode:** "Vorlesen" in the header of a Claude pane
+  reads Claude's last reply with the system voice, in the reply's language,
+  code blocks skipped. "Antworten vorlesen" reads each reply once Claude has
+  finished, as long as the pane is open (silent with the silent switch on).
+  The voice mode reads the reply, then listens; a pause sends the dictated
+  answer, "Stopp" ends it. When Claude waits for a decision, the voice mode
+  says so and leaves the answer to the screen. Needs file access like the
+  conversation and the app in front. Mac, iPhone and iPad.
 - **Input:** prompts to agents (`agent.prompt`), text to shells, a key bar
   (Esc, Tab, Ctrl-C, arrows, Enter) and quick replies. When an agent waits
   for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen; when
@@ -148,7 +190,10 @@ code), so a host is set up the same way everywhere.
   option with its text instead of 1, 2, 3. A
   prompt starting with `/` goes live into the agent's own input line, so
   Claude Code shows its commands and skills in the pane (↑↓ pick, Tab takes,
-  Enter runs).
+  Enter runs). Prompt templates with `{placeholders}`, for all repos or one,
+  sit next to the quick replies; a tap asks for the placeholders (`{nr}`
+  from the branch's issue number, `{branch}` and `{space}` prefilled) and
+  puts the text into the composer without sending it.
 - **Read-only switch per host**, for hosts you only want to watch.
 - **Manage:** new space, tab (optionally starting an agent) and worktree;
   rename and close spaces and tabs; name an agent.
@@ -170,16 +215,22 @@ code), so a host is set up the same way everywhere.
   New shells in herdr panes export them, running agents read one with
   `amiscara-env <NAME>`, see [Setting up a host](#setting-up-a-host). Needs
   SFTP like uploads and input allowed. Mac, iPhone and iPad.
-- **Pull requests:** with a GitHub token in the host settings, each space
+- **Tokens and cost:** the host dashboard shows today's Claude Code tokens
+  and an estimated cost in US dollars for the host and each Claude agent,
+  and on a tap the last 30 days per day, model and folder. Read from Claude
+  Code's session files in the working directories of the open Claude
+  agents; the prices per model are editable. Optionally in the medium
+  widget. Needs SFTP like uploads. Mac, iPhone and iPad.
+- **Pull requests:** with the GitHub token of the approvals, each space
   whose branch has an open pull request shows its number, checks and
   review state; the button next to the tabs, the dashboard or "Pull
   Request #n …" in the space's menu opens description, checks, comments
   and the diff, and "Mergen …" merges it after Face ID or the passcode
-  (squash where the repository allows it). Approving stays on GitHub. The token is
-  fine-grained, for the repositories you want, with read access to
-  Checks, Commit statuses and Metadata and read and write access to
-  Contents and Pull requests; it stays in this device's Keychain. An
-  organization may have to approve fine-grained tokens first. The
+  (squash where the repository allows it). Approving stays on GitHub.
+  For this the fine-grained token also needs read access to Checks,
+  Commit statuses and Metadata and read and write access to Contents and
+  Pull requests. An organization may have to approve fine-grained tokens
+  first. The
   repository comes from the `origin` remote in the Git configuration on
   the host, so SSH hosts need SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
@@ -189,6 +240,17 @@ code), so a host is set up the same way everywhere.
   space or pane, opens the folder in VS Code on the Mac or PC over
   Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop
   app.
+- **Resuming Claude sessions:** "Claude-Sitzungen …" in a space's menu
+  lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), newest first, and continues
+  one with `claude --resume` in a new tab or the shown shell pane, e.g. to
+  give an agent the environment of a changed `.zshrc`. Quit the old pane's
+  Claude first. Needs SFTP like the conversation view. Mac, iPhone and iPad.
+- **NetBird status:** hosts behind NetBird show "VPN aus" while NetBird is
+  not connected on the device, and their status popover offers "NetBird
+  öffnen". The app recognises NetBird addresses and domains and learns your
+  own domains once NetBird runs; the host editor has a switch to override
+  it. Mac, iPhone and iPad.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the
@@ -210,12 +272,17 @@ code), so a host is set up the same way everywhere.
   state to the user's private iCloud database, which drives the push to
   iPhone and iPad and the boards on the Apple Watch (see below).
 - Widgets, Siri and Shortcuts ("Welche Agents warten?", "Was macht der
-  Agent?", "Agent öffnen"), dictation, and the "Tasten" menu with shortcuts
+  Agent?", "Agent öffnen"), Spotlight (spaces and agents, a setting turns it
+  off), dictation, and the "Tasten" menu with shortcuts
   for the pane (⌘. Esc, ⇧⌘↩ Enter, ⌥⌘ arrows, ⌥⌘1 to 3 answers). While an
   agent waits for an answer, plain arrows, Enter and Esc go to its pane from
   anywhere in the window (not from other text fields such as the pane
   search; in the composer arrows and Enter only while it is empty, Esc
   always).
+- Quick composer: ⌃⌥Space opens a small floating window from any app, like
+  Spotlight, for a prompt to the last agent; the agent can be switched
+  there, Enter sends, Esc closes. The shortcut can be changed or cleared in
+  the settings.
 - Publishes its Bonjour name in iCloud so the Apple TV finds it.
 - Distributed outside the App Store, signed with Developer ID and
   notarized; the App Sandbox would block the socket and SSH to arbitrary
@@ -326,17 +393,31 @@ and a follower per visible pane that reads its screen.
 
 Each device creates its own SSH key. It is locked down in
 `~/.ssh/authorized_keys` on the host so that it reaches the herdr socket
-and nothing else:
+and, besides the health script below, nothing else:
 
 ```
-restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
+restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
 ```
 
 `restrict` turns off all forwarding (TCP and Unix sockets), the PTY and
 agent forwarding; the forced command connects every session to the herdr
-socket, whatever the client asks to run. Every app shows this line for its
+socket, whatever the client asks to run, except SFTP (refused or allowed
+per host), the health case and, if switched on, web forwarding (both
+below). Every app shows this line for its
 key in the host editor, ready to copy. The desktop app can log in through
 the SSH agent instead; that key then needs such a line too.
+
+Every line also has a fixed case for the host's health (#306), after the
+`*sftp*` case:
+
+```
+amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;;
+```
+
+It runs nothing but the script at that path, which exists only if you put
+it there (step 8 of [Setting up a host](#setting-up-a-host)). Lines from
+before #306 lack it: the dashboard then shows no health tiles but asks for
+the new line.
 
 With "Lokale Webseiten weiterleiten" (Apple) or "Forward local web pages"
 (desktop, Android) on, the line gets one more case before `*)`, so the app
@@ -365,12 +446,19 @@ the host editor shows now. `permitlisten="none"` is not accepted in
 
 ### Uploads and the Claude conversation
 
-Uploads, the Claude Code conversation, the Git changes and the file browser
-need SFTP. Turn on the per-host switch "Bilder hochladen (SFTP)" (Apple) or
+Uploads, the Claude Code conversation and its search, the Git changes and
+the file browser need SFTP. Turn on the per-host switch "Bilder hochladen (SFTP)" (Apple) or
 "Dateien hochladen (SFTP)" (desktop, Android) and use the key line with
 `*sftp*) exec /usr/libexec/sftp-server ;;` instead of `*sftp*) exit 1 ;;`;
 the host editor shows the right one. On Linux hosts the path of
 `sftp-server` differs, e.g. `/usr/lib/openssh/sftp-server`.
+
+The conversation search over SSH runs grep on the host when input is
+allowed: a script and the search text go to `~/.amiscara-agents/uploads`,
+a short-lived, unfocused tab in the first space runs the script and closes
+again, the app reads the result and removes the files. Without input or
+without an open space it downloads the session files of the last 30
+days, newest first, at most 300 MB.
 
 **Be aware:** a key with SFTP can read and write every file of the user,
 including `~/.ssh/authorized_keys`, so it is effectively full access to
@@ -487,6 +575,13 @@ A `.deb` does not update itself; install the new one by hand.
    `NB_TOKEN=$(amiscara-env NB_TOKEN) netbird …` (with step 6, or the full
    path), so the value never appears in the pane. Only herdr panes get the
    variables, not every login.
+8. Optional, for the host's health on the dashboard (#306): copy
+   [`scripts/host/amiscara-health`](scripts/host/amiscara-health) to
+   `~/.amiscara-agents/bin/` too and `chmod +x` it. It only reads (load,
+   memory, disk of the home volume, uptime, OS; macOS and Linux) and prints
+   one JSON line. Key lines from before this need replacing once with the
+   one the app shows now, which has the `amiscara-health` case. The Mac
+   app's "Dieser Mac" runs the script directly.
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user

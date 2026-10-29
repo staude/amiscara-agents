@@ -30,6 +30,11 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: "2.9.2"
+  # The global shortcut of the quick composer and its recorder in the
+  # settings (#307).
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "1.10.0"
 targets:
   AmiscaraAgents:
     type: application
@@ -56,6 +61,8 @@ targets:
       - target: AmiscaraAgentsShare
       - package: Sparkle
         product: Sparkle
+      - package: KeyboardShortcuts
+        product: KeyboardShortcuts
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
@@ -97,9 +104,11 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
-        # Handoff of the open pane (#231).
+        # Handoff of the open pane (#231); CSSearchableItemActionType opens
+        # a tapped Spotlight result (#308) even with no window open.
         NSUserActivityTypes:
           - net.staude.amiscara.agents.pane
+          - com.apple.corespotlightitem
         CFBundleURLTypes:
           # "Add host" links, see crates/herdr-ffi/src/add_host.rs.
           - CFBundleURLName: net.staude.amiscara.agents.add-host
@@ -177,9 +186,11 @@ targets:
         NSMicrophoneUsageDescription: "Zum Diktieren von Prompts direkt in das Eingabefeld."
         NSSpeechRecognitionUsageDescription: "Wandelt Ihr Diktat in Text für das Eingabefeld um."
         NSCameraUsageDescription: "Zum Scannen des QR-Codes, mit dem Sie einen Host hinzufügen."
-        # Handoff of the open pane (#231).
+        # Handoff of the open pane (#231); CSSearchableItemActionType opens
+        # a tapped Spotlight result (#308) even with the app not running.
         NSUserActivityTypes:
           - net.staude.amiscara.agents.pane
+          - com.apple.corespotlightitem
         # App lock (#232).
         NSFaceIDUsageDescription: "Zum Entsperren der App, wenn Sie die App-Sperre eingeschaltet haben."
         # Working and waiting agents on the Lock Screen (#224).
@@ -360,10 +371,20 @@ targets:
           - Views/QRScannerView.swift
           - Views/InputBar.swift
           - Model/Dictation.swift
+          - Model/AgentVoice.swift
+          - Model/SpokenText.swift
+          - Views/AgentVoiceBar.swift
           - Model/AgentIntents.swift
+          - Model/HostStore+MultiSend.swift
+          - Views/MultiSendBar.swift
           - Views/MenuBarMenu.swift
           - Views/SecretsView.swift
           - Model/SecretStore.swift
+          - Views/ChainEditor.swift
+          - Views/ClaudeSessionsView.swift
+          - Model/PromptTemplates.swift
+          - Views/PromptTemplateEditor.swift
+          - Views/PromptTemplateForm.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

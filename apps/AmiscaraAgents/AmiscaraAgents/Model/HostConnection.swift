@@ -23,6 +23,8 @@ final class HostConnection: Identifiable {
     private(set) var generation = 0
     /// Called on the main actor after every update, e.g. for notifications.
     @ObservationIgnored var onUpdate: ((HostConnection, SessionUpdate) -> Void)?
+    /// Token usage of the host's Claude agents (#302).
+    @ObservationIgnored let usage = UsageStore()
     #if DEBUG
     /// The screenshot demo took the host offline (#290); late updates of
     /// the stopped session must not bring it back.
@@ -41,6 +43,7 @@ final class HostConnection: Identifiable {
         pullRequests = PullRequests(host: config.id)
         pullRequests.connection = self
         #endif
+        usage.attach(self)
     }
 
     var status: HostStatus? { update?.status }
@@ -76,6 +79,12 @@ final class HostConnection: Identifiable {
                 groupSpacesByName: config.groupSpacesByName,
                 spaceSort: config.spaceSorting
             )
+            #if os(macOS) || os(iOS)
+            // Chains send prompts (#300), so only where input is allowed.
+            if config.inputAllowed {
+                session?.setChainRunner(deviceId: Self.chainDeviceID)
+            }
+            #endif
             generation += 1
         } catch {
             startError = error.localizedDescription
@@ -118,13 +127,19 @@ final class HostConnection: Identifiable {
         regrouped.allowWebForward = config.allowWebForward
         // Only read when opening VS Code (#288).
         regrouped.sshTarget = config.sshTarget
+        // Only decides whether "VPN aus" shows (#305).
+        regrouped.viaNetBird = config.viaNetBird
+        regrouped.netBirdLearned = config.netBirdLearned
         if regrouped == config, let session {
             self.config = config
             session.setGroupSpacesByName(on: config.groupSpacesByName)
             return
         }
         // Another machine or server: its agents are not ours.
-        if config.server != self.config.server { lastBoard = [] }
+        if config.server != self.config.server {
+            lastBoard = []
+            usage.reset()
+        }
         self.config = config
         update = nil
         start()
@@ -136,6 +151,34 @@ final class HostConnection: Identifiable {
         config.spaceSort = mode
         config.spaceOrder = order
         session?.setSpaceSort(sort: config.spaceSorting)
+    }
+
+    #if os(macOS) || os(iOS)
+    /// This device for chains (#300): a random id, made once. herdr keeps
+    /// which device claimed a chain's run under it.
+    static var chainDeviceID: String {
+        let key = "chainDeviceID"
+        if let id = UserDefaults.standard.string(forKey: key) { return id }
+        let id = UUID().uuidString
+        UserDefaults.standard.set(id, forKey: key)
+        return id
+    }
+    #endif
+
+    /// Adds a chain to the agent in `paneID` (#300): when it finishes or
+    /// waits, `text` goes to the agent in `target`, once or every time.
+    func addChain(to paneID: String, trigger: ChainTrigger, repeats: Bool, target: String, text: String) async throws {
+        let session = try writableSession()
+        _ = try await Task.detached {
+            try session.setChain(paneId: paneID, trigger: trigger, repeat: repeats, targetPaneId: target, text: text)
+        }.value
+    }
+
+    func removeChain(_ chainID: String, from paneID: String) async throws {
+        let session = try writableSession()
+        try await Task.detached {
+            try session.removeChain(paneId: paneID, chainId: chainID)
+        }.value
     }
 
     func followPane(_ paneID: String, live: Bool = true, observer: PaneObserver) -> PaneFollow? {
@@ -165,11 +208,11 @@ final class HostConnection: Identifiable {
         }.value
     }
 
-    /// Creates a tab in a space; herdr picks the directory.
-    func createTab(in workspaceID: String) async throws -> Created {
+    /// Creates a tab in a space, in `cwd` or the directory herdr picks.
+    func createTab(in workspaceID: String, cwd: String? = nil) async throws -> Created {
         let session = try writableSession()
         return try await Task.detached {
-            try session.createTab(workspaceId: workspaceID, cwd: nil)
+            try session.createTab(workspaceId: workspaceID, cwd: cwd)
         }.value
     }
 
@@ -296,6 +339,92 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The conversation before a page or span of `claudeHistory`, without
+    /// a pane: its cursor names the session file.
+    func claudeHistory(before cursor: TranscriptCursor) async throws -> TranscriptPage {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistory(paneId: "", before: cursor)
+        }.value
+    }
+
+    /// The conversation in a session file around the line at `offset`,
+    /// from a search hit (#303). Read only, with file access like
+    /// `claudeHistory`.
+    func claudeHistory(at sessionPath: String, offset: UInt64) async throws -> TranscriptSpan {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistoryAt(sessionPath: sessionPath, offset: offset)
+        }.value
+    }
+
+    /// The entries after `from` in a session file: a span's `end`.
+    func claudeHistory(after sessionPath: String, from: UInt64) async throws -> TranscriptSpan {
+        guard config.uploadAllowed else { throw ConnectionFailure.filesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeHistoryAfter(sessionPath: sessionPath, from: from)
+        }.value
+    }
+
+    #if !os(tvOS)
+    /// Searches all Claude conversations of the host (#303) until the
+    /// handle is cancelled. Read only, with file access like the
+    /// conversation; with input allowed and a space open, grep runs in a
+    /// short-lived tab on the host, otherwise the app reads only the last
+    /// 30 days.
+    func searchConversations(query: String, observer: ConversationSearchObserver) throws -> ConversationSearchHandle {
+        guard config.uploadAllowed else { throw ConnectionFailure.searchFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try session.searchConversations(query: query, allowCommand: config.inputAllowed, observer: observer)
+    }
+    #endif
+
+    /// Token usage of Claude Code in the working directories `cwds` since
+    /// `since` (#302). Read only, but over SSH it needs the same SFTP access
+    /// as uploads; the first time a large read.
+    func usage(cwds: [String], since: Date) async throws -> UsageReport {
+        guard config.uploadAllowed else { throw ConnectionFailure.usageFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        let sinceSecs = UInt64(max(0, since.timeIntervalSince1970))
+        return try await Task.detached {
+            try session.usage(cwds: cwds, sinceSecs: sinceSecs)
+        }.value
+    }
+
+    /// What `usage` has read in this session, to keep between runs.
+    func usageState() async -> String? {
+        guard let session else { return nil }
+        return await Task.detached { session.usageState() }.value
+    }
+
+    /// Gives a new session what an earlier one had read.
+    func restoreUsageState(_ state: String) async {
+        guard let session else { return }
+        await Task.detached { session.restoreUsageState(state: state) }.value
+    }
+
+    /// The Claude Code sessions of a folder on the host, newest first
+    /// (#304). Read only, with the same SFTP access as `claudeHistory`.
+    func claudeSessions(folder: String) async throws -> [ClaudeSessionItem] {
+        guard config.uploadAllowed else { throw ConnectionFailure.sessionsFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.claudeSessions(folder: folder)
+        }.value
+    }
+
+    /// Continues a Claude Code session in a pane at its shell prompt
+    /// (`claude --resume <id>`) and returns the agent's name (#304).
+    func resumeClaude(_ sessionID: String, in paneID: String) async throws -> String {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.resumeClaude(paneId: paneID, sessionId: sessionID)
+        }.value
+    }
+
     /// The last `lines` rows of a pane including scrollback as plain text,
     /// joined where the terminal wrapped them with `unwrap` (#273). Read
     /// only, a plain terminal read without file access.
@@ -318,16 +447,20 @@ final class HostConnection: Identifiable {
         }.value
     }
 
-    #if !os(tvOS)
-    /// The GitHub repository of a space (#309), read from the Git
-    /// configuration over the file access, without a tab.
-    func githubRepository(workspaceID: String) async throws -> GitHubRepo? {
-        let session = try browseSession()
+    /// What happened on the host between `since` and `until` (#301):
+    /// Claude Code prompts and finished turns, and the commits of every
+    /// space. Read only, but like the diff it opens a short-lived tab and
+    /// reads over SFTP, so it needs both input and file access.
+    func dailyLog(since: Date, until: Date) async throws -> DailyLog {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.dailyLogFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        let since = UInt64(max(0, since.timeIntervalSince1970))
+        let until = UInt64(max(0, until.timeIntervalSince1970))
         return try await Task.detached {
-            try session.githubRepository(workspaceId: workspaceID)
+            try session.dailyLog(sinceSecs: since, untilSecs: until)
         }.value
     }
-    #endif
 
     /// The directory at the absolute `path` on the host, `""` for the home
     /// directory (#259). Read only, so no input needed, but over SSH it
@@ -368,6 +501,16 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The host's load, memory, disk and uptime for the dashboard (#306),
+    /// from the host script `amiscara-health`. Only reads, so neither
+    /// input nor file access is needed.
+    func health() async throws -> HealthStatus {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.hostHealth()
+        }.value
+    }
+
     /// The names of the secrets on the host (#291), never their values.
     /// Over SSH it needs the same SFTP access as uploads.
     func secretNames() async throws -> [String] {
@@ -390,6 +533,17 @@ final class HostConnection: Identifiable {
         let session = try secretsSession()
         try await Task.detached {
             try session.removeSecret(name: name)
+        }.value
+    }
+
+    /// The GitHub repositories of the host's spaces with their spaces
+    /// (#296), from the `origin` in each repository's Git config. Read
+    /// only, but over SSH it needs the same SFTP access as uploads.
+    func githubRepos() async throws -> [GitHubRepo] {
+        guard config.uploadAllowed else { throw ConnectionFailure.approvalsFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.githubRepos()
         }.value
     }
 
@@ -573,8 +727,13 @@ enum ConnectionFailure: LocalizedError {
     case uploadOff
     case filesOff
     case diffFilesOff
+    case dailyLogFilesOff
     case browseFilesOff
     case secretsFilesOff
+    case searchFilesOff
+    case usageFilesOff
+    case sessionsFilesOff
+    case approvalsFilesOff
     case unsafePath
 
     var errorDescription: String? {
@@ -589,10 +748,20 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .dailyLogFilesOff:
+            String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:
             String(localized: "Geheimnisse schreibt die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .searchFilesOff:
+            String(localized: "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .usageFilesOff:
+            String(localized: "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .sessionsFilesOff:
+            String(localized: "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .approvalsFilesOff:
+            String(localized: "Welche Repos der Host hat, liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .unsafePath:
             String(localized: "Der Pfad enthält Steuerzeichen und kann nicht in einen Prompt.")
         case .filesOff:

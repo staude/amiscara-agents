@@ -53,13 +53,15 @@ final class WidgetPublisher {
     }
 
     func publish(_ store: HostStore, force: Bool = false) {
+        let withUsage = UserDefaults.standard.bool(forKey: UsageStore.widgetKey)
         let hosts = store.connections.map { connection in
             WidgetSnapshot.Host(
                 id: connection.id,
                 name: connection.config.name,
                 live: connection.isLive,
                 agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init),
-                hostKey: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey)
+                hostKey: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
+                usageToday: withUsage ? connection.usage.todaySum(prices: .shared) : nil
             )
         }
         #if os(macOS)
@@ -69,6 +71,9 @@ final class WidgetPublisher {
         #endif
         #if !os(tvOS)
         store.updateShortcutAgents(snapshot)
+        #endif
+        #if os(iOS) || os(macOS)
+        SpotlightIndex.shared.update(store: store, snapshot: snapshot)
         #endif
         #if os(iOS)
         AgentLiveActivity.shared.update(snapshot, store: store)

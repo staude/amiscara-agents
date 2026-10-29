@@ -53,12 +53,42 @@
         }
       }
     },
+    "%@ (selbst)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (itself)"
+          }
+        }
+      }
+    },
     "%@ aufklappen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Expand %@"
+          }
+        }
+      }
+    },
+    "%@ fertig → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ finished → %@"
+          }
+        }
+      }
+    },
+    "%@ frei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ free"
           }
         }
       }
@@ -149,6 +179,58 @@
         }
       }
     },
+    "%@ Tokens, ohne Preis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tokens, no price"
+          }
+        }
+      }
+    },
+    "%@ Tokens, ~%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tokens, ~%2$@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Tokens, ~%2$@"
+          }
+        }
+      }
+    },
+    "%@ Tokens, ~%@ (teils ohne Preis)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tokens, ~%2$@ (partly without price)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Tokens, ~%2$@ (teils ohne Preis)"
+          }
+        }
+      }
+    },
+    "%@ von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@"
+          }
+        }
+      }
+    },
     "%@ wartet" : {
       "localizations" : {
         "en" : {
@@ -165,6 +247,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ is waiting for an answer"
+          }
+        }
+      }
+    },
+    "%@ wartet → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ waiting → %@"
           }
         }
       }
@@ -287,6 +379,9 @@
           }
         }
       }
+    },
+    "%@: %@" : {
+      "shouldTranslate" : false
     },
     "%@: %@, gerade eben gewechselt." : {
       "localizations" : {
@@ -445,6 +540,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld Kerne" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld cores"
           }
         }
       }
@@ -695,6 +800,16 @@
         }
       }
     },
+    "30 Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 days"
+          }
+        }
+      }
+    },
     "Abbrechen" : {
       "localizations" : {
         "en" : {
@@ -785,6 +900,26 @@
         }
       }
     },
+    "Agent suchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Agents"
+          }
+        }
+      }
+    },
+    "Agent wählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Agent"
+          }
+        }
+      }
+    },
     "Agents" : {
       "localizations" : {
         "en" : {
@@ -811,6 +946,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Refresh"
+          }
+        }
+      }
+    },
+    "Alle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "Alle arbeitenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All working"
+          }
+        }
+      }
+    },
+    "Alle fertigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All finished"
           }
         }
       }
@@ -905,12 +1070,44 @@
         }
       }
     },
+    "An %lld Agenten senden" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agent"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agents"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "An Agent senden" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send to agent"
+          }
+        }
+      }
+    },
+    "An diesem Tag gab es keine Aufträge an Claude und keine Commits." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks for Claude and no commits on this day."
           }
         }
       }
@@ -931,6 +1128,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "To last agent"
+          }
+        }
+      }
+    },
+    "An sich selbst nur einmal: Jedes Mal hielte den Agent für immer beschäftigt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To itself only once: every time would keep the agent busy for good."
           }
         }
       }
@@ -991,6 +1198,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "To the End"
+          }
+        }
+      }
+    },
+    "Antworten vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Replies Aloud"
           }
         }
       }
@@ -1095,6 +1312,1666 @@
         }
       }
     },
+    "Auf GitHub öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open on GitHub"
+          }
+        }
+      }
+    },
+    "Auftrag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
+          }
+        }
+      }
+    },
+    "Beschreibung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Description"
+          }
+        }
+      }
+    },
+    "Bitte mindestens zwei Zeichen auf einer Zeile suchen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please search for at least two characters on one line."
+          }
+        }
+      }
+    },
+    "Blockiert: Es fehlen Reviews oder Checks, die das Repository verlangt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked: reviews or checks the repository requires are missing."
+          }
+        }
+      }
+    },
+    "Cache lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache read"
+          }
+        }
+      }
+    },
+    "Cache schreiben (1 Std.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache write (1 h)"
+          }
+        }
+      }
+    },
+    "Cache schreiben (5 Min.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache write (5 min)"
+          }
+        }
+      }
+    },
+    "Checks" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks"
+          }
+        }
+      }
+    },
+    "Checks erfolgreich" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks passed"
+          }
+        }
+      }
+    },
+    "Checks fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks failed"
+          }
+        }
+      }
+    },
+    "Checks laufen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checks running"
+          }
+        }
+      }
+    },
+    "Claude wartet auf eine Entscheidung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is waiting for a decision"
+          }
+        }
+      }
+    },
+    "Claude wartet auf eine Entscheidung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude is waiting for a decision."
+          }
+        }
+      }
+    },
+    "Claudes Antworten vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Claude's replies aloud"
+          }
+        }
+      }
+    },
+    "Codeblock ausgelassen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code block skipped."
+          }
+        }
+      }
+    },
+    "Commit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit"
+          }
+        }
+      }
+    },
+    "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The medium widget shows the day's tokens and estimated cost per host at the bottom."
+          }
+        }
+      }
+    },
+    "Das Repository erlaubt keine Merge-Methode." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The repository allows no merge method."
+          }
+        }
+      }
+    },
+    "Das Ziel sendet schon jedes Mal hierher; jedes Mal in beide Richtungen liefe ohne Ende." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The target already sends here every time; every time both ways would never end."
+          }
+        }
+      }
+    },
+    "Dateien auf GitHub ansehen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View files on GitHub"
+          }
+        }
+      }
+    },
+    "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the day through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
+    "Der Diff ist zu groß für GitHubs Schnittstelle. Auf GitHub ansehen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The diff is too large for GitHub's API. View it on GitHub."
+          }
+        }
+      }
+    },
+    "Der Planungs-Tab stellt gerade eine andere Frage, z. B. offene Fragen des Plans. Erst dort beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The planning tab is asking another question right now, such as the plan's open questions. Answer it there first."
+          }
+        }
+      }
+    },
+    "Der Planungs-Tab stellt gerade eine andere Frage. Im Tab beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The planning tab is asking another question. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Der Pull Request hat Konflikte mit dem Basisbranch." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The pull request has conflicts with the base branch."
+          }
+        }
+      }
+    },
+    "Der Tag wird gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the day …"
+          }
+        }
+      }
+    },
+    "Der Token hat keinen Zugriff auf dieses Repository." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The token has no access to this repository."
+          }
+        }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        }
+      }
+    },
+    "Die Frage im Planungs-Tab nimmt keine Notiz an. Im Tab beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The question in the planning tab takes no note. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Die Kette liegt auf dem Host. Senden tut ein Gerät, das gerade verbunden ist; ein iPhone im Hintergrund nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The chain is kept on the host. A device that is connected at the time sends it; an iPhone in the background does not."
+          }
+        }
+      }
+    },
+    "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search reads the session files on the host and needs file access for that, like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
+    "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads tokens from the session files on the host and needs file access like “Upload images” for that (Edit host)."
+          }
+        }
+      }
+    },
+    "Durchsucht die Gespräche auf dem Host …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching the conversations on the host …"
+          }
+        }
+      }
+    },
+    "Ein Entwurf lässt sich nicht mergen. Auf GitHub als fertig markieren." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A draft cannot be merged. Mark it as ready on GitHub."
+          }
+        }
+      }
+    },
+    "Eingaben sind für diesen Host ausgeschaltet. Im Planungs-Tab freigeben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input is turned off for this host. Approve in the planning tab."
+          }
+        }
+      }
+    },
+    "Einmal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once"
+          }
+        }
+      }
+    },
+    "Ende der Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End of the session"
+          }
+        }
+      }
+    },
+    "Entwurf" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draft"
+          }
+        }
+      }
+    },
+    "Erst das Diktat in der Eingabeleiste beenden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop the dictation in the input bar first."
+          }
+        }
+      }
+    },
+    "fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "failed"
+          }
+        }
+      }
+    },
+    "Fehlgeschlagen, läuft nicht mehr" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed, no longer runs"
+          }
+        }
+      }
+    },
+    "fertig ist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "finishes"
+          }
+        }
+      }
+    },
+    "Freigaben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approvals"
+          }
+        }
+      }
+    },
+    "Freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve"
+          }
+        }
+      }
+    },
+    "Freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved"
+          }
+        }
+      }
+    },
+    "freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "approved"
+          }
+        }
+      }
+    },
+    "Freigegeben. Der Planungs-Tab startet die Umsetzung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved. The planning tab starts the implementation."
+          }
+        }
+      }
+    },
+    "Für die Werte des Hosts das Script amiscara-health nach ~/.amiscara-agents/bin/ kopieren und ausführbar machen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the host's values, copy the script amiscara-health to ~/.amiscara-agents/bin/ and make it executable."
+          }
+        }
+      }
+    },
+    "Für die Werte des Hosts die neue Schlüsselzeile (Host bearbeiten) auf dem Host eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the host's values, add the new key line (edit host) on the host."
+          }
+        }
+      }
+    },
+    "geschlossenes Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "closed pane"
+          }
+        }
+      }
+    },
+    "Geschätzt mit den Preisen aus den Einstellungen, in US-Dollar. Gezählt werden die Ordner der offenen Claude-Agents." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimated with the prices from the settings, in US dollars. Counts the folders of the open Claude agents."
+          }
+        }
+      }
+    },
+    "gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sent"
+          }
+        }
+      }
+    },
+    "Gespräche durchsuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search conversations"
+          }
+        }
+      }
+    },
+    "Gestern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yesterday"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        }
+      }
+    },
+    "GitHub antwortet mit Status %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub answers with status %lld."
+          }
+        }
+      }
+    },
+    "GitHub begrenzt gerade die Anfragen dieses Tokens. Später noch einmal versuchen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub is rate-limiting this token right now. Try again later."
+          }
+        }
+      }
+    },
+    "GitHub lehnt den Token ab (401). Token in den Host-Einstellungen prüfen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub refuses the token (401). Check the token in the host settings."
+          }
+        }
+      }
+    },
+    "GitHub lehnt den Token ab. Einen neuen Token in den Host-Einstellungen eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub refuses the token. Enter a new token in the host settings."
+          }
+        }
+      }
+    },
+    "GitHub verweigert den Zugriff (403): Rechte des Tokens oder Rate-Limit." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub denies access (403): token permissions or rate limit."
+          }
+        }
+      }
+    },
+    "Heute" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
+    "Heute: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today: %@"
+          }
+        }
+      }
+    },
+    "Hinweis zur Umsetzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note for the implementation"
+          }
+        }
+      }
+    },
+    "Hört zu …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listening …"
+          }
+        }
+      }
+    },
+    "Hört zu: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listening: %@"
+          }
+        }
+      }
+    },
+    "Input" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input"
+          }
+        }
+      }
+    },
+    "Issue auf GitHub öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open issue on GitHub"
+          }
+        }
+      }
+    },
+    "Jedes Mal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every time"
+          }
+        }
+      }
+    },
+    "Jedes Mal senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Every Time"
+          }
+        }
+      }
+    },
+    "Kein Dateizugriff" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No file access"
+          }
+        }
+      }
+    },
+    "Kein Plan gefunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No plan found"
+          }
+        }
+      }
+    },
+    "Kein wartender Planungs-Tab auf diesem Host. Freigeben in einer Claude-Sitzung im Repo mit:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No waiting planning tab on this host. Approve in a Claude session in the repository with:"
+          }
+        }
+      }
+    },
+    "Kein wartender Planungs-Tab für dieses Issue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No waiting planning tab for this issue."
+          }
+        }
+      }
+    },
+    "Keine Beschreibung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No description."
+          }
+        }
+      }
+    },
+    "Keine Einträge." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries."
+          }
+        }
+      }
+    },
+    "Keine Tokens in diesen Ordnern." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tokens in these folders."
+          }
+        }
+      }
+    },
+    "Keine Treffer für „%@“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results for “%@”."
+          }
+        }
+      }
+    },
+    "Kette anlegen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Chain"
+          }
+        }
+      }
+    },
+    "Kette anlegen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Chain…"
+          }
+        }
+      }
+    },
+    "Kette fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chain failed"
+          }
+        }
+      }
+    },
+    "Kette löschen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Chain"
+          }
+        }
+      }
+    },
+    "Kette: → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chain: → %@"
+          }
+        }
+      }
+    },
+    "Ketten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chains"
+          }
+        }
+      }
+    },
+    "Kommentare an Zeilen: %lld, auf GitHub zu lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Line comments: %lld, read them on GitHub"
+          }
+        }
+      }
+    },
+    "Kommentare und Reviews" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comments and reviews"
+          }
+        }
+      }
+    },
+    "Kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Last" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load"
+          }
+        }
+      }
+    },
+    "Laufzeit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uptime"
+          }
+        }
+      }
+    },
+    "Leere Antwort von GitHub." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty response from GitHub."
+          }
+        }
+      }
+    },
+    "Letzte Antwort vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Last Reply"
+          }
+        }
+      }
+    },
+    "Liest die Sitzungsdateien der letzten 30 Tage. Beim ersten Mal dauert das eine Weile." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the session files of the last 30 days. The first time this takes a while."
+          }
+        }
+      }
+    },
+    "Liest vor …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading aloud …"
+          }
+        }
+      }
+    },
+    "Link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link"
+          }
+        }
+      }
+    },
+    "Listenpreise wiederherstellen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore list prices"
+          }
+        }
+      }
+    },
+    "Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More results than the search shows. A more specific word helps."
+          }
+        }
+      }
+    },
+    "Meldung schließen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close message"
+          }
+        }
+      }
+    },
+    "Merge-Commit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge commit"
+          }
+        }
+      }
+    },
+    "Mergen (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge (%@)"
+          }
+        }
+      }
+    },
+    "Mergen verlangt Face ID, Touch ID oder einen Gerätecode. Auf diesem Gerät ist keins eingerichtet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merging needs Face ID, Touch ID or a device passcode. None is set up on this device."
+          }
+        }
+      }
+    },
+    "Mergen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge …"
+          }
+        }
+      }
+    },
+    "Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten, und jeder Space den offenen Pull Request seines Branches, den die App auch mergt. Ein Fine-grained Token mit Lesezugriff auf Issues, Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests; für die Freigaben allein genügt Issues: Read. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With a token, the overview and dashboard show under \"Freigaben\" the plans waiting for approval in this host's repositories, and each space the open pull request of its branch, which the app can also merge. A fine-grained token with read access to Issues, Checks, Commit statuses and Metadata and read and write access to Contents and Pull requests; for approvals alone Issues: Read is enough. It stays in this device's keychain; empty removes it. The app reads the repositories over the file access like \"Upload images\"."
+          }
+        }
+      }
+    },
+    "Mit Hinweis freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve with note"
+          }
+        }
+      }
+    },
+    "Modell hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add model"
+          }
+        }
+      }
+    },
+    "Modell-ID, z. B. claude-opus-5-5" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model ID, e.g. claude-opus-5-5"
+          }
+        }
+      }
+    },
+    "Neu lesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read again"
+          }
+        }
+      }
+    },
+    "Neuere Einträge laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load newer entries"
+          }
+        }
+      }
+    },
+    "Nicht alle Claude-Verläufe wurden bis zum Tagesbeginn gelesen; frühe Einträge können fehlen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not every Claude conversation was read back to the start of the day; early entries may be missing."
+          }
+        }
+      }
+    },
+    "Nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not readable"
+          }
+        }
+      }
+    },
+    "Nicht neu gelesen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not read again: %@"
+          }
+        }
+      }
+    },
+    "Noch keine Antwort zum Vorlesen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reply to read yet."
+          }
+        }
+      }
+    },
+    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Auf dem Host selbst sucht die App, wenn Eingaben erlaubt sind und ein Space offen ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
+          }
+        }
+      }
+    },
+    "Ohne den Diff zum aktuellen Stand lässt sich nicht mergen. Neu laden oder auf GitHub mergen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merging needs the diff of the current state. Reload or merge on GitHub."
+          }
+        }
+      }
+    },
+    "Ohne Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No space"
+          }
+        }
+      }
+    },
+    "Output" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Output"
+          }
+        }
+      }
+    },
+    "Planungs-Tab wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planning tab waiting"
+          }
+        }
+      }
+    },
+    "Platte" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disk"
+          }
+        }
+      }
+    },
+    "Preise" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices"
+          }
+        }
+      }
+    },
+    "Preise je Modell" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices per model"
+          }
+        }
+      }
+    },
+    "Preise je Modell …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prices per model …"
+          }
+        }
+      }
+    },
+    "Protokoll" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        }
+      }
+    },
+    "Protokoll leeren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Log"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull Request #%lld"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld mergen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge pull request #%lld"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld mergen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Merge pull request #%lld?"
+          }
+        }
+      }
+    },
+    "Pull Request #%lld …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull Request #%lld …"
+          }
+        }
+      }
+    },
+    "Pull Request %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull request %lld"
+          }
+        }
+      }
+    },
+    "Pull Requests" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pull Requests"
+          }
+        }
+      }
+    },
+    "Rebase" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rebase"
+          }
+        }
+      }
+    },
+    "Review ausstehend" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review required"
+          }
+        }
+      }
+    },
+    "Review freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review approved"
+          }
+        }
+      }
+    },
+    "Schnellantwort" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Reply"
+          }
+        }
+      }
+    },
+    "Senden an" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to"
+          }
+        }
+      }
+    },
+    "Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "Sitzung vom %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session from %@"
+          }
+        }
+      }
+    },
+    "Sonst nur beim nächsten Mal; danach ist die Kette weg." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otherwise only the next time; then the chain is gone."
+          }
+        }
+      }
+    },
+    "Speicher" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory"
+          }
+        }
+      }
+    },
+    "Sprachmodus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voice Mode"
+          }
+        }
+      }
+    },
+    "Sprachmodus beenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Voice Mode"
+          }
+        }
+      }
+    },
+    "Später. Der Plan wartet weiter auf Freigabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later. The plan still waits for approval."
+          }
+        }
+      }
+    },
+    "Squash" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Squash"
+          }
+        }
+      }
+    },
+    "Stopp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        }
+      }
+    },
+    "Suche abgebrochen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search cancelled."
+          }
+        }
+      }
+    },
+    "Suche fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search failed: %@"
+          }
+        }
+      }
+    },
+    "Tab öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open tab"
+          }
+        }
+      }
+    },
+    "Tag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day"
+          }
+        }
+      }
+    },
+    "Tag nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day not readable"
+          }
+        }
+      }
+    },
+    "Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days"
+          }
+        }
+      }
+    },
+    "Tageskosten im Widget" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily cost in widget"
+          }
+        }
+      }
+    },
+    "Token" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token"
+          }
+        }
+      }
+    },
+    "Tokens nicht lesbar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens not readable: %@"
+          }
+        }
+      }
+    },
+    "Tokens und Kosten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost"
+          }
+        }
+      }
+    },
+    "Tokens und Kosten brauchen Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost need file access like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
+    "Tokens und Kosten der letzten 30 Tage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens and cost of the last 30 days"
+          }
+        }
+      }
+    },
+    "Tokens werden gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading tokens …"
+          }
+        }
+      }
+    },
+    "Tokens · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tokens · %@"
+          }
+        }
+      }
+    },
+    "Unbekannt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        }
+      }
+    },
+    "US-Dollar je Million Tokens. Ein Modell ohne Preis zählt bei den Tokens mit, aber nicht bei den Kosten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "US dollars per million tokens. A model without a price counts toward the tokens but not the cost."
+          }
+        }
+      }
+    },
+    "verworfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dismissed"
+          }
+        }
+      }
+    },
+    "von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "by %@"
+          }
+        }
+      }
+    },
+    "Vorlesen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Aloud"
+          }
+        }
+      }
+    },
+    "Vorlesen beenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Reading"
+          }
+        }
+      }
+    },
+    "Vorlesen braucht Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading aloud needs file access like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
+    "Wartet auf Claude …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for Claude …"
+          }
+        }
+      }
+    },
+    "Was heute auf dem Host passiert ist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What happened on the host today"
+          }
+        }
+      }
+    },
+    "Welche Repos der Host hat, liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads which repositories the host has through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
     "auf dem Host" : {
       "localizations" : {
         "en" : {
@@ -1135,16 +3012,6 @@
         }
       }
     },
-    "Auf GitHub öffnen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open on GitHub"
-          }
-        }
-      }
-    },
     "Aus einem Link. Prüfen Sie den Text, bevor Sie ihn an einen Agent geben." : {
       "localizations" : {
         "en" : {
@@ -1181,6 +3048,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "When off, the app only shows this host and sends no prompts or keys."
+          }
+        }
+      }
+    },
+    "Auswahl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection"
+          }
+        }
+      }
+    },
+    "Auswahlfrage offen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choice question open"
+          }
+        }
+      }
+    },
+    "Auswählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
           }
         }
       }
@@ -1271,16 +3168,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "User"
-          }
-        }
-      }
-    },
-    "Beschreibung" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Description"
           }
         }
       }
@@ -1395,16 +3282,6 @@
         }
       }
     },
-    "Blockiert: Es fehlen Reviews oder Checks, die das Repository verlangt." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Blocked: reviews or checks the repository requires are missing."
-          }
-        }
-      }
-    },
     "Blättert in Claude Code und holt seinen Verlauf; bewegt dabei auch die Ansicht auf dem Host" : {
       "localizations" : {
         "en" : {
@@ -1435,42 +3312,22 @@
         }
       }
     },
-    "Checks" : {
+    "Claude-Sitzungen" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Checks"
+            "value" : "Claude Sessions"
           }
         }
       }
     },
-    "Checks erfolgreich" : {
+    "Claude-Sitzungen …" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Checks passed"
-          }
-        }
-      }
-    },
-    "Checks fehlgeschlagen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checks failed"
-          }
-        }
-      }
-    },
-    "Checks laufen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checks running"
+            "value" : "Claude Sessions …"
           }
         }
       }
@@ -1575,16 +3432,6 @@
         }
       }
     },
-    "Das Repository erlaubt keine Merge-Methode." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The repository allows no merge method."
-          }
-        }
-      }
-    },
     "Dashboard" : {
       "localizations" : {
         "en" : {
@@ -1675,16 +3522,6 @@
         }
       }
     },
-    "Dateien auf GitHub ansehen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View files on GitHub"
-          }
-        }
-      }
-    },
     "Dateien im Arbeitsverzeichnis der Pane" : {
       "localizations" : {
         "en" : {
@@ -1741,6 +3578,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The agent is working. The history is available once it is done; paging works already."
+          }
+        }
+      }
+    },
+    "Der Agent wartet auf eine Antwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is waiting for an answer."
           }
         }
       }
@@ -1841,16 +3688,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file browser reads through file access, like “Upload images” (Edit host)."
-          }
-        }
-      }
-    },
-    "Der Diff ist zu groß für GitHubs Schnittstelle. Auf GitHub ansehen." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The diff is too large for GitHub's API. View it on GitHub."
           }
         }
       }
@@ -1995,16 +3832,6 @@
         }
       }
     },
-    "Der Pull Request hat Konflikte mit dem Basisbranch." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The pull request has conflicts with the base branch."
-          }
-        }
-      }
-    },
     "Der Rechner ist nicht erreichbar. Läuft das VPN (NetBird) auf diesem Gerät, und stimmt der Hostname?" : {
       "localizations" : {
         "en" : {
@@ -2045,32 +3872,12 @@
         }
       }
     },
-    "Der Token hat keinen Zugriff auf dieses Repository." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The token has no access to this repository."
-          }
-        }
-      }
-    },
     "Der Wert landet auf dem Host in ~/.amiscara-agents/env, nur für Sie lesbar, und bleibt auf diesem Gerät im Schlüsselbund. Neue Shells in herdr-Panes setzen die Variable, laufende Agenten lesen sie mit „amiscara-env NAME“." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The value goes to ~/.amiscara-agents/env on the host, readable only by you, and stays in this device’s Keychain. New shells in herdr panes set the variable; running agents read it with “amiscara-env NAME”."
-          }
-        }
-      }
-    },
-    "Details" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Details"
           }
         }
       }
@@ -2121,6 +3928,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The app is not ready."
+          }
+        }
+      }
+    },
+    "Die Claude-Sitzungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the Claude sessions through file access like “Upload images” (Edit Host)."
           }
         }
       }
@@ -2431,16 +4248,6 @@
         }
       }
     },
-    "Ein Entwurf lässt sich nicht mergen. Auf GitHub als fertig markieren." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A draft cannot be merged. Mark it as ready on GitHub."
-          }
-        }
-      }
-    },
     "Ein Space namens „Bereich/Name“ erscheint als „Name“ in der Gruppe „Bereich“. Ausgeschaltet zeigt die App alle Spaces mit vollem Namen in der Reihenfolge von herdr." : {
       "localizations" : {
         "en" : {
@@ -2467,6 +4274,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A shared image could not be read."
+          }
+        }
+      }
+    },
+    "Eingabe aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input off"
           }
         }
       }
@@ -2541,12 +4358,12 @@
         }
       }
     },
-    "Entwurf" : {
+    "Ergebnis" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Draft"
+            "value" : "Result"
           }
         }
       }
@@ -2711,16 +4528,6 @@
         }
       }
     },
-    "freigegeben" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "approved"
-          }
-        }
-      }
-    },
     "Frühere Prompts dieser Pane" : {
       "localizations" : {
         "en" : {
@@ -2841,6 +4648,16 @@
         }
       }
     },
+    "Gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent"
+          }
+        }
+      }
+    },
     "Gesendet an %@." : {
       "localizations" : {
         "en" : {
@@ -2901,36 +4718,6 @@
         }
       }
     },
-    "GitHub" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub"
-          }
-        }
-      }
-    },
-    "GitHub begrenzt gerade die Anfragen dieses Tokens. Später noch einmal versuchen." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub is rate-limiting this token right now. Try again later."
-          }
-        }
-      }
-    },
-    "GitHub lehnt den Token ab. Einen neuen Token in den Host-Einstellungen eintragen." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GitHub refuses the token. Enter a new token in the host settings."
-          }
-        }
-      }
-    },
     "Gruppe %@ aufklappen" : {
       "localizations" : {
         "en" : {
@@ -2977,6 +4764,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Brightens or darkens text colors with too little contrast"
+          }
+        }
+      }
+    },
+    "herdr kennt den Ordner dieser Pane nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this pane's folder."
+          }
+        }
+      }
+    },
+    "herdr kennt den Ordner dieses Space nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr does not know this space's folder."
           }
         }
       }
@@ -3211,6 +5018,16 @@
         }
       }
     },
+    "In dieser Pane fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume in This Pane"
+          }
+        }
+      }
+    },
     "In Eingabe übernehmen" : {
       "localizations" : {
         "en" : {
@@ -3247,6 +5064,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "In the clipboard"
+          }
+        }
+      }
+    },
+    "In neuer Pane fortsetzen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume in New Pane"
           }
         }
       }
@@ -3391,6 +5218,16 @@
         }
       }
     },
+    "Keine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
     "Keine Agents" : {
       "localizations" : {
         "en" : {
@@ -3441,16 +5278,6 @@
         }
       }
     },
-    "Keine Beschreibung." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No description."
-          }
-        }
-      }
-    },
     "Keine Daten" : {
       "localizations" : {
         "en" : {
@@ -3487,6 +5314,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No Pane Selected"
+          }
+        }
+      }
+    },
+    "Keine Sitzungen in diesem Ordner" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Sessions in This Folder"
           }
         }
       }
@@ -3601,26 +5438,6 @@
         }
       }
     },
-    "Kommentare an Zeilen: %lld, auf GitHub zu lesen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Line comments: %lld, read them on GitHub"
-          }
-        }
-      }
-    },
-    "Kommentare und Reviews" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comments and reviews"
-          }
-        }
-      }
-    },
     "Kopiert" : {
       "localizations" : {
         "en" : {
@@ -3681,6 +5498,16 @@
         }
       }
     },
+    "Kürzel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shortcut"
+          }
+        }
+      }
+    },
     "Lange Zeilen an der Fensterbreite umbrechen statt seitlich zu scrollen" : {
       "localizations" : {
         "en" : {
@@ -3707,16 +5534,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "According to the Mac (as of %@ ago):"
-          }
-        }
-      }
-    },
-    "Leere Antwort von GitHub." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Empty response from GitHub."
           }
         }
       }
@@ -3781,6 +5598,16 @@
         }
       }
     },
+    "Läuft eine Sitzung noch in einer anderen Pane, dort Claude vorher beenden: Sonst schreiben zwei Claude-Prozesse in dieselbe Sitzung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If a session is still running in another pane, quit Claude there first: otherwise two Claude processes write to the same session."
+          }
+        }
+      }
+    },
     "Löschen" : {
       "localizations" : {
         "en" : {
@@ -3807,46 +5634,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "herdr delivers no more than %u lines."
-          }
-        }
-      }
-    },
-    "Merge-Commit" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge commit"
-          }
-        }
-      }
-    },
-    "Mergen (%@)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge (%@)"
-          }
-        }
-      }
-    },
-    "Mergen verlangt Face ID, Touch ID oder einen Gerätecode. Auf diesem Gerät ist keins eingerichtet." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merging needs Face ID, Touch ID or a device passcode. None is set up on this device."
-          }
-        }
-      }
-    },
-    "Mergen …" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge …"
           }
         }
       }
@@ -4021,6 +5808,16 @@
         }
       }
     },
+    "Namen, Branch und Status von Spaces und Agents gehen in die Systemsuche." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Names, branch and state of spaces and agents go into the system search."
+          }
+        }
+      }
+    },
     "Nennt die Agents, die auf eine Antwort warten, über alle Hosts." : {
       "localizations" : {
         "en" : {
@@ -4037,6 +5834,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tells an agent's status, for how long, and the last lines of its screen."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht installiert." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not installed on this device."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht verbunden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not connected on this device."
+          }
+        }
+      }
+    },
+    "NetBird ist auf diesem Gerät nicht verbunden. Im Symbol der Menüleiste „Connect“ wählen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NetBird is not connected on this device. Choose “Connect” in the menu bar icon."
+          }
+        }
+      }
+    },
+    "NetBird öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open NetBird"
+          }
+        }
+      }
+    },
+    "NetBird-Adressen und -Domains erkennt die App selbst, eigene Domains lernt sie, sobald NetBird läuft. Mit dem Schalter lässt sich das überschreiben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app recognises NetBird addresses and domains itself and learns your own domains once NetBird is running. The switch overrides this."
           }
         }
       }
@@ -4321,12 +6168,22 @@
         }
       }
     },
-    "Ohne den Diff zum aktuellen Stand lässt sich nicht mergen. Neu laden oder auf GitHub mergen." : {
+    "Änderungen verlangt" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Merging needs the diff of the current state. Reload or merge on GitHub."
+            "value" : "Changes requested"
+          }
+        }
+      }
+    },
+    "Öffnet aus jeder App ein Fenster für einen Prompt an den letzten Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens a window from any app for a prompt to the last agent."
           }
         }
       }
@@ -4547,6 +6404,16 @@
         }
       }
     },
+    "Prompt an mehrere Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt to several agents"
+          }
+        }
+      }
+    },
     "Prompt für %@ bereit" : {
       "localizations" : {
         "en" : {
@@ -4573,66 +6440,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Prompt “%@”"
-          }
-        }
-      }
-    },
-    "Pull Request #%lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pull Request #%lld"
-          }
-        }
-      }
-    },
-    "Pull Request #%lld mergen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge pull request #%lld"
-          }
-        }
-      }
-    },
-    "Pull Request #%lld mergen?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Merge pull request #%lld?"
-          }
-        }
-      }
-    },
-    "Pull Request #%lld …" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pull Request #%lld …"
-          }
-        }
-      }
-    },
-    "Pull Request %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pull request %lld"
-          }
-        }
-      }
-    },
-    "Pull Requests" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pull Requests"
           }
         }
       }
@@ -4687,36 +6494,6 @@
         }
       }
     },
-    "Rebase" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rebase"
-          }
-        }
-      }
-    },
-    "Review ausstehend" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Review required"
-          }
-        }
-      }
-    },
-    "Review freigegeben" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Review approved"
-          }
-        }
-      }
-    },
     "Richten Sie die Kamera auf den QR-Code, den Amiscara Agents auf dem Mac zeigt." : {
       "localizations" : {
         "en" : {
@@ -4733,6 +6510,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search Backward"
+          }
+        }
+      }
+    },
+    "Schnelleingabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Composer"
           }
         }
       }
@@ -4757,6 +6544,16 @@
         }
       }
     },
+    "Sende %lld von %lld …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending %1$lld of %2$lld …"
+          }
+        }
+      }
+    },
     "Spaces sortieren" : {
       "localizations" : {
         "en" : {
@@ -4767,12 +6564,12 @@
         }
       }
     },
-    "Squash" : {
+    "Spaces und Agents in Spotlight" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Squash"
+            "value" : "Spaces and agents in Spotlight"
           }
         }
       }
@@ -5143,6 +6940,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toggle Sorting"
+          }
+        }
+      }
+    },
+    "Spotlight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotlight"
           }
         }
       }
@@ -5647,16 +7454,6 @@
         }
       }
     },
-    "Token" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Token"
-          }
-        }
-      }
-    },
     "Tragen Sie die Zeile in ~/.ssh/authorized_keys auf dem Server ein. Der Schlüssel startet damit keine Shell und keine Befehle. Weiterleitungen bleiben möglich, auch TCP über den Server. Schließen lässt sich das nur mit AllowTcpForwarding no in der sshd_config des Servers. Geht ein Gerät verloren, die Zeile sofort entfernen." : {
       "localizations" : {
         "en" : {
@@ -5677,12 +7474,42 @@
         }
       }
     },
-    "Unbekannt" : {
+    "Wenn %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unknown"
+            "value" : "When %@"
+          }
+        }
+      }
+    },
+    "z. B. /issue-approve 300" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. /issue-approve 300"
+          }
+        }
+      }
+    },
+    "übersprungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "skipped"
+          }
+        }
+      }
+    },
+    "Übersprungen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: %@"
           }
         }
       }
@@ -5697,22 +7524,12 @@
         }
       }
     },
-    "verworfen" : {
+    "VPN aus" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "dismissed"
-          }
-        }
-      }
-    },
-    "von %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "by %@"
+            "value" : "VPN off"
           }
         }
       }
@@ -5777,16 +7594,6 @@
         }
       }
     },
-    "Zeigt zu jedem Space den offenen Pull Request seines Branches und mergt ihn. Ein fine-grained Token mit Lesezugriff auf Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests. Er bleibt auf diesem Gerät. Das Repository liest die App aus der Git-Konfiguration auf dem Host, über SSH braucht sie dafür „Bilder hochladen (SFTP)“. Leer lassen schaltet es aus." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shows the open pull request of each space's branch and merges it. A fine-grained token with read access to Checks, Commit statuses and Metadata and read and write access to Contents and Pull requests. It stays on this device. The app reads the repository from the Git configuration on the host; over SSH it needs \"Upload images (SFTP)\" for that. Leave empty to turn it off."
-          }
-        }
-      }
-    },
     "Zu %@ liegen gerade keine Daten vor. Der Host ist nicht erreichbar oder der Agent läuft nicht mehr." : {
       "localizations" : {
         "en" : {
@@ -5817,22 +7624,32 @@
         }
       }
     },
-    "Änderungen verlangt" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes requested"
-          }
-        }
-      }
-    },
     "Änderungen verwerfen?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discard changes?"
+          }
+        }
+      }
+    },
+    "Über NetBird" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Via NetBird"
+          }
+        }
+      }
+    },
+    "Überblick für die Freigabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview for approval"
           }
         }
       }
@@ -6972,6 +8789,116 @@
     },
     "└" : {
       "shouldTranslate" : false
+    },
+    "Text mit {Platzhaltern}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text with {placeholders}"
+          }
+        }
+      }
+    },
+    "Repository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "Alle Repos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All repos"
+          }
+        }
+      }
+    },
+    "Ein Tipp auf eine Vorlage fragt die Platzhalter ab und setzt den Text in die Eingabe, ohne ihn zu senden. Vorbelegt sind {nr} (Issue-Nummer des Branches), {branch} und {space}." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapping a template asks for its placeholders and puts the text into the composer without sending it. Prefilled are {nr} (issue number of the branch), {branch} and {space}."
+          }
+        }
+      }
+    },
+    "Vorlage hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Template"
+          }
+        }
+      }
+    },
+    "Vorlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Templates"
+          }
+        }
+      }
+    },
+    "Vorschau" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "Vorlage: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template: %@"
+          }
+        }
+      }
+    },
+    "Schnellantworten bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Quick Replies …"
+          }
+        }
+      }
+    },
+    "Vorlagen bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Templates …"
+          }
+        }
+      }
+    },
+    "Schnellantworten und Vorlagen bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit quick replies and templates"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

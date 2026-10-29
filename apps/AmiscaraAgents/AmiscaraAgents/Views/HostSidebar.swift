@@ -31,12 +31,22 @@ struct HostSidebar: View {
     @State private var renaming: RenameTarget?
     @State private var closing: CloseTarget?
     @State private var newWorktreeFrom: WorktreeSource?
+    #if !os(tvOS)
+    /// Claude Code sessions of a space's folder to resume (#304).
+    @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    #endif
     @State private var addingSessionTo: HostConnection?
     #if !os(tvOS)
     /// The host whose secrets are shown (#291).
     @State private var secretsFor: HostConnection?
     /// The pull request shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
+    /// The agent a chain is being added to (#300).
+    @State private var chainFrom: ChainSource?
+    #endif
+    #if os(iOS)
+    /// The price table of the token costs (#302).
+    @State private var editingPrices = false
     #endif
     /// Why a swipe action on an agent row could not be sent.
     @State private var swipeError: String?
@@ -130,6 +140,11 @@ struct HostSidebar: View {
                             .pickerStyle(.menu)
                     }
                     LiveActivityToggle()
+                    SpotlightToggle()
+                    Section("Tokens und Kosten") {
+                        UsageWidgetToggle()
+                        Button("Preise je Modell …", systemImage: "dollarsign.circle") { editingPrices = true }
+                    }
                 }
             }
             #endif
@@ -139,6 +154,9 @@ struct HostSidebar: View {
                 NoHostsView(editing: $editing)
             }
         }
+        #if os(iOS)
+        .sheet(isPresented: $editingPrices) { UsagePricesView() }
+        #endif
         .sheet(item: $showingQR) { config in
             HostQRView(config: config)
         }
@@ -156,6 +174,9 @@ struct HostSidebar: View {
         }
         .sheet(item: $pullRequestShown) { target in
             PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
+        }
+        .sheet(item: $chainFrom) { source in
+            ChainEditor(source: source)
         }
         #endif
         .sheet(item: $renaming) { target in
@@ -183,6 +204,13 @@ struct HostSidebar: View {
                 selection = .space(SpaceRef(hostID: source.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
             }
         }
+        #if !os(tvOS)
+        .sheet(item: $claudeSessionsFor) { target in
+            ClaudeSessionsView(target: target) { created in
+                selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
+            }
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -205,9 +233,10 @@ struct HostSidebar: View {
         }
     }
 
-    /// An agent row with rename in its context menu and, with input
-    /// allowed, swipe actions (#230): leading confirms a waiting agent or
-    /// sends the first quick reply, trailing has Esc, Ctrl-C and rename.
+    /// An agent row with rename and "Kette anlegen" (#300) in its context
+    /// menu and, with input allowed, swipe actions (#230): leading confirms
+    /// a waiting agent or sends the first quick reply, trailing has Esc,
+    /// Ctrl-C and rename.
     @ViewBuilder
     private func agentRow(_ connection: HostConnection, _ entry: AgentOrder.Entry) -> some View {
         let agent = entry.agent
@@ -220,6 +249,11 @@ struct HostSidebar: View {
             row
                 .contextMenu {
                     Button("Agent benennen …", systemImage: "pencil", action: rename)
+                    #if !os(tvOS)
+                    Button("Kette anlegen …", systemImage: "link") {
+                        chainFrom = ChainSource(connection: connection, agent: agent)
+                    }
+                    #endif
                 }
                 #if !os(tvOS)
                 // No full swipe: a flick through the list must not approve
@@ -426,6 +460,11 @@ struct HostSidebar: View {
                         newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
                     }
                 }
+                #if !os(tvOS)
+                Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
+                    claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: key)
+                }
+                #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
                     closing = .space(entry.workspace, on: connection)
                 }
@@ -996,10 +1035,23 @@ struct SpaceRow: View {
 
 /// An agent the way herdr's sidebar shows it by default: state, space and
 /// tab number (only when the space has several tabs), then the agent. A
-/// grouped space shows its short name with the group beside it.
+/// grouped space shows its short name with the group beside it, its
+/// chains (#300) go below.
 private struct AgentRow: View {
     let agent: BoardItem
     let tabNumber: String?
+
+    /// "Kette: → reviewer", or that one failed.
+    private var chainLine: Text? {
+        guard !agent.chains.isEmpty else { return nil }
+        if agent.chains.contains(where: \.failed) {
+            return Text("Kette fehlgeschlagen").foregroundStyle(.red)
+        }
+        let targets = agent.chains
+            .map { $0.targetLabel.isEmpty ? "?" : $0.targetLabel }
+            .joined(separator: ", ")
+        return Text("Kette: → \(targets)").foregroundStyle(.tint)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -1026,6 +1078,11 @@ private struct AgentRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if let chains = chainLine {
+                    chains
+                        .font(.caption)
+                        .lineLimit(1)
+                }
             }
         }
     }

@@ -1,20 +1,29 @@
-//! The GitHub repository of a space (#309): read from the `origin` remote in
-//! the Git configuration of its repository, so the apps can show the pull
-//! request of the space's branch. Other remotes and hosts are ignored.
+//! Plans waiting for approval on GitHub (#296): which GitHub repository a
+//! space's Git repository pushes to, read from its `.git/config`, and the
+//! part of an enon-tools plan comment the apps show for the approval. The
+//! apps fetch issues and comments from GitHub themselves.
 
-/// A repository on github.com.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A GitHub repository of the spaces on a host, with the spaces that show
+/// it (its checkout and linked worktrees).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHubRepo {
-    pub owner: String,
-    pub name: String,
+    /// `owner/name`.
+    pub repo: String,
+    pub workspace_ids: Vec<String>,
 }
 
-/// The GitHub repository of the `origin` remote in the Git configuration
-/// `config` (the text of `.git/config`). `None` without an `origin`, or
-/// when it does not point to github.com.
-pub fn origin_repository(config: &str) -> Option<GitHubRepo> {
+/// The heading an enon-tools plan comment starts with.
+const PLAN_HEADING: &str = "## Implementierungsplan";
+/// The section of a plan written for the person who approves it.
+const OVERVIEW_HEADING: &str = "### Überblick für die Freigabe";
+
+/// `owner/name` of the `[remote "origin"]` of a Git `config` file, when it
+/// points to github.com: `git@github.com:o/r.git`,
+/// `ssh://git@github.com/o/r.git` or `https://github.com/o/r`, with or
+/// without `.git` and a trailing `/`. `None` for other hosts or no origin.
+pub fn origin_repo(config: &str) -> Option<String> {
     let mut in_origin = false;
-    let mut url = None;
     for line in config.lines() {
         let line = line.trim();
         if line.starts_with('[') {
@@ -28,48 +37,31 @@ pub fn origin_repository(config: &str) -> Option<GitHubRepo> {
             continue;
         };
         if key.trim().eq_ignore_ascii_case("url") {
-            // The first `url` wins, as for `git remote get-url`.
-            url.get_or_insert_with(|| config_value(value));
+            return github_path(value.trim().trim_matches('"'));
         }
     }
-    parse_url(&url?)
+    None
 }
 
-/// `[remote "origin"]`; the section name ignores case, the remote's not.
+/// `[remote "origin"]`, spaces inside the brackets allowed.
 fn is_origin_section(line: &str) -> bool {
     let Some(inner) = line
         .strip_prefix('[')
-        .and_then(|rest| rest.split(']').next())
+        .and_then(|rest| rest.split_once(']'))
+        .map(|(inner, _)| inner.trim())
     else {
         return false;
     };
-    let Some((section, sub)) = inner.split_once(char::is_whitespace) else {
+    let Some((section, name)) = inner.split_once(char::is_whitespace) else {
         return false;
     };
-    section.eq_ignore_ascii_case("remote") && sub.trim() == "\"origin\""
+    section.eq_ignore_ascii_case("remote") && name.trim() == "\"origin\""
 }
 
-/// A value without comment and surrounding quotes.
-fn config_value(value: &str) -> String {
-    let value = value.trim();
-    if let Some(quoted) = value.strip_prefix('"') {
-        return quoted.split('"').next().unwrap_or_default().to_owned();
-    }
-    value
-        .split([';', '#'])
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .to_owned()
-}
-
-/// `git@github.com:o/r`, `ssh://git@github.com[:port]/o/r` or
-/// `https://[user@]github.com/o/r`, each with or without `.git`.
-fn parse_url(url: &str) -> Option<GitHubRepo> {
-    let path = if let Some(rest) = url
-        .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("ssh://"))
-    {
+/// `owner/name` of a remote URL on github.com.
+fn github_path(url: &str) -> Option<String> {
+    let path = if let Some((_, rest)) = url.split_once("://") {
+        // `ssh://git@github.com:22/o/r`, `https://user@github.com/o/r`
         let (authority, path) = rest.split_once('/')?;
         let host = authority.rsplit('@').next()?;
         let host = host.split(':').next()?;
@@ -77,10 +69,8 @@ fn parse_url(url: &str) -> Option<GitHubRepo> {
             return None;
         }
         path
-    } else if url.contains("://") {
-        return None;
     } else {
-        // scp-like: [user@]host:path
+        // scp form `git@github.com:o/r`
         let (authority, path) = url.split_once(':')?;
         let host = authority.rsplit('@').next()?;
         if !host.eq_ignore_ascii_case("github.com") {
@@ -91,110 +81,119 @@ fn parse_url(url: &str) -> Option<GitHubRepo> {
     let path = path.trim_matches('/');
     let path = path.strip_suffix(".git").unwrap_or(path);
     let (owner, name) = path.split_once('/')?;
-    if owner.is_empty() || name.is_empty() || name.contains('/') {
-        return None;
-    }
-    Some(GitHubRepo {
-        owner: owner.to_owned(),
-        name: name.to_owned(),
-    })
+    let valid = |part: &str| {
+        !part.is_empty()
+            && part
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    (valid(owner) && valid(name)).then(|| format!("{owner}/{name}"))
+}
+
+/// The overview for the approval from an enon-tools plan comment: the text
+/// below `### Überblick für die Freigabe` up to the agent's steps in
+/// `<details>` or the end, open questions included. `None` when the
+/// comment is no plan or has no such section.
+pub fn plan_overview(body: &str) -> Option<String> {
+    let mut lines = body.lines();
+    lines.by_ref().find(|line| line.trim() == PLAN_HEADING)?;
+    lines
+        .by_ref()
+        .find(|line| line.trim() == OVERVIEW_HEADING)?;
+    let overview: Vec<&str> = lines
+        .take_while(|line| !line.trim_start().starts_with("<details"))
+        .collect();
+    let text = overview.join("\n").trim().to_owned();
+    (!text.is_empty()).then_some(text)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn repo(owner: &str, name: &str) -> Option<GitHubRepo> {
-        Some(GitHubRepo {
-            owner: owner.into(),
-            name: name.into(),
-        })
-    }
-
     fn config(url: &str) -> String {
         format!(
-            "[core]\n\trepositoryformatversion = 0\n[remote \"origin\"]\n\turl = {url}\n\
-             \tfetch = +refs/heads/*:refs/remotes/origin/*\n[branch \"main\"]\n\tremote = origin\n"
+            "[core]\n\trepositoryformatversion = 0\n[remote \"upstream\"]\n\turl = git@github.com:other/fork.git\n[remote \"origin\"]\n\turl = {url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n[branch \"main\"]\n\tremote = origin\n"
         )
     }
 
     #[test]
-    fn scp_form() {
-        let expected = repo("staude", "amiscara-agents");
+    fn reads_github_origins() {
+        for url in [
+            "git@github.com:staude/amiscara-agents.git",
+            "git@github.com:staude/amiscara-agents",
+            "ssh://git@github.com/staude/amiscara-agents.git",
+            "ssh://git@github.com:22/staude/amiscara-agents",
+            "https://github.com/staude/amiscara-agents",
+            "https://github.com/staude/amiscara-agents.git",
+            "https://github.com/staude/amiscara-agents/",
+            "https://token@github.com/staude/amiscara-agents.git/",
+        ] {
+            assert_eq!(
+                origin_repo(&config(url)).as_deref(),
+                Some("staude/amiscara-agents"),
+                "{url}"
+            );
+        }
+    }
+
+    #[test]
+    fn ignores_other_hosts_and_remotes() {
+        assert_eq!(origin_repo(&config("git@gitlab.com:o/r.git")), None);
+        assert_eq!(origin_repo(&config("https://example.com/o/r")), None);
+        assert_eq!(origin_repo(&config("/Users/me/repos/r.git")), None);
+        assert_eq!(origin_repo(&config("https://github.com/o")), None);
+        assert_eq!(origin_repo(&config("https://github.com/o/r/tree/x")), None);
         assert_eq!(
-            origin_repository(&config("git@github.com:staude/amiscara-agents.git")),
-            expected
+            origin_repo("[remote \"upstream\"]\n\turl = git@github.com:o/r.git\n"),
+            None
         );
+        assert_eq!(origin_repo(""), None);
+    }
+
+    #[test]
+    fn reads_quoted_urls_and_spaced_sections() {
         assert_eq!(
-            origin_repository(&config("git@github.com:staude/amiscara-agents")),
-            expected
+            origin_repo("[ remote  \"origin\" ]\nURL=\"https://github.com/o/r.git\"\n").as_deref(),
+            Some("o/r")
+        );
+    }
+
+    const PLAN: &str = "## Implementierungsplan\n\n### Überblick für die Freigabe\n\nWer unterwegs ist, soll freigeben.\n\n**Entscheidungen**\n\n1. Token je Host.\n\n### Offene Fragen\n\n1. Welche Farbe?\n\n<details>\n<summary>Umsetzungsschritte</summary>\n\n### Schritte\n\n1. Code.\n\n</details>\n\nBranch erstellt: `feature/1-x`\n";
+
+    #[test]
+    fn takes_the_overview_up_to_the_details() {
+        assert_eq!(
+            plan_overview(PLAN).as_deref(),
+            Some(
+                "Wer unterwegs ist, soll freigeben.\n\n**Entscheidungen**\n\n1. Token je Host.\n\n### Offene Fragen\n\n1. Welche Farbe?"
+            )
         );
     }
 
     #[test]
-    fn ssh_form() {
-        let expected = repo("staude", "amiscara-agents");
+    fn takes_the_overview_to_the_end_without_details() {
         assert_eq!(
-            origin_repository(&config("ssh://git@github.com/staude/amiscara-agents.git")),
-            expected
-        );
-        assert_eq!(
-            origin_repository(&config("ssh://git@github.com:22/staude/amiscara-agents")),
-            expected
+            plan_overview("## Implementierungsplan\n### Überblick für die Freigabe\r\nKurz.\r\n")
+                .as_deref(),
+            Some("Kurz.")
         );
     }
 
     #[test]
-    fn https_form() {
-        let expected = repo("Immoticket24", "enon-ai-tooling");
+    fn needs_a_plan_and_an_overview() {
         assert_eq!(
-            origin_repository(&config(
-                "https://github.com/Immoticket24/enon-ai-tooling.git"
-            )),
-            expected
-        );
-        assert_eq!(
-            origin_repository(&config(
-                "https://frank@github.com/Immoticket24/enon-ai-tooling"
-            )),
-            expected
-        );
-        assert_eq!(
-            origin_repository(&config(
-                "\"https://GitHub.com/Immoticket24/enon-ai-tooling/\""
-            )),
-            expected
-        );
-    }
-
-    #[test]
-    fn other_hosts() {
-        assert_eq!(
-            origin_repository(&config("git@gitlab.com:staude/amiscara-agents.git")),
+            plan_overview("### Überblick für die Freigabe\n\nKein Plan."),
             None
         );
         assert_eq!(
-            origin_repository(&config("https://github.example.com/staude/x.git")),
+            plan_overview("## Implementierungsplan\n\n### Schritte\n\n1. Code."),
             None
         );
-        assert_eq!(origin_repository(&config("/srv/git/project.git")), None);
         assert_eq!(
-            origin_repository(&config("file:///srv/github.com/a/b.git")),
+            plan_overview("## Implementierungsplan\n### Überblick für die Freigabe\n\n<details>"),
             None
         );
-    }
-
-    #[test]
-    fn origin_only() {
-        let text = "[remote \"upstream\"]\n\turl = git@github.com:ogulcancelik/herdr.git\n\
-                    [remote \"origin\"]\n\turl = git@github.com:staude/herdr.git # fork\n";
-        assert_eq!(origin_repository(text), repo("staude", "herdr"));
-    }
-
-    #[test]
-    fn no_origin() {
-        let text = "[remote \"upstream\"]\n\turl = git@github.com:ogulcancelik/herdr.git\n";
-        assert_eq!(origin_repository(text), None);
-        assert_eq!(origin_repository("[core]\n\tbare = false\n"), None);
+        assert_eq!(plan_overview("Plan freigegeben: https://example.com"), None);
     }
 }

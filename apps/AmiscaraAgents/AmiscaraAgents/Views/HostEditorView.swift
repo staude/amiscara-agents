@@ -29,7 +29,7 @@ struct HostEditorView: View {
     @State private var importedKey: ImportedKey?
     @State private var keyConfirmed = false
     #if !os(tvOS)
-    /// The GitHub token for pull requests (#309), only on this device.
+    /// The host's GitHub token on this device (#296); empty removes it.
     @State private var githubToken = ""
     @State private var originalGitHubToken = ""
     @State private var tokenLoaded = false
@@ -63,7 +63,7 @@ struct HostEditorView: View {
 
                 if config.kind == .ssh {
                     importSection
-                    Section("Server") {
+                    Section {
                         TextField("Host", text: $config.host, prompt: Text("mac.example.internal"))
                             .technicalInput()
                         TextField("Port", value: $config.port, format: .number.grouping(.never))
@@ -72,9 +72,21 @@ struct HostEditorView: View {
                         TextField("Socket", text: $config.socketPath, prompt: Text(socketPlaceholder))
                             .technicalInput()
                         sessionField
+                        #if !os(tvOS)
+                        Toggle("Über NetBird", isOn: Binding(
+                            get: { config.behindNetBird },
+                            set: { config.viaNetBird = $0 }
+                        ))
+                        #endif
                         #if os(macOS)
                         TextField("SSH-Ziel für VS Code", text: sshTarget, prompt: Text(verbatim: sshTargetPlaceholder))
                             .technicalInput()
+                        #endif
+                    } header: {
+                        Text("Server")
+                    } footer: {
+                        #if !os(tvOS)
+                        Text("NetBird-Adressen und -Domains erkennt die App selbst, eigene Domains lernt sie, sobald NetBird läuft. Mit dem Schalter lässt sich das überschreiben.")
                         #endif
                     }
                     importedKeySection
@@ -120,7 +132,18 @@ struct HostEditorView: View {
                 }
 
                 #if !os(tvOS)
-                githubSection
+                Section {
+                    SecureField("Token", text: $githubToken, prompt: Text(verbatim: "github_pat_…"))
+                        .technicalInput()
+                    if let tokenError = store.connection(for: original.id)?.pullRequests.tokenError, !githubTokenChanged {
+                        Label(tokenError, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    Text(verbatim: "GitHub")
+                } footer: {
+                    Text("Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten, und jeder Space den offenen Pull Request seines Branches, den die App auch mergt. Ein Fine-grained Token mit Lesezugriff auf Issues, Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests; für die Freigaben allein genügt Issues: Read. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“.")
+                }
                 #endif
 
                 if let error {
@@ -147,7 +170,7 @@ struct HostEditorView: View {
         .frame(width: 520)
         #endif
         // A swipe down would drop changes silently on iPad.
-        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil || tokenEdited)
+        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil || githubTokenChanged)
         .onChange(of: config.host) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.port) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.socketPath, initial: true) { showSessionOfSocket() }
@@ -168,7 +191,7 @@ struct HostEditorView: View {
         .onAppear {
             guard !tokenLoaded else { return }
             tokenLoaded = true
-            let token = GitHubToken.load(host: original.id) ?? ""
+            let token = ((try? GitHubToken.load(for: original.id)) ?? nil) ?? ""
             githubToken = token
             originalGitHubToken = token
         }
@@ -179,32 +202,6 @@ struct HostEditorView: View {
         }
         #endif
     }
-
-    private var tokenEdited: Bool {
-        #if os(tvOS)
-        false
-        #else
-        githubToken != originalGitHubToken
-        #endif
-    }
-
-    #if !os(tvOS)
-    /// The token that shows the pull requests of the spaces (#309).
-    private var githubSection: some View {
-        Section {
-            SecureField("Token", text: $githubToken, prompt: Text(verbatim: "github_pat_…"))
-                .technicalInput()
-            if let tokenError = store.connection(for: original.id)?.pullRequests.tokenError, !tokenEdited {
-                Label(tokenError, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.red)
-            }
-        } header: {
-            Text("GitHub")
-        } footer: {
-            Text("Zeigt zu jedem Space den offenen Pull Request seines Branches und mergt ihn. Ein fine-grained Token mit Lesezugriff auf Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests. Er bleibt auf diesem Gerät. Das Repository liest die App aus der Git-Konfiguration auf dem Host, über SSH braucht sie dafür „Bilder hochladen (SFTP)“. Leer lassen schaltet es aus.")
-        }
-    }
-    #endif
 
     /// Fill in everything from a code another device shows (its host menu,
     /// "QR-Code zeigen"): nothing to type; the host key is pinned once its
@@ -421,6 +418,14 @@ struct HostEditorView: View {
         config.user.isEmpty ? String(localized: "/Users/<benutzer>/.config/herdr/herdr.sock") : defaultRemoteSocket(user: config.user)
     }
 
+    private var githubTokenChanged: Bool {
+        #if os(tvOS)
+        false
+        #else
+        githubToken != originalGitHubToken
+        #endif
+    }
+
     /// Not yet in the store: a new host, also one handed over prefilled.
     private var isNew: Bool {
         store.connection(for: original.id) == nil
@@ -517,14 +522,17 @@ struct HostEditorView: View {
                 try KeyStore.save(privateKey: newPrivateKey, for: config.id)
             }
             #if !os(tvOS)
-            // Before the connection starts: a new one reads it once.
-            let token = githubToken.trimmingCharacters(in: .whitespacesAndNewlines)
-            if tokenEdited {
+            if githubTokenChanged {
+                let token = githubToken.trimmingCharacters(in: .whitespacesAndNewlines)
                 if token.isEmpty {
-                    GitHubToken.delete(host: config.id)
+                    GitHubToken.delete(for: config.id)
                 } else {
-                    try GitHubToken.save(token, host: config.id)
+                    try GitHubToken.save(token, for: config.id)
                 }
+                store.approvals.reset(config.id)
+                let approvals = store.approvals
+                let connections = store.connections
+                Task { await approvals.load(connections, force: true) }
             }
             #endif
             if isNew {
@@ -533,8 +541,8 @@ struct HostEditorView: View {
                 store.update(config)
             }
             #if !os(tvOS)
-            if tokenEdited, !isNew {
-                store.connection(for: config.id)?.pullRequests.tokenChanged(host: config.id)
+            if githubTokenChanged {
+                store.connection(for: config.id)?.pullRequests.tokenChanged()
             }
             #endif
             dismiss()

@@ -17,6 +17,38 @@ struct WidgetSnapshot: Codable, Equatable {
         /// Fingerprint of the host's SSH host key, to match the Mac's
         /// boards in iCloud (`CloudBoard`); `nil` when unknown.
         var hostKey: String? = nil
+        /// Today's Claude Code tokens (#302), only with "Tageskosten im
+        /// Widget" switched on.
+        var usageToday: Usage? = nil
+    }
+
+    /// Tokens of Claude Code and their estimated cost (#302).
+    struct Usage: Codable, Equatable {
+        var tokens: UInt64 = 0
+        /// In US dollars, over the models with a price.
+        var cost: Double = 0
+        /// Some tokens came from a model without a price.
+        var unpriced = false
+        /// Start of the day the tokens are of, for "Heute"; `nil` for a sum
+        /// over several days.
+        var day: Date? = nil
+
+        /// "1,2 Mio. Tokens, ~3,40 $".
+        var summary: String {
+            let tokens = tokens.formatted(.number.notation(.compactName))
+            let cost = cost.formatted(.currency(code: "USD"))
+            if unpriced && self.cost == 0 {
+                return String(localized: "\(tokens) Tokens, ohne Preis")
+            }
+            if unpriced {
+                return String(localized: "\(tokens) Tokens, ~\(cost) (teils ohne Preis)")
+            }
+            return String(localized: "\(tokens) Tokens, ~\(cost)")
+        }
+
+        var todayText: String {
+            String(localized: "Heute: \(summary)")
+        }
     }
 
     struct Agent: Codable, Equatable, Identifiable {
@@ -123,6 +155,18 @@ struct WidgetSnapshot: Codable, Equatable {
     /// Opens the app without a pane.
     static let appURL = URL(string: "amiscara-agents://open")!
 
+    /// Opens a space without picking a pane (a Spotlight space result, #308).
+    static func spaceURL(host: UUID, workspaceID: String) -> URL {
+        var components = URLComponents()
+        components.scheme = "amiscara-agents"
+        components.host = "open"
+        components.queryItems = [
+            URLQueryItem(name: "host", value: host.uuidString),
+            URLQueryItem(name: "space", value: workspaceID),
+        ]
+        return components.url!
+    }
+
     /// Whether an `openURL` link asks for dictation.
     static func wantsDictation(_ url: URL) -> Bool {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "dictate" && $0.value == "1" } == true
@@ -155,6 +199,18 @@ struct WidgetSnapshot: Codable, Equatable {
               let pane = items.first(where: { $0.name == "pane" })?.value
         else { return nil }
         return (host, space, pane)
+    }
+
+    /// The parts of a `spaceURL` link, or `nil` for any other URL, including
+    /// an `openURL` link that names a pane.
+    static func parseSpaceURL(_ url: URL) -> (host: UUID, workspaceID: String)? {
+        guard url.scheme?.lowercased() == "amiscara-agents", url.host() == "open",
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+              items.first(where: { $0.name == "pane" }) == nil,
+              let host = items.first(where: { $0.name == "host" })?.value.flatMap(UUID.init(uuidString:)),
+              let space = items.first(where: { $0.name == "space" })?.value
+        else { return nil }
+        return (host, space)
     }
 }
 

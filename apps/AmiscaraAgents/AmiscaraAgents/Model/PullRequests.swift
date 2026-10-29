@@ -6,7 +6,8 @@ import AppKit
 #endif
 
 /// The open pull requests of a host's spaces (#309): per space the one whose
-/// head is the space's branch in the repository of its `origin` remote.
+/// head is the space's branch in the repository of its `origin` remote, as
+/// the approvals (#296) find it.
 /// Only with a GitHub token for the host and file access, which reads the
 /// Git configuration; otherwise empty and no requests. One request per
 /// repository, again when spaces or branches change, every two minutes
@@ -23,10 +24,10 @@ final class PullRequests {
     @ObservationIgnored weak var connection: HostConnection?
     @ObservationIgnored private let hostID: UUID
     @ObservationIgnored private var token: String?
-    /// The GitHub repository of each herdr repository key, also `nil` for
-    /// none, valid for one session (`generation`).
-    @ObservationIgnored private var repos: [String: GitHubRepo?] = [:]
-    @ObservationIgnored private var reposGeneration = -1
+    /// The GitHub repositories of the spaces with their spaces (#296), read
+    /// again only in a new session (`generation`) or for other spaces.
+    @ObservationIgnored private var repos: [GitHubRepo]?
+    @ObservationIgnored private var reposRead: (generation: Int, spaces: [String])?
     @ObservationIgnored private var spaces: [Space] = []
     @ObservationIgnored private var wasLive = false
     @ObservationIgnored private var refreshing = false
@@ -43,7 +44,12 @@ final class PullRequests {
 
     init(host hostID: UUID) {
         self.hostID = hostID
-        token = DemoMode.isOn ? nil : GitHubToken.load(host: hostID)
+        token = Self.token(for: hostID)
+    }
+
+    private static func token(for hostID: UUID) -> String? {
+        guard !DemoMode.isOn, let token = (try? GitHubToken.load(for: hostID)) ?? nil, !token.isEmpty else { return nil }
+        return token
     }
 
     var hasToken: Bool { token != nil }
@@ -67,8 +73,8 @@ final class PullRequests {
     }
 
     /// A new token, or none, from the host settings.
-    func tokenChanged(host hostID: UUID) {
-        token = DemoMode.isOn ? nil : GitHubToken.load(host: hostID)
+    func tokenChanged() {
+        token = Self.token(for: hostID)
         tokenError = nil
         Task { await refresh() }
     }
@@ -114,51 +120,40 @@ final class PullRequests {
 
     private func load() async {
         // Not readable before the first unlock after a restart.
-        if token == nil, !DemoMode.isOn { token = GitHubToken.load(host: hostID) }
+        if token == nil { token = Self.token(for: hostID) }
         guard let connection, let client, connection.config.uploadAllowed else {
             byWorkspace = [:]
             methods = [:]
             return
         }
         guard connection.isLive else { return }
-        if reposGeneration != connection.generation {
-            repos = [:]
-            reposGeneration = connection.generation
-        }
         let spaces = spaces
-        for space in spaces where !repos.keys.contains(space.repoKey) {
-            // `nil` for no GitHub origin is cached; a failure is asked again.
-            do {
-                repos[space.repoKey] = .some(try await connection.githubRepository(workspaceID: space.workspaceID))
-            } catch {}
+        // A branch change keeps the repositories; a new space or session
+        // reads them again.
+        let keys = spaces.map { "\($0.workspaceID) \($0.repoKey)" }
+        if reposRead?.generation != connection.generation || reposRead?.spaces != keys,
+           let read = try? await connection.githubRepos() {
+            repos = read
+            reposRead = (connection.generation, keys)
         }
-        var targets: [String: GitHubRepo] = [:]
-        for space in spaces {
-            if case .some(.some(let repo)) = repos[space.repoKey] {
-                targets["\(repo.owner)/\(repo.name)"] = repo
-            }
-        }
+        // Not read yet: keep the last rows.
+        guard let repos else { return }
         var found: [String: PullRequestSummary] = [:]
-        // A repository not read this time keeps its last rows.
-        for space in spaces where !repos.keys.contains(space.repoKey) {
-            found[space.workspaceID] = byWorkspace[space.workspaceID]
-        }
         var allowed: [String: MergeMethods] = [:]
-        for (name, repo) in targets {
-            let ownSpaces = spaces.filter { space in
-                if case .some(.some(let other)) = repos[space.repoKey] {
-                    return other.owner == repo.owner && other.name == repo.name
-                }
-                return false
-            }
+        for repo in repos {
+            let parts = repo.repo.split(separator: "/", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { continue }
+            let (owner, name) = (parts[0], parts[1])
+            let ownSpaces = spaces.filter { repo.workspaceIds.contains($0.workspaceID) }
+            guard !ownSpaces.isEmpty else { continue }
             do {
-                let result = try await client.pullRequests(repo)
-                allowed[name] = result.methods
+                let result = try await client.pullRequests(owner: owner, name: name)
+                allowed[repo.repo] = result.methods
                 for space in ownSpaces {
                     found[space.workspaceID] = result.pullRequests.first { pr in
                         pullRequestMatches(
                             headRefName: pr.headRefName, headOwner: pr.headOwner,
-                            branch: space.branch, repoOwner: repo.owner
+                            branch: space.branch, repoOwner: owner
                         )
                     }
                 }
@@ -171,7 +166,7 @@ final class PullRequests {
                 // No rows for a repository the token cannot see.
             } catch {
                 // Offline or GitHub down: keep the last state.
-                allowed[name] = methods[name]
+                allowed[repo.repo] = methods[repo.repo]
                 for space in ownSpaces {
                     found[space.workspaceID] = byWorkspace[space.workspaceID]
                 }
