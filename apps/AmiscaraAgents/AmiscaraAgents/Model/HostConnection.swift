@@ -31,10 +31,18 @@ final class HostConnection: Identifiable {
     @ObservationIgnored private var demoOffline = false
     #endif
     nonisolated let id: UUID
+    #if !os(tvOS)
+    /// The open pull requests of the spaces (#309).
+    let pullRequests: PullRequests
+    #endif
 
     init(config: HostConfig) {
         self.config = config
         id = config.id
+        #if !os(tvOS)
+        pullRequests = PullRequests(host: config.id)
+        pullRequests.connection = self
+        #endif
         usage.attach(self)
     }
 
@@ -60,6 +68,9 @@ final class HostConnection: Identifiable {
                     self.liveClock.update(wasLive: wasLive, isLive: self.isLive)
                     if self.isLive { self.lastBoard = update.board }
                     self.onUpdate?(self, update)
+                    #if !os(tvOS)
+                    self.pullRequests.updated(update, live: self.isLive)
+                    #endif
                 }
             }
             session = try HostSession.start(

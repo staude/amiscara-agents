@@ -739,6 +739,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
   of the same folder. Needs file access like the conversation view; Mac,
   iPhone and iPad. Core: `claude::list_sessions`, `start_agent` takes agent
   arguments, `Session::claude_sessions`, `resume_claude`.
+- Pull requests (#309): with the host's GitHub token of the approvals (#296),
+  given the rights for pull requests, a space whose branch has an open pull request shows its
+  number, checks and review state in the sidebar, next to the tabs and on
+  the dashboard. The pull request view shows description, checks, comments
+  and reviews (line comments only as a count) and the diff, and merges after
+  Face ID or the passcode, also with the app lock off: squash where the
+  repository allows it, else a merge commit, else rebase. The diff is read
+  at the head merged, so merging needs it loaded; GitHub refuses the merge
+  when a commit came in since. The repositories come from
+  `Session::github_repos` like the approvals'. Without a token nothing
+  changes. Mac, iPhone and iPad. FFI `parse_diff`.
 
 ### Changed
 

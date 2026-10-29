@@ -151,10 +151,10 @@ final class AppLock {
     }
 
     /// Asks for Face ID, Touch ID or the passcode, e.g. before the lock is
-    /// turned off; true when the owner confirmed.
-    func confirmOwner() async -> Bool {
+    /// turned off or a pull request is merged (#309); true when the owner
+    /// confirmed. Works with the lock off too.
+    func confirmOwner(reason: String = String(localized: "App-Sperre ausschalten")) async -> Bool {
         let context = LAContext()
-        let reason = String(localized: "App-Sperre ausschalten")
         return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
     }
 

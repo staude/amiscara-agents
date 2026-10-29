@@ -30,8 +30,9 @@ struct HostEditorView: View {
     @State private var keyConfirmed = false
     #if !os(tvOS)
     /// The host's GitHub token on this device (#296); empty removes it.
-    @State private var githubToken: String
-    private let originalGitHubToken: String
+    @State private var githubToken = ""
+    @State private var originalGitHubToken = ""
+    @State private var tokenLoaded = false
     #endif
 
     private struct ImportedKey: Equatable {
@@ -46,11 +47,6 @@ struct HostEditorView: View {
         _config = State(initialValue: config)
         original = config
         self.importLink = importLink
-        #if !os(tvOS)
-        let token = ((try? GitHubToken.load(for: config.id)) ?? nil) ?? ""
-        _githubToken = State(initialValue: token)
-        originalGitHubToken = token
-        #endif
     }
 
     var body: some View {
@@ -139,10 +135,14 @@ struct HostEditorView: View {
                 Section {
                     SecureField("Token", text: $githubToken, prompt: Text(verbatim: "github_pat_…"))
                         .technicalInput()
+                    if let tokenError = store.connection(for: original.id)?.pullRequests.tokenError, !githubTokenChanged {
+                        Label(tokenError, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
                 } header: {
                     Text(verbatim: "GitHub")
                 } footer: {
-                    Text("Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten. Ein Fine-grained Token mit dem Recht Issues: Read genügt. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“.")
+                    Text("Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten, und jeder Space den offenen Pull Request seines Branches, den die App auch mergt. Ein Fine-grained Token mit Lesezugriff auf Issues, Checks, Commit statuses und Metadata sowie Lese- und Schreibzugriff auf Contents und Pull requests; für die Freigaben allein genügt Issues: Read. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“.")
                 }
                 #endif
 
@@ -186,6 +186,16 @@ struct HostEditorView: View {
             }
         }
         .task(id: config.kind) { await loadSessions() }
+        #if !os(tvOS)
+        // Once per sheet, not with every new value of the view.
+        .onAppear {
+            guard !tokenLoaded else { return }
+            tokenLoaded = true
+            let token = ((try? GitHubToken.load(for: original.id)) ?? nil) ?? ""
+            githubToken = token
+            originalGitHubToken = token
+        }
+        #endif
         #if os(iOS)
         .sheet(isPresented: $scanning) {
             QRScannerView { link in apply(link) }
@@ -530,6 +540,11 @@ struct HostEditorView: View {
             } else {
                 store.update(config)
             }
+            #if !os(tvOS)
+            if githubTokenChanged {
+                store.connection(for: config.id)?.pullRequests.tokenChanged()
+            }
+            #endif
             dismiss()
         } catch {
             self.error = error.localizedDescription

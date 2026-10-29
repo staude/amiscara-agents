@@ -39,6 +39,8 @@ struct HostSidebar: View {
     #if !os(tvOS)
     /// The host whose secrets are shown (#291).
     @State private var secretsFor: HostConnection?
+    /// The pull request shown (#309).
+    @State private var pullRequestShown: PullRequestTarget?
     /// The agent a chain is being added to (#300).
     @State private var chainFrom: ChainSource?
     #endif
@@ -169,6 +171,9 @@ struct HostSidebar: View {
         #if !os(tvOS)
         .sheet(item: $secretsFor) { connection in
             SecretsView(connection: connection)
+        }
+        .sheet(item: $pullRequestShown) { target in
+            PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
         }
         .sheet(item: $chainFrom) { source in
             ChainEditor(source: source)
@@ -393,6 +398,17 @@ struct HostSidebar: View {
         .help(String(localized: "Spaces sortieren"))
     }
 
+    #if !os(tvOS)
+    @ViewBuilder
+    private func pullRequestButton(_ pullRequest: PullRequestSummary?, on connection: HostConnection) -> some View {
+        if let pullRequest {
+            Button("Pull Request #\(pullRequest.number) …", systemImage: "arrow.triangle.pull") {
+                pullRequestShown = PullRequestTarget(connection: connection, pullRequest: pullRequest)
+            }
+        }
+    }
+    #endif
+
     /// Stores the order after a drop; `false` when the drop is not allowed
     /// there, e.g. a space dropped into another group.
     private func reorder(_ connection: HostConnection, _ entries: [SpaceOrder.Entry], dragged: String, onto target: String) -> Bool {
@@ -404,13 +420,26 @@ struct HostSidebar: View {
     private func spaceRow(_ connection: HostConnection, _ update: SessionUpdate, _ entry: SpaceOrder.Entry, grouped: Bool, reorder entries: [SpaceOrder.Entry]?) -> some View {
         let key = entry.workspace.workspaceId
         let renamable = RenameTarget.available(on: connection)
-        return SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
+        #if os(tvOS)
+        let row = SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
+        #else
+        let pullRequest = connection.pullRequests.pullRequest(for: key)
+        let row = SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped, pullRequest: pullRequest)
+        #endif
+        return row
             .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: key)))
             .spaceReordering(key, on: connection.id, among: entries, drag: spaceDrag) { reorder(connection, $0, dragged: $1, onto: key) }
             #if os(macOS)
             // Without renaming the row has no menu of its own yet.
             .contextMenu(when: !renamable) {
                 OpenInVSCodeButton(connection: connection, target: .space(key), error: $editorError)
+                pullRequestButton(pullRequest, on: connection)
+            }
+            #elseif os(iOS)
+            // By `renamable` only, so the row keeps its identity when a pull
+            // request comes or goes; an empty menu does not show.
+            .contextMenu(when: !renamable) {
+                pullRequestButton(pullRequest, on: connection)
             }
             #endif
             .renameAction(available: renamable) {
@@ -422,6 +451,9 @@ struct HostSidebar: View {
             } more: {
                 #if os(macOS)
                 OpenInVSCodeButton(connection: connection, target: .space(key), error: $editorError)
+                #endif
+                #if !os(tvOS)
+                pullRequestButton(pullRequest, on: connection)
                 #endif
                 if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
                     Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
@@ -951,6 +983,10 @@ struct SpaceRow: View {
     let workspace: WorkspaceItem
     let nested: Bool
     var grouped = false
+    #if !os(tvOS)
+    /// The open pull request of the space's branch (#309).
+    var pullRequest: PullRequestSummary?
+    #endif
 
     var body: some View {
         HStack(alignment: .top, spacing: 6) {
@@ -970,6 +1006,11 @@ struct SpaceRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+                #if !os(tvOS)
+                if let pullRequest {
+                    PullRequestBadge(pullRequest: pullRequest)
+                }
+                #endif
                 if !workspace.tokens.isEmpty {
                     Text(workspace.tokens.map(\.value).joined(separator: " · "))
                         .font(.caption)

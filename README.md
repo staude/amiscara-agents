@@ -221,6 +221,18 @@ code), so a host is set up the same way everywhere.
   Code's session files in the working directories of the open Claude
   agents; the prices per model are editable. Optionally in the medium
   widget. Needs SFTP like uploads. Mac, iPhone and iPad.
+- **Pull requests:** with the GitHub token of the approvals, each space
+  whose branch has an open pull request shows its number, checks and
+  review state; the button next to the tabs, the dashboard or "Pull
+  Request #n …" in the space's menu opens description, checks, comments
+  and the diff, and "Mergen …" merges it after Face ID or the passcode
+  (squash where the repository allows it). Approving stays on GitHub.
+  For this the fine-grained token also needs read access to Checks,
+  Commit statuses and Metadata and read and write access to Contents and
+  Pull requests. An organization may have to approve fine-grained tokens
+  first. The
+  repository comes from the `origin` remote in the Git configuration on
+  the host, so SSH hosts need SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.

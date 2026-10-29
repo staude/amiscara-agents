@@ -415,6 +415,13 @@ pub fn vscode_url(target: Option<String>, path: String) -> String {
     herdr_core::vscode_url(target.as_deref(), &path)
 }
 
+/// The files and hunks of a unified diff (#309), as for the working tree
+/// diff; used for the diff of a pull request.
+#[uniffi::export]
+pub fn parse_diff(text: String) -> Vec<DiffFile> {
+    herdr_core::diff::parse(&text)
+}
+
 /// The overview for the approval from an enon-tools plan comment (#296):
 /// the text below `### Überblick für die Freigabe` up to `<details>`.
 /// `None` when the comment is no plan or has no such section.
