@@ -28,6 +28,11 @@ struct HostEditorView: View {
     /// prompt applies.
     @State private var importedKey: ImportedKey?
     @State private var keyConfirmed = false
+    #if !os(tvOS)
+    /// The host's GitHub token on this device (#296); empty removes it.
+    @State private var githubToken: String
+    private let originalGitHubToken: String
+    #endif
 
     private struct ImportedKey: Equatable {
         let key: String
@@ -41,6 +46,11 @@ struct HostEditorView: View {
         _config = State(initialValue: config)
         original = config
         self.importLink = importLink
+        #if !os(tvOS)
+        let token = ((try? GitHubToken.load(for: config.id)) ?? nil) ?? ""
+        _githubToken = State(initialValue: token)
+        originalGitHubToken = token
+        #endif
     }
 
     var body: some View {
@@ -113,6 +123,17 @@ struct HostEditorView: View {
                     Text("Ausgeschaltet zeigt die App diesen Host nur an und sendet keine Prompts oder Tasten.")
                 }
 
+                #if !os(tvOS)
+                Section {
+                    SecureField("Token", text: $githubToken, prompt: Text(verbatim: "github_pat_…"))
+                        .technicalInput()
+                } header: {
+                    Text(verbatim: "GitHub")
+                } footer: {
+                    Text("Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten. Ein Fine-grained Token mit dem Recht Issues: Read genügt. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“.")
+                }
+                #endif
+
                 if let error {
                     Text(error).foregroundStyle(.red).selectableText()
                 }
@@ -137,7 +158,7 @@ struct HostEditorView: View {
         .frame(width: 520)
         #endif
         // A swipe down would drop changes silently on iPad.
-        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil)
+        .interactiveDismissDisabled(config != original || newPrivateKey != nil || importedKey != nil || githubTokenChanged)
         .onChange(of: config.host) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.port) { dropImportedKeyIfAddressChanged() }
         .onChange(of: config.socketPath, initial: true) { showSessionOfSocket() }
@@ -375,6 +396,14 @@ struct HostEditorView: View {
         config.user.isEmpty ? String(localized: "/Users/<benutzer>/.config/herdr/herdr.sock") : defaultRemoteSocket(user: config.user)
     }
 
+    private var githubTokenChanged: Bool {
+        #if os(tvOS)
+        false
+        #else
+        githubToken != originalGitHubToken
+        #endif
+    }
+
     /// Not yet in the store: a new host, also one handed over prefilled.
     private var isNew: Bool {
         store.connection(for: original.id) == nil
@@ -470,6 +499,20 @@ struct HostEditorView: View {
             if config.kind == .ssh, let newPrivateKey {
                 try KeyStore.save(privateKey: newPrivateKey, for: config.id)
             }
+            #if !os(tvOS)
+            if githubTokenChanged {
+                let token = githubToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                if token.isEmpty {
+                    GitHubToken.delete(for: config.id)
+                } else {
+                    try GitHubToken.save(token, for: config.id)
+                }
+                store.approvals.reset(config.id)
+                let approvals = store.approvals
+                let connections = store.connections
+                Task { await approvals.load(connections, force: true) }
+            }
+            #endif
             if isNew {
                 store.add(config)
             } else {

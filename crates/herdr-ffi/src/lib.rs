@@ -28,7 +28,7 @@ pub use convert::{
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
-    EntryKind, FileContent, FilePreview, WorkingTreeDiff,
+    EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -347,6 +347,14 @@ pub fn pane_content_from_json(json: String) -> Option<PaneContent> {
 #[uniffi::export]
 pub fn vscode_url(target: Option<String>, path: String) -> String {
     herdr_core::vscode_url(target.as_deref(), &path)
+}
+
+/// The overview for the approval from an enon-tools plan comment (#296):
+/// the text below `### Überblick für die Freigabe` up to `<details>`.
+/// `None` when the comment is no plan or has no such section.
+#[uniffi::export]
+pub fn plan_overview(body: String) -> Option<String> {
+    herdr_core::github::plan_overview(&body)
 }
 
 #[uniffi::export]
@@ -731,6 +739,14 @@ impl HostSession {
     /// The names of the secrets on the host, sorted; never their values.
     pub fn secret_names(&self) -> Result<Vec<String>, FfiError> {
         Ok(runtime().block_on(self.session.secret_names())?)
+    }
+
+    /// The GitHub repositories of the spaces on the host (#296), sorted,
+    /// each with its spaces, from the `origin` of their Git repositories.
+    /// Needs file access like uploads; fails only without a connection.
+    /// Blocks; call it off the main thread.
+    pub fn github_repos(&self) -> Result<Vec<GitHubRepo>, FfiError> {
+        Ok(runtime().block_on(self.session.github_repos())?)
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`

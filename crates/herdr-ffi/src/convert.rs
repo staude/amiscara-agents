@@ -101,6 +101,9 @@ pub struct WorkspaceItem {
     pub active_tab_id: String,
     /// Git repository of the space, shared by all its worktrees.
     pub repo_key: Option<String>,
+    /// Folder name of the repository's main checkout, e.g. `amiscara-agents`;
+    /// the same for all its worktrees.
+    pub repo_name: Option<String>,
     /// For a linked worktree: its directory name, e.g. `docs-herdr-remote`.
     /// herdr shows such spaces indented under the repository's space.
     pub worktree_name: Option<String>,
@@ -427,4 +430,15 @@ pub struct FilePreview {
     /// Whole text up to 256 KB, UTF-8 without `\r`: can be saved back
     /// (#271).
     pub editable: bool,
+}
+
+pub use herdr_session::GitHubRepo;
+
+/// A GitHub repository of the spaces on a host (#296), with the spaces
+/// that show it.
+#[uniffi::remote(Record)]
+pub struct GitHubRepo {
+    /// `owner/name`.
+    pub repo: String,
+    pub workspace_ids: Vec<String>,
 }

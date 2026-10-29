@@ -1095,6 +1095,246 @@
         }
       }
     },
+    "Der Planungs-Tab stellt gerade eine andere Frage, z. B. offene Fragen des Plans. Erst dort beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The planning tab is asking another question right now, such as the plan's open questions. Answer it there first."
+          }
+        }
+      }
+    },
+    "Der Planungs-Tab stellt gerade eine andere Frage. Im Tab beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The planning tab is asking another question. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Die Frage im Planungs-Tab nimmt keine Notiz an. Im Tab beantworten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The question in the planning tab takes no note. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Eingaben sind für diesen Host ausgeschaltet. Im Planungs-Tab freigeben." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input is turned off for this host. Approve in the planning tab."
+          }
+        }
+      }
+    },
+    "Freigaben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approvals"
+          }
+        }
+      }
+    },
+    "Freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve"
+          }
+        }
+      }
+    },
+    "Freigegeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved"
+          }
+        }
+      }
+    },
+    "Freigegeben. Der Planungs-Tab startet die Umsetzung." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approved. The planning tab starts the implementation."
+          }
+        }
+      }
+    },
+    "GitHub antwortet mit Status %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub answers with status %lld."
+          }
+        }
+      }
+    },
+    "GitHub lehnt den Token ab (401). Token in den Host-Einstellungen prüfen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub refuses the token (401). Check the token in the host settings."
+          }
+        }
+      }
+    },
+    "GitHub verweigert den Zugriff (403): Rechte des Tokens oder Rate-Limit." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub denies access (403): token permissions or rate limit."
+          }
+        }
+      }
+    },
+    "Hinweis zur Umsetzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note for the implementation"
+          }
+        }
+      }
+    },
+    "Issue auf GitHub öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open issue on GitHub"
+          }
+        }
+      }
+    },
+    "Kein Plan gefunden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No plan found"
+          }
+        }
+      }
+    },
+    "Kein wartender Planungs-Tab auf diesem Host. Freigeben in einer Claude-Sitzung im Repo mit:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No waiting planning tab on this host. Approve in a Claude session in the repository with:"
+          }
+        }
+      }
+    },
+    "Kein wartender Planungs-Tab für dieses Issue." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No waiting planning tab for this issue."
+          }
+        }
+      }
+    },
+    "Kopieren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Mit Hinweis freigeben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approve with note"
+          }
+        }
+      }
+    },
+    "Mit einem Token zeigen Übersicht und Dashboard unter „Freigaben“ die Pläne, die in den Repos dieses Hosts auf Freigabe warten. Ein Fine-grained Token mit dem Recht Issues: Read genügt. Er liegt nur im Schlüsselbund dieses Geräts; leer entfernt ihn. Die Repos liest die App über den Dateizugriff wie „Bilder hochladen“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With a token, the overview and the dashboard show under “Approvals” the plans waiting for approval in this host's repositories. A fine-grained token with Issues: Read is enough. It stays in this device's Keychain only; empty removes it. The app reads the repositories through file access, like “Upload images”."
+          }
+        }
+      }
+    },
+    "Planungs-Tab wartet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planning tab waiting"
+          }
+        }
+      }
+    },
+    "Später. Der Plan wartet weiter auf Freigabe." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later. The plan still waits for approval."
+          }
+        }
+      }
+    },
+    "Tab öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open tab"
+          }
+        }
+      }
+    },
+    "Token" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token"
+          }
+        }
+      }
+    },
+    "Welche Repos der Host hat, liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads which repositories the host has through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
     "auf dem Host" : {
       "localizations" : {
         "en" : {
@@ -5487,6 +5727,16 @@
         }
       }
     },
+    "Überblick für die Freigabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview for approval"
+          }
+        }
+      }
+    },
     "Übergeordneter Ordner" : {
       "localizations" : {
         "en" : {
@@ -6622,6 +6872,116 @@
     },
     "└" : {
       "shouldTranslate" : false
+    },
+    "Text mit {Platzhaltern}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text with {placeholders}"
+          }
+        }
+      }
+    },
+    "Repository" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repository"
+          }
+        }
+      }
+    },
+    "Alle Repos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All repos"
+          }
+        }
+      }
+    },
+    "Ein Tipp auf eine Vorlage fragt die Platzhalter ab und setzt den Text in die Eingabe, ohne ihn zu senden. Vorbelegt sind {nr} (Issue-Nummer des Branches), {branch} und {space}." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapping a template asks for its placeholders and puts the text into the composer without sending it. Prefilled are {nr} (issue number of the branch), {branch} and {space}."
+          }
+        }
+      }
+    },
+    "Vorlage hinzufügen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Template"
+          }
+        }
+      }
+    },
+    "Vorlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Templates"
+          }
+        }
+      }
+    },
+    "Vorschau" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "Vorlage: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template: %@"
+          }
+        }
+      }
+    },
+    "Schnellantworten bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Quick Replies …"
+          }
+        }
+      }
+    },
+    "Vorlagen bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Templates …"
+          }
+        }
+      }
+    },
+    "Schnellantworten und Vorlagen bearbeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit quick replies and templates"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

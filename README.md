@@ -114,6 +114,16 @@ code), so a host is set up the same way everywhere.
   agents large, the working ones below, a row per agent that opens it.
   While the host reconnects its last agents stay; without a connection the
   Mac's board in iCloud stands in. Mac, iPhone and iPad.
+- **Approvals:** with a GitHub token for a host (host settings, "GitHub",
+  fine-grained with Issues: Read, kept only on this device), the overview
+  and the host's dashboard list "Freigaben": issues in the host's GitHub
+  repositories whose enon-tools plan waits for approval
+  (`awaiting-approval`), with the plan's overview for the approval. If the
+  planning tab `plan-<nr>` waits for the answer, "Freigeben", "Später" and
+  "Mit Hinweis freigeben" answer it there; the workflow then sets
+  `approved` itself. Without such a tab the app shows `/issue-approve <nr>`
+  to copy. The repositories come from the Git configs on the host, so it
+  needs file access ("Bilder hochladen"). Mac, iPhone and iPad.
 - **Sorting spaces:** per host as herdr has them, by name (A–Z, Z–A) or
   manually by drag and drop, with a line where the space will land. The
   menu next to "Spaces" shows the current order as text. Not on the Apple
@@ -148,7 +158,10 @@ code), so a host is set up the same way everywhere.
   option with its text instead of 1, 2, 3. A
   prompt starting with `/` goes live into the agent's own input line, so
   Claude Code shows its commands and skills in the pane (↑↓ pick, Tab takes,
-  Enter runs).
+  Enter runs). Prompt templates with `{placeholders}`, for all repos or one,
+  sit next to the quick replies; a tap asks for the placeholders (`{nr}`
+  from the branch's issue number, `{branch}` and `{space}` prefilled) and
+  puts the text into the composer without sending it.
 - **Read-only switch per host**, for hosts you only want to watch.
 - **Manage:** new space, tab (optionally starting an agent) and worktree;
   rename and close spaces and tabs; name an agent.
