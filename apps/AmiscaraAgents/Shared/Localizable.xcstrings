@@ -1052,6 +1052,16 @@
         }
       }
     },
+    "An diesem Tag gab es keine Aufträge an Claude und keine Commits." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks for Claude and no commits on this day."
+          }
+        }
+      }
+    },
     "An Host senden" : {
       "localizations" : {
         "en" : {
@@ -1252,6 +1262,16 @@
         }
       }
     },
+    "Auftrag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
+          }
+        }
+      }
+    },
     "Bitte mindestens zwei Zeichen auf einer Zeile suchen." : {
       "localizations" : {
         "en" : {
@@ -1332,6 +1352,16 @@
         }
       }
     },
+    "Commit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit"
+          }
+        }
+      }
+    },
     "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
       "localizations" : {
         "en" : {
@@ -1352,6 +1382,16 @@
         }
       }
     },
+    "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the day through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
     "Der Planungs-Tab stellt gerade eine andere Frage, z. B. offene Fragen des Plans. Erst dort beantworten." : {
       "localizations" : {
         "en" : {
@@ -1368,6 +1408,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The planning tab is asking another question. Answer it in the tab."
+          }
+        }
+      }
+    },
+    "Der Tag wird gelesen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading the day …"
           }
         }
       }
@@ -1572,6 +1622,16 @@
         }
       }
     },
+    "Gestern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yesterday"
+          }
+        }
+      }
+    },
     "GitHub antwortet mit Status %lld." : {
       "localizations" : {
         "en" : {
@@ -1598,6 +1658,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub denies access (403): token permissions or rate limit."
+          }
+        }
+      }
+    },
+    "Heute" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
           }
         }
       }
@@ -1718,6 +1788,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No waiting planning tab for this issue."
+          }
+        }
+      }
+    },
+    "Keine Einträge." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries."
           }
         }
       }
@@ -1938,6 +2018,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Load newer entries"
+          }
+        }
+      }
+    },
+    "Nicht alle Claude-Verläufe wurden bis zum Tagesbeginn gelesen; frühe Einträge können fehlen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not every Claude conversation was read back to the start of the day; early entries may be missing."
           }
         }
       }
@@ -2182,6 +2272,26 @@
         }
       }
     },
+    "Tag" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day"
+          }
+        }
+      }
+    },
+    "Tag nicht lesbar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day not readable"
+          }
+        }
+      }
+    },
     "Tage" : {
       "localizations" : {
         "en" : {
@@ -2318,6 +2428,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for Claude …"
+          }
+        }
+      }
+    },
+    "Was heute auf dem Host passiert ist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What happened on the host today"
           }
         }
       }

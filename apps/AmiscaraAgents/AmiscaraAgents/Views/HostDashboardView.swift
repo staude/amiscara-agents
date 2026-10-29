@@ -8,13 +8,15 @@ import SwiftUI
 /// the agent; in the selection mode it picks the agent for one prompt to
 /// several (#299). Below the headline and each Claude agent today's tokens
 /// (#302), with the 30 days a tap away; below the agents the host's chains
-/// and this device's log (#300). The search field searches all Claude
-/// conversations of the host (#303); its results replace the agents until
-/// the field is empty.
+/// and this device's log (#300). "Heute" shows what happened on the host
+/// on a day (#301). The search field searches all Claude conversations of
+/// the host (#303); its results replace the agents until the field is
+/// empty.
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+    @State private var showsDay = false
     /// The plan whose overview is shown (#296).
     @State private var approval: Approvals.Item?
     @State private var searchText = ""
@@ -102,6 +104,17 @@ struct HostDashboardView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            if connection.isLive {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Heute", systemImage: "calendar") { showsDay = true }
+                        .help(String(localized: "Was heute auf dem Host passiert ist"))
+                }
+            }
+        }
+        .sheet(isPresented: $showsDay) {
+            DailyLogView(connection: connection)
+        }
         .approvals(store, selected: $approval, open: open)
         .searchable(text: $searchText, prompt: Text("Gespräche durchsuchen"))
         // Each search scans the host's files, so only on Return.

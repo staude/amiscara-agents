@@ -122,6 +122,13 @@ code), so a host is set up the same way everywhere.
   agents large, the working ones below, a row per agent that opens it.
   While the host reconnects its last agents stay; without a connection the
   Mac's board in iCloud stands in. Mac, iPhone and iPad.
+- **Daily log per host:** "Heute" on a connected host's dashboard lists
+  what happened that day by time: tasks given to Claude agents and the
+  turns they finished (from the session files in `~/.claude/projects`)
+  and the commits of all spaces. A menu picks one of the last seven days;
+  "Zusammenfassen" turns the list into a few sentences with the on-device
+  model (Apple Intelligence). Git runs in a short-lived tab, so it needs
+  input and file access; nothing is stored. Mac, iPhone and iPad.
 - **Approvals:** with a GitHub token for a host (host settings, "GitHub",
   fine-grained with Issues: Read, kept only on this device), the overview
   and the host's dashboard list "Freigaben": issues in the host's GitHub

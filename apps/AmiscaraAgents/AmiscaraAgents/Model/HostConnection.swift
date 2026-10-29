@@ -436,6 +436,21 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// What happened on the host between `since` and `until` (#301):
+    /// Claude Code prompts and finished turns, and the commits of every
+    /// space. Read only, but like the diff it opens a short-lived tab and
+    /// reads over SFTP, so it needs both input and file access.
+    func dailyLog(since: Date, until: Date) async throws -> DailyLog {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.dailyLogFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        let since = UInt64(max(0, since.timeIntervalSince1970))
+        let until = UInt64(max(0, until.timeIntervalSince1970))
+        return try await Task.detached {
+            try session.dailyLog(sinceSecs: since, untilSecs: until)
+        }.value
+    }
+
     /// The directory at the absolute `path` on the host, `""` for the home
     /// directory (#259). Read only, so no input needed, but over SSH it
     /// needs the same SFTP access as uploads.
@@ -691,6 +706,7 @@ enum ConnectionFailure: LocalizedError {
     case uploadOff
     case filesOff
     case diffFilesOff
+    case dailyLogFilesOff
     case browseFilesOff
     case secretsFilesOff
     case searchFilesOff
@@ -711,6 +727,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .dailyLogFilesOff:
+            String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:
