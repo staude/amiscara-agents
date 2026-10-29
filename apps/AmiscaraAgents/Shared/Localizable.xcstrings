@@ -870,6 +870,36 @@
         }
       }
     },
+    "Alle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "Alle arbeitenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All working"
+          }
+        }
+      }
+    },
+    "Alle fertigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All finished"
+          }
+        }
+      }
+    },
     "Alles kopieren" : {
       "localizations" : {
         "en" : {
@@ -956,6 +986,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amiscara Agents opens the agent with this prompt; it is only sent from there."
+          }
+        }
+      }
+    },
+    "An %lld Agenten senden" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agent"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agents"
+                }
+              }
+            }
           }
         }
       }
@@ -1150,6 +1202,16 @@
         }
       }
     },
+    "Bitte mindestens zwei Zeichen auf einer Zeile suchen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please search for at least two characters on one line."
+          }
+        }
+      }
+    },
     "Cache lesen" : {
       "localizations" : {
         "en" : {
@@ -1220,6 +1282,16 @@
         }
       }
     },
+    "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search reads the session files on the host and needs file access for that, like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
     "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
@@ -1230,12 +1302,32 @@
         }
       }
     },
+    "Durchsucht die Gespräche auf dem Host …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching the conversations on the host …"
+          }
+        }
+      }
+    },
     "Eingaben sind für diesen Host ausgeschaltet. Im Planungs-Tab freigeben." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Input is turned off for this host. Approve in the planning tab."
+          }
+        }
+      }
+    },
+    "Ende der Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End of the session"
           }
         }
       }
@@ -1286,6 +1378,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Estimated with the prices from the settings, in US dollars. Counts the folders of the open Claude agents."
+          }
+        }
+      }
+    },
+    "Gespräche durchsuchen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search conversations"
           }
         }
       }
@@ -1410,6 +1512,16 @@
         }
       }
     },
+    "Keine Treffer für „%@“." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results for “%@”."
+          }
+        }
+      }
+    },
     "Kopieren" : {
       "localizations" : {
         "en" : {
@@ -1436,6 +1548,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore list prices"
+          }
+        }
+      }
+    },
+    "Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More results than the search shows. A more specific word helps."
           }
         }
       }
@@ -1490,6 +1612,16 @@
         }
       }
     },
+    "Neuere Einträge laden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load newer entries"
+          }
+        }
+      }
+    },
     "Nicht lesbar" : {
       "localizations" : {
         "en" : {
@@ -1506,6 +1638,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not read again: %@"
+          }
+        }
+      }
+    },
+    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Auf dem Host selbst sucht die App, wenn Eingaben erlaubt sind und ein Space offen ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
+          }
+        }
+      }
+    },
+    "Ohne Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No space"
           }
         }
       }
@@ -1560,12 +1712,52 @@
         }
       }
     },
+    "Sitzung" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session"
+          }
+        }
+      }
+    },
+    "Sitzung vom %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session from %@"
+          }
+        }
+      }
+    },
     "Später. Der Plan wartet weiter auf Freigabe." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Later. The plan still waits for approval."
+          }
+        }
+      }
+    },
+    "Suche abgebrochen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search cancelled."
+          }
+        }
+      }
+    },
+    "Suche fehlgeschlagen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search failed: %@"
           }
         }
       }
@@ -1770,6 +1962,36 @@
         }
       }
     },
+    "Auswahl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection"
+          }
+        }
+      }
+    },
+    "Auswahlfrage offen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choice question open"
+          }
+        }
+      }
+    },
+    "Auswählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
+          }
+        }
+      }
+    },
     "Automatisch nach Updates suchen" : {
       "localizations" : {
         "en" : {
@@ -1966,16 +2188,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Please commit"
-          }
-        }
-      }
-    },
-    "Bitte mindestens zwei Zeichen auf einer Zeile suchen." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Please search for at least two characters on one line."
           }
         }
       }
@@ -2276,6 +2488,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The agent is working. The history is available once it is done; paging works already."
+          }
+        }
+      }
+    },
+    "Der Agent wartet auf eine Antwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is waiting for an answer."
           }
         }
       }
@@ -2660,16 +2882,6 @@
         }
       }
     },
-    "Die Suche liest die Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The search reads the session files on the host and needs file access for that, like “Upload images” (edit the host)."
-          }
-        }
-      }
-    },
     "Die Versionsangabe im Code ist ungültig." : {
       "localizations" : {
         "en" : {
@@ -2916,16 +3128,6 @@
         }
       }
     },
-    "Durchsucht die Gespräche auf dem Host …" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Searching the conversations on the host …"
-          }
-        }
-      }
-    },
     "Ein Agent wartet: %@." : {
       "localizations" : {
         "en" : {
@@ -2986,6 +3188,16 @@
         }
       }
     },
+    "Eingabe aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input off"
+          }
+        }
+      }
+    },
     "Eingaben erlauben" : {
       "localizations" : {
         "en" : {
@@ -3012,16 +3224,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Input is turned off for this host."
-          }
-        }
-      }
-    },
-    "Ende der Sitzung" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End of the session"
           }
         }
       }
@@ -3062,6 +3264,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "Ergebnis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
           }
         }
       }
@@ -3346,6 +3558,16 @@
         }
       }
     },
+    "Gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent"
+          }
+        }
+      }
+    },
     "Gesendet an %@." : {
       "localizations" : {
         "en" : {
@@ -3362,16 +3584,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Saved, but not read back. Reload the file before saving again."
-          }
-        }
-      }
-    },
-    "Gespräche durchsuchen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search conversations"
           }
         }
       }
@@ -3916,6 +4128,16 @@
         }
       }
     },
+    "Keine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
     "Keine Agents" : {
       "localizations" : {
         "en" : {
@@ -4032,16 +4254,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No matches"
-          }
-        }
-      }
-    },
-    "Keine Treffer für „%@“." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No results for “%@”."
           }
         }
       }
@@ -4322,16 +4534,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "herdr delivers no more than %u lines."
-          }
-        }
-      }
-    },
-    "Mehr Treffer, als die Suche zeigt. Ein genaueres Suchwort hilft." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More results than the search shows. A more specific word helps."
           }
         }
       }
@@ -4676,16 +4878,6 @@
         }
       }
     },
-    "Neuere Einträge laden" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Load newer entries"
-          }
-        }
-      }
-    },
     "Neues Geheimnis" : {
       "localizations" : {
         "en" : {
@@ -4836,16 +5028,6 @@
         }
       }
     },
-    "Nur die Gespräche der letzten 30 Tage durchsucht; ältere fehlen. Auf dem Host selbst sucht die App, wenn Eingaben erlaubt sind und ein Space offen ist." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
-          }
-        }
-      }
-    },
     "Nur Kleinbuchstaben, Ziffern, - und _ sind erlaubt, am Anfang ein Buchstabe." : {
       "localizations" : {
         "en" : {
@@ -4872,16 +5054,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next Match"
-          }
-        }
-      }
-    },
-    "Ohne Space" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No space"
           }
         }
       }
@@ -5102,6 +5274,16 @@
         }
       }
     },
+    "Prompt an mehrere Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt to several agents"
+          }
+        }
+      }
+    },
     "Prompt für %@ bereit" : {
       "localizations" : {
         "en" : {
@@ -5222,22 +5404,12 @@
         }
       }
     },
-    "Sitzung" : {
+    "Sende %lld von %lld …" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Session"
-          }
-        }
-      }
-    },
-    "Sitzung vom %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session from %@"
+            "value" : "Sending %1$lld of %2$lld …"
           }
         }
       }
@@ -5892,26 +6064,6 @@
         }
       }
     },
-    "Suche abgebrochen." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search cancelled."
-          }
-        }
-      }
-    },
-    "Suche fehlgeschlagen: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search failed: %@"
-          }
-        }
-      }
-    },
     "Suche schließen" : {
       "localizations" : {
         "en" : {
@@ -6158,6 +6310,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter above the name at which this Mac can be reached."
+          }
+        }
+      }
+    },
+    "Übersprungen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: %@"
           }
         }
       }

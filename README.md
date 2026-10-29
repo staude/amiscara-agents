@@ -109,6 +109,14 @@ code), so a host is set up the same way everywhere.
   working and done, newest first, with the time in that state. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
+- **One prompt to several agents:** "Auswählen" in the overview or a host's
+  dashboard picks agents (all, all finished, all working, or one by one,
+  also across hosts in the overview), and one composer sends the same text
+  to each of them in turn, for example `/compact` or "Status?". A list
+  shows per agent whether it was sent, skipped or failed and why. Agents
+  waiting for an answer cannot be picked (herdr refuses prompts to them),
+  nor agents of hosts without a connection or with input off; text only,
+  no attachments. Mac, iPhone and iPad.
 - **Dashboard per host:** a host's name (or "Dashboard" under it) in the
   sidebar opens a page in the look of the widget: the number of waiting
   agents large, the working ones below, a row per agent that opens it.
