@@ -13,6 +13,8 @@ final class HostStore {
     let cloudPush = CloudPushSender()
     #endif
     #if !os(tvOS)
+    /// Plans waiting for approval in the hosts' repositories (#296).
+    let approvals = Approvals()
     /// The agents as last seen and as Siri last learned them by name
     /// (#275), and the pause between two updates; see `updateShortcutAgents(_:)`.
     @ObservationIgnored private var shortcutAgentsSeen: Set<String> = []
@@ -280,6 +282,8 @@ final class HostStore {
         KeyStore.delete(for: id)
         #if !os(tvOS)
         SecretStore.deleteAll(for: id)
+        GitHubToken.delete(for: id)
+        approvals.reset(id)
         #endif
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)

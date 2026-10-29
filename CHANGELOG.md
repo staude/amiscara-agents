@@ -600,6 +600,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Approvals (#296): with a GitHub token per host (host settings, section
+  "GitHub", fine-grained with Issues: Read; only in this device's Keychain,
+  `net.staude.amiscara.agents.github-token`, not in iCloud) the overview and
+  the host dashboard show "Freigaben": open issues with `awaiting-approval`
+  in the GitHub repositories of the host's spaces, with the "Überblick für
+  die Freigabe" of the latest enon-tools plan comment. When the issue's
+  planning tab `plan-<nr>` waits with the question "Ja"/"Später", the app
+  answers it there ("Freigeben", "Später", "Mit Hinweis freigeben", which
+  adds a note to "Ja"); otherwise it shows `/issue-approve <nr>` to copy, or
+  "Tab öffnen" while the tab asks something else. The app never sets a
+  label itself. Needs file access to read the repositories' Git configs.
+  Mac, iPhone, iPad. Core: `herdr_core::github` (`origin_repo`,
+  `plan_overview`), `Session::github_repos`.
 - Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
   Z–A) or manually; manual starts from the order shown and changes by drag
   and drop in the sidebar, within a group and only on the same host. Stored
