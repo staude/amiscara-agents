@@ -202,6 +202,9 @@ pub struct WorkspaceItem {
     pub active_tab_id: String,
     /// Git repository of the space, shared by all its worktrees.
     pub repo_key: Option<String>,
+    /// Folder name of the repository's main checkout, e.g. `amiscara-agents`;
+    /// the same for all its worktrees.
+    pub repo_name: Option<String>,
     /// For a linked worktree: its directory name, e.g. `docs-herdr-remote`.
     /// herdr shows such spaces indented under the repository's space.
     pub worktree_name: Option<String>,
@@ -500,6 +503,11 @@ pub fn session_update(
                 .as_ref()
                 .map(|wt| wt.repo_key.clone())
                 .filter(|key| !key.is_empty()),
+            repo_name: ws
+                .worktree
+                .as_ref()
+                .map(|wt| wt.repo_name.clone())
+                .filter(|name| !name.is_empty()),
             worktree_name: ws
                 .worktree
                 .as_ref()

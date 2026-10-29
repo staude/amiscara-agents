@@ -86,6 +86,7 @@ const space = (
     agentState: tabs.flatMap((t) => t.panes).find((p) => p.agent)?.agentState ?? "idle",
     activeTabId: tabs[0].tabId,
     repoKey: null,
+    repoName: null,
     worktreeName: null,
     branch: null,
     tokens: [],
@@ -98,6 +99,7 @@ const workspaces: WorkspaceItem[] = [
   space("w1", 1, "enon", [tab("t1", 1, [pane("p1", "claude", "blocked", "enon: Tests")])], {
     branch: "production",
     repoKey: "enon",
+    repoName: "enon",
   }),
   space(
     "w2",
@@ -111,10 +113,11 @@ const workspaces: WorkspaceItem[] = [
       ], true),
       tab("t3", 2, [pane("p5", null, "idle", "cargo watch")]),
     ],
-    { branch: "feature/144-desktop-main-window", repoKey: "amiscara", tokens: [{ name: "pr", value: "PR #148" }] },
+    { branch: "feature/144-desktop-main-window", repoKey: "amiscara", repoName: "amiscara", tokens: [{ name: "pr", value: "PR #148" }] },
   ),
   space("w3", 3, "docs-amiscara", [tab("t4", 1, [pane("p6", null, "idle", "zsh")])], {
     repoKey: "amiscara",
+    repoName: "amiscara",
     worktreeName: "docs-amiscara",
     branch: "docs/handoff",
   }),
