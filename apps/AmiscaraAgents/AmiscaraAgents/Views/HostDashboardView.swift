@@ -22,7 +22,9 @@ struct HostDashboardView: View {
                     WaitingHeadline(waiting: snapshot.count(.blocked), working: snapshot.count(.working))
                 }
                 .padding(.bottom, 8)
+                // A fresh row per host, so another host's values never show.
                 HostHealthRow(connection: connection)
+                    .id(connection.id)
                 if snapshot.agents.isEmpty {
                     Text("Keine Agents.")
                         .font(.callout)
