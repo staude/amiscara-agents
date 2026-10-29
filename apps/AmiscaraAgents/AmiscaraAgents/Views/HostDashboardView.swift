@@ -59,6 +59,9 @@ struct HostDashboardView: View {
                         .padding(.top, 4)
                 }
                 .padding(.bottom, 8)
+                // A fresh row per host, so another host's values never show.
+                HostHealthRow(connection: connection)
+                    .id(connection.id)
                 ApprovalsSection(hostID: connection.id) { approval = $0 }
                     .padding(.bottom, 8)
                 if search.started, !searchText.isEmpty {

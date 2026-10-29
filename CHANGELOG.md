@@ -686,6 +686,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
+- Host health on the dashboard (#306): a row of tiles under the counts with
+  load (orange from one per core), memory, free disk (orange under 10 %
+  free), uptime with the OS and the herdr version, read every 60 seconds
+  while the dashboard is open. `scripts/host/amiscara-health` prints them as
+  one JSON line (macOS and Linux); the key's line gets a fixed
+  `amiscara-health` case that prints a marker and runs it from
+  `~/.amiscara-agents/bin/`, "Dieser Mac" runs it directly. Without the
+  script or with an older key line the dashboard says what to do instead.
+  Mac, iPhone and iPad. Core: `Connection::health_line`,
+  `herdr_session::health`, `Session::host_health`.
 - Chains (#300): "Kette anlegen …" in an agent's context menu (Mac, iPhone,
   iPad) sends a saved prompt of up to 160 characters to an agent of the same
   host, itself included, when this one finishes or starts waiting; once or

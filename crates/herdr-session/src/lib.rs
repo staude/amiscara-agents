@@ -4,6 +4,7 @@
 
 pub mod access;
 mod forward;
+pub mod health;
 pub mod link;
 mod search;
 pub mod secrets;
@@ -12,6 +13,7 @@ pub mod sessions;
 pub mod view;
 
 pub use access::authorized_keys_line;
+pub use health::{Health, HealthStatus};
 pub use herdr_core::browse::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
 pub use herdr_core::daily::{DailyItem, DailyItemKind, DailyLog};
 pub use herdr_core::diff::{

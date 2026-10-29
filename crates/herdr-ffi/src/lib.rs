@@ -74,6 +74,9 @@ pub enum FfiError {
     /// A file was saved but could not be read back (#271); reload it.
     #[error("{0}")]
     SavedNotRead(String),
+    /// The host's health could not be read (#306).
+    #[error("{0}")]
+    Health(String),
 }
 
 impl From<SessionError> for FfiError {
@@ -92,6 +95,7 @@ impl From<SessionError> for FfiError {
             SessionError::Forward(message) => Self::Forward(message),
             SessionError::FileChanged(message) => Self::FileChanged(message),
             SessionError::SavedNotRead(message) => Self::SavedNotRead(message),
+            SessionError::Health(message) => Self::Health(message),
         }
     }
 }
@@ -282,6 +286,66 @@ impl From<herdr_session::HerdrSessionEntry> for HerdrSession {
         Self {
             name: entry.name,
             running: entry.running,
+        }
+    }
+}
+
+/// One reading of the host script `amiscara-health` (#306). Only `v` is
+/// certain; a value the host's system does not give is `None`.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct Health {
+    pub v: u32,
+    /// The operating system, e.g. `macOS 27.0`.
+    pub os: Option<String>,
+    /// Load average over one minute.
+    pub load1: Option<f64>,
+    pub cpus: Option<u32>,
+    /// Memory in use (total minus available) and in all, bytes.
+    pub mem_used: Option<u64>,
+    pub mem_total: Option<u64>,
+    /// Free and total bytes of the volume holding the home directory.
+    pub disk_free: Option<u64>,
+    pub disk_total: Option<u64>,
+    /// Seconds since boot.
+    pub uptime: Option<u64>,
+}
+
+impl From<herdr_session::Health> for Health {
+    fn from(health: herdr_session::Health) -> Self {
+        Self {
+            v: health.v,
+            os: health.os,
+            load1: health.load1,
+            cpus: health.cpus,
+            mem_used: health.mem_used,
+            mem_total: health.mem_total,
+            disk_free: health.disk_free,
+            disk_total: health.disk_total,
+            uptime: health.uptime,
+        }
+    }
+}
+
+/// What a host answers when asked for its health.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum HealthStatus {
+    Ready {
+        health: Health,
+    },
+    /// `~/.amiscara-agents/bin/amiscara-health` is missing or not executable.
+    ScriptMissing,
+    /// The key's `authorized_keys` line predates the health case; renew it.
+    KeyLineOld,
+}
+
+impl From<herdr_session::HealthStatus> for HealthStatus {
+    fn from(status: herdr_session::HealthStatus) -> Self {
+        match status {
+            herdr_session::HealthStatus::Ready(health) => Self::Ready {
+                health: health.into(),
+            },
+            herdr_session::HealthStatus::ScriptMissing => Self::ScriptMissing,
+            herdr_session::HealthStatus::KeyLineOld => Self::KeyLineOld,
         }
     }
 }
@@ -858,6 +922,12 @@ impl HostSession {
     /// The names of the secrets on the host, sorted; never their values.
     pub fn secret_names(&self) -> Result<Vec<String>, FfiError> {
         Ok(runtime().block_on(self.session.secret_names())?)
+    }
+
+    /// The host's health for the dashboard (#306). Blocks for up to a few
+    /// seconds; call it off the main thread.
+    pub fn host_health(&self) -> Result<HealthStatus, FfiError> {
+        Ok(runtime().block_on(self.session.host_health())?.into())
     }
 
     /// The GitHub repositories of the spaces on the host (#296), sorted,

@@ -12,7 +12,8 @@ use herdr_core::sync::{self, SyncState, SyncStatus};
 use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, usage};
 use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
-    Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
+    Connection, HealthLine, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError,
+    keys,
 };
 use tokio::runtime::Handle;
 use tokio::sync::{mpsc, watch};
@@ -20,6 +21,7 @@ use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
+use crate::health::{self, HealthStatus};
 use crate::secrets;
 use crate::view::{
     self, ChainOutcome, ChainResult, ChainTrigger, ChoiceQuestion, PaneContent, SessionUpdate,
@@ -85,6 +87,9 @@ pub enum SessionError {
     /// device is out of date, reload it.
     #[error("{0}")]
     SavedNotRead(String),
+    /// The host's health could not be read (#306).
+    #[error("{0}")]
+    Health(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -135,6 +140,15 @@ pub(crate) fn files_error(err: TransportError) -> SessionError {
             SessionError::SavedNotRead(message)
         }
         TransportError::Files(message) => SessionError::Files(message),
+        other => SessionError::NotConnected(other.to_string()),
+    }
+}
+
+fn health_error(err: TransportError) -> SessionError {
+    match err {
+        TransportError::Io(err) => SessionError::Health(err.to_string()),
+        // The connection stands; the host or its script did not answer in time.
+        TransportError::Timeout => SessionError::Health(err.to_string()),
         other => SessionError::NotConnected(other.to_string()),
     }
 }
@@ -1431,6 +1445,20 @@ impl Session {
             .map_err(files_error)
     }
 
+    /// The host's health for the dashboard (#306), from the host script
+    /// `amiscara-health`. Only reads; without a connection
+    /// [`SessionError::NotConnected`].
+    pub async fn host_health(&self) -> Result<HealthStatus, SessionError> {
+        let conn = self.connection()?;
+        Ok(match conn.health_line().await.map_err(health_error)? {
+            HealthLine::Json(line) => {
+                health::parse(&line).map_or(HealthStatus::ScriptMissing, HealthStatus::Ready)
+            }
+            HealthLine::ScriptMissing => HealthStatus::ScriptMissing,
+            HealthLine::Gated => HealthStatus::KeyLineOld,
+        })
+    }
+
     /// The names of the secrets on the host, sorted; files whose name is no
     /// variable are left out. Only names: values are never read back.
     pub async fn secret_names(&self) -> Result<Vec<String>, SessionError> {
@@ -2312,7 +2340,7 @@ fn upload_name(ext: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        SessionError, TransportError, files_error, merge_github_repos, named_upload,
+        SessionError, TransportError, files_error, health_error, merge_github_repos, named_upload,
         spaces_by_repo_key,
     };
 
@@ -2391,6 +2419,18 @@ mod tests {
         ));
         assert!(matches!(
             files_error(TransportError::Timeout),
+            SessionError::NotConnected(_)
+        ));
+    }
+
+    #[test]
+    fn a_slow_health_reading_is_no_lost_connection() {
+        assert!(matches!(
+            health_error(TransportError::Timeout),
+            SessionError::Health(_)
+        ));
+        assert!(matches!(
+            health_error(TransportError::Closed),
             SessionError::NotConnected(_)
         ));
     }

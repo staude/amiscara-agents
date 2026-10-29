@@ -83,6 +83,16 @@
         }
       }
     },
+    "%@ frei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ free"
+          }
+        }
+      }
+    },
     "%@ gesendet" : {
       "localizations" : {
         "en" : {
@@ -207,6 +217,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ Tokens, ~%2$@ (teils ohne Preis)"
+          }
+        }
+      }
+    },
+    "%@ von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@"
           }
         }
       }
@@ -520,6 +540,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld Kerne" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld cores"
           }
         }
       }
@@ -1582,6 +1612,26 @@
         }
       }
     },
+    "Für die Werte des Hosts das Script amiscara-health nach ~/.amiscara-agents/bin/ kopieren und ausführbar machen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the host's values, copy the script amiscara-health to ~/.amiscara-agents/bin/ and make it executable."
+          }
+        }
+      }
+    },
+    "Für die Werte des Hosts die neue Schlüsselzeile (Host bearbeiten) auf dem Host eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the host's values, add the new key line (edit host) on the host."
+          }
+        }
+      }
+    },
     "geschlossenes Pane" : {
       "localizations" : {
         "en" : {
@@ -1892,6 +1942,26 @@
         }
       }
     },
+    "Last" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load"
+          }
+        }
+      }
+    },
+    "Laufzeit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uptime"
+          }
+        }
+      }
+    },
     "Letzte Antwort vorlesen" : {
       "localizations" : {
         "en" : {
@@ -2102,6 +2172,16 @@
         }
       }
     },
+    "Platte" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disk"
+          }
+        }
+      }
+    },
     "Preise" : {
       "localizations" : {
         "en" : {
@@ -2198,6 +2278,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Otherwise only the next time; then the chain is gone."
+          }
+        }
+      }
+    },
+    "Speicher" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory"
           }
         }
       }
