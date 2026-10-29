@@ -97,6 +97,18 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
         return user.isEmpty ? host : "\(user)@\(host)"
     }
 
+    /// The user's choice whether this host is reached over NetBird (#305);
+    /// missing means automatic.
+    var viaNetBird: Bool?
+    /// Learned while NetBird was up: the name resolved to a NetBird address.
+    var netBirdLearned: Bool?
+
+    /// Whether the app expects NetBird to be needed for this host.
+    var behindNetBird: Bool {
+        guard kind == .ssh else { return false }
+        return NetBird.isBehind(switch: viaNetBird, host: host, learned: netBirdLearned)
+    }
+
     static func local() -> HostConfig {
         HostConfig(name: String(localized: "Dieser Mac"), kind: .local)
     }

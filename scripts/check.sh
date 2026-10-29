@@ -24,6 +24,7 @@ cargo test --workspace --locked
 
 if $apple; then
     scripts/last-tabs-test.sh
+    scripts/netbird-test.sh
     scripts/prompt-templates-test.sh
     scripts/pane-visits-test.sh
     scripts/pane-cache-test.sh

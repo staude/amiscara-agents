@@ -190,6 +190,11 @@ code), so a host is set up the same way everywhere.
   space or pane, opens the folder in VS Code on the Mac or PC over
   Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop
   app.
+- **NetBird status:** hosts behind NetBird show "VPN aus" while NetBird is
+  not connected on the device, and their status popover offers "NetBird
+  öffnen". The app recognises NetBird addresses and domains and learns your
+  own domains once NetBird runs; the host editor has a switch to override
+  it. Mac, iPhone and iPad.
 - **Pages agents open:** when an agent on the host opens a browser (a
   mockup, a sign-in), the apps on other devices offer the page; pages on
   the host's `localhost` load through the SSH connection. Needs the
