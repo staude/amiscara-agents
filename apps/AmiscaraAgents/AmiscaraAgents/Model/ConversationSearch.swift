@@ -131,15 +131,25 @@ final class ConversationSearch {
                 )
             }
             .sorted { newestFirst($0.newest, $1.newest) }
-            let first = found.first?.hit
             return SpaceGroup(
                 id: key,
-                workspaceID: first?.workspaceId,
-                cwd: first?.cwd,
+                workspaceID: found.first?.hit.workspaceId,
+                cwd: Self.commonFolder(found.compactMap(\.hit.cwd)),
                 sessions: sessions
             )
         }
         .sorted { newestFirst($0.sessions.first?.newest, $1.sessions.first?.newest) }
+    }
+
+    /// The deepest folder that holds all of `folders`; `nil` without any.
+    static func commonFolder(_ folders: [String]) -> String? {
+        guard var common = folders.first?.split(separator: "/", omittingEmptySubsequences: false) else { return nil }
+        for folder in folders.dropFirst() {
+            let parts = folder.split(separator: "/", omittingEmptySubsequences: false)
+            common = Array(zip(common, parts).prefix { $0 == $1 }.map(\.0))
+        }
+        let path = common.joined(separator: "/")
+        return path.isEmpty ? "/" : path
     }
 }
 

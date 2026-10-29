@@ -318,8 +318,9 @@ final class HostConnection: Identifiable {
     #if !os(tvOS)
     /// Searches all Claude conversations of the host (#303) until the
     /// handle is cancelled. Read only, with file access like the
-    /// conversation; with input allowed, grep runs in a short-lived tab on
-    /// the host, otherwise the app reads only the last 30 days.
+    /// conversation; with input allowed and a space open, grep runs in a
+    /// short-lived tab on the host, otherwise the app reads only the last
+    /// 30 days.
     func searchConversations(query: String, observer: ConversationSearchObserver) throws -> ConversationSearchHandle {
         guard config.uploadAllowed else { throw ConnectionFailure.searchFilesOff }
         guard let session, isLive else { throw ConnectionFailure.notConnected }
