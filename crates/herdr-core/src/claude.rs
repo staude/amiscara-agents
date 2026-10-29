@@ -259,19 +259,36 @@ out="$d/{out}"
 G=/usr/bin/grep
 [ -x "$G" ] || G=grep
 cd "$HOME" || exit 1
-# Newest first, so the limits keep recent conversations.
-find .claude/projects -name '*.jsonl' -type f -exec ls -t {{}} + >"$out.list" 2>/dev/null
+# Newest first, so the limits keep recent conversations: the last 30 days
+# before the rest, each sorted by ls (a long list in batches of its own).
+# Subagents are not the conversation.
+p=.claude/projects
+{{
+  find "$p" -name '*.jsonl' -type f ! -path '*/subagents/*' -mtime -30 -exec ls -t {{}} +
+  find "$p" -name '*.jsonl' -type f ! -path '*/subagents/*' ! -mtime -30 -exec ls -t {{}} +
+}} >"$out.list" 2>/dev/null
 wc -l <"$out.list" | tr -d ' ' >"$d/{total}"
+# Lowercase ASCII text to check after grep; empty (no check) otherwise,
+# awk would not lowercase other letters.
+P=$(export LC_ALL=C; t=$(cat "$d/{pattern}"); case "$t" in (*[!\ -~]*) ;; (*) printf '%s' "$t" ;; esac)
+export P
 # Only prompts and answers: attachments, request copies, tool results and
-# subagents mention a word as often and would fill the limits, as would
-# the directory, the branch, thinking and its signature in a line.
+# subagents mention a word as often and would fill the limits. Of a line
+# only the texts the app shows count (a typed prompt, text blocks, the
+# fields of a tool call it names): sed drops every other field (ids, model,
+# directory, branch, thinking and its signature, file contents) and all
+# names.
 while IFS= read -r f; do
   "$G" -a -b -i -F -f "$d/{pattern}" -- "$f" 2>/dev/null |
     "$G" -a -F -e '"type":"user"' -e '"type":"assistant"' |
     "$G" -a -v -F -e '"type":"tool_result"' -e '"isSidechain":true' -e '"isMeta":true' |
-    sed -E 's/"(signature|cwd|gitBranch|thinking)":"([^"\\]|\\.)*"//g' |
-    "$G" -a -i -F -f "$d/{pattern}" |
-    head -n {per_file} | cut -d: -f1 |
+    LC_ALL=C sed -E \
+      -e 's/"role":"user","content":"/"@content":"/g' \
+      -e 's/"(text|description|command|file_path|path|pattern|url|query|prompt)":"/"@\1":"/g' \
+      -e 's/"[A-Za-z0-9_]+":("([^"\\]|\\.)*"|-?[0-9][-+.eE0-9]*|true|false|null)//g' \
+      -e 's/"@?[A-Za-z0-9_]+"://g' |
+    LC_ALL=C awk '{{ i = index($0, ":"); if (ENVIRON["P"] == "" || index(tolower(substr($0, i + 1)), ENVIRON["P"])) print substr($0, 1, i - 1) }}' |
+    head -n {per_file} |
     while IFS= read -r o; do printf '%s:%s\n' "$f" "$o"; done
   printf . >>"$d/{progress}"
 done <"$out.list" >"$out"
@@ -784,10 +801,11 @@ mod tests {
     fn search_script_finds_lines_in_two_projects() {
         let home = std::env::temp_dir().join(format!("herdr-search-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&home);
+        // As Claude Code writes it: `role` before `content`.
         let entry = |text: &str| {
             format!(
-                "{}\n",
-                json!({"type": "user", "message": {"content": text}})
+                "{{\"type\":\"user\",\"message\":{{\"role\":\"user\",\"content\":{}}}}}\n",
+                json!(text)
             )
         };
         for (dir, lines) in [
@@ -805,7 +823,18 @@ mod tests {
                     ),
                 ],
             ),
-            ("-Users-me-b", vec![entry("keychain auch")]),
+            (
+                "-Users-me-b",
+                vec![
+                    entry("keychain auch"),
+                    format!(
+                        "{}\n",
+                        json!({"type": "assistant", "message": {"model": "keychain-1", "content": [
+                            {"type": "thinking", "thinking": "die \"Keychain\"", "signature": "keychain"},
+                        ]}})
+                    ),
+                ],
+            ),
             (
                 "-Users-me-c",
                 vec![format!(
