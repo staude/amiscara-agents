@@ -21,14 +21,14 @@ pub use add_host::{
     encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
-    PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout,
-    StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry,
-    TranscriptKind, TranscriptPage, WorkspaceItem,
+    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, ClaudeSessionItem, EditorRequest,
+    HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate,
+    SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
+    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
 };
 pub use convert::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, Directory, DirectoryEntry,
-    EntryKind, FileContent, FilePreview, WorkingTreeDiff,
+    EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -349,6 +349,14 @@ pub fn vscode_url(target: Option<String>, path: String) -> String {
     herdr_core::vscode_url(target.as_deref(), &path)
 }
 
+/// The overview for the approval from an enon-tools plan comment (#296):
+/// the text below `### Überblick für die Freigabe` up to `<details>`.
+/// `None` when the comment is no plan or has no such section.
+#[uniffi::export]
+pub fn plan_overview(body: String) -> Option<String> {
+    herdr_core::github::plan_overview(&body)
+}
+
 #[uniffi::export]
 pub fn supported_protocol() -> u32 {
     herdr_proto::SUPPORTED_PROTOCOL
@@ -585,6 +593,20 @@ impl HostSession {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
     }
 
+    /// The Claude Code sessions of `folder` on the host (#304), newest
+    /// first and at most 30, read from their files (SFTP over SSH). Read
+    /// only. Blocks for several round trips; call it off the main thread.
+    pub fn claude_sessions(&self, folder: String) -> Result<Vec<ClaudeSessionItem>, FfiError> {
+        Ok(runtime().block_on(self.session.claude_sessions(&folder))?)
+    }
+
+    /// Continues the Claude Code session `session_id` in a pane at its
+    /// shell prompt (`claude --resume <id>`) and returns the agent's name.
+    /// The pane must be in the session's folder.
+    pub fn resume_claude(&self, pane_id: String, session_id: String) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.resume_claude(&pane_id, &session_id))?)
+    }
+
     /// What changed in the working directory of a pane (#228): `git diff`
     /// against `HEAD` plus untracked files, read only. Runs a small script
     /// in a short-lived, unfocused tab and reads its output through SFTP,
@@ -717,6 +739,14 @@ impl HostSession {
     /// The names of the secrets on the host, sorted; never their values.
     pub fn secret_names(&self) -> Result<Vec<String>, FfiError> {
         Ok(runtime().block_on(self.session.secret_names())?)
+    }
+
+    /// The GitHub repositories of the spaces on the host (#296), sorted,
+    /// each with its spaces, from the `origin` of their Git repositories.
+    /// Needs file access like uploads; fails only without a connection.
+    /// Blocks; call it off the main thread.
+    pub fn github_repos(&self) -> Result<Vec<GitHubRepo>, FfiError> {
+        Ok(runtime().block_on(self.session.github_repos())?)
     }
 
     /// Uploads a file (e.g. an image for a prompt) to `~/.amiscara-agents/uploads`

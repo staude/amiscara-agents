@@ -101,6 +101,9 @@ pub struct WorkspaceItem {
     pub active_tab_id: String,
     /// Git repository of the space, shared by all its worktrees.
     pub repo_key: Option<String>,
+    /// Folder name of the repository's main checkout, e.g. `amiscara-agents`;
+    /// the same for all its worktrees.
+    pub repo_name: Option<String>,
     /// For a linked worktree: its directory name, e.g. `docs-herdr-remote`.
     /// herdr shows such spaces indented under the repository's space.
     pub worktree_name: Option<String>,
@@ -247,7 +250,8 @@ pub enum TermColor {
 }
 
 pub use herdr_session::{
-    ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage,
+    ClaudeSessionItem, ScrollStep, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage,
 };
 
 /// A step through a full-screen agent's own view.
@@ -292,6 +296,18 @@ pub struct TranscriptPage {
     pub entries: Vec<TranscriptEntry>,
     /// Byte offset this page starts at; 0 means the conversation's start.
     pub start: u64,
+}
+
+/// A Claude Code session of a folder (#304).
+#[uniffi::remote(Record)]
+pub struct ClaudeSessionItem {
+    /// What `claude --resume` takes.
+    pub id: String,
+    pub title: String,
+    /// Last activity, seconds since 1970; 0 if unknown.
+    pub modified: u64,
+    /// Bytes of the session file, in place of a message count.
+    pub size: u64,
 }
 
 pub use herdr_session::{
@@ -414,4 +430,15 @@ pub struct FilePreview {
     /// Whole text up to 256 KB, UTF-8 without `\r`: can be saved back
     /// (#271).
     pub editable: bool,
+}
+
+pub use herdr_session::GitHubRepo;
+
+/// A GitHub repository of the spaces on a host (#296), with the spaces
+/// that show it.
+#[uniffi::remote(Record)]
+pub struct GitHubRepo {
+    /// `owner/name`.
+    pub repo: String,
+    pub workspace_ids: Vec<String>,
 }
