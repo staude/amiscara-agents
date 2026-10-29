@@ -32,6 +32,7 @@ struct HostEditorView: View {
     /// The GitHub token for pull requests (#309), only on this device.
     @State private var githubToken = ""
     @State private var originalGitHubToken = ""
+    @State private var tokenLoaded = false
     #endif
 
     private struct ImportedKey: Equatable {
@@ -46,11 +47,6 @@ struct HostEditorView: View {
         _config = State(initialValue: config)
         original = config
         self.importLink = importLink
-        #if !os(tvOS)
-        let token = GitHubToken.load(host: config.id) ?? ""
-        _githubToken = State(initialValue: token)
-        _originalGitHubToken = State(initialValue: token)
-        #endif
     }
 
     var body: some View {
@@ -167,6 +163,16 @@ struct HostEditorView: View {
             }
         }
         .task(id: config.kind) { await loadSessions() }
+        #if !os(tvOS)
+        // Once per sheet, not with every new value of the view.
+        .onAppear {
+            guard !tokenLoaded else { return }
+            tokenLoaded = true
+            let token = GitHubToken.load(host: original.id) ?? ""
+            githubToken = token
+            originalGitHubToken = token
+        }
+        #endif
         #if os(iOS)
         .sheet(isPresented: $scanning) {
             QRScannerView { link in apply(link) }
