@@ -35,10 +35,10 @@ struct UsageDetailView: View {
     private var content: some View {
         let usage = connection.usage
         if let history = usage.history {
-            let days = Self.days(history, prices: .shared)
+            let days = UsageSums.days(history, prices: .shared)
             List {
                 Section {
-                    LabeledContent("30 Tage", value: UsageStore.sum(history, from: UsageStore.historyStart(), prices: .shared).summary)
+                    LabeledContent("30 Tage", value: UsageSums.sum(history, from: UsageSums.historyStart(), prices: .shared).summary)
                     if usage.historyPhase == .loading {
                         ProgressView()
                             .frame(maxWidth: .infinity)
@@ -85,43 +85,6 @@ struct UsageDetailView: View {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-    }
-
-    struct Day: Identifiable {
-        let date: Date
-        let usage: WidgetSnapshot.Usage
-        let parts: [Part]
-        var id: Date { date }
-    }
-
-    struct Part: Identifiable {
-        let model: String
-        let folder: String
-        let usage: WidgetSnapshot.Usage
-        var id: String { model + "\n" + folder }
-    }
-
-    /// The days with tokens, newest first; each split by model and folder,
-    /// most tokens first.
-    static func days(_ buckets: [UsageBucket], prices: UsagePrices) -> [Day] {
-        let calendar = Calendar.current
-        let start = UsageStore.historyStart()
-        let byDay = Dictionary(grouping: buckets.filter { $0.start >= start }) { calendar.startOfDay(for: $0.start) }
-        return byDay.keys.sorted(by: >).compactMap { date in
-            let buckets = byDay[date] ?? []
-            let end = calendar.date(byAdding: .day, value: 1, to: date) ?? .distantFuture
-            let usage = UsageStore.sum(buckets, from: date, to: end, prices: prices)
-            guard usage.tokens > 0 else { return nil }
-            let parts = Dictionary(grouping: buckets) { "\($0.model)\n\($0.cwd)" }.values.compactMap { group -> Part? in
-                guard let first = group.first else { return nil }
-                return Part(
-                    model: first.model,
-                    folder: first.cwd,
-                    usage: UsageStore.sum(group, from: date, to: end, prices: prices)
-                )
-            }
-            return Day(date: date, usage: usage, parts: parts.sorted { $0.usage.tokens > $1.usage.tokens })
         }
     }
 }

@@ -13,7 +13,6 @@ import Observation
 final class UsageStore {
     /// "Tageskosten im Widget", off by default.
     static let widgetKey = "usageInWidget"
-    static let historyDays = 30
     private static let interval: Duration = .seconds(120)
 
     enum Phase: Equatable {
@@ -29,7 +28,7 @@ final class UsageStore {
     /// When `today` was read; `nil` before the first time.
     private(set) var todayRead: Date?
     private(set) var phase = Phase.idle
-    /// The last `historyDays` days; `nil` until the detail page asked.
+    /// The last `UsageSums.historyDays` days; `nil` until the detail page asked.
     private(set) var history: [UsageBucket]?
     private(set) var historyPhase = Phase.idle
     /// Dashboards showing this host; while one is, today is kept current.
@@ -103,7 +102,7 @@ final class UsageStore {
         }
     }
 
-    /// Reads the last `historyDays` days; the first time this takes long.
+    /// Reads the last `UsageSums.historyDays` days; the first time this takes long.
     func loadHistory() async {
         guard let connection else { return }
         guard connection.config.uploadAllowed else {
@@ -116,7 +115,7 @@ final class UsageStore {
             let report = try await read(
                 connection,
                 cwds: Self.claudeFolders(connection.update?.board ?? []),
-                since: Self.historyStart()
+                since: UsageSums.historyStart()
             )
             guard epoch == started else { return }
             history = report.buckets
@@ -127,31 +126,15 @@ final class UsageStore {
         }
     }
 
-    /// Start of the first day of the history.
-    static func historyStart(now: Date = .now) -> Date {
-        let today = Calendar.current.startOfDay(for: now)
-        return Calendar.current.date(byAdding: .day, value: -(historyDays - 1), to: today) ?? today
-    }
-
     /// Today's usage of the host, or of one directory; `nil` before it was
     /// read.
     func todaySum(cwd: String? = nil, prices: UsagePrices) -> WidgetSnapshot.Usage? {
         // Read before midnight: today is not known yet.
         guard let todayRead, Calendar.current.isDateInToday(todayRead) else { return nil }
         let day = Calendar.current.startOfDay(for: .now)
-        var usage = Self.sum(today, from: day, folder: cwd.map(Self.projectFolder), prices: prices)
+        var usage = UsageSums.sum(today, from: day, folder: cwd.map(UsageSums.projectFolder), prices: prices)
         usage.day = day
         return usage
-    }
-
-    /// Claude Code's folder name for a working directory, as in the core
-    /// (`claude::project_dir`): directories that share it share their
-    /// usage, which the core reports under the first of them.
-    static func projectFolder(_ cwd: String) -> String {
-        // By scalar like Rust's `chars()`, not by grapheme cluster.
-        String(String.UnicodeScalarView(cwd.unicodeScalars.map {
-            $0.isASCII && $0.properties.isAlphabetic || ("0"..."9").contains($0) ? $0 : "-"
-        }))
     }
 
     /// Forgets what was read, e.g. when the entry now points at another
@@ -168,33 +151,27 @@ final class UsageStore {
         onChange?()
     }
 
-    /// The sum of the buckets in `[from, to)`, for `cwd` or all.
-    static func sum(_ buckets: [UsageBucket], from: Date, to: Date = .distantFuture, folder: String? = nil,
-                    prices: UsagePrices) -> WidgetSnapshot.Usage {
-        var usage = WidgetSnapshot.Usage()
-        for bucket in buckets where folder == nil || projectFolder(bucket.cwd) == folder {
-            let start = bucket.start
-            guard start >= from, start < to else { continue }
-            let tokens = UsageTokens(bucket)
-            usage.tokens += tokens.total
-            if let cost = prices.cost(model: bucket.model, tokens: tokens) {
-                usage.cost += cost
-            } else if tokens.total > 0 {
-                usage.unpriced = true
-            }
-        }
-        return usage
-    }
-
     private func read(_ connection: HostConnection, cwds: [String], since: Date) async throws -> UsageReport {
         // Without a connection the board is empty; that is no empty usage.
         guard connection.isLive else { throw ConnectionFailure.notConnected }
         await restoreIfNeeded(connection)
         guard !cwds.isEmpty else { return UsageReport(buckets: []) }
         let generation = connection.generation
-        let report = try await connection.usage(cwds: cwds, since: since)
-        // A session started meanwhile has read nothing yet; its empty state
-        // must not replace the kept one.
+        let report: UsageReport
+        do {
+            report = try await connection.usage(cwds: cwds, since: since)
+        } catch {
+            // What was read before the error stays read.
+            await save(connection, generation: generation)
+            throw error
+        }
+        await save(connection, generation: generation)
+        return report
+    }
+
+    /// Keeps what the session has read. A session started meanwhile has read
+    /// nothing yet; its empty state must not replace the kept one.
+    private func save(_ connection: HostConnection, generation: Int) async {
         if connection.generation == generation, let state = await connection.usageState(),
            let url = Self.fileURL(connection.id) {
             await Task.detached {
@@ -202,7 +179,6 @@ final class UsageStore {
                 try? Data(state.utf8).write(to: url, options: .atomic)
             }.value
         }
-        return report
     }
 
     /// A new session starts with nothing read; it gets the kept state first.
@@ -226,8 +202,4 @@ final class UsageStore {
         guard let url = fileURL(host) else { return }
         try? FileManager.default.removeItem(at: url)
     }
-}
-
-extension UsageBucket {
-    var start: Date { Date(timeIntervalSince1970: TimeInterval(hourStartMs) / 1000) }
 }

@@ -614,6 +614,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   cache directory between runs. Core: `herdr_core::usage`,
   `Session::usage`, `usage_state`, `restore_usage_state`;
   `herdr-spike usage <cwd> [--days N]` prints tokens per local day and model.
+  `scripts/usage-sums-test.sh` checks the app's sums against the bindings.
 - Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
   Z–A) or manually; manual starts from the order shown and changes by drag
   and drop in the sidebar, within a group and only on the same host. Stored
