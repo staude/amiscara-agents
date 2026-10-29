@@ -275,7 +275,7 @@ impl<S: SearchSink> Search<'_, S> {
 
     /// Whether no more hits are wanted: cancelled or enough.
     fn done(&self) -> bool {
-        self.stopped() || self.end.truncated
+        self.stopped() || self.found >= MAX_HITS
     }
 
     async fn run(&mut self, route: Route, first_space: Option<String>) -> Result<(), SessionError> {
@@ -319,9 +319,6 @@ impl<S: SearchSink> Search<'_, S> {
             })
             .collect();
         self.found += hits.len();
-        if self.found >= MAX_HITS {
-            self.end.truncated = true;
-        }
         self.sink.hits(hits);
     }
 
@@ -384,6 +381,8 @@ impl<S: SearchSink> Search<'_, S> {
         self.sink.progress(0, total);
         for file in files {
             if self.done() {
+                // Files left unread.
+                self.end.truncated |= !self.stopped();
                 break;
             }
             let (hits, cut) = self.read_file(&file, done, total).await?;
@@ -555,8 +554,9 @@ impl<S: SearchSink> Search<'_, S> {
             self.read_host_hits(lines).await
         }
         .await;
-        if self.stopped() {
-            // The closed tab's shell may write a last byte of progress.
+        if self.stopped() || result.is_err() {
+            // The shell of a tab closed early may write a last byte of
+            // progress.
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
         for file in &temp {
@@ -621,6 +621,8 @@ impl<S: SearchSink> Search<'_, S> {
         let mut hits = Vec::new();
         for (index, (path, offset)) in lines.into_iter().enumerate() {
             if self.done() {
+                // Lines left unread.
+                self.end.truncated |= !self.stopped();
                 break;
             }
             if current.as_deref() != Some(&path) {

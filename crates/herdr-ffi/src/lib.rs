@@ -623,8 +623,8 @@ impl HostSession {
     /// Searches all Claude Code conversations of the host for `query`
     /// (#303), ignoring case, until the returned handle is cancelled or
     /// dropped. `allow_command` lets it run grep on the host in a
-    /// short-lived tab, over SSH the fast way; without it only the newest
-    /// conversations are read. Needs file access like uploads. Fails right
+    /// short-lived tab, over SSH the fast way; without it, or without an
+    /// open space, only the newest conversations are read. Needs file access like uploads. Fails right
     /// away for a query under two characters or on several lines.
     pub fn search_conversations(
         &self,
