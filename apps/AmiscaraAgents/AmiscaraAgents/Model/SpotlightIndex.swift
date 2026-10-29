@@ -119,7 +119,9 @@ final class SpotlightIndex {
         writeTask = nil
         pending = [:]
         written = [:]
-        lastSpaces = [:]
+        // `lastSpaces` is kept: it is what a host that is offline right now
+        // keeps showing (Entscheidung 3), independent of the setting, so
+        // turning it off and back on must not lose it for that host.
         indexedHosts = []
         Task {
             await inFlight?.value
