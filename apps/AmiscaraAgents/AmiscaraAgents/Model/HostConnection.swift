@@ -346,6 +346,16 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// The host's load, memory, disk and uptime for the dashboard (#306),
+    /// from the host script `amiscara-health`. Only reads, so neither
+    /// input nor file access is needed.
+    func health() async throws -> HealthStatus {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.hostHealth()
+        }.value
+    }
+
     /// The names of the secrets on the host (#291), never their values.
     /// Over SSH it needs the same SFTP access as uploads.
     func secretNames() async throws -> [String] {

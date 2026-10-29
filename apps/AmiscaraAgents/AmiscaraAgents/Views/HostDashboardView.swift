@@ -22,6 +22,7 @@ struct HostDashboardView: View {
                     WaitingHeadline(waiting: snapshot.count(.blocked), working: snapshot.count(.working))
                 }
                 .padding(.bottom, 8)
+                HostHealthRow(connection: connection)
                 if snapshot.agents.isEmpty {
                     Text("Keine Agents.")
                         .font(.callout)

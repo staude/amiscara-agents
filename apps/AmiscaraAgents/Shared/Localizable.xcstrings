@@ -63,6 +63,16 @@
         }
       }
     },
+    "%@ frei" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ free"
+          }
+        }
+      }
+    },
     "%@ gesendet" : {
       "localizations" : {
         "en" : {
@@ -145,6 +155,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ presents a different key than before. This can be a reinstalled server, but also an attack. Trust the new key only if you know why it changed."
+          }
+        }
+      }
+    },
+    "%@ von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@"
           }
         }
       }
@@ -445,6 +465,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld Kerne" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld cores"
           }
         }
       }
@@ -2601,6 +2631,26 @@
         }
       }
     },
+    "Für die Werte des Hosts das Script amiscara-health nach ~/.amiscara-agents/bin/ kopieren und ausführbar machen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the host's values, copy the script amiscara-health to ~/.amiscara-agents/bin/ and make it executable."
+          }
+        }
+      }
+    },
+    "Für die Werte des Hosts die neue Schlüsselzeile (Host bearbeiten) auf dem Host eintragen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the host's values, add the new key line (edit host) on the host."
+          }
+        }
+      }
+    },
     "Für diese Pane ist kein Ordner bekannt." : {
       "localizations" : {
         "en" : {
@@ -3471,6 +3521,26 @@
         }
       }
     },
+    "Last" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load"
+          }
+        }
+      }
+    },
+    "Laufzeit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uptime"
+          }
+        }
+      }
+    },
     "Laut Mac (Stand gerade eben):" : {
       "localizations" : {
         "en" : {
@@ -4217,6 +4287,16 @@
         }
       }
     },
+    "Platte" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disk"
+          }
+        }
+      }
+    },
     "Port" : {
       "localizations" : {
         "en" : {
@@ -4393,6 +4473,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sort Spaces"
+          }
+        }
+      }
+    },
+    "Speicher" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Memory"
           }
         }
       }
