@@ -49,6 +49,8 @@ final class Dictation {
         guard !isRunning, !starting else { return }
         starting = true
         defer { starting = false }
+        // A pause timer of an earlier recording must not end this one.
+        heard += 1
         self.pause = pause
         endedByPause = false
         error = nil
