@@ -96,6 +96,7 @@ final class HostStore {
         }
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
+            ChainLog.shared.record(update.chainResults.map(ChainLog.Entry.init), host: connection.id)
             self.notifier.notify(update.attention, on: connection.config) { [weak connection] paneID in
                 await connection?.choiceQuestion(paneID: paneID)
             }
@@ -349,6 +350,7 @@ final class HostStore {
         PaneVisits.shared.forget(host: id)
         UsageStore.forget(host: id)
         PaneCache.shared.forget(host: id)
+        ChainLog.shared.forget(host: id)
         connections.remove(at: index)
         save()
     }
@@ -470,4 +472,23 @@ struct PendingOpen: Identifiable {
     /// Unique over hosts and panes; a new request of the pane gets a new one.
     var key: String { "\(connection.id)|\(request.paneId)|\(request.requestId)" }
     var id: String { key }
+}
+
+extension ChainLog.Entry {
+    init(_ result: ChainResult) {
+        let outcome: Outcome = switch result.outcome {
+        case .sent: .sent
+        case .failed: .failed
+        case .skipped: .skipped
+        }
+        self.init(
+            chainID: result.chainId,
+            trigger: result.triggerLabel,
+            target: result.targetLabel,
+            text: result.text,
+            outcome: outcome,
+            reason: result.reason,
+            at: Date(timeIntervalSince1970: Double(result.atMs) / 1000)
+        )
+    }
 }

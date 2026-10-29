@@ -7,9 +7,10 @@ import SwiftUI
 /// board in iCloud stands in by the overview's rule (#274). A tap opens
 /// the agent; in the selection mode it picks the agent for one prompt to
 /// several (#299). Below the headline and each Claude agent today's tokens
-/// (#302), with the 30 days a tap away. The search field searches all
-/// Claude conversations of the host (#303); its results replace the agents
-/// until the field is empty.
+/// (#302), with the 30 days a tap away; below the agents the host's chains
+/// and this device's log (#300). The search field searches all Claude
+/// conversations of the host (#303); its results replace the agents until
+/// the field is empty.
 struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
@@ -87,6 +88,8 @@ struct HostDashboardView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                ChainsSection(connection: connection)
+                    .padding(.top, 12)
                 footer(shown)
                     .padding(.top, 8)
             }
