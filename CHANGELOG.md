@@ -600,6 +600,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `HERDR_*`, `LD_*`, `DYLD_*`) are refused in the core, the sheet (which says
   why) and `amiscara-env` (#293); a Keychain error after a successful send
   reads "Auf dem Host gespeichert, aber nicht im Schlüsselbund: …".
+- Token usage (#302): the host dashboard (Mac, iPhone, iPad) shows "Heute:
+  n Tokens, ~$x" for the host and under each Claude agent, read from Claude
+  Code's session files in the working directories of the open Claude agents
+  (subagents included, each message counted once per `message.id` and
+  `requestId`). A tap opens the last 30 days per day, unfolding into model
+  and folder. Costs are estimated in US dollars from an editable price table
+  per model (Settings on the Mac, the sidebar menu on iPhone and iPad) with
+  Anthropic's list prices as defaults; models without a price count as
+  tokens only. "Tageskosten im Widget" (off by default) adds today's total
+  per host to the medium widget's footer. Needs file access like uploads;
+  each file is read once and afterwards only what was appended, kept in the
+  cache directory between runs. Core: `herdr_core::usage`,
+  `Session::usage`, `usage_state`, `restore_usage_state`;
+  `herdr-spike usage <cwd> [--days N]` prints tokens per local day and model.
+  `scripts/usage-sums-test.sh` checks the app's sums against the bindings.
 - Approvals (#296): with a GitHub token per host (host settings, section
   "GitHub", fine-grained with Issues: Read; only in this device's Keychain,
   `net.staude.amiscara.agents.github-token`, not in iCloud) the overview and
@@ -655,6 +670,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
+- Chains (#300): "Kette anlegen …" in an agent's context menu (Mac, iPhone,
+  iPad) sends a saved prompt of up to 160 characters to an agent of the same
+  host, itself included, when this one finishes or starts waiting; once or
+  every time, but every time and on waiting only to another agent, and
+  not every time both ways between two agents. A chain is kept on the
+  host as metadata of its pane (up to 3 per agent), so every device shows it
+  as "Kette: → <Ziel>" under the agent and it ends with the pane. It runs on
+  a device that is connected with input allowed; with several, the first to
+  claim the state change on the host sends, so the prompt goes out once. A
+  target that is gone or refuses the prompt marks the chain failed ("Kette
+  fehlgeschlagen") and it never runs again; a target waiting at a dialog or
+  a dropped connection skips this run only. The host's dashboard lists the
+  chains with delete and this device's log of the last 50 runs (gesendet,
+  fehlgeschlagen, übersprungen). herdr 0.9.5 reports a turn interrupted with
+  Esc as done too, so it fires a "fertig" chain. Core:
+  `herdr_core::chains`, `BoardItem::chains`, `SessionUpdate::chain_results`,
+  `Session::set_chain_runner`, `set_chain`, `remove_chain`; `AgentInfo` reads
+  `state_change_seq` and `completion_seq`.
 - Claude sessions of a folder (#304): "Claude-Sitzungen …" in a space's
   menu lists the Claude Code sessions of the shown pane's folder (from the
   sidebar: the space's), the 30 newest with

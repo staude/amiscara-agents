@@ -2,9 +2,10 @@
 //! types: same names and fields, so the Swift side is unchanged.
 
 pub use herdr_session::view::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, EditorRequest, HostStatus, OpenRequest,
-    PaneContent, PaneFrame, PaneItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine,
-    StyledSpan, TabItem, TermColor, TokenItem, WorkspaceItem,
+    AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
+    ChoiceQuestion, EditorRequest, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
+    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
+    WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -49,6 +50,53 @@ pub struct SessionUpdate {
     /// Folders agents on the host want opened in VS Code (#288), all
     /// pending ones; always empty for a local host.
     pub editor_requests: Vec<EditorRequest>,
+    /// What chains this device ran since the previous update (#300);
+    /// empty unless `set_chain_runner` named a device.
+    pub chain_results: Vec<ChainResult>,
+}
+
+/// When a chain sends its prompt (#300).
+#[uniffi::remote(Enum)]
+pub enum ChainTrigger {
+    Done,
+    Blocked,
+}
+
+/// A chain of an agent, stored on the host.
+#[uniffi::remote(Record)]
+pub struct ChainItem {
+    /// Pass it back to `remove_chain`.
+    pub id: String,
+    pub trigger: ChainTrigger,
+    /// Runs on every matching change; otherwise it is removed once sent.
+    pub repeat: bool,
+    /// The target was gone or refused the prompt; it never runs again.
+    pub failed: bool,
+    pub target_pane_id: String,
+    /// The target agent's name, else its kind and tab; empty when gone.
+    pub target_label: String,
+    pub text: String,
+}
+
+#[uniffi::remote(Enum)]
+pub enum ChainOutcome {
+    Sent,
+    Failed,
+    Skipped,
+}
+
+/// One run of a chain on this device, for the app's log.
+#[uniffi::remote(Record)]
+pub struct ChainResult {
+    pub chain_id: String,
+    pub trigger_pane_id: String,
+    pub trigger_label: String,
+    pub target_label: String,
+    pub text: String,
+    pub outcome: ChainOutcome,
+    pub reason: Option<String>,
+    /// Unix milliseconds.
+    pub at_ms: u64,
 }
 
 /// A folder an agent on the host wants opened in VS Code.
@@ -186,6 +234,8 @@ pub struct BoardItem {
     /// Since when the agent is in its state, in Unix milliseconds; `None`
     /// when it already was in it as the session started.
     pub state_since_ms: Option<u64>,
+    /// Prompts that follow this agent's change (#300).
+    pub chains: Vec<ChainItem>,
 }
 
 #[uniffi::remote(Record)]
@@ -296,6 +346,28 @@ pub struct TranscriptPage {
     pub entries: Vec<TranscriptEntry>,
     /// Byte offset this page starts at; 0 means the conversation's start.
     pub start: u64,
+}
+
+pub use herdr_session::{UsageBucket, UsageReport};
+
+/// The tokens one model used in one working directory in one hour (#302).
+#[uniffi::remote(Record)]
+pub struct UsageBucket {
+    pub cwd: String,
+    /// Start of the hour (UTC) in Unix milliseconds.
+    pub hour_start_ms: u64,
+    pub model: String,
+    pub input: u64,
+    pub output: u64,
+    pub cache_write_5m: u64,
+    pub cache_write_1h: u64,
+    pub cache_read: u64,
+}
+
+/// Token usage of some working directories, oldest hour first.
+#[uniffi::remote(Record)]
+pub struct UsageReport {
+    pub buckets: Vec<UsageBucket>,
 }
 
 /// A Claude Code session of a folder (#304).

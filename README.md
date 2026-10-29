@@ -109,6 +109,14 @@ code), so a host is set up the same way everywhere.
   working and done, newest first, with the time in that state. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
+- **One prompt to several agents:** "Auswählen" in the overview or a host's
+  dashboard picks agents (all, all finished, all working, or one by one,
+  also across hosts in the overview), and one composer sends the same text
+  to each of them in turn, for example `/compact` or "Status?". A list
+  shows per agent whether it was sent, skipped or failed and why. Agents
+  waiting for an answer cannot be picked (herdr refuses prompts to them),
+  nor agents of hosts without a connection or with input off; text only,
+  no attachments. Mac, iPhone and iPad.
 - **Dashboard per host:** a host's name (or "Dashboard" under it) in the
   sidebar opens a page in the look of the widget: the number of waiting
   agents large, the working ones below, a row per agent that opens it.
@@ -158,6 +166,14 @@ code), so a host is set up the same way everywhere.
 - **Claude Code conversation:** for Claude panes the conversation itself
   (prompts, answers, tool calls), read from `~/.claude/projects` on the host
   over SFTP.
+- **Read aloud and voice mode:** "Vorlesen" in the header of a Claude pane
+  reads Claude's last reply with the system voice, in the reply's language,
+  code blocks skipped. "Antworten vorlesen" reads each reply once Claude has
+  finished, as long as the pane is open (silent with the silent switch on).
+  The voice mode reads the reply, then listens; a pause sends the dictated
+  answer, "Stopp" ends it. When Claude waits for a decision, the voice mode
+  says so and leaves the answer to the screen. Needs file access like the
+  conversation and the app in front. Mac, iPhone and iPad.
 - **Input:** prompts to agents (`agent.prompt`), text to shells, a key bar
   (Esc, Tab, Ctrl-C, arrows, Enter) and quick replies. When an agent waits
   for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen; when
@@ -190,6 +206,12 @@ code), so a host is set up the same way everywhere.
   New shells in herdr panes export them, running agents read one with
   `amiscara-env <NAME>`, see [Setting up a host](#setting-up-a-host). Needs
   SFTP like uploads and input allowed. Mac, iPhone and iPad.
+- **Tokens and cost:** the host dashboard shows today's Claude Code tokens
+  and an estimated cost in US dollars for the host and each Claude agent,
+  and on a tap the last 30 days per day, model and folder. Read from Claude
+  Code's session files in the working directories of the open Claude
+  agents; the prices per model are editable. Optionally in the medium
+  widget. Needs SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.

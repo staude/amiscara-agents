@@ -21,10 +21,11 @@ pub use add_host::{
     encode_add_host_link, public_key_fingerprint,
 };
 pub use convert::{
-    AgentState, BoardItem, ChoiceOption, ChoiceQuestion, ClaudeSessionItem, EditorRequest,
-    HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem, ScrollStep, SessionUpdate,
-    SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
-    TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, WorkspaceItem,
+    AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
+    ChoiceQuestion, ClaudeSessionItem, EditorRequest, HostStatus, OpenRequest, PaneContent,
+    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
+    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
+    TranscriptPage, UsageBucket, UsageReport, WorkspaceItem,
 };
 pub use convert::{
     DailyItem, DailyItemKind, DailyLog, DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind,
@@ -424,6 +425,41 @@ impl HostSession {
         self.session.set_space_sort(sort.into());
     }
 
+    /// Lets this session run chains (#300) as the device `device_id`, a
+    /// stable id of this device; `None` (the default) runs none. Only for
+    /// a host that takes input from this device.
+    pub fn set_chain_runner(&self, device_id: Option<String>) {
+        self.session.set_chain_runner(device_id);
+    }
+
+    /// Adds a chain to the agent in `pane_id` (#300) and returns its id:
+    /// on `trigger`, `text` goes as a prompt to `target_pane_id`, once or
+    /// with `repeat` every time. Refused with `Rejected` for a 4th chain,
+    /// a text over 160 characters or a repeating chain to the same agent.
+    /// Blocks for one round trip; call it off the main thread.
+    pub fn set_chain(
+        &self,
+        pane_id: String,
+        trigger: ChainTrigger,
+        repeat: bool,
+        target_pane_id: String,
+        text: String,
+    ) -> Result<String, FfiError> {
+        Ok(runtime().block_on(self.session.set_chain(
+            &pane_id,
+            trigger,
+            repeat,
+            &target_pane_id,
+            &text,
+        ))?)
+    }
+
+    /// Removes a chain of the agent in `pane_id`. Blocks for one round
+    /// trip; call it off the main thread.
+    pub fn remove_chain(&self, pane_id: String, chain_id: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.remove_chain(&pane_id, &chain_id))?)
+    }
+
     /// Ends the session and closes the connection. Pane followers stop too.
     pub fn stop(&self) {
         self.session.stop();
@@ -591,6 +627,26 @@ impl HostSession {
         before: Option<TranscriptCursor>,
     ) -> Result<TranscriptPage, FfiError> {
         Ok(runtime().block_on(self.session.claude_history(&pane_id, before))?)
+    }
+
+    /// Token usage of Claude Code in the working directories `cwds` (#302):
+    /// the hours that end after `since_secs`, per directory and model.
+    /// Reads only session files changed since then, and of those only what
+    /// was added since the last call (SFTP over SSH). Read only. Blocks,
+    /// long the first time; call it off the main thread.
+    pub fn usage(&self, cwds: Vec<String>, since_secs: u64) -> Result<UsageReport, FfiError> {
+        Ok(runtime().block_on(self.session.usage(&cwds, since_secs))?)
+    }
+
+    /// What `usage` has read so far, as JSON to keep between runs. Waits
+    /// for a running `usage` call.
+    pub fn usage_state(&self) -> String {
+        runtime().block_on(self.session.usage_state())
+    }
+
+    /// Takes back a state from `usage_state`; anything else starts empty.
+    pub fn restore_usage_state(&self, state: String) {
+        runtime().block_on(self.session.restore_usage_state(&state));
     }
 
     /// The Claude Code sessions of `folder` on the host (#304), newest

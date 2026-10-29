@@ -244,8 +244,8 @@ pub struct SessionSnapshot {
     pub agents: Vec<AgentInfo>,
 }
 
-/// An agent as `agent.list` and the snapshot report it. Only the name is
-/// used: it is not part of [`PaneInfo`], and `agent.rename` announces itself
+/// An agent as `agent.list`, `agent.get` and the snapshot report it. The
+/// name is not part of [`PaneInfo`], and `agent.rename` announces itself
 /// with a `pane_updated` that does not carry it either.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct AgentInfo {
@@ -253,6 +253,22 @@ pub struct AgentInfo {
     /// Set with `agent.rename`; `None` when the agent has no custom name.
     #[serde(default)]
     pub name: Option<String>,
+    #[serde(default)]
+    pub agent_status: AgentStatus,
+    /// Counts the agent's state changes; chains (#300) claim one change by
+    /// it.
+    #[serde(default)]
+    pub state_change_seq: u64,
+    /// Equals `state_change_seq` when the current `done` or `idle` ended a
+    /// turn of work. herdr 0.9.5 sets it after an Esc as well.
+    #[serde(default)]
+    pub completion_seq: Option<u64>,
+}
+
+/// `agent.get` result.
+#[derive(Debug, Deserialize)]
+pub struct AgentGetResult {
+    pub agent: AgentInfo,
 }
 
 /// How herdr arranges the panes of one tab, in terminal cells. Each pane has
@@ -610,6 +626,24 @@ mod tests {
             let line = serde_json::json!({"event": "layout_updated", "data": data});
             assert_eq!(parse_event(line)?, Event::LayoutUpdated { layout: None });
         }
+        Ok(())
+    }
+
+    #[test]
+    fn parses_agent_get() -> Result<(), ProtoError> {
+        let line = r#"{"id":"1","result":{"type":"agent_info","agent":{"pane_id":"w1:p1","agent_status":"done","state_change_seq":10,"completion_seq":10,"revision":3}}}"#;
+        let got: AgentGetResult = serde_json::from_value(parse_response(line)?)?;
+        assert_eq!(got.agent.agent_status, AgentStatus::Done);
+        assert_eq!(
+            (got.agent.state_change_seq, got.agent.completion_seq),
+            (10, Some(10))
+        );
+        let line = r#"{"id":"1","result":{"type":"agent_info","agent":{"pane_id":"w1:p1"}}}"#;
+        let got: AgentGetResult = serde_json::from_value(parse_response(line)?)?;
+        assert_eq!(
+            (got.agent.state_change_seq, got.agent.completion_seq),
+            (0, None)
+        );
         Ok(())
     }
 
