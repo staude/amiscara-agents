@@ -30,6 +30,7 @@ if $apple; then
     scripts/chain-log-test.sh
     scripts/pane-cache-test.sh
     scripts/agent-overview-test.sh
+    scripts/multi-send-test.sh
     scripts/agent-status-test.sh
     scripts/question-binding-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do

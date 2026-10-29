@@ -900,6 +900,36 @@
         }
       }
     },
+    "Alle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "Alle arbeitenden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All working"
+          }
+        }
+      }
+    },
+    "Alle fertigen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All finished"
+          }
+        }
+      }
+    },
     "Alles kopieren" : {
       "localizations" : {
         "en" : {
@@ -986,6 +1016,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Amiscara Agents opens the agent with this prompt; it is only sent from there."
+          }
+        }
+      }
+    },
+    "An %lld Agenten senden" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agent"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send to %lld agents"
+                }
+              }
+            }
           }
         }
       }
@@ -1230,6 +1282,16 @@
         }
       }
     },
+    "Das Ziel sendet schon jedes Mal hierher; jedes Mal in beide Richtungen liefe ohne Ende." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The target already sends here every time; every time both ways would never end."
+          }
+        }
+      }
+    },
     "Der Planungs-Tab stellt gerade eine andere Frage, z. B. offene Fragen des Plans. Erst dort beantworten." : {
       "localizations" : {
         "en" : {
@@ -1260,6 +1322,16 @@
         }
       }
     },
+    "Die Kette liegt auf dem Host. Senden tut ein Gerät, das gerade verbunden ist; ein iPhone im Hintergrund nicht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The chain is kept on the host. A device that is connected at the time sends it; an iPhone in the background does not."
+          }
+        }
+      }
+    },
     "Die Tokens liest die App aus den Sitzungsdateien auf dem Host und braucht dafür Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
@@ -1276,6 +1348,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Input is turned off for this host. Approve in the planning tab."
+          }
+        }
+      }
+    },
+    "Einmal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once"
+          }
+        }
+      }
+    },
+    "fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "failed"
+          }
+        }
+      }
+    },
+    "Fehlgeschlagen, läuft nicht mehr" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed, no longer runs"
+          }
+        }
+      }
+    },
+    "fertig ist" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "finishes"
           }
         }
       }
@@ -1320,12 +1432,32 @@
         }
       }
     },
+    "geschlossenes Pane" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "closed pane"
+          }
+        }
+      }
+    },
     "Geschätzt mit den Preisen aus den Einstellungen, in US-Dollar. Gezählt werden die Ordner der offenen Claude-Agents." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Estimated with the prices from the settings, in US dollars. Counts the folders of the open Claude agents."
+          }
+        }
+      }
+    },
+    "gesendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sent"
           }
         }
       }
@@ -1400,6 +1532,26 @@
         }
       }
     },
+    "Jedes Mal" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every time"
+          }
+        }
+      }
+    },
+    "Jedes Mal senden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Every Time"
+          }
+        }
+      }
+    },
     "Kein Dateizugriff" : {
       "localizations" : {
         "en" : {
@@ -1446,6 +1598,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No tokens in these folders."
+          }
+        }
+      }
+    },
+    "Kette anlegen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Chain"
+          }
+        }
+      }
+    },
+    "Kette anlegen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Chain…"
+          }
+        }
+      }
+    },
+    "Kette fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chain failed"
+          }
+        }
+      }
+    },
+    "Kette löschen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Chain"
+          }
+        }
+      }
+    },
+    "Kette: → %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chain: → %@"
+          }
+        }
+      }
+    },
+    "Ketten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chains"
           }
         }
       }
@@ -1596,6 +1808,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Prices per model …"
+          }
+        }
+      }
+    },
+    "Protokoll" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log"
+          }
+        }
+      }
+    },
+    "Protokoll leeren" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Log"
+          }
+        }
+      }
+    },
+    "Schnellantwort" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Reply"
+          }
+        }
+      }
+    },
+    "Senden an" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to"
+          }
+        }
+      }
+    },
+    "Sonst nur beim nächsten Mal; danach ist die Kette weg." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otherwise only the next time; then the chain is gone."
           }
         }
       }
@@ -1806,6 +2068,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "When off, the app only shows this host and sends no prompts or keys."
+          }
+        }
+      }
+    },
+    "Auswahl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection"
+          }
+        }
+      }
+    },
+    "Auswahlfrage offen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choice question open"
+          }
+        }
+      }
+    },
+    "Auswählen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
           }
         }
       }
@@ -2160,16 +2452,6 @@
         }
       }
     },
-    "Das Ziel sendet schon jedes Mal hierher; jedes Mal in beide Richtungen liefe ohne Ende." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The target already sends here every time; every time both ways would never end."
-          }
-        }
-      }
-    },
     "Dashboard" : {
       "localizations" : {
         "en" : {
@@ -2316,6 +2598,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The agent is working. The history is available once it is done; paging works already."
+          }
+        }
+      }
+    },
+    "Der Agent wartet auf eine Antwort." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is waiting for an answer."
           }
         }
       }
@@ -2700,16 +2992,6 @@
         }
       }
     },
-    "Die Kette liegt auf dem Host. Senden tut ein Gerät, das gerade verbunden ist; ein iPhone im Hintergrund nicht." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The chain is kept on the host. A device that is connected at the time sends it; an iPhone in the background does not."
-          }
-        }
-      }
-    },
     "Die Versionsangabe im Code ist ungültig." : {
       "localizations" : {
         "en" : {
@@ -3016,6 +3298,16 @@
         }
       }
     },
+    "Eingabe aus" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Input off"
+          }
+        }
+      }
+    },
     "Eingaben erlauben" : {
       "localizations" : {
         "en" : {
@@ -3042,16 +3334,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Input is turned off for this host."
-          }
-        }
-      }
-    },
-    "Einmal" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Once"
           }
         }
       }
@@ -3092,6 +3374,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlock"
+          }
+        }
+      }
+    },
+    "Ergebnis" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Result"
           }
         }
       }
@@ -3206,42 +3498,12 @@
         }
       }
     },
-    "fehlgeschlagen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "failed"
-          }
-        }
-      }
-    },
-    "Fehlgeschlagen, läuft nicht mehr" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed, no longer runs"
-          }
-        }
-      }
-    },
     "Fertig" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Done"
-          }
-        }
-      }
-    },
-    "fertig ist" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "finishes"
           }
         }
       }
@@ -3406,22 +3668,12 @@
         }
       }
     },
-    "geschlossenes Pane" : {
+    "Gesendet" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "closed pane"
-          }
-        }
-      }
-    },
-    "gesendet" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "sent"
+            "value" : "Sent"
           }
         }
       }
@@ -3866,26 +4118,6 @@
         }
       }
     },
-    "Jedes Mal" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Every time"
-          }
-        }
-      }
-    },
-    "Jedes Mal senden" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Send Every Time"
-          }
-        }
-      }
-    },
     "Jetzt suchen" : {
       "localizations" : {
         "en" : {
@@ -4002,6 +4234,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No history: herdr keeps none for full-screen programs such as Claude Code. Paging can be turned on in the settings."
+          }
+        }
+      }
+    },
+    "Keine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
           }
         }
       }
@@ -4192,66 +4434,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "None waiting"
-          }
-        }
-      }
-    },
-    "Kette anlegen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Chain"
-          }
-        }
-      }
-    },
-    "Kette anlegen …" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add Chain…"
-          }
-        }
-      }
-    },
-    "Kette fehlgeschlagen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chain failed"
-          }
-        }
-      }
-    },
-    "Kette löschen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Chain"
-          }
-        }
-      }
-    },
-    "Kette: → %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chain: → %@"
-          }
-        }
-      }
-    },
-    "Ketten" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chains"
           }
         }
       }
@@ -5202,6 +5384,16 @@
         }
       }
     },
+    "Prompt an mehrere Agents" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prompt to several agents"
+          }
+        }
+      }
+    },
     "Prompt für %@ bereit" : {
       "localizations" : {
         "en" : {
@@ -5228,26 +5420,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Prompt “%@”"
-          }
-        }
-      }
-    },
-    "Protokoll" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Log"
-          }
-        }
-      }
-    },
-    "Protokoll leeren" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clear Log"
           }
         }
       }
@@ -5322,16 +5494,6 @@
         }
       }
     },
-    "Schnellantwort" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quick Reply"
-          }
-        }
-      }
-    },
     "Seit dem letzten Besuch ist Neues dazugekommen." : {
       "localizations" : {
         "en" : {
@@ -5352,22 +5514,12 @@
         }
       }
     },
-    "Senden an" : {
+    "Sende %lld von %lld …" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Send to"
-          }
-        }
-      }
-    },
-    "Sonst nur beim nächsten Mal; danach ist die Kette weg." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otherwise only the next time; then the chain is gone."
+            "value" : "Sending %1$lld of %2$lld …"
           }
         }
       }
@@ -6272,6 +6424,46 @@
         }
       }
     },
+    "Wenn %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When %@"
+          }
+        }
+      }
+    },
+    "z. B. /issue-approve 300" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "e.g. /issue-approve 300"
+          }
+        }
+      }
+    },
+    "übersprungen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "skipped"
+          }
+        }
+      }
+    },
+    "Übersprungen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped: %@"
+          }
+        }
+      }
+    },
     "Verwerfen" : {
       "localizations" : {
         "en" : {
@@ -6342,32 +6534,12 @@
         }
       }
     },
-    "Wenn %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When %@"
-          }
-        }
-      }
-    },
     "Wert" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Value"
-          }
-        }
-      }
-    },
-    "z. B. /issue-approve 300" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "e.g. /issue-approve 300"
           }
         }
       }
@@ -7551,16 +7723,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overview"
-          }
-        }
-      }
-    },
-    "übersprungen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "skipped"
           }
         }
       }

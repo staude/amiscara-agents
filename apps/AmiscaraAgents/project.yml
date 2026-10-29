@@ -361,6 +361,8 @@ targets:
           - Views/InputBar.swift
           - Model/Dictation.swift
           - Model/AgentIntents.swift
+          - Model/HostStore+MultiSend.swift
+          - Views/MultiSendBar.swift
           - Views/MenuBarMenu.swift
           - Views/SecretsView.swift
           - Model/SecretStore.swift
