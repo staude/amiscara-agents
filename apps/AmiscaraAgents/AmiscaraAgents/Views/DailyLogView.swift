@@ -13,7 +13,8 @@ struct DailyLogView: View {
     @State private var day = 0
     @State private var logs: [Int: DailyLog] = [:]
     @State private var errors: [Int: String] = [:]
-    @State private var loadingDay: Int?
+    /// Days whose script runs on the host now.
+    @State private var loadingDays: Set<Int> = []
     #if canImport(FoundationModels)
     @State private var summary = DailyLogSummary()
     #endif
@@ -40,7 +41,7 @@ struct DailyLogView: View {
                     Button("Neu laden", systemImage: "arrow.clockwise") {
                         Task { await load(force: true) }
                     }
-                    .disabled(loadingDay == day)
+                    .disabled(loadingDays.contains(day))
                 }
             }
         }
@@ -68,7 +69,7 @@ struct DailyLogView: View {
                 .fixedSize()
                 Spacer()
                 #if canImport(FoundationModels)
-                if PaneSummary.isAvailable, let items = logs[day]?.items, !items.isEmpty, summary.state == .offered {
+                if PaneSummary.isAvailable, let items = logs[day]?.items, !items.isEmpty, summary.offersStart {
                     Button("Zusammenfassen", systemImage: "sparkles") {
                         Task { await summary.summarize(items) }
                     }
@@ -137,7 +138,7 @@ struct DailyLogView: View {
                 .listStyle(.inset)
                 #endif
             }
-        } else if let error = errors[day], loadingDay != day {
+        } else if let error = errors[day], !loadingDays.contains(day) {
             ContentUnavailableView("Tag nicht lesbar", systemImage: "exclamationmark.triangle", description: Text(error))
         } else {
             ProgressView("Der Tag wird gelesen …")
@@ -147,11 +148,9 @@ struct DailyLogView: View {
     /// Loads the selected day unless it is there already or `force`.
     private func load(force: Bool = false) async {
         let offset = day
-        guard force || logs[offset] == nil, loadingDay != offset else { return }
-        loadingDay = offset
-        defer {
-            if loadingDay == offset { loadingDay = nil }
-        }
+        guard force || logs[offset] == nil, !loadingDays.contains(offset) else { return }
+        loadingDays.insert(offset)
+        defer { loadingDays.remove(offset) }
         let (since, until) = Self.bounds(ofDay: offset)
         do {
             logs[offset] = try await connection.dailyLog(since: since, until: until)
