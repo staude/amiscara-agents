@@ -89,6 +89,10 @@ final class HostStore {
     /// A connection wired to notifications and the badge.
     private func connect(_ config: HostConfig) -> HostConnection {
         let connection = HostConnection(config: config)
+        connection.usage.onChange = { [weak self] in
+            guard let self, !DemoMode.isOn || DemoMode.widgets else { return }
+            self.widgets.publish(self)
+        }
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
             self.notifier.notify(update.attention, on: connection.config) { [weak connection] paneID in
@@ -288,6 +292,7 @@ final class HostStore {
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)
         PaneVisits.shared.forget(host: id)
+        UsageStore.forget(host: id)
         PaneCache.shared.forget(host: id)
         connections.remove(at: index)
         save()
