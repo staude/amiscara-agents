@@ -9,7 +9,8 @@ use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
 use herdr_core::{actions, browse, claude, diff, fullscreen};
 use herdr_transport::{
-    Connection, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError, keys,
+    Connection, HealthLine, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError,
+    keys,
 };
 use tokio::runtime::Handle;
 use tokio::sync::watch;
@@ -17,6 +18,7 @@ use tokio::task::JoinHandle;
 
 use crate::access::{gate_options, key_error};
 use crate::forward::{self, Forwards};
+use crate::health::{self, HealthStatus};
 use crate::secrets;
 use crate::view::{self, ChoiceQuestion, PaneContent, SessionUpdate};
 
@@ -77,6 +79,9 @@ pub enum SessionError {
     /// device is out of date, reload it.
     #[error("{0}")]
     SavedNotRead(String),
+    /// The host's health could not be read (#306).
+    #[error("{0}")]
+    Health(String),
 }
 
 impl From<claude::ClaudeError> for SessionError {
@@ -126,6 +131,13 @@ fn files_error(err: TransportError) -> SessionError {
             SessionError::SavedNotRead(message)
         }
         TransportError::Files(message) => SessionError::Files(message),
+        other => SessionError::NotConnected(other.to_string()),
+    }
+}
+
+fn health_error(err: TransportError) -> SessionError {
+    match err {
+        TransportError::Io(err) => SessionError::Health(err.to_string()),
         other => SessionError::NotConnected(other.to_string()),
     }
 }
@@ -973,6 +985,20 @@ impl Session {
         conn.remove_file(&format!("{}/{name}", secrets::ENV_DIR))
             .await
             .map_err(files_error)
+    }
+
+    /// The host's health for the dashboard (#306), from the host script
+    /// `amiscara-health`. Only reads; without a connection
+    /// [`SessionError::NotConnected`].
+    pub async fn host_health(&self) -> Result<HealthStatus, SessionError> {
+        let conn = self.connection()?;
+        Ok(match conn.health_line().await.map_err(health_error)? {
+            HealthLine::Json(line) => {
+                health::parse(&line).map_or(HealthStatus::ScriptMissing, HealthStatus::Ready)
+            }
+            HealthLine::ScriptMissing => HealthStatus::ScriptMissing,
+            HealthLine::Gated => HealthStatus::KeyLineOld,
+        })
     }
 
     /// The names of the secrets on the host, sorted; files whose name is no

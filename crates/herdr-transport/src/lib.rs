@@ -480,6 +480,54 @@ impl Connection {
         Ok(())
     }
 
+    /// One reading of the host's health (#306): the line that
+    /// `~/.amiscara-agents/bin/amiscara-health` prints. Over SSH it runs
+    /// through the `amiscara-health` case of the key's line, which first
+    /// prints [`HEALTH_GATE_READY`]; a line without that case connects to
+    /// `herdr.sock` instead, which says nothing, so this gives up after
+    /// [`HEALTH_TIMEOUT`]. Locally the script runs directly.
+    pub async fn health_line(&self) -> Result<HealthLine, TransportError> {
+        // A `match`, since on Windows `Ssh` is the only variant.
+        let handle = match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => return local_health_line().await,
+            Inner::Ssh { handle, .. } => handle,
+        };
+        let deadline = tokio::time::Instant::now() + HEALTH_TIMEOUT;
+        let channel = tokio::time::timeout_at(deadline, async {
+            let channel = handle.channel_open_session().await?;
+            channel.exec(true, HEALTH_GATE_READY).await?;
+            Ok::<_, TransportError>(channel)
+        })
+        .await
+        .map_err(|_| TransportError::Timeout)??;
+        let stream: Box<dyn Stream> = Box::new(channel.into_stream());
+        let mut reader = BufReader::new(stream);
+        let mut marked = false;
+        let mut result = HealthLine::Gated;
+        for _ in 0..5 {
+            let mut line = String::new();
+            match tokio::time::timeout_at(deadline, reader.read_line(&mut line)).await {
+                Ok(Ok(0)) | Err(_) => break,
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => return Err(err.into()),
+            }
+            let line = line.trim();
+            if !marked {
+                if line != HEALTH_GATE_READY {
+                    break;
+                }
+                marked = true;
+                result = HealthLine::ScriptMissing;
+            } else if line.starts_with('{') {
+                result = HealthLine::Json(line.to_owned());
+                break;
+            }
+        }
+        let _ = reader.shutdown().await;
+        Ok(result)
+    }
+
     /// Opens the channel for one future request ahead of time.
     pub async fn open_channel(&self) -> Result<Channel, TransportError> {
         Ok(Channel(self.open().await?))
@@ -979,6 +1027,58 @@ pub const TCP_GATE_READY: &str = "amiscara-tcp";
 pub const TCP_GATE_CLOSED: &str = "amiscara-tcp-closed";
 /// How long the gate may take to answer.
 const TCP_GATE_TIMEOUT: Duration = Duration::from_secs(5);
+/// What the `amiscara-health` case of a key's line prints before it runs
+/// the script; also the command that asks for it.
+pub const HEALTH_GATE_READY: &str = "amiscara-health";
+/// How long a reading of the host's health may take.
+const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// What [`Connection::health_line`] got from the host.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HealthLine {
+    /// The JSON line of the script, unparsed.
+    Json(String),
+    /// The key's line has the case, but the script is missing, not
+    /// executable or printed no JSON.
+    ScriptMissing,
+    /// The key's line predates the case (#306).
+    Gated,
+}
+
+/// Runs `~/.amiscara-agents/bin/amiscara-health` on this machine.
+#[cfg(unix)]
+async fn local_health_line() -> Result<HealthLine, TransportError> {
+    let Some(home) = dirs::home_dir() else {
+        return Ok(HealthLine::ScriptMissing);
+    };
+    let mut command =
+        tokio::process::Command::new(home.join(".amiscara-agents/bin/amiscara-health"));
+    command
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .kill_on_drop(true);
+    let output = match tokio::time::timeout(HEALTH_TIMEOUT, command.output()).await {
+        Err(_) => return Ok(HealthLine::ScriptMissing),
+        Ok(Err(err))
+            if matches!(
+                err.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
+            ) =>
+        {
+            return Ok(HealthLine::ScriptMissing);
+        }
+        Ok(Err(err)) => return Err(err.into()),
+        Ok(Ok(output)) => output,
+    };
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with('{'))
+        .map_or(HealthLine::ScriptMissing, |line| {
+            HealthLine::Json(line.to_owned())
+        }))
+}
+
 /// How long opening a channel for a herdr request may take over SSH.
 /// Uploads, port forwards and the requests themselves have no such limit,
 /// and none applies while an upload runs.
