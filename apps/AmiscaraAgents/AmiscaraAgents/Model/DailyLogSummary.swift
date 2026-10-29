@@ -23,6 +23,14 @@ final class DailyLogSummary {
     /// The model's context is small; the day's start is kept, the rest cut.
     private static let maxCharacters = 6000
 
+    /// "Zusammenfassen" is shown: at first and again after a failure.
+    var offersStart: Bool {
+        switch state {
+        case .offered, .failed: true
+        case .loading, .done: false
+        }
+    }
+
     /// Back to the offer, for another day or a reloaded list.
     func reset() {
         generation += 1
