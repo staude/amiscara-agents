@@ -7,10 +7,15 @@ struct OverviewView: View {
     @Environment(HostStore.self) private var store
     let open: (SpaceRef) -> Void
 
+    /// The plan whose overview is shown (#296).
+    @State private var approval: Approvals.Item?
+
     var body: some View {
         let overview = store.overview
+        let approvals = store.approvals.items(for: nil, in: store.connections)
+        let approvalErrors = store.approvals.errors(for: nil, in: store.connections)
         Group {
-            if overview.isEmpty {
+            if overview.isEmpty, approvals.isEmpty, approvalErrors.isEmpty {
                 ContentUnavailableView(
                     "Keine Agents",
                     systemImage: "sparkles",
@@ -18,6 +23,7 @@ struct OverviewView: View {
                 )
             } else {
                 List {
+                    ApprovalsSection(hostID: nil) { approval = $0 }
                     ForEach(overview.sections) { section in
                         Section(section.group.title) {
                             ForEach(section.rows) { row in
@@ -31,9 +37,11 @@ struct OverviewView: View {
                         }
                     }
                 }
+                .refreshable { await store.approvals.load(store.connections, force: true) }
             }
         }
         .navigationTitle("Übersicht")
+        .approvals(store, selected: $approval, open: open)
     }
 }
 

@@ -615,6 +615,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `Session::usage`, `usage_state`, `restore_usage_state`;
   `herdr-spike usage <cwd> [--days N]` prints tokens per local day and model.
   `scripts/usage-sums-test.sh` checks the app's sums against the bindings.
+- Approvals (#296): with a GitHub token per host (host settings, section
+  "GitHub", fine-grained with Issues: Read; only in this device's Keychain,
+  `net.staude.amiscara.agents.github-token`, not in iCloud) the overview and
+  the host dashboard show "Freigaben": open issues with `awaiting-approval`
+  in the GitHub repositories of the host's spaces, with the "Überblick für
+  die Freigabe" of the latest enon-tools plan comment. When the issue's
+  planning tab `plan-<nr>` waits with the question "Ja"/"Später", the app
+  answers it there ("Freigeben", "Später", "Mit Hinweis freigeben", which
+  adds a note to "Ja"); otherwise it shows `/issue-approve <nr>` to copy, or
+  "Tab öffnen" while the tab asks something else. The app never sets a
+  label itself. Needs file access to read the repositories' Git configs.
+  Mac, iPhone, iPad. Core: `herdr_core::github` (`origin_repo`,
+  `plan_overview`), `Session::github_repos`.
 - Sorting spaces (#243, #245): per host as herdr has them, by name (A–Z,
   Z–A) or manually; manual starts from the order shown and changes by drag
   and drop in the sidebar, within a group and only on the same host. Stored
@@ -657,6 +670,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   waiting ones. The last live agents stay while the host reconnects, also
   after "Neu verbinden", and without a connection the Mac's board in iCloud
   stands in. ⌘1 to ⌘9 follow the dashboard's host. Mac, iPhone and iPad.
+- Claude sessions of a folder (#304): "Claude-Sitzungen …" in a space's
+  menu lists the Claude Code sessions of the shown pane's folder (from the
+  sidebar: the space's), the 30 newest with
+  title (from `/rename`, else Claude's own, else the first prompt), last
+  activity and file size. "In neuer Pane fortsetzen" opens a tab in that
+  folder and starts `claude --resume <id>` there, with the shell's current
+  environment; "In dieser Pane fortsetzen" does it in the shown shell pane
+  of the same folder. Needs file access like the conversation view; Mac,
+  iPhone and iPad. Core: `claude::list_sessions`, `start_agent` takes agent
+  arguments, `Session::claude_sessions`, `resume_claude`.
 
 ### Changed
 

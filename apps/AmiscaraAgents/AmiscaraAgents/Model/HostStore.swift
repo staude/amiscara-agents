@@ -13,6 +13,8 @@ final class HostStore {
     let cloudPush = CloudPushSender()
     #endif
     #if !os(tvOS)
+    /// Plans waiting for approval in the hosts' repositories (#296).
+    let approvals = Approvals()
     /// The agents as last seen and as Siri last learned them by name
     /// (#275), and the pause between two updates; see `updateShortcutAgents(_:)`.
     @ObservationIgnored private var shortcutAgentsSeen: Set<String> = []
@@ -43,6 +45,17 @@ final class HostStore {
             save()
         }
         connections.forEach { $0.start() }
+        // NetBird just connected (#305): the hosts behind it were failing,
+        // so connect now instead of waiting out the backoff.
+        NetBirdMonitor.shared.onCameUp = { [weak self] in
+            guard let self else { return }
+            self.learnNetBird()
+            for connection in self.connections
+            where connection.config.behindNetBird && !connection.isLive && !connection.needsHostKeyDecision {
+                connection.reconnect()
+            }
+        }
+        learnNetBird()
         notifier.answer = { [weak self] host, pane, key in
             await self?.answer(key, to: pane, on: host) ?? false
         }
@@ -218,6 +231,7 @@ final class HostStore {
         connections.append(connection)
         save()
         connection.start()
+        learnNetBird()
     }
 
     func update(_ config: HostConfig) {
@@ -226,8 +240,32 @@ final class HostStore {
         var config = config
         config.spaceSort = connection.config.spaceSort
         config.spaceOrder = connection.config.spaceOrder
+        // Learned for the old name only.
+        config.netBirdLearned = config.host == connection.config.host ? connection.config.netBirdLearned : nil
         connection.apply(config)
         save()
+        learnNetBird()
+    }
+
+    private func needsLearning(_ config: HostConfig) -> Bool {
+        guard config.kind == .ssh, config.viaNetBird == nil, config.netBirdLearned == nil else { return false }
+        return !config.host.isEmpty && !NetBird.looksLikeNetBirdHost(config.host)
+    }
+
+    /// While NetBird is up, remembers which hosts resolve to a NetBird
+    /// address, so own domains need no entry (#305).
+    private func learnNetBird() {
+        guard NetBirdMonitor.shared.isUp == true else { return }
+        let pending = connections.map(\.config).filter(needsLearning)
+        for config in pending {
+            Task { [weak self] in
+                guard let learned = await NetBirdMonitor.shared.resolvesToNetBird(config.host) else { return }
+                guard let self, var current = self.connection(for: config.id)?.config,
+                      current.host == config.host, current.netBirdLearned == nil else { return }
+                current.netBirdLearned = learned
+                self.update(current)
+            }
+        }
     }
 
     func setSpaceSort(_ mode: SpaceSortMode, order: [String]?, for id: UUID) {
@@ -248,6 +286,8 @@ final class HostStore {
         KeyStore.delete(for: id)
         #if !os(tvOS)
         SecretStore.deleteAll(for: id)
+        GitHubToken.delete(for: id)
+        approvals.reset(id)
         #endif
         PromptHistory.shared.forget(host: id)
         LastTabs.shared.forget(host: id)

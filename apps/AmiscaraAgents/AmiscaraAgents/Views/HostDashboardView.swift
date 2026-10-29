@@ -11,6 +11,8 @@ struct HostDashboardView: View {
     @Environment(HostStore.self) private var store
     let connection: HostConnection
     let open: (SpaceRef) -> Void
+    /// The plan whose overview is shown (#296).
+    @State private var approval: Approvals.Item?
     @State private var showingUsage = false
 
     var body: some View {
@@ -26,6 +28,8 @@ struct HostDashboardView: View {
                         .padding(.top, 4)
                 }
                 .padding(.bottom, 8)
+                ApprovalsSection(hostID: connection.id) { approval = $0 }
+                    .padding(.bottom, 8)
                 if snapshot.agents.isEmpty {
                     Text("Keine Agents.")
                         .font(.callout)
@@ -57,10 +61,12 @@ struct HostDashboardView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .refreshable { await store.approvals.load(store.connections, force: true) }
         .navigationTitle(connection.config.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .approvals(store, selected: $approval, open: open)
         .onAppear { connection.usage.visible += 1 }
         .onDisappear { connection.usage.visible -= 1 }
         // Again when the host comes back or an agent opens elsewhere.
