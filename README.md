@@ -163,8 +163,16 @@ code), so a host is set up the same way everywhere.
   word in all Claude Code conversations of the host, grouped by space and
   session with a snippet and date; a hit opens the conversation there.
   Over SSH with input allowed and a space open, grep runs on the host in a
-  short-lived tab, otherwise only the last 30 days are read. Needs SFTP like the
-  conversation. Mac, iPhone and iPad.
+  short-lived tab, otherwise only the last 30 days are read. Needs SFTP
+  like the conversation. Mac, iPhone and iPad.
+- **Read aloud and voice mode:** "Vorlesen" in the header of a Claude pane
+  reads Claude's last reply with the system voice, in the reply's language,
+  code blocks skipped. "Antworten vorlesen" reads each reply once Claude has
+  finished, as long as the pane is open (silent with the silent switch on).
+  The voice mode reads the reply, then listens; a pause sends the dictated
+  answer, "Stopp" ends it. When Claude waits for a decision, the voice mode
+  says so and leaves the answer to the screen. Needs file access like the
+  conversation and the app in front. Mac, iPhone and iPad.
 - **Input:** prompts to agents (`agent.prompt`), text to shells, a key bar
   (Esc, Tab, Ctrl-C, arrows, Enter) and quick replies. When an agent waits
   for approval, the input bar shows 1, 2, 3, Bestätigen and Abbrechen; when
