@@ -3,6 +3,9 @@
 // certificate; see docs/release.md. Profile names as in
 // scripts/ExportOptions-TestFlight-<platform>.plist. The profile depends on
 // the SDK because the iOS and tvOS app share a bundle ID.
+// Swift package resource bundles (KeyboardShortcuts) sign with the team too;
+// without it the archive stops with "requires a development team".
+DEVELOPMENT_TEAM = 7N2W4T6UPV
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = Apple Distribution
 PROVISIONING_PROFILE_SPECIFIER = $(PROFILE_$(PRODUCT_BUNDLE_IDENTIFIER:c99extidentifier))

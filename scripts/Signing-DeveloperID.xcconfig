@@ -1,6 +1,9 @@
 // Manual signing for the Mac archive of scripts/release.sh (-xcconfig).
 // Xcode then never asks the Apple account for a development certificate;
 // see docs/release.md. Profile names as in scripts/ExportOptions.plist.
+// Swift package resource bundles (KeyboardShortcuts) sign with the team too;
+// without it the archive stops with "requires a development team".
+DEVELOPMENT_TEAM = 7N2W4T6UPV
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = Developer ID Application
 PROVISIONING_PROFILE_SPECIFIER = $(PROFILE_$(PRODUCT_BUNDLE_IDENTIFIER:c99extidentifier))
