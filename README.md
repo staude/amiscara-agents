@@ -585,8 +585,9 @@ A `.deb` does not update itself; install the new one by hand.
 
 ## Setting up a host
 
-1. Install and start [herdr](https://herdr.dev) on the host. The apps use
-   its default socket `~/.config/herdr/herdr.sock`.
+1. Install and start [herdr](https://herdr.dev) on the host, or herdr
+   desktop (step 9). The apps use herdr's default socket
+   `~/.config/herdr/herdr.sock`.
 2. Make sure SSH works: `sshd` running, `nc` installed (it connects the
    session to the socket; macOS ships it). Forwarding local web pages also
    needs `nc -z` (OpenBSD netcat, current ncat).
@@ -661,6 +662,18 @@ A `.deb` does not update itself; install the new one by hand.
    one JSON line. Key lines from before this need replacing once with the
    one the app shows now, which has the `amiscara-health` case. The Mac
    app's "Dieser Mac" runs the script directly.
+9. With herdr desktop or `hc` on the host (#329): nothing to install
+   besides herdr-core itself (`hc` in `~/.local/bin` or on `PATH`). The
+   key line the app shows has the `amiscara-hc` case, which connects to a
+   running core:
+
+   ```
+   amiscara-hc) s=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect ;;
+   ```
+
+   Lines from before need replacing once; with an old line the app shows
+   only the herdr server. herdr itself (step 1) is not needed then. See
+   [herdr-core](#herdr-core-herdr-desktop).
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user
