@@ -508,9 +508,11 @@ herdr-core's spaces come after herdr's.
   `idle`, `done`; `error` counts as waiting); the agent kind comes from it
   (`claude-code` is `claude`).
 - **Input:** prompts (`terminal.send`, pasted once nobody has typed for
-  about 3 s, also into a waiting dialog) and keys work. Text without Enter
-  does not, since herdr-core types only plain keys (no umlauts). Hosts set
-  to read only stay read only.
+  about 3 s; refused while the agent waits at a dialog, as on herdr) and
+  keys work. Text without Enter, as the apps send shell commands, goes key
+  by key and only with letters, digits, spaces and unshifted signs
+  (`-./,;='[]\` and the backtick); other text (umlauts, `|`, `"`, `$`, ...)
+  is refused. Hosts set to read only stay read only.
 - **Not on herdr-core:** creating, renaming and closing spaces and tabs,
   starting or naming agents, chains, open and editor requests, and
   scrolling a full-screen agent; the apps answer "not available on
@@ -518,9 +520,11 @@ herdr-core's spaces come after herdr's.
   history, because reading herdr-core's history would scroll a full-screen
   agent on the host.
 - **Git branch, Git changes, the day's log and the conversation search**
-  run with `machine.exec` (a branch every 30 s per space, the scripts
-  without a tab), not for terminals on another machine. Uploads, files and
-  the conversation still go over SFTP.
+  run with `machine.exec` (a branch every 30 s per space, also on another
+  machine; the scripts without a tab and not for terminals on another
+  machine). Uploads, files and the conversation still go over SFTP.
+- **Spaces without herdr desktop's labels** follow their directory: a `cd`
+  in such a terminal moves it to another space.
 
 ### Uploads and the Claude conversation
 
@@ -663,7 +667,8 @@ A `.deb` does not update itself; install the new one by hand.
    one the app shows now, which has the `amiscara-health` case. The Mac
    app's "Dieser Mac" runs the script directly.
 9. With herdr desktop or `hc` on the host (#329): nothing to install
-   besides herdr-core itself (`hc` in `~/.local/bin` or on `PATH`). The
+   besides herdr-core itself. Over SSH `hc` has to be in `~/.local/bin`
+   (where its installer puts it) or on the `PATH` sshd gives a command. The
    key line the app shows has the `amiscara-hc` case, which connects to a
    running core:
 
