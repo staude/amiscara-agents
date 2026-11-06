@@ -142,8 +142,9 @@ pub struct StartFailure {
     pub lines: String,
 }
 
-/// How many of the pane's last lines a [`StartFailure`] keeps.
-const START_FAILURE_LINES: u32 = 12;
+/// How many of the pane's last lines a [`StartFailure`] keeps; the app
+/// shows them all, so the end of the output is never cut off.
+const START_FAILURE_LINES: u32 = 8;
 
 /// The report for an agent start that ended as `start`: `None` unless the
 /// agent is gone and its pane still there.

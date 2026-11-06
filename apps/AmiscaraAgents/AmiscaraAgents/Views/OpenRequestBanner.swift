@@ -84,9 +84,10 @@ struct OpenRequestBanner: View {
             Label("Agent „\(failure.kind)“ in \(space) ist gleich nach dem Start beendet", systemImage: "exclamationmark.triangle")
                 .font(.headline)
             if !failure.lines.isEmpty {
+                // At most 8 lines from the host, all shown: the error is at
+                // the end.
                 Text(verbatim: failure.lines)
                     .font(.caption.monospaced())
-                    .lineLimit(8)
                     .foregroundStyle(.secondary)
                     .selectableText()
             }
