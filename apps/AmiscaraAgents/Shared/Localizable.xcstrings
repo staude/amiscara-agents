@@ -494,6 +494,46 @@
         }
       }
     },
+    "%lld Commits sind nicht gepusht." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commit ist nicht gepusht."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commits sind nicht gepusht."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commit is not pushed."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commits are not pushed."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld Dateien, +%lld −%lld" : {
       "localizations" : {
         "en" : {
@@ -750,6 +790,16 @@
         }
       }
     },
+    "(losgelöst) %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(detached) %@"
+          }
+        }
+      }
+    },
     "/Users/<benutzer>/.config/herdr/herdr.sock" : {
       "localizations" : {
         "en" : {
@@ -996,6 +1046,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "All finished"
+          }
+        }
+      }
+    },
+    "Alle Worktrees dieses Repos sind schon als Space offen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All worktrees of this repository are open as spaces already."
           }
         }
       }
@@ -1582,6 +1642,16 @@
         }
       }
     },
+    "Darin läuft noch ein Agent; er wird beendet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An agent is still running in it; it will be ended."
+          }
+        }
+      }
+    },
     "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
       "localizations" : {
         "en" : {
@@ -1602,6 +1672,16 @@
         }
       }
     },
+    "Das Verzeichnis wird gelöscht, der Branch bleibt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The directory is deleted; the branch stays."
+          }
+        }
+      }
+    },
     "Das Ziel sendet schon jedes Mal hierher; jedes Mal in beide Richtungen liefe ohne Ende." : {
       "localizations" : {
         "en" : {
@@ -1618,6 +1698,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "View files on GitHub"
+          }
+        }
+      }
+    },
+    "Den Git-Status der Worktrees liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the worktrees' Git status through file access, like “Upload images” (Edit host)."
           }
         }
       }
@@ -1652,12 +1742,32 @@
         }
       }
     },
+    "Der Branch ist nicht gepusht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The branch has not been pushed."
+          }
+        }
+      }
+    },
     "Der Diff ist zu groß für GitHubs Schnittstelle. Auf GitHub ansehen." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The diff is too large for GitHub's API. View it on GitHub."
+          }
+        }
+      }
+    },
+    "Der Git-Status des Worktrees ließ sich nicht lesen. Nichts wurde entfernt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The worktree's Git status could not be read. Nothing was removed."
           }
         }
       }
@@ -1852,6 +1962,16 @@
         }
       }
     },
+    "Entfernen fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing failed"
+          }
+        }
+      }
+    },
     "Entwurf" : {
       "localizations" : {
         "en" : {
@@ -1898,6 +2018,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Make Host Read Only"
+          }
+        }
+      }
+    },
+    "Im Worktree sind %lld Änderungen nicht committet. Erst committen oder verwerfen." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Im Worktree ist %lld Änderung nicht committet. Erst committen oder verwerfen."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Im Worktree sind %lld Änderungen nicht committet. Erst committen oder verwerfen."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The worktree has %lld uncommitted change. Commit or discard it first."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The worktree has %lld uncommitted changes. Commit or discard them first."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "kein Upstream" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no upstream"
+          }
+        }
+      }
+    },
+    "Kein Worktree passt zur Suche." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No worktree matches the search."
           }
         }
       }
@@ -6538,6 +6718,56 @@
         }
       }
     },
+    "Worktree entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Worktree"
+          }
+        }
+      }
+    },
+    "Worktree entfernen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Worktree …"
+          }
+        }
+      }
+    },
+    "Worktree öffnen – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Worktree – %@"
+          }
+        }
+      }
+    },
+    "Worktree öffnen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Worktree …"
+          }
+        }
+      }
+    },
+    "Worktree „%@“ entfernen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove worktree “%@”?"
+          }
+        }
+      }
+    },
     "Änderungen verlangt" : {
       "localizations" : {
         "en" : {
@@ -9446,6 +9676,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file could not be added: %@"
+          }
+        }
+      }
+    },
+    "● %lld geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "● %lld changed"
           }
         }
       }

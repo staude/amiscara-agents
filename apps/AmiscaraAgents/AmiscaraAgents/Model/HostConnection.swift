@@ -52,6 +52,8 @@ final class HostConnection: Identifiable {
     #if !os(tvOS)
     /// The open pull requests of the spaces (#309).
     let pullRequests: PullRequests
+    /// Ahead/behind and changes of the Git spaces (#343).
+    let gitStatus: GitStatusStore
     /// Agents started from this device that ended before they were ready
     /// (#339), until closed or opened. Only in memory.
     private(set) var startFailures: [AgentStartFailure] = []
@@ -68,7 +70,9 @@ final class HostConnection: Identifiable {
         id = config.id
         #if !os(tvOS)
         pullRequests = PullRequests(host: config.id)
+        gitStatus = GitStatusStore()
         pullRequests.connection = self
+        gitStatus.connection = self
         #endif
         usage.attach(self)
     }
@@ -111,6 +115,7 @@ final class HostConnection: Identifiable {
                     self.onUpdate?(self, update)
                     #if !os(tvOS)
                     self.pullRequests.updated(update, live: self.isLive)
+                    self.gitStatus.updated(update, live: self.isLive)
                     #endif
                 }
             }
@@ -271,6 +276,48 @@ final class HostConnection: Identifiable {
             try session.createWorktree(workspaceId: workspaceID, worktree: worktree)
         }.value
     }
+
+    #if !os(tvOS)
+    /// Ahead/behind and uncommitted changes of the Git spaces (#343), or
+    /// only of `workspaceID`. Read only, but like the diff it opens a
+    /// short-lived tab and reads its output through SFTP, so it needs
+    /// input and file access.
+    func worktreeStatus(only workspaceID: String? = nil) async throws -> [SpaceGitStatus] {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.gitStatusFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.worktreeStatus(onlyWorkspaceId: workspaceID)
+        }.value
+    }
+
+    /// The worktrees of a space's repository that no space shows (#343).
+    func listWorktrees(of workspaceID: String) async throws -> [WorktreeChoice] {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.listWorktrees(workspaceId: workspaceID)
+        }.value
+    }
+
+    /// Opens an existing worktree of a space's repository as a new space.
+    func openWorktree(from workspaceID: String, path: String) async throws -> Created {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.openWorktree(workspaceId: workspaceID, path: path)
+        }.value
+    }
+
+    /// Removes the linked worktree a space shows, with the space; the
+    /// branch stays. The core refuses while there are uncommitted changes,
+    /// which it reads like `worktreeStatus`.
+    func removeWorktree(_ workspaceID: String) async throws {
+        guard config.uploadAllowed else { throw ConnectionFailure.gitStatusFilesOff }
+        let session = try writableSession()
+        try await Task.detached {
+            try session.removeWorktree(workspaceId: workspaceID)
+        }.value
+    }
+    #endif
 
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. herdr (0.9.5, protocol 22)
@@ -868,6 +915,7 @@ enum ConnectionFailure: LocalizedError {
     case diffFilesOff
     case diffReadOnly
     case dailyLogFilesOff
+    case gitStatusFilesOff
     case browseFilesOff
     case secretsFilesOff
     case searchFilesOff
@@ -892,6 +940,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
         case .dailyLogFilesOff:
             String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .gitStatusFilesOff:
+            String(localized: "Den Git-Status der Worktrees liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:

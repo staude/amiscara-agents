@@ -14,6 +14,7 @@
 //! [`chains`] stores and fires prompts that follow an agent's change (#300).
 //! [`programs`] tells what runs in a pane, for its icon (#337).
 //! [`hc`] maps herdr-core's terminals onto spaces, tabs and panes (#329).
+//! [`gitstatus`] reads ahead/behind and changes of worktrees (#343).
 
 pub mod actions;
 pub mod browse;
@@ -23,6 +24,7 @@ pub mod daily;
 pub mod diff;
 pub mod fullscreen;
 pub mod github;
+pub mod gitstatus;
 pub mod hc;
 pub mod pane;
 pub mod programs;

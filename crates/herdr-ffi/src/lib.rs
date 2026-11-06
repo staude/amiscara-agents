@@ -30,7 +30,8 @@ pub use convert::{
 pub use convert::{ConversationHit, SearchEnd};
 pub use convert::{
     DailyItem, DailyItemKind, DailyLog, DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind,
-    Directory, DirectoryEntry, EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
+    Directory, DirectoryEntry, EntryKind, FileContent, FilePreview, GitHubRepo, SpaceGitStatus,
+    WorkingTreeDiff, WorktreeChoice,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -891,6 +892,48 @@ impl HostSession {
     /// main thread.
     pub fn daily_log(&self, since_secs: u64, until_secs: u64) -> Result<DailyLog, FfiError> {
         Ok(runtime().block_on(self.session.daily_log(since_secs, until_secs))?)
+    }
+
+    /// Ahead/behind and uncommitted changes of every space showing a Git
+    /// checkout (#343), or only of `only_workspace_id`. Read only; runs one
+    /// small script in a short-lived, unfocused tab and reads its output
+    /// through SFTP, so it needs input and file access. Spaces Git could
+    /// not read are left out. Blocks for a moment; call it off the main
+    /// thread.
+    pub fn worktree_status(
+        &self,
+        only_workspace_id: Option<String>,
+    ) -> Result<Vec<SpaceGitStatus>, FfiError> {
+        Ok(runtime().block_on(self.session.worktree_status(only_workspace_id.as_deref()))?)
+    }
+
+    /// The worktrees of the repository of space `workspace_id` that no
+    /// space shows (#343), sorted by branch, detached ones last. Read
+    /// only. Blocks; call it off the main thread.
+    pub fn list_worktrees(&self, workspace_id: String) -> Result<Vec<WorktreeChoice>, FfiError> {
+        Ok(runtime()
+            .block_on(self.session.list_worktrees(&workspace_id))?
+            .into_iter()
+            .map(WorktreeChoice::from)
+            .collect())
+    }
+
+    /// Opens the existing worktree at `path` of the repository of space
+    /// `workspace_id` as a new, unfocused space (#343) and returns its
+    /// first pane. Blocks; call it off the main thread.
+    pub fn open_worktree(&self, workspace_id: String, path: String) -> Result<Created, FfiError> {
+        Ok(runtime()
+            .block_on(self.session.open_worktree(&workspace_id, &path))?
+            .into())
+    }
+
+    /// Removes the linked worktree that space `workspace_id` shows, with
+    /// its space (#343); the branch stays. Refused (`Rejected`) for a main
+    /// checkout and while there are uncommitted changes, which it checks
+    /// first with input and file access. Blocks; call it off the main
+    /// thread.
+    pub fn remove_worktree(&self, workspace_id: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.remove_worktree(&workspace_id))?)
     }
 
     /// The directory at the absolute `path` on the host, empty for the home

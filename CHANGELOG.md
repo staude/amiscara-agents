@@ -801,6 +801,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
   start. Without input allowed the sheet says why it needs it. Mac, iPhone
   and iPad. `Session::space_working_tree_diff`, FFI
   `space_working_tree_diff`.
+- Worktree status, open and remove (#343): Git spaces show ahead/behind
+  against their upstream ("↑3 ↓2"), "kein Upstream" for a branch never
+  pushed and "● 4 geändert" for uncommitted and untracked files, behind the
+  branch or, for a linked worktree, as its own line; a clean branch shows
+  nothing. The app reads it with one script for all spaces in a
+  short-lived tab, like the diff (input and file access needed), on
+  connecting, coming to the front, new spaces or branches, an agent that
+  stops working and every five minutes while in front; reasons within
+  20 s make one follow-up. "Worktree öffnen …" lists the repository's
+  worktrees that no space shows, with a search, and opens one as a space;
+  "Worktree entfernen …" asks first, removes the checkout with its space
+  and keeps the branch, and refuses while there are uncommitted changes.
+  Both are in the space's context menu and, on the iPad, in the menu of the
+  space view. Core: `herdr_client::gitstatus`, `actions::list_worktrees`,
+  `open_worktree`, `remove_worktree`, `Session::worktree_status`,
+  `list_worktrees`, `open_worktree`, `remove_worktree`; FFI
+  `SpaceGitStatus`, `WorktreeChoice`. Mac, iPhone and iPad.
 - What's New after an update (#341): the Mac app opens "Neuigkeiten" once
   after Sparkle installed a newer version, the desktop app shows the dialog
   once after the updater did; Help › Neuigkeiten (Mac) and Settings ›

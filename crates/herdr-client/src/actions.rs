@@ -12,7 +12,7 @@
 //! signs; nothing that changes spaces, tabs or agents, which herdr desktop
 //! keeps to itself: [`ActionError::Unsupported`].
 
-use herdr_proto::{PaneInfo, ProtoError};
+use herdr_proto::{PaneInfo, ProtoError, WorktreeEntry, WorktreeListResult};
 use herdr_transport::{Connection, TransportError};
 use serde_json::json;
 
@@ -253,6 +253,82 @@ pub async fn create_worktree(
             }
         })?;
     Ok(reply.into())
+}
+
+/// The worktrees of the repository of space `workspace_id` (#343), with
+/// the spaces that show them. Read only.
+pub async fn list_worktrees(
+    conn: &Connection,
+    workspace_id: &str,
+) -> Result<Vec<WorktreeEntry>, ActionError> {
+    herdr_only(workspace_id)?;
+    let reply: WorktreeListResult = serde_json::from_value(
+        conn.request("worktree.list", json!({ "workspace_id": workspace_id }))
+            .await?,
+    )
+    .map_err(|err| ActionError::Rejected {
+        code: "malformed_reply".into(),
+        message: err.to_string(),
+    })?;
+    Ok(reply.worktrees)
+}
+
+#[derive(serde::Deserialize)]
+struct OpenedReply {
+    workspace: OpenedSpace,
+    /// Missing when the worktree was open already.
+    #[serde(default)]
+    root_pane: Option<PaneInfo>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenedSpace {
+    workspace_id: String,
+}
+
+impl From<OpenedReply> for Created {
+    fn from(reply: OpenedReply) -> Self {
+        let (tab_id, pane_id) = reply
+            .root_pane
+            .map(|pane| (pane.tab_id, pane.pane_id))
+            .unwrap_or_default();
+        Self {
+            workspace_id: reply.workspace.workspace_id,
+            tab_id,
+            pane_id,
+        }
+    }
+}
+
+/// Opens an existing worktree at `path` of the repository of space
+/// `workspace_id` as a new, unfocused space (#343). A worktree that is open
+/// already comes back with its space and empty tab and pane.
+pub async fn open_worktree(
+    conn: &Connection,
+    workspace_id: &str,
+    path: &str,
+) -> Result<Created, ActionError> {
+    herdr_only(workspace_id)?;
+    let params = json!({ "workspace_id": workspace_id, "path": path, "focus": false });
+    let reply: OpenedReply = serde_json::from_value(conn.request("worktree.open", params).await?)
+        .map_err(|err| ActionError::Rejected {
+        code: "malformed_reply".into(),
+        message: err.to_string(),
+    })?;
+    Ok(reply.into())
+}
+
+/// Removes the linked worktree that space `workspace_id` shows, with its
+/// space (#343): `git worktree remove` without `--force`, so the branch
+/// stays and Git refuses a worktree with changes.
+pub async fn remove_worktree(conn: &Connection, workspace_id: &str) -> Result<(), ActionError> {
+    herdr_only(workspace_id)?;
+    conn.request(
+        "worktree.remove",
+        json!({ "workspace_id": workspace_id, "force": false }),
+    )
+    .await?;
+    Ok(())
 }
 
 /// Agent kinds herdr can start, for servers that cannot list them. The
@@ -616,6 +692,38 @@ mod tests {
     }
 
     #[test]
+    fn opened_worktree_names_its_space() -> Result<(), serde_json::Error> {
+        let reply: OpenedReply = serde_json::from_value(serde_json::json!({
+            "type": "worktree_opened",
+            "already_open": false,
+            "workspace": {"workspace_id": "w4", "number": 4, "label": "fix-x"},
+            "tab": {"tab_id": "w4:t1", "workspace_id": "w4"},
+            "root_pane": {"pane_id": "w4:p1", "workspace_id": "w4", "tab_id": "w4:t1",
+                          "terminal_id": "t", "focused": false, "agent_status": "unknown", "revision": 0},
+            "worktree": {"path": "/x/repo/fix-x", "branch": "fix/x", "label": "fix-x",
+                         "is_bare": false, "is_detached": false, "is_prunable": false, "is_linked_worktree": true}
+        }))?;
+        let created = Created::from(reply);
+        assert_eq!(
+            (created.workspace_id.as_str(), created.pane_id.as_str()),
+            ("w4", "w4:p1")
+        );
+        let open: OpenedReply = serde_json::from_value(serde_json::json!({
+            "type": "worktree_opened",
+            "already_open": true,
+            "workspace": {"workspace_id": "w2"},
+            "worktree": {"path": "/x", "label": "x", "is_bare": false, "is_detached": false,
+                         "is_prunable": false, "is_linked_worktree": true}
+        }))?;
+        let created = Created::from(open);
+        assert_eq!(
+            (created.workspace_id.as_str(), created.pane_id.as_str()),
+            ("w2", "")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn common_kinds_come_first() {
         let kinds = ["pi", "claude", "cursor", "codex", "amp"].map(String::from);
         assert_eq!(
@@ -703,6 +811,15 @@ mod tests {
         ));
         assert!(matches!(
             start_agent(&conn, "hc:t1", "claude", None, &[]).await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(unsupported(remove_worktree(&conn, "hc:sp1").await));
+        assert!(matches!(
+            list_worktrees(&conn, "hc:sp1").await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            open_worktree(&conn, "hc:sp1", "/x").await,
             Err(ActionError::Unsupported(_))
         ));
     }

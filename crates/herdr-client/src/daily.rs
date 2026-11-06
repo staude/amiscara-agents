@@ -146,7 +146,7 @@ fn utc_date(secs: u64) -> String {
 }
 
 /// `text` in single quotes for the shell.
-fn quote(text: &str) -> String {
+pub(crate) fn quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', r"'\''"))
 }
 
