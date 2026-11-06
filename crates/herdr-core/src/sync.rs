@@ -308,10 +308,15 @@ async fn follow_inner(
             Event::PaneUpdated { pane } => Some(pane.pane_id.clone()),
             _ => None,
         };
-        let status_before = changed_pane
+        let before = changed_pane
             .as_deref()
             .and_then(|id| state.pane(id))
-            .map(|pane| pane.agent_status);
+            .map(|pane| {
+                (
+                    pane.agent_status,
+                    pane.tokens.get(crate::SEEN_TOKEN).cloned(),
+                )
+            });
         match state.apply(&event) {
             Applied::Updated => {
                 // A new finish: which one it is decides whether a client
@@ -319,8 +324,12 @@ async fn follow_inner(
                 if let Some(pane_id) = changed_pane.as_deref()
                     && let Some(pane) = state.pane(pane_id)
                     && pane.agent_status == AgentStatus::Done
-                    && status_before != Some(AgentStatus::Done)
                     && !state.completion_seqs.contains_key(pane_id)
+                    // Also when a missed number would decide a new mark.
+                    && before.as_ref().is_none_or(|(status, mark)| {
+                        *status != AgentStatus::Done
+                            || mark.as_ref() != pane.tokens.get(crate::SEEN_TOKEN)
+                    })
                 {
                     let seq = finish(conn, pane_id).await;
                     state.set_completion_seq(pane_id, seq);

@@ -233,7 +233,7 @@ impl SessionState {
     /// `blocked` (waiting for an answer) or newly `done` (finished, unseen).
     /// Panes that were already in that state stay quiet, so repeated
     /// snapshots or reconnects do not notify twice. A seen `done` counts as
-    /// idle on both sides.
+    /// idle and needs no attention.
     pub fn attention_since(&self, before: &SessionState) -> Vec<String> {
         self.panes
             .iter()
@@ -245,9 +245,11 @@ impl SessionState {
                 )
             })
             .filter(|pane| {
+                // Only a change herdr reports: a finish that loses its
+                // known number is not new.
                 before
                     .pane(&pane.pane_id)
-                    .is_none_or(|old| before.agent_status(old) != self.agent_status(pane))
+                    .is_none_or(|old| old.agent_status != pane.agent_status)
             })
             .map(|pane| pane.pane_id.clone())
             .collect()
@@ -844,6 +846,15 @@ mod tests {
         if let Some(pane) = before.panes.iter_mut().find(|p| p.pane_id == "w1:p2") {
             pane.tokens.remove(SEEN_TOKEN);
         }
+        assert!(after.attention_since(&before).is_empty());
+    }
+
+    #[test]
+    fn a_seen_finish_that_loses_its_number_is_no_news() {
+        let before = seen_state(Some("7"));
+        let mut after = before.clone();
+        after.set_completion_seq("w2:p1", None);
+        assert_eq!(status_of(&after, "w2:p1"), Some(AgentStatus::Done));
         assert!(after.attention_since(&before).is_empty());
     }
 
