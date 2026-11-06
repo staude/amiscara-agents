@@ -331,7 +331,12 @@ async fn follow_inner(
             () = tx.closed() => return Err(SyncError::Unobserved),
         };
         match state.apply(&parse_event(item?)?) {
-            Applied::Updated => publish(tx, SyncStatus::Live, &state),
+            Applied::Updated => {
+                // An agent that started or ended changes which panes the
+                // poller asks (#337).
+                programs.follow(&state);
+                publish(tx, SyncStatus::Live, &state);
+            }
             Applied::Unchanged => {}
             Applied::NeedsSnapshot => {
                 resnapshot_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
@@ -450,14 +455,9 @@ impl ProgramPoller {
         Self { rx, panes, task }
     }
 
-    /// Takes the panes of a fresh snapshot; a changed set is asked at once.
+    /// Takes the panes of the current state; a changed set is asked at once.
     fn follow(&self, state: &SessionState) {
-        self.panes.send_if_modified(|panes| {
-            let fresh = program_panes(state);
-            let changed = *panes != fresh;
-            *panes = fresh;
-            changed
-        });
+        follow_panes(&self.panes, state);
     }
 }
 
@@ -465,6 +465,17 @@ impl Drop for ProgramPoller {
     fn drop(&mut self) {
         self.task.abort();
     }
+}
+
+/// Hands the panes without an agent to the poller; `true` if they changed,
+/// which starts a round at once.
+fn follow_panes(panes: &watch::Sender<Vec<String>>, state: &SessionState) -> bool {
+    panes.send_if_modified(|panes| {
+        let fresh = program_panes(state);
+        let changed = *panes != fresh;
+        *panes = fresh;
+        changed
+    })
 }
 
 async fn query_programs(conn: &Arc<Connection>, pane_ids: Vec<String>) -> Vec<ProgramAnswer> {
@@ -777,6 +788,43 @@ mod tests {
             merged.into_iter().collect::<Vec<_>>(),
             vec![("p1".to_owned(), vim)]
         );
+    }
+
+    #[test]
+    fn an_agent_that_ends_by_event_gets_its_pane_asked() {
+        let snapshot: herdr_proto::SessionSnapshot = serde_json::from_value(json!({
+            "version": "0.9.5", "protocol": 22, "workspaces": [], "tabs": [],
+            "panes": [
+                {"pane_id": "p1", "workspace_id": "w1", "tab_id": "t1"},
+                {"pane_id": "p2", "workspace_id": "w1", "tab_id": "t1", "agent": "claude"}
+            ]
+        }))
+        .expect("snapshot");
+        let mut state = SessionState::from_snapshot(snapshot);
+        let (panes, mut wanted) = watch::channel(program_panes(&state));
+        assert_eq!(*wanted.borrow_and_update(), ["p1"]);
+        assert!(!follow_panes(&panes, &state), "nothing changed yet");
+
+        // Claude exits: herdr reports the pane without an agent.
+        let event = parse_event(json!({
+            "event": "pane.agent_detected",
+            "data": {"type": "pane_agent_detected", "pane_id": "p2", "agent": null}
+        }))
+        .expect("event");
+        assert_eq!(state.apply(&event), Applied::Updated);
+        assert!(follow_panes(&panes, &state));
+        assert!(wanted.has_changed().expect("open"));
+        assert_eq!(*wanted.borrow_and_update(), ["p1", "p2"]);
+
+        // And back: an agent starts, the pane drops out.
+        let event = parse_event(json!({
+            "event": "pane.agent_detected",
+            "data": {"type": "pane_agent_detected", "pane_id": "p2", "agent": "codex"}
+        }))
+        .expect("event");
+        assert_eq!(state.apply(&event), Applied::Updated);
+        assert!(follow_panes(&panes, &state));
+        assert_eq!(*wanted.borrow_and_update(), ["p1"]);
     }
 
     #[test]
