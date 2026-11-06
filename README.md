@@ -109,6 +109,9 @@ code), so a host is set up the same way everywhere.
   working and done, newest first, with the time in that state. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
+- **Peek into an agent:** "Kurz ansehen" (context menu, ⌥-click on the Mac)
+  in the overview, a dashboard or the quick switcher shows the agent's live
+  pane with its input bar over the current view, without leaving it.
 - **One prompt to several agents:** "Auswählen" in the overview or a host's
   dashboard picks agents (all, all finished, all working, or one by one,
   also across hosts in the overview), and one composer sends the same text
