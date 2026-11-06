@@ -98,7 +98,13 @@ struct CloseTarget: Identifiable {
                 throw WorktreeRemoval.statusUnknown
             }
             guard status.changes == 0 else { throw WorktreeRemoval.uncommitted(status.changes) }
-            try await connection.removeWorktree(id)
+            do {
+                try await connection.removeWorktree(id)
+            } catch FfiError.Rejected(let message) where message.hasSuffix(" uncommitted changes") {
+                // Changed since the check above: the core's refusal, in the app's language.
+                let count = UInt32(message.split(separator: " ").first ?? "") ?? 1
+                throw WorktreeRemoval.uncommitted(count)
+            }
         #endif
         }
     }

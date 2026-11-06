@@ -28,6 +28,18 @@ final class GitStatusStore {
 
     static let interval: Duration = .seconds(300)
 
+    #if os(macOS)
+    init() {
+        // The scene stays active while another app is in front on the Mac,
+        // so coming back is the app's activation.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.cameToFront() }
+        }
+    }
+    #endif
+
     func status(for workspaceID: String) -> SpaceGitStatus? {
         byWorkspace[workspaceID]
     }

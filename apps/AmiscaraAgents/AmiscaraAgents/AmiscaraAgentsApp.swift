@@ -94,8 +94,9 @@ struct AmiscaraAgentsApp: App {
             // The screenshot demo (#199) leaves widgets and iCloud alone.
             guard !DemoMode.isOn else { return }
             if phase == .active {
-                #if !os(tvOS)
-                // The Git status of the worktrees may have changed meanwhile (#343).
+                #if os(iOS)
+                // The Git status of the worktrees may have changed meanwhile
+                // (#343); the Mac follows its app activation instead.
                 store.connections.forEach { $0.gitStatus.cameToFront() }
                 #endif
                 #if os(macOS)
