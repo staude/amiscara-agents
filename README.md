@@ -206,7 +206,11 @@ code), so a host is set up the same way everywhere.
   puts the text into the composer without sending it.
 - **Read-only switch per host**, for hosts you only want to watch.
 - **Manage:** new space, tab (optionally starting an agent) and worktree;
-  rename and close spaces and tabs; name an agent.
+  rename and close spaces and tabs; name an agent. In the Apple apps also
+  open an existing worktree as a space and remove a worktree (the branch
+  stays; refused while it has uncommitted changes), and Git spaces show
+  ahead/behind and uncommitted changes ("↑3 ↓2 ● 4 geändert"), read on the
+  host like the diff.
 - **Uploads:** photos and files go to `~/.amiscara-agents/uploads/` on the
   host, their paths are appended to the prompt; agents such as Claude Code
   read images from there. Needs SFTP for the key, see
