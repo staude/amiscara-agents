@@ -1,7 +1,7 @@
 import SwiftUI
 
 #if !os(tvOS)
-/// The agents of all hosts in one list (#274): pinned ones first (#334),
+/// The agents of all hosts in one list or on a board (#274, #345): pinned ones first (#334),
 /// then waiting, working, done, newest first in each group. A tap opens the agent's pane; in the
 /// selection mode it picks the agent for one prompt to several (#299).
 struct OverviewView: View {
@@ -15,6 +15,23 @@ struct OverviewView: View {
     @State private var approval: Approvals.Item?
     /// The agent looked into over the list (#332).
     @State private var peeking: AgentPeek?
+    /// List or board (#345), remembered.
+    @AppStorage(OverviewLayout.storageKey) private var layoutChoice = OverviewLayout.list
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+#endif
+
+    /// The board needs width: not on an iPhone or in a narrow iPad window,
+    /// where the list shows without changing the choice.
+    private var canBoard: Bool {
+#if os(iOS)
+        sizeClass != .compact
+#else
+        true
+#endif
+    }
+
+    private var layout: OverviewLayout { canBoard ? layoutChoice : .list }
 
     var body: some View {
         let overview = store.overview
@@ -29,51 +46,20 @@ struct OverviewView: View {
                     description: Text("Kein Agent wartet, arbeitet oder ist fertig.")
                 )
             } else {
-                List {
-                    ApprovalsSection(hostID: nil) { approval = $0 }
-                    ForEach(overview.sections) { section in
-                        Section(section.group.title) {
-                            ForEach(section.rows) { row in
-                                let target = targets.first { $0.id == row.id }
-                                let peek = peek(row)
-                                Button {
-                                    if selecting, let target {
-                                        MultiSend.toggle(target, in: &selected)
-                                    } else if !selecting {
-                                        // ⌥-click peeks instead of opening.
-                                        if Platform.optionKeyDown, let peek {
-                                            peeking = peek
-                                        } else {
-                                            open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
-                                        }
-                                    }
-                                } label: {
-                                    if selecting, let target {
-                                        MultiSendRow(target: target, selected: selected.contains(target.id)) {
-                                            OverviewRow(row: row)
-                                        }
-                                    } else {
-                                        OverviewRow(row: row)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                // One menu: a view has only one (#332, #334).
-                                .contextMenu(when: !selecting) {
-                                    if let peek {
-                                        PeekMenuItems(peek: peek, open: open) { peeking = $0 }
-                                        Divider()
-                                    }
-                                    if let connection = store.connection(for: row.hostID) {
-                                        PinButton(pinned: row.pinned) {
-                                            AgentPins.shared.toggle(row.agent.paneID, on: connection)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                switch layout {
+                case .list:
+                    list(overview, targets)
+                case .board:
+                    OverviewBoard(
+                        overview: overview,
+                        targets: targets,
+                        selecting: selecting,
+                        selected: $selected,
+                        tap: tap,
+                        selectApproval: { approval = $0 },
+                        menu: rowMenu
+                    )
                 }
-                .refreshable { await store.approvals.load(store.connections, force: true) }
             }
         }
         .navigationTitle("Übersicht")
@@ -81,6 +67,14 @@ struct OverviewView: View {
         .agentPeek($peeking, open: open)
         .toolbar {
             ToolbarItemGroup {
+                if canBoard {
+                    Picker("Darstellung", selection: $layoutChoice) {
+                        Label("Liste", systemImage: "list.bullet").tag(OverviewLayout.list)
+                        Label("Board", systemImage: "rectangle.split.3x1").tag(OverviewLayout.board)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelStyle(.iconOnly)
+                }
                 if selecting {
                     Menu("Auswahl", systemImage: "checklist") {
                         ForEach(MultiSend.Preset.allCases, id: \.self) { preset in
@@ -109,6 +103,60 @@ struct OverviewView: View {
         // dimmed with the reason, so the result names it; a gone one leaves.
         .onChange(of: targets) { _, targets in
             selected.formIntersection(targets.map(\.id))
+        }
+    }
+
+    private func list(_ overview: AgentOverview, _ targets: [MultiSend.Target]) -> some View {
+        List {
+            ApprovalsSection(hostID: nil) { approval = $0 }
+            ForEach(overview.sections) { section in
+                Section(section.group.title) {
+                    ForEach(section.rows) { row in
+                        let target = targets.first { $0.id == row.id }
+                        Button {
+                            if selecting, let target {
+                                MultiSend.toggle(target, in: &selected)
+                            } else if !selecting {
+                                tap(row)
+                            }
+                        } label: {
+                            if selecting, let target {
+                                MultiSendRow(target: target, selected: selected.contains(target.id)) {
+                                    OverviewRow(row: row)
+                                }
+                            } else {
+                                OverviewRow(row: row)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu(when: !selecting) { rowMenu(row) }
+                    }
+                }
+            }
+        }
+        .refreshable { await store.approvals.load(store.connections, force: true) }
+    }
+
+    /// Opens the agent of a row; ⌥-click peeks instead (#332). List and board.
+    private func tap(_ row: AgentOverview.Row) {
+        if Platform.optionKeyDown, let peek = peek(row) {
+            peeking = peek
+        } else {
+            open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
+        }
+    }
+
+    /// One menu: a view has only one (#332, #334).
+    @ViewBuilder
+    private func rowMenu(_ row: AgentOverview.Row) -> some View {
+        if let peek = peek(row) {
+            PeekMenuItems(peek: peek, open: open) { peeking = $0 }
+            Divider()
+        }
+        if let connection = store.connection(for: row.hostID) {
+            PinButton(pinned: row.pinned) {
+                AgentPins.shared.toggle(row.agent.paneID, on: connection)
+            }
         }
     }
 
