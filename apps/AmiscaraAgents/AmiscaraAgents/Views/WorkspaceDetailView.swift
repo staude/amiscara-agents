@@ -67,6 +67,7 @@ struct WorkspaceDetailView: View {
                     guard let tabID, settled.contains(tabID) else { return }
                     if let next = neighbour(of: tabID, in: workspace, on: connection) {
                         select(next)
+                        leave(tabID, in: workspace)
                     } else {
                         focus(on: selection)
                     }
@@ -135,12 +136,12 @@ struct WorkspaceDetailView: View {
         }
         #endif
         .onChange(of: selection, initial: true) { _, selection in
-            focus(on: selection)
+            focus(on: selection, opened: true)
         }
         .onChange(of: isKnown) { _, known in
             // The host lists the space only now (a launch while offline, a
             // space created a moment ago): its tab.
-            if known, tabID == nil { focus(on: selection) }
+            if known, tabID == nil { focus(on: selection, opened: true) }
         }
         .onChange(of: isGone) { _, gone in
             // The space shown last was closed on the host: not again on launch.
@@ -216,17 +217,30 @@ struct WorkspaceDetailView: View {
         return workspace.tabs.filter { settled.contains($0.tabId) }
     }
 
-    /// The last visible tab of a space stays, so the space never looks empty.
-    private func canSettle(in workspace: WorkspaceItem, on connection: HostConnection) -> Bool {
-        visibleTabs(workspace, on: connection).count > 1
+    /// The last visible tab of a space stays, so the space never looks
+    /// empty. A waiting agent's tab stays too: it would come right back.
+    private func canSettle(_ tab: TabItem, in workspace: WorkspaceItem, on connection: HostConnection) -> Bool {
+        tab.agentState != .blocked && visibleTabs(workspace, on: connection).count > 1
     }
 
     /// Puts a tab away; the shown one hands over to its neighbour first.
     private func settle(_ tab: TabItem, in workspace: WorkspaceItem, on connection: HostConnection) {
         if isCurrent(tab), let next = neighbour(of: tab.tabId, in: workspace, on: connection) {
             select(next)
+            leave(tab.tabId, in: workspace)
         }
         SettledTabs.shared.settle(tab: tab.tabId, host: connection.settledHost)
+    }
+
+    /// After moving off a tab that is put away: the neighbour is the tab to
+    /// come back to, and a selection that named a pane of the tab drops the
+    /// pane, so opening that agent again is a change and brings it back.
+    private func leave(_ tabID: String, in workspace: WorkspaceItem) {
+        remember()
+        guard let pane = selection?.paneID,
+              workspace.tabs.first(where: { $0.tabId == tabID })?.panes.contains(where: { $0.paneId == pane }) == true
+        else { return }
+        selection?.paneID = nil
     }
 
     /// The visible tab right of `tabID`, else left of it.
@@ -244,7 +258,6 @@ struct WorkspaceDetailView: View {
             for: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
             in: store.cloudBoards
         )
-        let canSettle = canSettle(in: workspace, on: connection)
         let settled = settledTabs(workspace, on: connection)
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
@@ -278,13 +291,13 @@ struct WorkspaceDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .contextMenu(when: RenameTarget.available(on: connection) || canSettle) {
+                    .contextMenu(when: RenameTarget.available(on: connection) || canSettle(tab, in: workspace, on: connection)) {
                         if RenameTarget.available(on: connection) {
                             Button("Umbenennen …", systemImage: "pencil") {
                                 renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
                             }
                         }
-                        if canSettle {
+                        if canSettle(tab, in: workspace, on: connection) {
                             Button("Wegräumen", systemImage: "tray.and.arrow.down") {
                                 settle(tab, in: workspace, on: connection)
                             }
@@ -359,8 +372,8 @@ struct WorkspaceDetailView: View {
             }
             // Here as well: long presses on the tabs are unreliable on iPad.
             Section {
-                if canSettle(in: workspace, on: connection),
-                   let tab = visibleTabs(workspace, on: connection).first(where: isCurrent) {
+                if let tab = visibleTabs(workspace, on: connection).first(where: isCurrent),
+                   canSettle(tab, in: workspace, on: connection) {
                     Button("Tab wegräumen", systemImage: "tray.and.arrow.down") {
                         settle(tab, in: workspace, on: connection)
                     }
@@ -498,8 +511,9 @@ struct WorkspaceDetailView: View {
 
     /// An agent picks its own tab and pane; a space opened without one
     /// returns to the tab shown last, else herdr's active tab. Put away
-    /// tabs (#333) count only when opened on purpose, through their pane.
-    private func focus(on selection: SpaceRef?) {
+    /// tabs (#333) count only when `opened` on purpose, through their pane:
+    /// not when the shown tab closed and the selection still names a pane.
+    private func focus(on selection: SpaceRef?, opened: Bool = false) {
         tabError = nil
         guard let selection,
               let connection = store.connection(for: selection.hostID),
@@ -514,7 +528,7 @@ struct WorkspaceDetailView: View {
         }
         let visible = visibleTabs(workspace, on: connection)
         if let pane = selection.paneID,
-           let tab = workspace.tabs.first(where: { $0.panes.contains { $0.paneId == pane } }) {
+           let tab = (opened ? workspace.tabs : visible).first(where: { $0.panes.contains { $0.paneId == pane } }) {
             // From the agent list, a notification or the switcher: the tab
             // comes back, the tab bar would miss it otherwise.
             SettledTabs.shared.unsettle(tab: tab.tabId, host: connection.settledHost)
