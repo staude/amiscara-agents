@@ -64,6 +64,9 @@ const DETECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// herdr-core sends a heartbeat every 15 s; this long without anything the
 /// stream counts as lost.
 const HC_SILENCE: Duration = Duration::from_secs(45);
+/// Branch refreshes (5 min) before herdr-core is asked again after its
+/// subscription failed while herdr runs.
+const HC_RETRY_TICKS: u32 = 10;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -310,8 +313,20 @@ async fn follow_inner(
         }
     };
     state.backends.hc = hc_version.clone();
+    // A core that greets but cannot be followed does not take herdr down
+    // with it: herdr goes on alone, and herdr-core is asked again after
+    // [`HC_RETRY_TICKS`] branch refreshes.
+    let mut hc_retry_ticks = 0;
     let mut hc = match hc_version {
-        Some(_) => Some(HcFeed::subscribe(conn).await?),
+        Some(_) => match HcFeed::subscribe(conn).await {
+            Ok(feed) => Some(feed),
+            Err(_) if has_herdr => {
+                state.backends.hc = None;
+                hc_retry_ticks = HC_RETRY_TICKS;
+                None
+            }
+            Err(err) => return Err(err),
+        },
         None => None,
     };
     if let Some(hc) = &hc {
@@ -361,7 +376,9 @@ async fn follow_inner(
             }
             _ = branch_refresh.tick() => {
                 if (!state.backends.herdr && ping(conn).await.is_ok())
-                    || (state.backends.hc.is_none() && hello(conn).await.is_some())
+                    || (state.backends.hc.is_none()
+                        && retry_due(&mut hc_retry_ticks)
+                        && hello(conn).await.is_some())
                 {
                     return Err(SyncError::BackendAppeared);
                 }
@@ -487,6 +504,15 @@ async fn follow_inner(
             }
         }
     }
+}
+
+/// Counts down a pause in branch refreshes; true when it is over.
+fn retry_due(ticks: &mut u32) -> bool {
+    if *ticks == 0 {
+        return true;
+    }
+    *ticks -= 1;
+    false
 }
 
 fn parse_notification(value: &Value) -> Result<Notification, SyncError> {
