@@ -180,5 +180,39 @@ do {
     check(TabTime.label(since: ago(-5), now: now, locale: de) == nil, "start in the future")
 }
 
+// The board (#345): always the three columns, pinned agents at the top of their state's column.
+do {
+    let empty = AgentBoard(AgentOverview(hosts: [], boards: []))
+    check(empty.columns.map(\.group) == [.waiting, .working, .done], "board has three columns, also without agents")
+    check(empty.columns.allSatisfy { $0.rows.isEmpty }, "empty columns")
+
+    let a = host("a", live: true, pinned: ["a3"], [
+        agent("a1", .working, since: ago(3)), agent("a2", .blocked, since: ago(1)),
+        agent("a3", .working, since: ago(9)), agent("a4", .idle, since: ago(2)),
+    ])
+    let b = host("b", live: true, [agent("b1", .done, since: ago(2)), agent("b2", .blocked, since: ago(5))])
+    let board = AgentBoard(AgentOverview(hosts: [a, b], boards: []))
+    func ids(_ group: AgentOverview.Group) -> [String] {
+        board.columns.first { $0.group == group }?.rows.map(\.agent.paneID) ?? []
+    }
+    check(ids(.waiting) == ["a2", "b2"], "waiting column from both hosts")
+    check(ids(.working) == ["a3", "a1"], "pinned agent first in its state's column")
+    check(ids(.done) == ["b1"], "done column")
+    check(!board.columns.flatMap(\.rows).contains { $0.agent.paneID == "a4" }, "no idle column")
+}
+
+// When the board reads a screen (#345).
+do {
+    func due(_ state: WidgetSnapshot.State, _ last: (WidgetSnapshot.State, Double)?) -> Bool {
+        BoardRead.due(state: state, last: last.map { ($0.0, now.addingTimeInterval(-$0.1)) }, now: now)
+    }
+    check(due(.working, nil), "first reading")
+    check(due(.blocked, (.working, 1)), "state changed")
+    check(!due(.working, (.working, 29)), "working, read 29 s ago")
+    check(due(.working, (.working, 30)), "working, read 30 s ago")
+    check(!due(.done, (.done, 3600)), "done is read once")
+    check(!due(.blocked, (.blocked, 3600)), "waiting is read once")
+}
+
 if failures > 0 { exit(1) }
 print("agent-overview: ok")
