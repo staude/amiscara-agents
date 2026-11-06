@@ -106,6 +106,12 @@ final class HostStore {
             if connection.isLive {
                 self.notifier.withdraw(answeredIn: update.board, hostID: connection.config.id)
                 Self.reviveSettledTabs(in: update, of: connection)
+                // Pins of closed panes go (#334), but only once the host's
+                // panes are known, never from a last or the Mac's state.
+                if update.serverVersion != nil, update.protocolSupported {
+                    let panes = update.workspaces.flatMap(\.tabs).flatMap(\.panes).map(\.paneId)
+                    AgentPins.shared.prune(on: connection, keeping: Set(panes))
+                }
             }
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
@@ -268,7 +274,8 @@ final class HostStore {
                     live: connection.isLive,
                     liveAt: connection.liveAt,
                     hostKey: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
-                    agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init)
+                    agents: (connection.update?.board ?? []).map(WidgetSnapshot.Agent.init),
+                    pinned: AgentPins.shared.pinnedPanes(on: connection)
                 )
             },
             boards: cloudBoards

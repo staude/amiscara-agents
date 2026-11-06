@@ -13,7 +13,7 @@
 		<string>CloudKit</string>
 	</array>
 	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
-	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+	<string>$(TeamIdentifierPrefix)net.staude.amiscara.agents</string>
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
 	<key>com.apple.security.application-groups</key>
