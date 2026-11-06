@@ -106,7 +106,7 @@ struct QuickSwitcher: View {
         let showHost = store.connections.count > 1
         NavigationStack {
             VStack(spacing: 0) {
-                TextField("Space, Agent oder > Befehl", text: $query)
+                TextField(searchPrompt, text: $query)
                     .technicalInput()
                     #if !os(tvOS)
                     .textFieldStyle(.roundedBorder)
@@ -137,15 +137,9 @@ struct QuickSwitcher: View {
                     .padding(10)
                 Divider()
                 if results.isEmpty {
-                    if palette.commandsOnly && palette.isEmpty {
-                        ContentUnavailableView(
-                            "Keine Befehle",
-                            systemImage: "command",
-                            description: Text("Öffnen Sie einen Space, um seine Befehle zu sehen.")
-                        )
-                    } else {
-                        ContentUnavailableView.search(text: palette.text)
-                    }
+                    // The app's own commands are always there, so only a
+                    // query can leave the list empty.
+                    ContentUnavailableView.search(text: palette.text)
                 } else {
                     ScrollViewReader { proxy in
                         List(results) { result in
@@ -203,6 +197,15 @@ struct QuickSwitcher: View {
         .onAppear { searchFocused = true }
         #if os(macOS)
         .frame(width: 520, height: 440)
+        #endif
+    }
+
+    /// tvOS has no commands (#346).
+    private var searchPrompt: LocalizedStringKey {
+        #if os(tvOS)
+        "Space oder Agent suchen"
+        #else
+        "Space, Agent oder > Befehl"
         #endif
     }
 

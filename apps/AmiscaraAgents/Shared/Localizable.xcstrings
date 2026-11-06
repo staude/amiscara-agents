@@ -1862,16 +1862,6 @@
         }
       }
     },
-    "Keine Befehle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Commands"
-          }
-        }
-      }
-    },
     "Neuer Tab mit %@" : {
       "localizations" : {
         "en" : {
@@ -6434,16 +6424,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Changes …"
-          }
-        }
-      }
-    },
-    "Öffnen Sie einen Space, um seine Befehle zu sehen." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open a space to see its commands."
           }
         }
       }
