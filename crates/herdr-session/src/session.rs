@@ -237,7 +237,12 @@ fn upload_error(err: TransportError) -> SessionError {
 #[derive(Debug, Clone)]
 pub enum Endpoint {
     /// The Unix socket on this machine. `None` uses `~/.config/herdr/herdr.sock`.
-    Local { socket_path: Option<String> },
+    /// herdr-core is reached on `hc_socket_path`, `None` uses its default
+    /// socket (see `Connection::default_local_hc_socket`).
+    Local {
+        socket_path: Option<String>,
+        hc_socket_path: Option<String>,
+    },
     /// A remote server over SSH streamlocal.
     Ssh {
         host: String,
@@ -2142,7 +2147,10 @@ impl Drop for PaneFollow {
 #[derive(Clone)]
 enum Connector {
     #[cfg(unix)]
-    Local(std::path::PathBuf),
+    Local {
+        socket: std::path::PathBuf,
+        hc_socket: Option<std::path::PathBuf>,
+    },
     Ssh {
         target: SshTarget,
         socket: String,
@@ -2153,14 +2161,23 @@ impl Connector {
     fn new(endpoint: Endpoint) -> Result<Self, SessionError> {
         match endpoint {
             #[cfg(unix)]
-            Endpoint::Local { socket_path } => {
+            Endpoint::Local {
+                socket_path,
+                hc_socket_path,
+            } => {
                 let path = match socket_path {
                     Some(path) => std::path::PathBuf::from(path),
                     None => Connection::default_local_socket().ok_or_else(|| {
                         SessionError::Unsupported("no home directory for the local socket".into())
                     })?,
                 };
-                Ok(Self::Local(path))
+                let hc_socket = hc_socket_path
+                    .map(std::path::PathBuf::from)
+                    .or_else(Connection::default_local_hc_socket);
+                Ok(Self::Local {
+                    socket: path,
+                    hc_socket,
+                })
             }
             #[cfg(not(unix))]
             Endpoint::Local { .. } => Err(SessionError::Unsupported(
@@ -2197,7 +2214,9 @@ impl Connector {
     async fn connect(&self) -> Result<Connection, TransportError> {
         match self {
             #[cfg(unix)]
-            Self::Local(path) => Ok(Connection::local(path.clone())),
+            Self::Local { socket, hc_socket } => {
+                Ok(Connection::local_with_hc(socket.clone(), hc_socket.clone()))
+            }
             Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
         }
     }
@@ -3165,6 +3184,15 @@ mod tests {
             }
         }
 
+        /// A herdr-core socket that is not there, so the fake herdr is the
+        /// only backend and the user's herdr-core stays out of the test.
+        fn missing_hc_socket() -> String {
+            std::env::temp_dir()
+                .join(format!("herdr-session-no-hc-{}.sock", std::process::id()))
+                .to_string_lossy()
+                .into_owned()
+        }
+
         /// A herdr stand-in; `answer: false` takes requests and never
         /// replies, like a link that died while the device slept.
         fn fake_herdr(name: &str, answer: bool) -> std::path::PathBuf {
@@ -3203,6 +3231,7 @@ mod tests {
             let session = Session::start(
                 Endpoint::Local {
                     socket_path: Some(dead.to_string_lossy().into_owned()),
+                    hc_socket_path: Some(missing_hc_socket()),
                 },
                 false,
                 SpaceSort::default(),

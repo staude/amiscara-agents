@@ -7,7 +7,7 @@
 pub mod keys;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -259,18 +259,63 @@ impl Drop for Transfer<'_> {
     }
 }
 
-/// A connection to one herdr server.
+/// A connection to one host: its herdr server and, beside it, herdr-core
+/// (#329).
 pub struct Connection {
     inner: Inner,
     next_id: AtomicU64,
+    /// herdr-core's socket on this machine; only for a local connection.
+    hc_socket: Option<PathBuf>,
+    /// How herdr-core is reached over SSH, see [`HcWay`]; known after the
+    /// first answer.
+    hc_way: AtomicU8,
 }
 
+/// How [`Connection::hc_request`] reaches herdr-core over SSH.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum HcWay {
+    Unknown = 0,
+    /// The `amiscara-hc` case of the key's restricted line.
+    Gate = 1,
+    /// A login shell runs `hc connect` (a key without forced command).
+    Shell = 2,
+}
+
+impl HcWay {
+    fn from_u8(value: u8) -> Self {
+        match value {
+            1 => Self::Gate,
+            2 => Self::Shell,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+/// What a session channel runs for herdr-core: the case of the key's
+/// restricted line, and for a key without forced command the same in `sh`.
+/// Both only connect to a core that runs already, because `hc connect`
+/// would start one.
+pub const HC_GATE: &str = "amiscara-hc";
+const HC_SHELL: &str = "sh -c 's=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect'";
+/// How long the first answer of herdr-core may take on a new way.
+const HC_HELLO_TIMEOUT: Duration = Duration::from_secs(5);
+
 impl Connection {
+    /// The herdr socket on this machine, without herdr-core.
     #[cfg(unix)]
     pub fn local(socket_path: impl Into<PathBuf>) -> Self {
+        Self::local_with_hc(socket_path, None)
+    }
+
+    /// The herdr socket on this machine and herdr-core's socket beside it.
+    #[cfg(unix)]
+    pub fn local_with_hc(socket_path: impl Into<PathBuf>, hc_socket: Option<PathBuf>) -> Self {
         Self {
             inner: Inner::Local(socket_path.into()),
             next_id: AtomicU64::new(1),
+            hc_socket,
+            hc_way: AtomicU8::new(HcWay::Unknown as u8),
         }
     }
 
@@ -278,6 +323,28 @@ impl Connection {
     #[cfg(unix)]
     pub fn default_local_socket() -> Option<PathBuf> {
         dirs::home_dir().map(|home| home.join(".config/herdr/herdr.sock"))
+    }
+
+    /// herdr-core's socket for the current user on this machine:
+    /// `$XDG_STATE_HOME` (else `~/.local/state`), then
+    /// `herdr-core/<s>/<s>.sock` with `<s>` from `$HC_SESSION`, else
+    /// `default`.
+    #[cfg(unix)]
+    pub fn default_local_hc_socket() -> Option<PathBuf> {
+        let state = std::env::var_os("XDG_STATE_HOME")
+            .filter(|dir| !dir.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| dirs::home_dir().map(|home| home.join(".local/state")))?;
+        let session = std::env::var("HC_SESSION")
+            .ok()
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| "default".to_owned());
+        Some(
+            state
+                .join("herdr-core")
+                .join(&session)
+                .join(format!("{session}.sock")),
+        )
     }
 
     pub async fn ssh(target: &SshTarget, socket_path: String) -> Result<Self, TransportError> {
@@ -326,6 +393,8 @@ impl Connection {
                 transfers: AtomicUsize::new(0),
             },
             next_id: AtomicU64::new(1),
+            hc_socket: None,
+            hc_way: AtomicU8::new(HcWay::Unknown as u8),
         })
     }
 
@@ -988,6 +1057,128 @@ impl Connection {
             .ok_or(TransportError::Closed)?;
         herdr_proto::parse_response(&ack)?;
         Ok(Subscription { reader })
+    }
+}
+
+impl Connection {
+    /// A stream to herdr-core. Locally its socket; over SSH a session
+    /// channel through the way that answered before. On the first call (or
+    /// after neither way answered) each way is tried in turn with a
+    /// `hello`, whose answer is checked here; the stream then carries
+    /// further requests.
+    async fn open_hc(&self) -> Result<BufReader<Box<dyn Stream>>, TransportError> {
+        let handle = match &self.inner {
+            #[cfg(unix)]
+            Inner::Local(_) => {
+                let path = self.hc_socket.as_ref().ok_or_else(no_hc)?;
+                let stream: Box<dyn Stream> =
+                    Box::new(tokio::net::UnixStream::connect(path).await?);
+                return Ok(BufReader::new(stream));
+            }
+            Inner::Ssh { handle, .. } => handle,
+        };
+        let open = |command: &'static str| async move {
+            let channel = handle.channel_open_session().await?;
+            channel.exec(true, command).await?;
+            let stream: Box<dyn Stream> = Box::new(channel.into_stream());
+            Ok::<_, TransportError>(BufReader::new(stream))
+        };
+        let known = HcWay::from_u8(self.hc_way.load(Ordering::Relaxed));
+        if known != HcWay::Unknown {
+            let command = if known == HcWay::Gate {
+                HC_GATE
+            } else {
+                HC_SHELL
+            };
+            return tokio::time::timeout(CHANNEL_OPEN_TIMEOUT, open(command))
+                .await
+                .map_err(|_| TransportError::Timeout)?;
+        }
+        let mut last = no_hc();
+        for (way, command) in [(HcWay::Gate, HC_GATE), (HcWay::Shell, HC_SHELL)] {
+            let attempt = async {
+                let mut stream = open(command).await?;
+                self.hc_call(
+                    &mut stream,
+                    "hello",
+                    serde_json::json!({ "generation": herdr_proto::hc::HC_GENERATION }),
+                )
+                .await?;
+                Ok::<_, TransportError>(stream)
+            };
+            match tokio::time::timeout(HC_HELLO_TIMEOUT, attempt).await {
+                Ok(Ok(stream)) => {
+                    self.hc_way.store(way as u8, Ordering::Relaxed);
+                    return Ok(stream);
+                }
+                // An answer, but a refusal: herdr-core is there.
+                Ok(Err(err @ TransportError::Proto(ProtoError::Rpc { .. }))) => {
+                    self.hc_way.store(way as u8, Ordering::Relaxed);
+                    return Err(err);
+                }
+                Ok(Err(err)) => last = err,
+                Err(_) => last = TransportError::Timeout,
+            }
+        }
+        Err(last)
+    }
+
+    /// Writes one request on `stream` and reads its answer.
+    async fn hc_call(
+        &self,
+        stream: &mut BufReader<Box<dyn Stream>>,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, TransportError> {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let line = herdr_proto::hc::request_line(id, method, &params)?;
+        stream.get_mut().write_all(&line).await?;
+        stream.get_mut().flush().await?;
+        let answer = read_line(stream).await?.ok_or(TransportError::Closed)?;
+        Ok(herdr_proto::hc::parse_response(&answer)?)
+    }
+
+    /// Sends one request to herdr-core and returns its `result`. Every
+    /// request gets its own stream (over SSH one `hc connect`).
+    pub async fn hc_request(&self, method: &str, params: Value) -> Result<Value, TransportError> {
+        let mut stream = self.open_hc().await?;
+        self.hc_call(&mut stream, method, params).await
+    }
+
+    /// Opens herdr-core's `events.subscribe` with `params`; returns the
+    /// snapshot it answers with and the stream of notifications after it.
+    pub async fn hc_subscribe(
+        &self,
+        params: Value,
+    ) -> Result<(Value, HcSubscription), TransportError> {
+        let mut reader = self.open_hc().await?;
+        let snapshot = self
+            .hc_call(&mut reader, "events.subscribe", params)
+            .await?;
+        Ok((snapshot, HcSubscription { reader }))
+    }
+}
+
+fn no_hc() -> TransportError {
+    TransportError::Io(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "herdr-core does not answer on this host",
+    ))
+}
+
+/// herdr-core's notifications after [`Connection::hc_subscribe`]. Like
+/// [`Subscription::next`], not cancel-safe.
+pub struct HcSubscription {
+    reader: BufReader<Box<dyn Stream>>,
+}
+
+impl HcSubscription {
+    /// Next notification, or `None` when the core closed the stream.
+    pub async fn next(&mut self) -> Result<Option<Value>, TransportError> {
+        match read_line(&mut self.reader).await? {
+            Some(line) => Ok(Some(serde_json::from_str(&line).map_err(ProtoError::from)?)),
+            None => Ok(None),
+        }
     }
 }
 

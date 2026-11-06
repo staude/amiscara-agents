@@ -432,6 +432,7 @@ fn start(app: &AppHandle, state: &AppState, host: &HostConfig) -> Result<(), App
     let endpoint = match host.kind {
         HostKind::Local => Endpoint::Local {
             socket_path: (!host.socket_path.is_empty()).then(|| host.socket_path.clone()),
+            hc_socket_path: None,
         },
         HostKind::Ssh => Endpoint::Ssh {
             host: host.host.clone(),

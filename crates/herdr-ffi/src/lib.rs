@@ -123,7 +123,10 @@ pub enum Endpoint {
 impl From<Endpoint> for herdr_session::Endpoint {
     fn from(endpoint: Endpoint) -> Self {
         match endpoint {
-            Endpoint::Local { socket_path } => Self::Local { socket_path },
+            Endpoint::Local { socket_path } => Self::Local {
+                socket_path,
+                hc_socket_path: None,
+            },
             Endpoint::Ssh {
                 host,
                 port,
