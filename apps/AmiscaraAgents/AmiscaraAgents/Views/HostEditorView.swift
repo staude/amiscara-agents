@@ -279,16 +279,20 @@ struct HostEditorView: View {
     }
 
     private func applySshConfig(_ host: SshConfigHost) {
-        // Cleared first: otherwise the new address would report a dropped
-        // host key from a code.
-        importedKey = nil
-        keyConfirmed = false
+        // A key from a code for another address is dropped first, so the
+        // new address does not report it as discarded; one for the same
+        // address stays, confirmed or not.
+        let port = host.port.map(Int.init) ?? 22
+        if let importedKey, importedKey.host != HostStore.normalizedHost(host.hostName) || importedKey.port != port {
+            self.importedKey = nil
+            keyConfirmed = false
+        }
         importError = nil
         if config.name.trimmingCharacters(in: .whitespaces).isEmpty {
             config.name = host.alias
         }
         config.host = host.hostName
-        config.port = host.port.map(Int.init) ?? 22
+        config.port = port
         if let user = host.user {
             config.user = user
         }
