@@ -268,13 +268,22 @@ final class HostConnection: Identifiable {
     }
 
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
-    /// prompt and returns the agent's name. The agent comes up in the
-    /// background; its state arrives with the next updates.
-    func startAgent(kind: String, in paneID: String) async throws -> String {
+    /// prompt and returns the agent's name. herdr (0.9.5, protocol 22)
+    /// answers once the agent takes input, or with the error `timeout`
+    /// after 30 s. With a `task` the first prompt goes out right after;
+    /// if that fails the agent runs, and `AgentTaskNotSent` says so.
+    func startAgent(kind: String, in paneID: String, task: String? = nil) async throws -> String {
         let session = try writableSession()
         let name = try await Task.detached {
             try session.startAgent(paneId: paneID, kind: kind, name: nil)
         }.value
+        if let task = task?.trimmingCharacters(in: .whitespacesAndNewlines), !task.isEmpty {
+            do {
+                try await submit(task, to: paneID, isAgent: true)
+            } catch {
+                throw AgentTaskNotSent(underlying: error)
+            }
+        }
         #if !os(tvOS)
         watchStart(of: kind, in: paneID, on: session)
         #endif
@@ -882,12 +891,22 @@ func inputErrorMessage(_ error: Error) -> String {
     }
 }
 
+/// The agent came up, but its first prompt could not be sent (#344).
+struct AgentTaskNotSent: Error {
+    let underlying: Error
+}
+
 /// Text for an error from starting an agent. herdr's codes travel in the
 /// message of `FfiError.Rejected`.
 func agentStartErrorMessage(_ error: Error) -> String {
+    if let notSent = error as? AgentTaskNotSent {
+        return String(localized: "Der Agent läuft, die Aufgabe wurde aber nicht gesendet: \(inputErrorMessage(notSent.underlying))")
+    }
     let reason: String
     if case FfiError.Rejected(let message) = error {
-        if message.contains("(agent_pane_busy)") {
+        if message.contains("(timeout)") {
+            reason = String(localized: "herdr hat den Agent nicht innerhalb von 30 Sekunden bereit gemeldet.")
+        } else if message.contains("(agent_pane_busy)") {
             reason = String(localized: "Im Pane läuft schon ein Programm. Ein Agent startet nur an der Shell-Eingabe.")
         } else if message.contains("(unsupported_agent_kind)") {
             reason = String(localized: "herdr kennt diesen Agent nicht.")
