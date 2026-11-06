@@ -29,8 +29,8 @@ pub use search::{ConversationHit, ConversationSearch, Route, SearchEnd, SearchSi
 pub use secrets::{ENV_DIR, is_reserved_env_name, is_valid_env_name};
 pub use session::{
     ClaudeSessionItem, Endpoint, PaneFollow, PaneSink, ScrollStep, Session, SessionError,
-    SshIdentity, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage, TranscriptSpan,
-    UPLOAD_DIR, UsageBucket, UsageReport,
+    SshIdentity, StartFailure, TranscriptCursor, TranscriptEntry, TranscriptKind, TranscriptPage,
+    TranscriptSpan, UPLOAD_DIR, UsageBucket, UsageReport,
 };
 #[cfg(unix)]
 pub use sessions::local_herdr_sessions;
