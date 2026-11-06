@@ -3,10 +3,11 @@ import Foundation
 import Observation
 
 /// Plans waiting for approval in the GitHub repositories of the hosts
-/// (#296): issues with `awaiting-approval` and the overview of their latest
-/// plan comment, for hosts with a GitHub token on this device. Answered in
-/// the issue's planning tab `plan-<nr>`, never by setting a label: the
-/// enon-tools workflow sets `approved` itself. Loaded when a view appears
+/// (#296): issues with `plan-ready` (enon-tools 5) or `awaiting-approval`
+/// (older versions) and the overview of their latest plan comment, for hosts
+/// with a GitHub token on this device. Answered in the issue's planning tab
+/// `plan-<nr>`, never by setting a label: the enon-tools workflow sets
+/// `plan-accepted` itself. Loaded when a view appears
 /// and on refresh, no polling.
 @MainActor
 @Observable
@@ -21,11 +22,16 @@ final class Approvals {
         let overview: String?
         /// The spaces of the repository on the host, to find the tab.
         let workspaceIDs: [String]
+        /// The label the plan waits under, which decides the command.
+        let label: String
 
         var id: String { "\(hostID.uuidString)|\(repo)#\(number)" }
         /// The same issue on another host has another `id`.
         var issueKey: String { "\(repo)#\(number)" }
-        var approveCommand: String { "/issue-approve \(number)" }
+        /// `/issue-plan-accept` since enon-tools 5, `/issue-approve` before.
+        var approveCommand: String {
+            label == Approvals.legacyLabel ? "/issue-approve \(number)" : "/issue-plan-accept \(number)"
+        }
     }
 
     /// What one host gave on the last load.
@@ -66,6 +72,11 @@ final class Approvals {
     private(set) var answered: [String: Bool] = [:]
     /// When each host was last loaded.
     @ObservationIgnored private var loadedAt: [UUID: Date] = [:]
+
+    /// The labels a waiting plan carries, newest first: an issue with both
+    /// counts once, under the first.
+    nonisolated static let planLabels = ["plan-ready", legacyLabel]
+    nonisolated static let legacyLabel = "awaiting-approval"
 
     /// The labels the planning tab offers (enon-tools, `issue-plan` step
     /// 10); with others the app does not answer.
@@ -281,21 +292,25 @@ final class Approvals {
         var result = HostResult()
         scan: for repo in repos {
             do {
-                let issues: [Issue] = try await get(
-                    "repos/\(repo.repo)/issues?labels=awaiting-approval&state=open&per_page=100",
-                    token: token
-                ).value
-                for issue in issues where issue.pullRequest == nil {
-                    let overview = try await latestOverview(repo.repo, issue.number, token: token)
-                    result.items.append(Item(
-                        hostID: connection.id,
-                        repo: repo.repo,
-                        number: issue.number,
-                        title: issue.title,
-                        url: URL(string: issue.htmlUrl),
-                        overview: overview,
-                        workspaceIDs: repo.workspaceIds
-                    ))
+                var seen = Set<Int>()
+                for label in planLabels {
+                    let issues: [Issue] = try await get(
+                        "repos/\(repo.repo)/issues?labels=\(label)&state=open&per_page=100",
+                        token: token
+                    ).value
+                    for issue in issues where issue.pullRequest == nil && seen.insert(issue.number).inserted {
+                        let overview = try await latestOverview(repo.repo, issue.number, token: token)
+                        result.items.append(Item(
+                            hostID: connection.id,
+                            repo: repo.repo,
+                            number: issue.number,
+                            title: issue.title,
+                            url: URL(string: issue.htmlUrl),
+                            overview: overview,
+                            workspaceIDs: repo.workspaceIds,
+                            label: label
+                        ))
+                    }
                 }
             } catch FetchFailure.notFound {
                 // Not visible with this token, or no issues.

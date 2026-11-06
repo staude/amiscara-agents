@@ -7484,12 +7484,12 @@
         }
       }
     },
-    "z. B. /issue-approve 300" : {
+    "z. B. /issue-plan-accept 300" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "e.g. /issue-approve 300"
+            "value" : "e.g. /issue-plan-accept 300"
           }
         }
       }

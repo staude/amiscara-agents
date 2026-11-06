@@ -69,7 +69,7 @@ struct ChainEditor: View {
                     }
                 }
                 Section {
-                    TextField("Prompt", text: $text, prompt: Text("z. B. /issue-approve 300"))
+                    TextField("Prompt", text: $text, prompt: Text("z. B. /issue-plan-accept 300"))
                         .technicalInput()
                         .onSubmit(save)
                     HStack {
