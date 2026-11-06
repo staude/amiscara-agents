@@ -244,6 +244,9 @@ code), so a host is set up the same way everywhere.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.
+  The sound for "waits" and for "done" is chosen in the settings, per
+  device: the default, four tones the app brings, no sound, and on the Mac
+  the system sounds or an own file. Mac, iPhone and iPad.
 - **Folders in VS Code:** `code .` in a pane, or "In VS Code öffnen" on a
   space or pane, opens the folder in VS Code on the Mac or PC over
   Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop
@@ -491,7 +494,8 @@ already trusts.
   never leaves the TV.
 - **iCloud** (Apple devices only) holds the agent states the Mac app
   publishes, the TV pairing data and the Watch's commands, in the user's
-  **private** database. No server of this project is involved.
+  **private** database, and the IDs of tabs put away, in the app's
+  key-value store. No server of this project is involved.
 - **Read-only hosts:** a per-host switch turns off all input.
 - **herdr's API is powerful:** whoever reaches the socket can type into
   every pane, shells included. Treat each device key like a shell login to

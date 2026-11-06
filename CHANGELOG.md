@@ -765,6 +765,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   closes the peek even while the agent waits; the key bar's Esc still goes
   to the agent. Closed from the switcher, it goes back to the switcher.
   Mac, iPhone and iPad.
+- Notification sound per state (#336): "Mitteilungston" in the Mac's settings
+  window and the iPhone's and iPad's "Erscheinungsbild" menu picks one sound
+  for "wartet" and one for "fertig", each with "Kein Ton" and a preview. The
+  list offers the default sound and four tones the app brings (Glocke,
+  Aufsteigend, Absteigend, Klopfen; `scripts/notification-sounds.swift`
+  makes them); the Mac adds its system sounds and own files, copied to
+  `~/Library/Sounds`. Local notifications and the pushes through iCloud use
+  the choice of the device. Without a choice "wartet" sounds as before and
+  "fertig" stays silent. Mac, iPhone and iPad.
 
 ### Changed
 

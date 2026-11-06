@@ -105,6 +105,7 @@ final class HostStore {
             }
             if connection.isLive {
                 self.notifier.withdraw(answeredIn: update.board, hostID: connection.config.id)
+                Self.reviveSettledTabs(in: update, of: connection)
                 // Pins of closed panes go (#334), but only once the host's
                 // panes are known, never from a last or the Mac's state.
                 if update.serverVersion != nil, update.protocolSupported {
@@ -128,6 +129,20 @@ final class HostStore {
             #endif
         }
         return connection
+    }
+
+    /// A put away tab whose agent waits shows again and stays (#333); tabs
+    /// the host no longer has are forgotten. Only from a live session that
+    /// knows the host's tabs, like the pins (#334): a stale snapshot would
+    /// forget tabs that are still there. Removing a host keeps its entries,
+    /// the other devices may still use them.
+    private static func reviveSettledTabs(in update: SessionUpdate, of connection: HostConnection) {
+        let tabs = update.workspaces.flatMap(\.tabs)
+        SettledTabs.shared.revive(
+            host: connection.settledHost,
+            tabs: tabs.map { (id: $0.tabId, waiting: $0.agentState == .blocked) },
+            complete: !update.workspaces.isEmpty && update.serverVersion != nil && update.protocolSupported
+        )
     }
 
     #if os(macOS)

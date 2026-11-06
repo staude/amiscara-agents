@@ -92,8 +92,9 @@ targets:
           - CloudKit
         # Commands from the Watch arrive as silent pushes (#160).
         com.apple.developer.aps-environment: development
-        # Pinned agents (#334) in iCloud's key-value store, one store with
-        # the iOS app: a fixed identifier, not the bundle id of each target.
+        # Pinned agents (#334) and put away tabs (#333) in iCloud's
+        # key-value store, one store with the iOS app: a fixed identifier,
+        # not the bundle id of each target.
         com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)net.staude.amiscara.agents
     info:
       path: AmiscaraAgents/Info.plist
@@ -164,7 +165,7 @@ targets:
           - iCloud.net.staude.amiscara.agents
         com.apple.developer.icloud-services:
           - CloudKit
-        # Pinned agents (#334), the same store as the Mac app.
+        # Pinned agents (#334) and put away tabs (#333), the same store as the Mac app.
         com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)net.staude.amiscara.agents
     settings:
       base:
@@ -390,6 +391,9 @@ targets:
           - Model/PromptTemplates.swift
           - Views/PromptTemplateEditor.swift
           - Views/PromptTemplateForm.swift
+          # Notification tones; tvOS shows no banners (#336).
+          - Sounds/**
+          - Views/NotificationSoundSettings.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

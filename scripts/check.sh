@@ -24,6 +24,7 @@ cargo test --workspace --locked
 
 if $apple; then
     scripts/last-tabs-test.sh
+    scripts/settled-tabs-test.sh
     scripts/netbird-test.sh
     scripts/prompt-templates-test.sh
     scripts/pane-visits-test.sh
@@ -35,6 +36,7 @@ if $apple; then
     scripts/agent-status-test.sh
     scripts/spotlight-test.sh
     scripts/question-binding-test.sh
+    scripts/notification-sound-test.sh
     scripts/pull-request-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"

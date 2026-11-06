@@ -156,7 +156,7 @@ final class Notifier: NSObject {
         content.title = text.title
         content.subtitle = text.subtitle
         content.body = text.body
-        content.sound = item.agentState == .blocked ? .default : nil
+        content.sound = Self.sound(waiting: item.agentState == .blocked)
         if let category {
             content.categoryIdentifier = category
         }
@@ -171,6 +171,37 @@ final class Notifier: NSObject {
         }
         // One notification per pane: a newer state replaces the older one.
         return UNNotificationRequest(identifier: AgentNotification.identifier(host.id, item.paneId), content: content, trigger: nil)
+    }
+
+    /// The sound chosen in the settings for a state (#336). An own file
+    /// that is gone from `~/Library/Sounds` falls back to the default.
+    static func sound(waiting: Bool) -> UNNotificationSound? {
+        let choice = NotificationSound.current(waiting: waiting)
+        switch choice {
+        case .none:
+            return nil
+        case .standard:
+            return .default
+        case .app:
+            return choice.fileName.map { UNNotificationSound(named: UNNotificationSoundName($0)) }
+        case .system(let name):
+            // Only `~/Library/Sounds` is sure to be searched, so the system
+            // sound gets a copy there, which is no entry of the own files.
+            let copy = NotificationSound.systemCopyName(name)
+            let target = NotificationSound.userSoundsFolder.appendingPathComponent(copy)
+            let source = URL(fileURLWithPath: "/System/Library/Sounds/\(name).aiff")
+            if !FileManager.default.fileExists(atPath: target.path) {
+                try? FileManager.default.createDirectory(at: NotificationSound.userSoundsFolder, withIntermediateDirectories: true)
+                try? FileManager.default.copyItem(at: source, to: target)
+            }
+            return FileManager.default.fileExists(atPath: target.path)
+                ? UNNotificationSound(named: UNNotificationSoundName(copy))
+                : .default
+        case .file(let name):
+            return FileManager.default.fileExists(atPath: NotificationSound.userSoundsFolder.appendingPathComponent(name).path)
+                ? UNNotificationSound(named: UNNotificationSoundName(name))
+                : .default
+        }
     }
 
     private func allowed() async -> Bool {
