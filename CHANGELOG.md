@@ -774,6 +774,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `~/Library/Sounds`. Local notifications and the pushes through iCloud use
   the choice of the device. Without a choice "wartet" sounds as before and
   "fertig" stays silent. Mac, iPhone and iPad.
+- A done agent becomes idle once its pane was open on a device (#335): the
+  app marks the finish on the host as pane token `seen` (source
+  `amiscara-agents-seen`) with herdr's `completion_seq`, so every client of
+  the host, the Watch, widgets and the Apple TV list it under idle; Android
+  and the desktop app follow without marking. "ist fertig" waits three
+  seconds and only comes when no device showed the pane by then, local and
+  as push from the Mac; a delivered one goes once the agent is seen
+  elsewhere. Needs herdr 0.9.5, not on read-only hosts. `SessionState::seen`,
+  `agent_status`, `Session::mark_seen`, FFI `mark_seen`.
 
 ### Changed
 
