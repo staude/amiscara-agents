@@ -277,6 +277,8 @@ export const en = {
   waitingCount: "{n} waiting",
   waitingForAnswer: "Waiting for an answer",
   welcomeHint: "Add a host to see its agents.",
+  whatsNew: "What's New",
+  whatsNewEmpty: "No news for this version",
   windowsOpenSshAgent: "the OpenSSH agent of Windows",
   worktreeHint: "Without a branch herdr picks a name. An existing branch is checked out. The worktree goes into herdr's worktree directory.",
   worktreeRunning: "git worktree add is running …",

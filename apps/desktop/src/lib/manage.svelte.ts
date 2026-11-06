@@ -4,7 +4,7 @@
 import { errorText, openInEditor } from "./core";
 import { t } from "./i18n.svelte";
 import { model } from "./state.svelte";
-import type { AgentState, WorkspaceItem } from "./types";
+import type { AgentState, WhatsNewEntry, WorkspaceItem } from "./types";
 
 export interface MenuItem {
   label: string;
@@ -26,7 +26,8 @@ export type Dialog =
       agentState: AgentState;
       worktrees: number;
     }
-  | { kind: "settings" };
+  | { kind: "settings" }
+  | { kind: "whatsNew"; entries: WhatsNewEntry[] };
 
 export const ui = $state<{
   dialog: Dialog | null;

@@ -18,9 +18,12 @@ import type {
   SshConfigHost,
   TranscriptCursor,
   TranscriptPage,
+  WhatsNewEntry,
 } from "./types";
 
 export const appInfo = () => invoke<AppInfo>("app_info");
+/** With `since` the versions after it up to the installed one, else all up to it (#341). */
+export const whatsNew = (since: string | null) => invoke<WhatsNewEntry[]>("whats_new", { since });
 export const demoTarget = () => invoke<DemoTarget | null>("demo_target");
 export const listHosts = () => invoke<HostConfig[]>("list_hosts");
 export const saveHost = (host: HostConfig) => invoke<HostConfig>("save_host", { host });

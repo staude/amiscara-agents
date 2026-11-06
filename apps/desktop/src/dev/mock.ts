@@ -255,6 +255,10 @@ mockIPC(
         return { version: "0.1.0", protocol: 22, localSocket: true, os: "windows" };
       case "list_hosts":
         return hosts;
+      case "whats_new":
+        return [
+          { version: "0.1.0", de: ["Erste Version", "Neuigkeiten nach einem Update"], en: ["First release", "What's New after an update"] },
+        ];
       case "connect":
         setTimeout(() => {
           void emit("session-update", { hostId: a.hostId, generation: 1, update });
