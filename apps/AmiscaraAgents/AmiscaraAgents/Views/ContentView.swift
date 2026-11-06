@@ -170,10 +170,8 @@ struct ContentView: View {
               let last = PaneCache.shared.lastOpen,
               store.connection(for: last.host) != nil
         else { return }
-        // Without the pane: the space's last tab (`LastTabs`, the same pane)
-        // opens, unless it was put away meanwhile (#333); naming the pane
-        // would bring the tab back.
-        selection = SpaceRef(hostID: last.host, workspaceID: last.workspace)
+        selection = SpaceRef(hostID: last.host, workspaceID: last.workspace, paneID: last.pane)
+        WorkspaceDetailView.reopened = selection
     }
 
     /// Opens what the screenshot demo asks for (#199) once the demo

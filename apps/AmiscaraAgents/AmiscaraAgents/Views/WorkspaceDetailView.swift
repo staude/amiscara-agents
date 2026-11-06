@@ -31,6 +31,9 @@ struct WorkspaceDetailView: View {
     /// The space's pull request, shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
     #endif
+    /// The space and pane reopened on launch (#276), set by `ContentView`:
+    /// not opened on purpose, so a tab put away meanwhile (#333) stays away.
+    @MainActor static var reopened: SpaceRef?
 
     var body: some View {
         Group {
@@ -63,14 +66,7 @@ struct WorkspaceDetailView: View {
                     remember()
                 }
                 .onChange(of: SettledTabs.shared.tabs(host: connection.settledHost)) { _, settled in
-                    // Put away on another device (#333): the tab next to it.
-                    guard let tabID, settled.contains(tabID) else { return }
-                    if let next = neighbour(of: tabID, in: workspace, on: connection) {
-                        select(next)
-                        leave(tabID, in: workspace)
-                    } else {
-                        focus(on: selection)
-                    }
+                    settledElsewhere(settled, in: workspace, on: connection)
                 }
                 .focusedSceneValue(
                     \.tabNavigator,
@@ -227,16 +223,32 @@ struct WorkspaceDetailView: View {
     private func settle(_ tab: TabItem, in workspace: WorkspaceItem, on connection: HostConnection) {
         if isCurrent(tab), let next = neighbour(of: tab.tabId, in: workspace, on: connection) {
             select(next)
-            leave(tab.tabId, in: workspace)
+            // The neighbour is the tab to come back to.
+            remember()
         }
+        dropPane(of: tab.tabId, in: workspace)
         SettledTabs.shared.settle(tab: tab.tabId, host: connection.settledHost)
     }
 
-    /// After moving off a tab that is put away: the neighbour is the tab to
-    /// come back to, and a selection that named a pane of the tab drops the
-    /// pane, so opening that agent again is a change and brings it back.
-    private func leave(_ tabID: String, in workspace: WorkspaceItem) {
-        remember()
+    /// Tabs put away on another device (#333): the tab next to the shown one.
+    private func settledElsewhere(_ settled: Set<String>, in workspace: WorkspaceItem, on connection: HostConnection) {
+        if let pane = selection?.paneID,
+           let tab = workspace.tabs.first(where: { $0.panes.contains { $0.paneId == pane } }),
+           settled.contains(tab.tabId) {
+            dropPane(of: tab.tabId, in: workspace)
+        }
+        guard let tabID, settled.contains(tabID) else { return }
+        if let next = neighbour(of: tabID, in: workspace, on: connection) {
+            select(next)
+            remember()
+        } else {
+            focus(on: selection)
+        }
+    }
+
+    /// A selection that names a pane of a tab put away drops the pane, so
+    /// opening that agent again is a change and brings the tab back.
+    private func dropPane(of tabID: String, in workspace: WorkspaceItem) {
         guard let pane = selection?.paneID,
               workspace.tabs.first(where: { $0.tabId == tabID })?.panes.contains(where: { $0.paneId == pane }) == true
         else { return }
@@ -515,6 +527,7 @@ struct WorkspaceDetailView: View {
     /// not when the shown tab closed and the selection still names a pane.
     private func focus(on selection: SpaceRef?, opened: Bool = false) {
         tabError = nil
+        let opened = opened && (selection == nil || selection != Self.reopened)
         guard let selection,
               let connection = store.connection(for: selection.hostID),
               let workspace = connection.update?.workspaces
@@ -527,6 +540,7 @@ struct WorkspaceDetailView: View {
             return
         }
         let visible = visibleTabs(workspace, on: connection)
+        Self.reopened = nil
         if let pane = selection.paneID,
            let tab = (opened ? workspace.tabs : visible).first(where: { $0.panes.contains { $0.paneId == pane } }) {
             // From the agent list, a notification or the switcher: the tab
