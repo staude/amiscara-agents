@@ -372,6 +372,12 @@ pub async fn local_sessions() -> Result<Vec<HerdrSessionInfo>, AppError> {
     Ok(Vec::new())
 }
 
+/// The hosts of `~/.ssh/config` and its includes (#340); empty without one.
+#[tauri::command]
+pub async fn ssh_config_hosts() -> Vec<herdr_session::SshConfigHost> {
+    herdr_session::ssh_config_hosts()
+}
+
 /// The named herdr sessions on a connected host; over SSH this needs SFTP.
 #[tauri::command]
 pub async fn host_sessions(

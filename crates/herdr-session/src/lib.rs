@@ -10,6 +10,7 @@ mod search;
 pub mod secrets;
 pub mod session;
 pub mod sessions;
+pub mod ssh_config;
 pub mod view;
 
 pub use access::authorized_keys_line;
@@ -37,3 +38,4 @@ pub use sessions::local_herdr_sessions;
 pub use sessions::{
     HerdrSessionEntry, is_valid_session_name, session_name_of_socket, session_socket_path,
 };
+pub use ssh_config::{SshConfigHost, parse_ssh_config, ssh_config_hosts};

@@ -78,6 +78,7 @@ pub fn run() {
             app::valid_session_name,
             app::local_default_socket,
             app::local_sessions,
+            app::ssh_config_hosts,
             app::host_sessions,
             app::connect,
             app::disconnect,

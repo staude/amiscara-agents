@@ -6424,6 +6424,46 @@
         }
       }
     },
+    "SSH-Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH host"
+          }
+        }
+      }
+    },
+    "%@ (%@ nicht unterstützt)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@ not supported)"
+          }
+        }
+      }
+    },
+    "Aus ~/.ssh/config" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From ~/.ssh/config"
+          }
+        }
+      }
+    },
+    "Übernimmt Adresse, Benutzer, Port und SSH-Ziel. Angemeldet wird mit dem eigenen Schlüssel der App." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fills in address, user, port and SSH target. The app logs in with its own key."
+          }
+        }
+      }
+    },
     "Pfad" : {
       "localizations" : {
         "en" : {
