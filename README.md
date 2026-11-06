@@ -243,6 +243,14 @@ code), so a host is set up the same way everywhere.
   first. The
   repository comes from the `origin` remote in the Git configuration on
   the host, so SSH hosts need SFTP like uploads. Mac, iPhone and iPad.
+- **Changes:** the uncommitted changes (`git diff` against `HEAD` plus
+  untracked files) as a list of files with status and a diff per file,
+  searchable like the diff of a pull request. For a pane through the ±
+  button in its header, for a Git space through the ± button next to its
+  tabs or "Änderungen …" in its menu (the folder of the focused pane in
+  the active tab); after loading, the button shows the number of files.
+  Git runs in a short-lived tab on the host, so it needs input allowed
+  and SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles. Done means finished unseen: once the agent's pane

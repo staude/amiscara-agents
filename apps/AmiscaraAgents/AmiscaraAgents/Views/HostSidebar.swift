@@ -41,6 +41,8 @@ struct HostSidebar: View {
     @State private var secretsFor: HostConnection?
     /// The pull request shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
+    /// The uncommitted changes of a space shown (#342).
+    @State private var changesShown: ChangesTarget?
     /// The agent a chain is being added to (#300).
     @State private var chainFrom: ChainSource?
     #endif
@@ -178,6 +180,9 @@ struct HostSidebar: View {
         }
         .sheet(item: $pullRequestShown) { target in
             PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
+        }
+        .sheet(item: $changesShown) { target in
+            DiffView(connection: target.connection, target: .space(target.workspaceID))
         }
         .sheet(item: $chainFrom) { source in
             ChainEditor(source: source)
@@ -423,6 +428,17 @@ struct HostSidebar: View {
             }
         }
     }
+
+    /// "Änderungen …" for a Git space (#342), also without input: the
+    /// sheet then says why it needs input.
+    @ViewBuilder
+    private func changesButton(_ workspace: WorkspaceItem, on connection: HostConnection) -> some View {
+        if workspace.repoKey != nil && connection.isLive {
+            Button("Änderungen …", systemImage: "plusminus") {
+                changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
+            }
+        }
+    }
     #endif
 
     /// Stores the order after a drop; `false` when the drop is not allowed
@@ -450,12 +466,14 @@ struct HostSidebar: View {
             .contextMenu(when: !renamable) {
                 OpenInVSCodeButton(connection: connection, target: .space(key), error: $editorError)
                 pullRequestButton(pullRequest, on: connection)
+                changesButton(entry.workspace, on: connection)
             }
             #elseif os(iOS)
             // By `renamable` only, so the row keeps its identity when a pull
             // request comes or goes; an empty menu does not show.
             .contextMenu(when: !renamable) {
                 pullRequestButton(pullRequest, on: connection)
+                changesButton(entry.workspace, on: connection)
             }
             #endif
             .renameAction(available: renamable) {
@@ -470,6 +488,7 @@ struct HostSidebar: View {
                 #endif
                 #if !os(tvOS)
                 pullRequestButton(pullRequest, on: connection)
+                changesButton(entry.workspace, on: connection)
                 #endif
                 if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
                     Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
