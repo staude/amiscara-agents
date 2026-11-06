@@ -38,12 +38,19 @@ struct AgentSummaryRow: View {
     let agent: WidgetSnapshot.Agent
     /// Shown after the name when agents of several hosts are listed.
     let host: String?
+    /// Pinned to the top in the app (#334); widgets show no pins.
+    var pinned = false
 
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(agent.state.color).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 0) {
-                Text(agent.place).font(.caption.weight(.medium)).lineLimit(1)
+                HStack(spacing: 3) {
+                    if pinned {
+                        PinMark()
+                    }
+                    Text(agent.place).font(.caption.weight(.medium)).lineLimit(1)
+                }
                 Text([agent.name, host].compactMap { $0 }.joined(separator: " · "))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -53,6 +60,30 @@ struct AgentSummaryRow: View {
             Text(agent.state.label)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(agent.state.color)
+        }
+    }
+}
+
+/// The mark of a pinned agent (#334), before its place.
+struct PinMark: View {
+    var body: some View {
+        Image(systemName: "pin.fill")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel(Text("Angeheftet"))
+    }
+}
+
+/// "Anheften" or "Lösen" for an agent's context menu (#334).
+struct PinButton: View {
+    let pinned: Bool
+    let action: () -> Void
+
+    var body: some View {
+        if pinned {
+            Button("Lösen", systemImage: "pin.slash", action: action)
+        } else {
+            Button("Anheften", systemImage: "pin", action: action)
         }
     }
 }

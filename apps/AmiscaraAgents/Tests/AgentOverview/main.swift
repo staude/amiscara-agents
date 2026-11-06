@@ -15,8 +15,10 @@ func agent(_ pane: String, _ state: WidgetSnapshot.State, since: Date? = nil) ->
     WidgetSnapshot.Agent(paneID: pane, workspaceID: "w-\(pane)", place: "Space · Tab", name: "claude", state: state, since: since)
 }
 
-func host(_ name: String, live: Bool, liveAt: Date? = nil, key: String? = nil, _ agents: [WidgetSnapshot.Agent]) -> AgentOverview.Host {
-    AgentOverview.Host(id: UUID(), name: name, live: live, liveAt: liveAt ?? (live ? now : nil), hostKey: key, agents: agents)
+func host(
+    _ name: String, live: Bool, liveAt: Date? = nil, key: String? = nil, pinned: Set<String> = [], _ agents: [WidgetSnapshot.Agent]
+) -> AgentOverview.Host {
+    AgentOverview.Host(id: UUID(), name: name, live: live, liveAt: liveAt ?? (live ? now : nil), hostKey: key, agents: agents, pinned: pinned)
 }
 
 func board(_ key: String, updated: Date, _ agents: [WidgetSnapshot.Agent]) -> CloudBoard {
@@ -84,6 +86,27 @@ do {
     let rows = AgentOverview(hosts: [live], boards: boards).sections.flatMap(\.rows)
     check(rows.first { $0.agent.paneID == "p1" }?.since == ago(7), "time from the board")
     check(rows.first { $0.agent.paneID == "p2" }?.since == nil, "no time from another state")
+}
+
+// Pinned agents (#334) first in a group of their own, in every state,
+// by urgency and then time; not again in their state's group.
+do {
+    let a = host("a", live: true, pinned: ["a1", "a3", "a4"], [
+        agent("a1", .idle), agent("a2", .blocked, since: ago(1)),
+        agent("a3", .working, since: ago(2)), agent("a4", .blocked, since: ago(9)),
+    ])
+    let b = host("b", live: true, pinned: ["b1"], [agent("b1", .blocked, since: ago(3)), agent("b2", .working)])
+    let overview = AgentOverview(hosts: [a, b], boards: [])
+    check(overview.sections.map(\.group) == [.pinned, .waiting, .working], "pinned group first")
+    check(panes(overview, .pinned) == ["b1", "a4", "a3", "a1"], "pinned by urgency, then newest first, ready ones too")
+    check(panes(overview, .waiting) == ["a2"], "pinned not again under waiting")
+    check(panes(overview, .working) == ["b2"], "pinned not again under working")
+    check(overview.sections[0].rows.allSatisfy(\.pinned) && !overview.sections[1].rows.contains(where: \.pinned), "rows carry the pin")
+    check(overview.waitingCount == 3, "waiting count includes pinned waiting agents")
+    let unpinned = AgentOverview(hosts: [host("a", live: true, [agent("a2", .blocked, since: ago(1)), agent("a1", .idle)])], boards: [])
+    check(unpinned.sections.map(\.group) == [.waiting] && panes(unpinned, .waiting) == ["a2"], "without pins as before")
+    let other = host("c", live: true, pinned: ["gone"], [agent("c1", .idle)])
+    check(AgentOverview(hosts: [other], boards: []).isEmpty, "a pin of a missing pane shows nothing")
 }
 
 // Snapshots and boards of older builds have no time.

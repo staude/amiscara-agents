@@ -2,7 +2,8 @@ import Foundation
 
 /// The agents of all hosts on one page (#274), in three groups: waiting,
 /// working, done. Agents that are ready or unknown need nothing from the
-/// user and stay out. A host without a connection shows the newer of its
+/// user and stay out. Pinned agents (#334) come first in a group of their
+/// own, in every state, and not again in their state's group. A host without a connection shows the newer of its
 /// own last state and the Mac's board in iCloud, marked with its age. No
 /// FFI types in here, so the tests build it without the core.
 struct AgentOverview: Equatable {
@@ -17,11 +18,14 @@ struct AgentOverview: Equatable {
         let hostKey: String?
         /// Its agents as this device last saw them.
         let agents: [WidgetSnapshot.Agent]
+        /// Pane ids of its pinned agents (#334).
+        var pinned: Set<String> = []
     }
 
     enum Group: CaseIterable {
-        case waiting, working, done
+        case pinned, waiting, working, done
 
+        /// The group of an agent that is not pinned.
         init?(_ state: WidgetSnapshot.State) {
             switch state {
             case .blocked: self = .waiting
@@ -33,6 +37,7 @@ struct AgentOverview: Equatable {
 
         var title: String {
             switch self {
+            case .pinned: String(localized: "Angeheftet")
             case .waiting: String(localized: "Wartet auf dich")
             case .working: String(localized: "Arbeitet")
             case .done: String(localized: "Fertig")
@@ -48,6 +53,7 @@ struct AgentOverview: Equatable {
         var since: Date? { agent.since }
         /// For a host without a connection: how old the shown state is.
         let staleAt: Date?
+        let pinned: Bool
 
         var id: String { "\(hostID.uuidString)|\(agent.paneID)" }
     }
@@ -59,13 +65,14 @@ struct AgentOverview: Equatable {
         var id: Group { group }
     }
 
-    /// Only groups with agents, in the order waiting, working, done.
+    /// Only groups with agents, in the order pinned, waiting, working, done.
     let sections: [Section]
 
     var isEmpty: Bool { sections.isEmpty }
 
+    /// Waiting agents, pinned ones included.
     var waitingCount: Int {
-        sections.first { $0.group == .waiting }?.rows.count ?? 0
+        sections.flatMap(\.rows).count(where: { $0.agent.state == .blocked })
     }
 
     init(hosts: [Host], boards: [CloudBoard]) {
@@ -92,7 +99,9 @@ struct AgentOverview: Equatable {
                 agents = host.agents
                 staleAt = host.liveAt
             }
-            rows += agents.map { Row(hostID: host.id, hostName: host.name, agent: $0, staleAt: staleAt) }
+            rows += agents.map {
+                Row(hostID: host.id, hostName: host.name, agent: $0, staleAt: staleAt, pinned: host.pinned.contains($0.paneID))
+            }
         }
         // Newest first, unknown times last; otherwise host and board order.
         let sorted = rows.enumerated().sorted { a, b in
@@ -103,8 +112,13 @@ struct AgentOverview: Equatable {
             default: a.offset < b.offset
             }
         }.map(\.element)
+        // Pinned: most urgent first, within a state by the same time rule.
+        let pinned = sorted.enumerated()
+            .filter(\.element.pinned)
+            .sorted { ($0.element.agent.state.urgency, $0.offset) < ($1.element.agent.state.urgency, $1.offset) }
+            .map(\.element)
         sections = Group.allCases.compactMap { group in
-            let rows = sorted.filter { Group($0.agent.state) == group }
+            let rows = group == .pinned ? pinned : sorted.filter { !$0.pinned && Group($0.agent.state) == group }
             return rows.isEmpty ? nil : Section(group: group, rows: rows)
         }
     }

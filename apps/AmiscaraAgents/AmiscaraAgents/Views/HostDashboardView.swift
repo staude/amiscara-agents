@@ -42,7 +42,11 @@ struct HostDashboardView: View {
         let snapshot = WidgetSnapshot(updated: shown.updated ?? .distantPast, hosts: [
             WidgetSnapshot.Host(id: connection.id, name: connection.config.name, live: connection.isLive, agents: shown.agents),
         ])
-        let rows = snapshot.agents.map { _, agent in
+        let pinned = AgentPins.shared.pinnedPanes(on: connection)
+        // Pinned agents first (#334), otherwise in the widget's order.
+        let ordered = snapshot.agents.filter { pinned.contains($0.agent.paneID) }
+            + snapshot.agents.filter { !pinned.contains($0.agent.paneID) }
+        let rows = ordered.map { _, agent in
             (agent: agent, target: MultiSend.Target(
                 hostID: connection.id,
                 hostName: connection.config.name,
@@ -84,14 +88,19 @@ struct HostDashboardView: View {
                         } label: {
                             if selecting {
                                 MultiSendRow(target: target, selected: selected.contains(target.id)) {
-                                    agentRow(agent)
+                                    agentRow(agent, pinned: pinned.contains(agent.paneID))
                                 }
                             } else {
-                                agentRow(agent)
+                                agentRow(agent, pinned: pinned.contains(agent.paneID))
                                     .contentShape(.rect)
                             }
                         }
                         .buttonStyle(.plain)
+                        .contextMenu(when: !selecting) {
+                            PinButton(pinned: pinned.contains(agent.paneID)) {
+                                AgentPins.shared.toggle(agent.paneID, on: connection)
+                            }
+                        }
                     }
                 }
                 pullRequests
@@ -188,9 +197,9 @@ struct HostDashboardView: View {
     }
 
     /// An agent's row with today's tokens of a Claude agent.
-    private func agentRow(_ agent: WidgetSnapshot.Agent) -> some View {
+    private func agentRow(_ agent: WidgetSnapshot.Agent, pinned: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            AgentSummaryRow(agent: agent, host: nil)
+            AgentSummaryRow(agent: agent, host: nil, pinned: pinned)
             if let cwd = claudeFolders[agent.paneID],
                let usage = connection.usage.todaySum(cwd: cwd, prices: .shared) {
                 Text(usage.todayText)

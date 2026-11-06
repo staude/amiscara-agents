@@ -233,21 +233,29 @@ struct HostSidebar: View {
         }
     }
 
-    /// An agent row with rename and "Kette anlegen" (#300) in its context
-    /// menu and, with input allowed, swipe actions (#230): leading confirms
-    /// a waiting agent or sends the first quick reply, trailing has Esc,
-    /// Ctrl-C and rename.
+    /// An agent row with "Anheften" (#334) in its context menu and, with
+    /// input allowed, rename and "Kette anlegen" (#300) there and swipe
+    /// actions (#230): leading confirms a waiting agent or sends the first
+    /// quick reply, trailing has Esc, Ctrl-C and rename.
     @ViewBuilder
-    private func agentRow(_ connection: HostConnection, _ entry: AgentOrder.Entry) -> some View {
+    private func agentRow(_ connection: HostConnection, _ entry: AgentOrder.Entry, pinned: Bool) -> some View {
         let agent = entry.agent
-        let row = AgentRow(agent: agent, tabNumber: entry.tabNumber)
+        let renamable = RenameTarget.available(on: connection)
+        let rename = {
+            renaming = RenameTarget(connection: connection, kind: .agent(paneID: agent.paneId), current: agent.name ?? "")
+        }
+        #if os(tvOS)
+        let hasMenu = renamable
+        #else
+        let hasMenu = true
+        #endif
+        let row = AgentRow(agent: agent, tabNumber: entry.tabNumber, pinned: pinned)
             .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId)))
-        if RenameTarget.available(on: connection) {
-            let rename = {
-                renaming = RenameTarget(connection: connection, kind: .agent(paneID: agent.paneId), current: agent.name ?? "")
-            }
-            row
-                .contextMenu {
+            .contextMenu(when: hasMenu) {
+                #if !os(tvOS)
+                PinButton(pinned: pinned) { AgentPins.shared.toggle(agent.paneId, on: connection) }
+                #endif
+                if renamable {
                     Button("Agent benennen …", systemImage: "pencil", action: rename)
                     #if !os(tvOS)
                     Button("Kette anlegen …", systemImage: "link") {
@@ -255,6 +263,9 @@ struct HostSidebar: View {
                     }
                     #endif
                 }
+            }
+        if renamable {
+            row
                 #if !os(tvOS)
                 // No full swipe: a flick through the list must not approve
                 // a dialog or interrupt an agent.
@@ -367,8 +378,9 @@ struct HostSidebar: View {
                     .help(String(localized: "Sortierung umschalten"))
             }
             if !agentsFolded {
-                ForEach(AgentOrder.sorted(update, by: agentOrder), id: \.agent.paneId) { entry in
-                    agentRow(connection, entry)
+                let pinned = AgentPins.shared.pinnedPanes(on: connection)
+                ForEach(AgentOrder.sorted(update, by: agentOrder, pinned: pinned), id: \.agent.paneId) { entry in
+                    agentRow(connection, entry, pinned: pinned.contains(entry.agent.paneId))
                 }
             }
         }
@@ -1040,6 +1052,8 @@ struct SpaceRow: View {
 private struct AgentRow: View {
     let agent: BoardItem
     let tabNumber: String?
+    /// Pinned to the top (#334).
+    var pinned = false
 
     /// "Kette: → reviewer", or that one failed.
     private var chainLine: Text? {
@@ -1059,6 +1073,9 @@ private struct AgentRow: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
+                    if pinned {
+                        PinMark()
+                    }
                     Text(tabNumber.map { "\(agent.workspaceName) · \($0)" } ?? agent.workspaceName)
                         .lineLimit(1)
                         .layoutPriority(1)
@@ -1157,7 +1174,8 @@ enum AgentOrder: String {
         let tabNumber: String?
     }
 
-    static func sorted(_ update: SessionUpdate, by order: AgentOrder) -> [Entry] {
+    /// Pinned agents (#334) first, in either order; otherwise as before.
+    static func sorted(_ update: SessionUpdate, by order: AgentOrder, pinned: Set<String> = []) -> [Entry] {
         let spaces = SpaceOrder.arrange(update).map(\.workspace)
         // The data comes from the server; duplicate ids must not crash the
         // app (uniqueKeysWithValues traps), the first entry wins.
@@ -1171,6 +1189,8 @@ enum AgentOrder: String {
             let place = { (item: (index: Int, agent: BoardItem)) in
                 (spaceIndex[item.agent.workspaceId] ?? Int.max, Int(tabs[item.agent.tabId]?.number ?? UInt32.max))
             }
+            let aPinned = pinned.contains(a.agent.paneId), bPinned = pinned.contains(b.agent.paneId)
+            if aPinned != bPinned { return aPinned }
             switch order {
             case .grouped:
                 return (place(a).0, place(a).1, a.index) < (place(b).0, place(b).1, b.index)
