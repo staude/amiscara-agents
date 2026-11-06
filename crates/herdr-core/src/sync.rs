@@ -43,9 +43,10 @@ const MAX_BACKOFF: Duration = Duration::from_secs(30);
 const BRANCH_REFRESH: Duration = Duration::from_secs(30);
 /// A pane's program changes (`vim`, `npm run dev`) with no event either.
 const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
-/// A pane whose process request takes longer is left out this round, so a
-/// stuck channel cannot hold up the events.
-const PROGRAM_TIMEOUT: Duration = Duration::from_secs(2);
+/// At most this many `pane.process_info` requests at once: over a
+/// restricted key every request is an SSH session channel, and sshd allows
+/// 10 per connection (`MaxSessions`), shared with everything else.
+const PROGRAM_REQUESTS: usize = 3;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -275,8 +276,10 @@ async fn follow_inner(
 
     let mut state = snapshot(conn).await?;
     state.branches = branches(conn, &state).await;
-    state.programs = pane_programs(conn, &state).await;
     let mut panes = PaneStatus::subscribe(conn, &state).await?;
+    // Programs come from their own task, so neither the first `Live` nor
+    // the events wait for them.
+    let mut programs = ProgramPoller::start(Arc::clone(conn), &state);
     *attempt = 0;
     publish(tx, SyncStatus::Live, &state);
 
@@ -284,10 +287,6 @@ async fn follow_inner(
     let mut resnapshot_at: Option<Instant> = None;
     let mut branch_refresh =
         tokio::time::interval_at(Instant::now() + BRANCH_REFRESH, BRANCH_REFRESH);
-    let mut program_refresh =
-        tokio::time::interval_at(Instant::now() + PROGRAM_REFRESH, PROGRAM_REFRESH);
-    // A slow link must not pile up requests.
-    program_refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         let item = tokio::select! {
             item = global.recv() => item,
@@ -300,8 +299,8 @@ async fn follow_inner(
                 }
                 continue;
             }
-            _ = program_refresh.tick() => {
-                let fresh = pane_programs(conn, &state).await;
+            Some(found) = programs.rx.recv() => {
+                let fresh = merge_programs(&state, found);
                 if fresh != state.programs {
                     state.programs = fresh;
                     publish(tx, SyncStatus::Live, &state);
@@ -312,10 +311,13 @@ async fn follow_inner(
                 resnapshot_at = None;
                 let mut fresh = snapshot(conn).await?;
                 fresh.branches = branches(conn, &fresh).await;
-                fresh.programs = pane_programs(conn, &fresh).await;
+                // Carried like the branches; the poller refreshes them.
+                fresh.programs = state.programs.clone();
+                fresh.programs = merge_programs(&fresh, Vec::new());
                 if fresh.pane_ids() != state.pane_ids() {
                     panes = PaneStatus::subscribe(conn, &fresh).await?;
                 }
+                programs.follow(&fresh);
                 if fresh != state {
                     state = fresh;
                     publish(tx, SyncStatus::Live, &state);
@@ -378,35 +380,118 @@ async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, S
     found
 }
 
-/// What runs in every pane without an agent. Agent panes need no request:
+/// One pane's answer from the [`ProgramPoller`]: `Err` when the request
+/// failed, so the last known program stays.
+type ProgramAnswer = (String, Result<Option<ProgramMatch>, ()>);
+
+/// Panes that get a `pane.process_info` request. Agent panes need none:
 /// herdr names the agent, and their foreground group also holds the
-/// agent's MCP servers. The requests run side by side, so a round costs
-/// one round trip; a pane whose request fails or times out is left out.
-async fn pane_programs(
-    conn: &Arc<Connection>,
+/// agent's MCP servers.
+fn program_panes(state: &SessionState) -> Vec<String> {
+    state
+        .panes
+        .iter()
+        .filter(|pane| pane.agent.is_none())
+        .map(|pane| pane.pane_id.clone())
+        .collect()
+}
+
+/// The programs after one round: answered panes take the answer, failed
+/// ones keep their last program, panes that are gone or now run an agent
+/// drop out.
+fn merge_programs(
     state: &SessionState,
+    answers: Vec<ProgramAnswer>,
 ) -> BTreeMap<String, ProgramMatch> {
-    let mut requests = tokio::task::JoinSet::new();
-    for pane in state.panes.iter().filter(|pane| pane.agent.is_none()) {
-        let conn = Arc::clone(conn);
-        let pane_id = pane.pane_id.clone();
-        requests.spawn(async move {
-            let request = conn.request("pane.process_info", json!({ "pane_id": pane_id }));
-            let value = tokio::time::timeout(PROGRAM_TIMEOUT, request)
-                .await
-                .ok()?
-                .ok()?;
-            let result = serde_json::from_value::<PaneProcessInfoResult>(value).ok()?;
-            Some((pane_id, programs::for_processes(&result.process_info)?))
-        });
-    }
-    let mut found = BTreeMap::new();
-    while let Some(done) = requests.join_next().await {
-        if let Ok(Some((pane_id, program))) = done {
-            found.insert(pane_id, program);
+    let mut programs = state.programs.clone();
+    for (pane_id, answer) in answers {
+        match answer {
+            Ok(Some(program)) => {
+                programs.insert(pane_id, program);
+            }
+            Ok(None) => {
+                programs.remove(&pane_id);
+            }
+            Err(()) => {}
         }
     }
-    found
+    let wanted = program_panes(state);
+    programs.retain(|pane_id, _| wanted.contains(pane_id));
+    programs
+}
+
+/// Asks every [`PROGRAM_REFRESH`] what runs in the panes without an agent,
+/// on its own task, at most [`PROGRAM_REQUESTS`] at once. The transport's
+/// own timeouts apply, so a dead link is still noticed. Dropping the
+/// poller stops the task.
+struct ProgramPoller {
+    rx: mpsc::Receiver<Vec<ProgramAnswer>>,
+    panes: watch::Sender<Vec<String>>,
+    task: JoinHandle<()>,
+}
+
+impl ProgramPoller {
+    fn start(conn: Arc<Connection>, state: &SessionState) -> Self {
+        let (tx, rx) = mpsc::channel(1);
+        let (panes, mut wanted) = watch::channel(program_panes(state));
+        let task = tokio::spawn(async move {
+            loop {
+                let ids = wanted.borrow_and_update().clone();
+                if tx.send(query_programs(&conn, ids).await).await.is_err() {
+                    return;
+                }
+                // The next round after the pause, or at once for new panes.
+                tokio::select! {
+                    () = sleep(PROGRAM_REFRESH) => {}
+                    changed = wanted.changed() => if changed.is_err() { return },
+                }
+            }
+        });
+        Self { rx, panes, task }
+    }
+
+    /// Takes the panes of a fresh snapshot; a changed set is asked at once.
+    fn follow(&self, state: &SessionState) {
+        self.panes.send_if_modified(|panes| {
+            let fresh = program_panes(state);
+            let changed = *panes != fresh;
+            *panes = fresh;
+            changed
+        });
+    }
+}
+
+impl Drop for ProgramPoller {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+async fn query_programs(conn: &Arc<Connection>, pane_ids: Vec<String>) -> Vec<ProgramAnswer> {
+    let mut answers = Vec::with_capacity(pane_ids.len());
+    for chunk in pane_ids.chunks(PROGRAM_REQUESTS) {
+        let mut requests = tokio::task::JoinSet::new();
+        for pane_id in chunk {
+            let conn = Arc::clone(conn);
+            let pane_id = pane_id.clone();
+            requests.spawn(async move {
+                let answer = conn
+                    .request("pane.process_info", json!({ "pane_id": pane_id }))
+                    .await
+                    .ok()
+                    .and_then(|value| serde_json::from_value::<PaneProcessInfoResult>(value).ok())
+                    .map(|result| programs::for_processes(&result.process_info))
+                    .ok_or(());
+                (pane_id, answer)
+            });
+        }
+        while let Some(done) = requests.join_next().await {
+            if let Ok(answer) = done {
+                answers.push(answer);
+            }
+        }
+    }
+    answers
 }
 
 /// The directory that stands for a space: its focused pane in the active
@@ -662,6 +747,35 @@ mod tests {
         assert!(
             asked.elapsed() < backoff(1) / 2,
             "second attempt without the pause"
+        );
+    }
+
+    #[test]
+    fn a_failed_program_request_keeps_the_last_program() {
+        let snapshot: herdr_proto::SessionSnapshot = serde_json::from_value(json!({
+            "version": "0.9.5", "protocol": 22, "workspaces": [], "tabs": [],
+            "panes": [
+                {"pane_id": "p1", "workspace_id": "w1", "tab_id": "t1"},
+                {"pane_id": "p2", "workspace_id": "w1", "tab_id": "t1"},
+                {"pane_id": "p3", "workspace_id": "w1", "tab_id": "t1", "agent": "claude"}
+            ]
+        }))
+        .expect("snapshot");
+        let mut state = SessionState::from_snapshot(snapshot);
+        let vim = ProgramMatch::Unknown("vim-ish".into());
+        state.programs.insert("p1".into(), vim.clone());
+        state.programs.insert("p2".into(), vim.clone());
+        state.programs.insert("p3".into(), vim.clone());
+        state.programs.insert("gone".into(), vim.clone());
+        let merged = merge_programs(
+            &state,
+            vec![("p1".into(), Err(())), ("p2".into(), Ok(None))],
+        );
+        // p1 failed and keeps vim; p2 has no process; p3 runs an agent now;
+        // the closed pane is gone.
+        assert_eq!(
+            merged.into_iter().collect::<Vec<_>>(),
+            vec![("p1".to_owned(), vim)]
         );
     }
 
