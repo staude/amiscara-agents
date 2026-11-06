@@ -76,15 +76,23 @@ enum WhatsNew {
     }
 
     /// On start: what to show once, and the installed version noted as
-    /// seen. The first start shows nothing, a downgrade neither.
+    /// seen. A fresh install shows nothing, a downgrade neither. Versions
+    /// before 0.2.0 never wrote the key (#371), so a missing key with an
+    /// `earlierInstall` (saved hosts) is an update: the notes of the
+    /// current version show once.
     static func onLaunch(
         _ entries: [WhatsNewEntry],
         current: String,
+        earlierInstall: Bool = false,
         defaults: UserDefaults = .standard
     ) -> [WhatsNewEntry] {
         let seen = defaults.string(forKey: seenKey)
         defaults.set(current, forKey: seenKey)
-        guard let seen, seen != current else { return [] }
+        guard let seen else {
+            guard earlierInstall else { return [] }
+            return history(entries, current: current).filter { $0.version == current }
+        }
+        guard seen != current else { return [] }
         return pending(entries, seen: seen, current: current)
     }
 

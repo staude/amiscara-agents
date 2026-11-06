@@ -22,6 +22,9 @@ final class HostStore {
     @ObservationIgnored private var shortcutPause: Task<Void, Never>?
     #endif
     var loadError: String?
+    /// Whether `hosts.json` held hosts before this launch added the local
+    /// one: an earlier install, for What's New (#371).
+    private(set) var hadSavedHosts = false
     /// The boards the Mac apps leave in iCloud for this device's hosts
     /// (#156), as last fetched by `widgets`.
     var cloudBoards: [CloudBoard] = []
@@ -39,6 +42,7 @@ final class HostStore {
             return
         }
         load()
+        hadSavedHosts = !connections.isEmpty
         if connections.isEmpty, Platform.hasLocalSocket,
            FileManager.default.fileExists(atPath: Platform.localSocketPath) {
             connections = [connect(.local())]
