@@ -757,6 +757,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   when a commit came in since. The repositories come from
   `Session::github_repos` like the approvals'. Without a token nothing
   changes. Mac, iPhone and iPad. FFI `parse_diff`.
+- Program icons (#337): pane header, split pane header, tab and the agent
+  rows of the sidebar show what runs in the pane, as an SF Symbol in the
+  program's colour or a letter tile for agents (Claude Code, Codex ...);
+  interpreters are looked through, so `npm run dev` with Vite shows Vite.
+  Unknown programs get a neutral icon with the process name as tooltip.
+  Core: `herdr_core::programs` (table and matching), the sync driver polls
+  `pane.process_info` every 5 s for panes without an agent,
+  `ProgramItem` on `PaneItem` and `BoardItem`. Mac, iPhone, iPad, Apple TV.
 
 ### Changed
 
