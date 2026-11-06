@@ -32,7 +32,6 @@ export interface HostConfig {
 /** The order of spaces in the sidebar (#243). */
 export type SpaceSortMode = "herdr" | "nameAscending" | "nameDescending" | "manual";
 
-/** A named herdr session on a host (#213). */
 /** A `Host` entry of `~/.ssh/config` (#340). */
 export interface SshConfigHost {
   alias: string;
@@ -43,6 +42,7 @@ export interface SshConfigHost {
   unsupported: string | null;
 }
 
+/** A named herdr session on a host (#213). */
 export interface HerdrSession {
   name: string;
   running: boolean;
