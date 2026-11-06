@@ -35,6 +35,7 @@ if $apple; then
     scripts/multi-send-test.sh
     scripts/agent-status-test.sh
     scripts/spotlight-test.sh
+    scripts/command-palette-test.sh
     scripts/question-binding-test.sh
     scripts/notification-sound-test.sh
     scripts/pull-request-test.sh

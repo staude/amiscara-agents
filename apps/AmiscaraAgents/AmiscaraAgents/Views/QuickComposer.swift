@@ -319,7 +319,7 @@ private struct QuickComposerAgentList: View {
 
     var body: some View {
         let agents = SwitcherEntry.all(in: store).filter { $0.kind == .agent }
-        let results = SwitcherMatch.filter(agents, query: query)
+        let results = SwitcherMatch.filter(agents, fields: \.fields, query: query)
         let showHost = store.connections.count > 1
         VStack(spacing: 0) {
             TextField("Agent suchen", text: $query)

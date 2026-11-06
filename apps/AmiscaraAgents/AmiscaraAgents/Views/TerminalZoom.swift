@@ -71,7 +71,7 @@ struct TerminalZoomButtons: View {
             fontSize = TerminalZoom.larger(fontSize)
         }
         #if !os(tvOS)
-        .keyboardShortcut(withShortcuts ? KeyboardShortcut("+", modifiers: .command) : nil)
+        .keyboardShortcut(withShortcuts ? Shortcuts.zoomIn.keyboardShortcut : nil)
         #endif
         .disabled(fontSize >= TerminalZoom.range.upperBound)
 
@@ -79,7 +79,7 @@ struct TerminalZoomButtons: View {
             fontSize = TerminalZoom.smaller(fontSize)
         }
         #if !os(tvOS)
-        .keyboardShortcut(withShortcuts ? KeyboardShortcut("-", modifiers: .command) : nil)
+        .keyboardShortcut(withShortcuts ? Shortcuts.zoomOut.keyboardShortcut : nil)
         #endif
         .disabled(fontSize <= TerminalZoom.range.lowerBound)
 
@@ -87,7 +87,7 @@ struct TerminalZoomButtons: View {
             fontSize = Platform.defaultTerminalFontSize
         }
         #if !os(tvOS)
-        .keyboardShortcut(withShortcuts ? KeyboardShortcut("0", modifiers: .command) : nil)
+        .keyboardShortcut(withShortcuts ? Shortcuts.zoomReset.keyboardShortcut : nil)
         #endif
         .disabled(fontSize == Platform.defaultTerminalFontSize)
     }

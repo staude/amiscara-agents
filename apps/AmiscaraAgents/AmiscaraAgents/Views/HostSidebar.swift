@@ -23,7 +23,8 @@ struct HostSidebar: View {
     @Environment(HostStore.self) private var store
     @Binding var selection: SidebarItem?
     @Binding var editing: HostConfig?
-    @Binding var switching: Bool
+    /// ⌘K's switcher, with the commands of the focused space and pane (#346).
+    let openSwitcher: (PaletteSources) -> Void
     /// Text from the clipboard to an agent (#236).
     let openHandoff: () -> Void
     @State private var newSpaceOn: HostConnection?
@@ -118,8 +119,7 @@ struct HostSidebar: View {
                 AddHostButton(editing: $editing)
             }
             ToolbarItem(placement: .primaryAction) {
-                Button("Schnell wechseln", systemImage: "magnifyingglass") { switching = true }
-                    .help(String(localized: "Space oder Agent suchen (⌘K)"))
+                SwitcherButton(openSwitcher: openSwitcher)
                     .disabled(store.connections.isEmpty)
             }
             #if os(iOS)
@@ -1320,3 +1320,20 @@ private struct LiveActivityToggle: View {
     }
 }
 #endif
+
+/// Opens the switcher with the commands of the focused space and pane
+/// (#346). Its own view, so only this button follows their changes.
+private struct SwitcherButton: View {
+    let openSwitcher: (PaletteSources) -> Void
+    @FocusedValue(\.spaceCommands) private var spaceCommands
+    @FocusedValue(\.paneCommands) private var paneCommands
+    @FocusedValue(\.keySender) private var keySender
+    @FocusedValue(\.paneSearch) private var paneSearch
+
+    var body: some View {
+        Button("Schnell wechseln", systemImage: "magnifyingglass") {
+            openSwitcher(PaletteSources(space: spaceCommands, pane: paneCommands, keySender: keySender, paneSearch: paneSearch))
+        }
+        .help(String(localized: "Space, Agent oder Befehl suchen (⌘K)"))
+    }
+}

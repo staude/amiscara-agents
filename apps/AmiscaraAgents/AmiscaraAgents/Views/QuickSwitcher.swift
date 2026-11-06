@@ -57,68 +57,32 @@ struct SwitcherEntry: Identifiable {
     }
 }
 
-/// Matching for the switcher: every word of the query must appear in one of
-/// the entry's texts, as a substring or, failing that, as letters in order
-/// ("hrc" finds "herdr-remote-core"). Word starts rank above substrings,
-/// substrings above scattered letters, the first field above the others.
-enum SwitcherMatch {
-    static func filter(_ entries: [SwitcherEntry], query: String) -> [SwitcherEntry] {
-        let words = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
-        guard !words.isEmpty else { return entries }
-        return entries.enumerated()
-            .compactMap { index, entry in
-                score(entry.fields, words).map { (score: $0, index: index, entry: entry) }
-            }
-            .sorted { ($0.score, -$0.index) > ($1.score, -$1.index) }
-            .map(\.entry)
-    }
+/// A row of the switcher.
+typealias SwitcherResult = PaletteResult<SwitcherEntry, PaletteCommand>
 
-    /// `nil` when a word matches nowhere.
-    static func score(_ fields: [String], _ words: [String]) -> Int? {
-        let fields = fields.map { $0.lowercased() }
-        var total = 0
-        for word in words {
-            var best: Int?
-            for (position, field) in fields.enumerated() {
-                // The first field (name) weighs a little more.
-                let bonus = position == 0 ? 1 : 0
-                let points: Int? = if let range = field.range(of: word) {
-                    (startsWord(field, at: range.lowerBound) ? 6 : 4) + bonus
-                } else if isSubsequence(word, of: field) {
-                    1
-                } else {
-                    nil
-                }
-                if let points, points > (best ?? 0) { best = points }
-            }
-            guard let best else { return nil }
-            total += best
+extension PaletteResult: Identifiable where Entry == SwitcherEntry, Command == PaletteCommand {
+    var id: String {
+        switch self {
+        case .entry(let entry): entry.id
+        case .command(let command): "cmd:\(command.id)"
         }
-        return total
-    }
-
-    private static func startsWord(_ text: String, at index: String.Index) -> Bool {
-        guard index > text.startIndex else { return true }
-        let before = text[text.index(before: index)]
-        return !before.isLetter && !before.isNumber
-    }
-
-    private static func isSubsequence(_ word: String, of text: String) -> Bool {
-        var rest = word[...]
-        for char in text where char == rest.first {
-            rest = rest.dropFirst()
-            if rest.isEmpty { return true }
-        }
-        return rest.isEmpty
     }
 }
 
-/// ⌘K: search spaces and agents on all hosts and jump there. Arrow keys move
-/// the highlight, Return opens it, ⌥Return peeks into an agent (#332), Esc
-/// closes. Closing the peek comes back here.
+/// ⌘K: search spaces and agents on all hosts and jump there, or the
+/// commands of the focused space and pane (#346), `>` for commands only.
+/// Arrow keys move the highlight, Return opens it or runs the command,
+/// ⌥Return peeks into an agent (#332), Esc closes. Closing the peek comes
+/// back here.
 struct QuickSwitcher: View {
     @Environment(HostStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    /// Collected when the switcher opened: inside the sheet the focused
+    /// values of the window are gone.
+    var commands: [PaletteCommand] = []
+    /// Runs the command once the switcher is closed, so a command that opens
+    /// a sheet or a confirmation finds the window free.
+    var onCommand: (PaletteCommand) -> Void = { _ in }
     let onPick: (SpaceRef) -> Void
 
     @State private var query = ""
@@ -131,11 +95,19 @@ struct QuickSwitcher: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        let results = SwitcherMatch.filter(SwitcherEntry.all(in: store), query: query)
+        // Without commands (tvOS) `>` is just text.
+        let palette = commands.isEmpty ? PaletteQuery(text: query, commandsOnly: false) : PaletteQuery.parse(query)
+        let results = PaletteResults.combine(
+            entries: SwitcherEntry.all(in: store),
+            entryFields: \.fields,
+            commands: commands,
+            commandFields: \.fields,
+            query: palette
+        )
         let showHost = store.connections.count > 1
         NavigationStack {
             VStack(spacing: 0) {
-                TextField("Space oder Agent suchen", text: $query)
+                TextField(searchPrompt, text: $query)
                     .technicalInput()
                     #if !os(tvOS)
                     .textFieldStyle(.roundedBorder)
@@ -166,23 +138,26 @@ struct QuickSwitcher: View {
                     .padding(10)
                 Divider()
                 if results.isEmpty {
-                    ContentUnavailableView.search(text: query)
+                    ContentUnavailableView.search(text: palette.text)
                 } else {
                     ScrollViewReader { proxy in
-                        List(results) { entry in
+                        List(results) { result in
                             Button {
-                                pick(entry)
+                                pick(result)
                             } label: {
-                                SwitcherRow(entry: entry, showHost: showHost)
+                                switch result {
+                                case .entry(let entry): SwitcherRow(entry: entry, showHost: showHost)
+                                case .command(let command): CommandRow(command: command)
+                                }
                             }
                             .buttonStyle(.plain)
                             #if !os(tvOS)
-                            .peekMenu(peek(entry), open: { _ in pick(entry) }) { peeking = $0 }
+                            .peekMenu(peek(result), open: { _ in pick(result) }) { peeking = $0 }
                             #endif
                             .listRowBackground(
-                                entry.id == current(in: results)?.id ? Color.accentColor.opacity(0.2) : Color.clear
+                                result.id == current(in: results)?.id ? Color.accentColor.opacity(0.2) : Color.clear
                             )
-                            .id(entry.id)
+                            .id(result.id)
                         }
                         .listStyle(.plain)
                         .onChange(of: highlighted) { _, id in
@@ -224,12 +199,21 @@ struct QuickSwitcher: View {
         #endif
     }
 
+    /// tvOS has no commands (#346).
+    private var searchPrompt: LocalizedStringKey {
+        #if os(tvOS)
+        "Space oder Agent suchen"
+        #else
+        "Space, Agent oder > Befehl"
+        #endif
+    }
+
     /// The highlighted entry, or the best match when nothing was moved yet.
-    private func current(in results: [SwitcherEntry]) -> SwitcherEntry? {
+    private func current(in results: [SwitcherResult]) -> SwitcherResult? {
         results.first { $0.id == highlighted } ?? results.first
     }
 
-    private func move(_ step: Int, in results: [SwitcherEntry]) -> KeyPress.Result {
+    private func move(_ step: Int, in results: [SwitcherResult]) -> KeyPress.Result {
         guard !results.isEmpty else { return .handled }
         let index = results.firstIndex { $0.id == current(in: results)?.id } ?? 0
         highlighted = results[min(max(index + step, 0), results.count - 1)].id
@@ -237,17 +221,44 @@ struct QuickSwitcher: View {
     }
 
     #if !os(tvOS)
-    /// The peek of an agent entry; spaces have none.
-    private func peek(_ entry: SwitcherEntry) -> AgentPeek? {
-        guard entry.kind == .agent, let paneID = entry.target.paneID else { return nil }
+    /// The peek of an agent entry; spaces and commands have none.
+    private func peek(_ result: SwitcherResult) -> AgentPeek? {
+        guard case .entry(let entry) = result, entry.kind == .agent, let paneID = entry.target.paneID else { return nil }
         return AgentPeek(hostID: entry.target.hostID, workspaceID: entry.target.workspaceID, paneID: paneID)
     }
     #endif
 
-    private func pick(_ entry: SwitcherEntry?) {
-        guard let entry else { return }
-        onPick(entry.target)
+    private func pick(_ result: SwitcherResult?) {
+        switch result {
+        case .entry(let entry): onPick(entry.target)
+        case .command(let command): onCommand(command)
+        case nil: return
+        }
         dismiss()
+    }
+}
+
+/// A command: its name, the section it belongs to and its shortcut.
+struct CommandRow: View {
+    let command: PaletteCommand
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "command")
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+            Text(verbatim: command.title).lineLimit(1)
+            Text(verbatim: command.section.name)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if let shortcut = command.shortcut {
+                Text(verbatim: shortcut.display)
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 

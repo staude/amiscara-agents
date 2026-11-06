@@ -1262,6 +1262,36 @@
         }
       }
     },
+    "Antworten vorlesen ausschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Reading Replies Aloud"
+          }
+        }
+      }
+    },
+    "Antworten vorlesen einschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Replies Aloud"
+          }
+        }
+      }
+    },
+    "App" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        }
+      }
+    },
     "App sperren" : {
       "localizations" : {
         "en" : {
@@ -1732,6 +1762,16 @@
         }
       }
     },
+    "Eingaben an den Host erlauben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Input to the Host"
+          }
+        }
+      }
+    },
     "Eingaben sind für diesen Host ausgeschaltet. Im Planungs-Tab freigeben." : {
       "localizations" : {
         "en" : {
@@ -1748,6 +1788,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Once"
+          }
+        }
+      }
+    },
+    "Einstellungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings …"
           }
         }
       }
@@ -1778,6 +1828,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop the dictation in the input bar first."
+          }
+        }
+      }
+    },
+    "Host bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Host …"
+          }
+        }
+      }
+    },
+    "Host hinzufügen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Host …"
+          }
+        }
+      }
+    },
+    "Host nur lesend schalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make Host Read Only"
+          }
+        }
+      }
+    },
+    "Neuer Tab mit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with %@"
+          }
+        }
+      }
+    },
+    "Space, Agent oder > Befehl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space, agent or > command"
+          }
+        }
+      }
+    },
+    "Space, Agent oder Befehl suchen (⌘K)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search spaces, agents or commands (⌘K)"
           }
         }
       }
@@ -7180,16 +7290,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search for a space or agent"
-          }
-        }
-      }
-    },
-    "Space oder Agent suchen (⌘K)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search for a space or agent (⌘K)"
           }
         }
       }
