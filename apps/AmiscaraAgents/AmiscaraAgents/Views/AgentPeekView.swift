@@ -85,10 +85,16 @@ struct AgentPeekView: View {
         .onAppear {
             peekState?.open += 1
             previousVisible = store.notifier.visiblePane
+            store.notifier.peekedPane = (hostID: peek.hostID, paneID: peek.paneID)
             store.notifier.visiblePane = (hostID: peek.hostID, paneID: peek.paneID)
         }
         .onDisappear {
             peekState?.open -= 1
+            // A peek does not mark seen (#335); opened, the pane does now.
+            if let peeked = store.notifier.peekedPane,
+               peeked.hostID == peek.hostID, peeked.paneID == peek.paneID {
+                store.notifier.peekedPane = nil
+            }
             // Opened, the pane stays on screen; the space sets it itself.
             guard !opened, let visible = store.notifier.visiblePane,
                   visible.hostID == peek.hostID, visible.paneID == peek.paneID

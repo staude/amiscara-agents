@@ -191,10 +191,13 @@ final class HostStore {
 
     /// Marks the agent in the pane on screen as seen once it is done
     /// (#335), so every device shows it as idle. Only the open pane
-    /// counts, while the app is in front; the Apple TV marks nothing.
+    /// counts, while the app is in front, not a peek into it; the Apple TV
+    /// marks nothing.
     private func markVisibleSeen() {
         #if !os(tvOS)
+        let peeked = notifier.peekedPane
         guard !DemoMode.isOn, notifier.appActive, let visible = notifier.visiblePane,
+              peeked?.hostID != visible.hostID || peeked?.paneID != visible.paneID,
               let connection = connection(for: visible.hostID), connection.isLive,
               connection.update?.board.contains(where: { $0.paneId == visible.paneID && $0.agentState == .done }) == true
         else {
