@@ -15,7 +15,9 @@ use crate::session::SessionError;
 /// listens there). `amiscara-health` prints `amiscara-health` and runs
 /// `~/.amiscara-agents/bin/amiscara-health` (#306: the host's load, memory
 /// and disk for the dashboard); without the script it ends after the
-/// marker. The apps reach herdr through a session
+/// marker. `amiscara-hc` runs `hc connect` (#329: herdr-core, the runtime
+/// of herdr desktop), but only while a core runs, since `hc connect` would
+/// start one. The apps reach herdr through a session
 /// running `herdr` once sshd refuses their streamlocal channel.
 ///
 /// `socket_path`: the host's `herdr.sock` when it is not the default
@@ -76,8 +78,10 @@ pub(crate) fn gate_options(
     };
     // A fixed path, so the case runs nothing but a script the user put there.
     let health = " amiscara-health) echo amiscara-health; exec \\\"$HOME/.amiscara-agents/bin/amiscara-health\\\" ;;";
+    // herdr-core's default socket; `hc` usually lives in `~/.local/bin`.
+    let hc = " amiscara-hc) s=\\\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\\\"; [ -S \\\"$s\\\" ] || exit 1; PATH=\\\"$HOME/.local/bin:$PATH\\\"; exec hc connect ;;";
     Ok(format!(
-        "restrict,command=\"case \\\"$SSH_ORIGINAL_COMMAND\\\" in *sftp*) {files} ;;{health}{web} *) exec nc -U \\\"{socket}\\\" ;; esac\""
+        "restrict,command=\"case \\\"$SSH_ORIGINAL_COMMAND\\\" in *sftp*) {files} ;;{health}{hc}{web} *) exec nc -U \\\"{socket}\\\" ;; esac\""
     ))
 }
 
@@ -95,7 +99,7 @@ mod tests {
             .expect("key")
             .public_openssh;
         let line = authorized_keys_line(&key, false, false, None).expect("line");
-        assert!(line.starts_with(r#"restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#), "{line}");
+        assert!(line.starts_with(r#"restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; amiscara-hc) s=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#), "{line}");
         assert!(!line.contains("port-forwarding"));
         assert!(!line.contains("amiscara-tcp"));
         let files = authorized_keys_line(&key, true, false, Some("/srv/herdr.sock")).expect("line");
@@ -119,7 +123,7 @@ mod tests {
             .public_openssh;
         let line = authorized_keys_line(&key, false, true, None).expect("line");
         assert!(
-            line.contains(r#"*sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; nc -z localhost $p || { echo amiscara-tcp-closed; exit 1; }; echo amiscara-tcp; exec nc localhost $p ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#),
+            line.contains(r#"*sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; amiscara-hc) s=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect ;; amiscara-tcp*) p=${SSH_ORIGINAL_COMMAND#amiscara-tcp }; case $p in ''|*[!0-9]*) exit 1 ;; esac; nc -z localhost $p || { echo amiscara-tcp-closed; exit 1; }; echo amiscara-tcp; exec nc localhost $p ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 "#),
             "{line}"
         );
         assert!(line.starts_with("restrict,command=") && !line.contains("port-forwarding"));
