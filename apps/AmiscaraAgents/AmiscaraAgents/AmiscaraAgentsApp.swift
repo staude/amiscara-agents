@@ -125,8 +125,18 @@ struct AmiscaraAgentsApp: App {
         #endif
         #if os(macOS)
         .commands { UpdateCommands() }
+        .commands { WhatsNewCommands() }
         #endif
         #if os(macOS)
+        // What changed in this version (#341): once after an update and
+        // from the Help menu, never restored at launch.
+        Window("Neuigkeiten", id: WhatsNewWindow.id) {
+            WhatsNewView()
+                .appAppearance(appearance)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+        .windowResizability(.contentMinSize)
         Settings {
             SettingsView()
                 .environment(store)
