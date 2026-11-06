@@ -136,8 +136,8 @@ code), so a host is set up the same way everywhere.
   fine-grained with Issues: Read, kept only on this device), the overview
   and the host's dashboard list "Freigaben": issues in the host's GitHub
   repositories whose enon-tools plan waits for approval
-  (`plan-ready`, or `awaiting-approval` from older plugin versions), with the plan's overview for the approval. If the
-  planning tab `plan-<nr>` waits for the answer, "Freigeben", "Später" and
+  (`plan-ready`, or `awaiting-approval` from older plugin versions), with
+  the plan's overview for the approval. If the planning tab `plan-<nr>` waits for the answer, "Freigeben", "Später" and
   "Mit Hinweis freigeben" answer it there; the workflow then sets
   `plan-accepted` itself. Without such a tab the app shows
   `/issue-plan-accept <nr>` (`/issue-approve <nr>` for `awaiting-approval`)
