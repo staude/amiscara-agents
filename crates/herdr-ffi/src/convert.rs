@@ -615,3 +615,44 @@ pub struct GitHubRepo {
     pub repo: String,
     pub workspace_ids: Vec<String>,
 }
+
+pub use herdr_session::SpaceGitStatus;
+
+/// Ahead/behind and uncommitted changes of the checkout a space shows
+/// (#343).
+#[uniffi::remote(Record)]
+pub struct SpaceGitStatus {
+    pub workspace_id: String,
+    /// Without an upstream `ahead` and `behind` are 0.
+    pub has_upstream: bool,
+    pub ahead: u32,
+    pub behind: u32,
+    /// Changed, staged and untracked files.
+    pub changes: u32,
+}
+
+/// An existing worktree no space shows (#343), to open as a space.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct WorktreeChoice {
+    /// Absolute path of the checkout.
+    pub path: String,
+    /// `None` when detached.
+    pub branch: Option<String>,
+    /// herdr's name for it, the folder's name.
+    pub label: String,
+    /// A linked worktree, not the repository's main checkout.
+    pub is_linked: bool,
+    pub is_detached: bool,
+}
+
+impl From<herdr_session::WorktreeEntry> for WorktreeChoice {
+    fn from(entry: herdr_session::WorktreeEntry) -> Self {
+        Self {
+            path: entry.path,
+            branch: entry.branch,
+            label: entry.label,
+            is_linked: entry.is_linked_worktree,
+            is_detached: entry.is_detached,
+        }
+    }
+}

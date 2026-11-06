@@ -144,6 +144,20 @@ pub struct WorktreeEntry {
     /// The space showing this worktree, if one is open.
     #[serde(default)]
     pub open_workspace_id: Option<String>,
+    /// herdr's name for it, the folder's name.
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub is_bare: bool,
+    /// Its folder is gone; `git worktree prune` would drop it.
+    #[serde(default)]
+    pub is_prunable: bool,
+    /// No branch checked out.
+    #[serde(default)]
+    pub is_detached: bool,
+    /// A linked worktree, not the repository's main checkout.
+    #[serde(default)]
+    pub is_linked_worktree: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -675,6 +689,21 @@ mod tests {
             (got.agent.state_change_seq, got.agent.completion_seq),
             (0, None)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_worktree_list() -> Result<(), ProtoError> {
+        let line = r#"{"id":"1","result":{"type":"worktree_list","source":{},"worktrees":[{"path":"/r","branch":"main","label":"r","is_bare":false,"is_detached":false,"is_prunable":false,"is_linked_worktree":false,"open_workspace_id":"w1"},{"path":"/r/.wt/x","branch":null,"label":"x","is_bare":false,"is_detached":true,"is_prunable":true,"is_linked_worktree":true}]}}"#;
+        let got: WorktreeListResult = serde_json::from_value(parse_response(line)?)?;
+        let [main, linked] = got.worktrees.as_slice() else {
+            panic!("two worktrees expected");
+        };
+        assert_eq!(main.open_workspace_id.as_deref(), Some("w1"));
+        assert!(!main.is_linked_worktree);
+        assert_eq!(linked.label, "x");
+        assert!(linked.is_detached && linked.is_prunable && linked.is_linked_worktree);
+        assert_eq!(linked.branch, None);
         Ok(())
     }
 

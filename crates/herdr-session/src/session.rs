@@ -9,7 +9,7 @@ use herdr_core::chains::{self, Chain};
 use herdr_core::pane::{self, Pacing};
 use herdr_core::spaces::SpaceSort;
 use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, usage};
+use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, gitstatus, usage};
 use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
     Connection, HealthLine, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError,
@@ -1401,6 +1401,143 @@ impl Session {
         Ok(daily::DailyLog { items, truncated })
     }
 
+    /// Ahead/behind and uncommitted changes of every space showing a Git
+    /// checkout (#343), or only of space `only`. One script for all of them
+    /// runs in a short-lived, unfocused tab of the first such space and
+    /// the output comes through SFTP, like [`Session::working_tree_diff`],
+    /// so it needs input and file access. Spaces Git could not read are
+    /// left out; without such spaces nothing runs. Read only.
+    pub async fn worktree_status(
+        &self,
+        only: Option<&str>,
+    ) -> Result<Vec<gitstatus::SpaceGitStatus>, SessionError> {
+        let spaces = self.checkout_spaces(only);
+        let Some((run_in, cwd)) = spaces.first().cloned() else {
+            return Ok(Vec::new());
+        };
+        let conn = self.connection()?;
+        let mut dirs: Vec<String> = Vec::new();
+        for (_, dir) in &spaces {
+            if !dirs.contains(dir) {
+                dirs.push(dir.clone());
+            }
+        }
+        let output = run_script(
+            &conn,
+            &run_in,
+            &cwd,
+            "git-status",
+            |out| gitstatus::status_script(out, &dirs),
+            MAX_GIT_STATUS_BYTES,
+            |text| !text.contains(gitstatus::DIR_MARK),
+        )
+        .await?;
+        let found = gitstatus::parse_status(&output.text);
+        Ok(spaces
+            .iter()
+            .filter_map(|(workspace_id, dir)| {
+                found
+                    .iter()
+                    .find(|status| &status.path == dir)
+                    .map(|status| gitstatus::SpaceGitStatus::new(workspace_id.clone(), status))
+            })
+            .collect())
+    }
+
+    /// The spaces showing a Git checkout with its path, all or only `only`.
+    fn checkout_spaces(&self, only: Option<&str>) -> Vec<SpaceDir> {
+        let Some(session) = self
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().session.clone()))
+        else {
+            return Vec::new();
+        };
+        session
+            .workspaces
+            .iter()
+            .filter(|ws| only.is_none_or(|id| ws.workspace_id == id))
+            .filter_map(|ws| {
+                let dir = &ws.worktree.as_ref()?.checkout_path;
+                (!dir.is_empty()).then(|| (ws.workspace_id.clone(), dir.clone()))
+            })
+            .collect()
+    }
+
+    /// The worktrees of the repository of space `workspace_id` that no
+    /// space shows (#343), sorted by branch, detached ones last, then by
+    /// path. Bare and prunable entries are left out. Read only.
+    pub async fn list_worktrees(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<herdr_proto::WorktreeEntry>, SessionError> {
+        let conn = self.connection()?;
+        let mut entries: Vec<_> = actions::list_worktrees(&conn, workspace_id)
+            .await?
+            .into_iter()
+            .filter(|entry| {
+                entry.open_workspace_id.is_none() && !entry.is_bare && !entry.is_prunable
+            })
+            .collect();
+        entries.sort_by(|a, b| {
+            (a.branch.is_none(), &a.branch, &a.path).cmp(&(b.branch.is_none(), &b.branch, &b.path))
+        });
+        Ok(entries)
+    }
+
+    /// Opens the existing worktree at `path` of the repository of space
+    /// `workspace_id` as a new, unfocused space (#343).
+    pub async fn open_worktree(
+        &self,
+        workspace_id: &str,
+        path: &str,
+    ) -> Result<actions::Created, SessionError> {
+        let conn = self.connection()?;
+        Ok(actions::open_worktree(&conn, workspace_id, path).await?)
+    }
+
+    /// Removes the linked worktree that space `workspace_id` shows, with
+    /// its space (#343); the branch stays. Refused for a repository's main
+    /// checkout and while the worktree has uncommitted or untracked
+    /// changes, which are checked first like [`Session::worktree_status`]
+    /// (input and file access).
+    pub async fn remove_worktree(&self, workspace_id: &str) -> Result<(), SessionError> {
+        let linked = {
+            let state = self.state.lock().ok();
+            state
+                .as_ref()
+                .and_then(|state| state.as_ref())
+                .and_then(|rx| rx.borrow().session.clone())
+                .and_then(|session| {
+                    session
+                        .workspace(workspace_id)
+                        .and_then(|ws| ws.worktree.as_ref())
+                        .map(|wt| wt.is_linked_worktree)
+                })
+                .unwrap_or(false)
+        };
+        if !linked {
+            return Err(SessionError::Rejected(
+                "the space shows no linked worktree".into(),
+            ));
+        }
+        let status = self
+            .worktree_status(Some(workspace_id))
+            .await?
+            .into_iter()
+            .next()
+            .ok_or_else(|| SessionError::Files("the worktree's status could not be read".into()))?;
+        if status.changes > 0 {
+            return Err(SessionError::Rejected(format!(
+                "{} uncommitted changes",
+                status.changes
+            )));
+        }
+        let conn = self.connection()?;
+        Ok(actions::remove_worktree(&conn, workspace_id).await?)
+    }
+
     /// The working directories of all panes with their space's name, and
     /// the space and folder to run a script in: the first space with one.
     fn day_folders(&self) -> (Vec<(String, String)>, Option<SpaceDir>) {
@@ -2242,6 +2379,8 @@ fn named_upload(file_name: &str) -> String {
 /// listing of the upload folder says what is what.
 /// The most of a diff the apps read; a bigger one is cut off.
 const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+/// The most of the Git status script's output (#343).
+const MAX_GIT_STATUS_BYTES: u64 = 64 * 1024;
 /// The same for the day script's output (#301).
 const MAX_DAY_BYTES: u64 = 4 * 1024 * 1024;
 /// Session files read for a day, the newest; more mark the day truncated.
