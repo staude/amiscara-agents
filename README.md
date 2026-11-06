@@ -735,8 +735,9 @@ What the apps cannot do, because herdr's API does not offer it:
   run (Android's standby service keeps it running).
 - **Apple TV:** home network only, no VPN.
 - **Apple Watch:** no direct connection to hosts.
-- **herdr-core:** no spaces or tabs created, renamed or closed, no text
-  without Enter, pane content without colours and history, see
+- **herdr-core:** no spaces or tabs created, renamed or closed, text
+  without Enter only without umlauts and shifted signs, pane content
+  without colours and history, see
   [herdr-core](#herdr-core-herdr-desktop).
 
 ## Architecture

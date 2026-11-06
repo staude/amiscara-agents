@@ -7,11 +7,10 @@
 //! anything.
 //!
 //! herdr-core's panes (ids starting `hc:`, #329) take prompts and keys
-//! (`terminal.send`, `terminal.keys`, which know the same key names). Its
-//! `terminal.keys` refuses characters such as umlauts, so text without
-//! Enter is not offered there, and neither is anything that changes spaces,
-//! tabs or agents, which herdr desktop keeps to itself:
-//! [`ActionError::Unsupported`].
+//! (`terminal.send`, `terminal.keys`, which know the same key names). Text
+//! without Enter goes key by key, so only without umlauts and shifted
+//! signs; nothing that changes spaces, tabs or agents, which herdr desktop
+//! keeps to itself: [`ActionError::Unsupported`].
 
 use herdr_proto::{PaneInfo, ProtoError};
 use herdr_transport::{Connection, TransportError};
