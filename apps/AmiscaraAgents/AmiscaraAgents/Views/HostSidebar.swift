@@ -501,6 +501,9 @@ struct NewSpaceView: View {
     @State private var creating = false
     /// Set when the space exists but its agent did not start.
     @State private var createdWithoutAgent = false
+    #if !os(tvOS)
+    @State private var task = ""
+    #endif
     @State private var error: String?
 
     var body: some View {
@@ -521,6 +524,11 @@ struct NewSpaceView: View {
                     }
                 }
                 AgentPicker(connection: connection, kind: $agentKind)
+                #if !os(tvOS)
+                AgentTaskField(task: $task, enabled: agentKind != nil, repo: nil) {
+                    PromptPlaceholders.prefills(branch: nil, space: name.isEmpty ? nil : name)
+                }
+                #endif
                 if let error {
                     Text(error).foregroundStyle(.red).selectableText()
                 }
@@ -538,7 +546,16 @@ struct NewSpaceView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 440, height: 340)
+        .frame(width: 440, height: 440)
+        #endif
+    }
+
+    /// The task for the agent; the Apple TV has no field for one.
+    private var firstTask: String? {
+        #if os(tvOS)
+        nil
+        #else
+        task
         #endif
     }
 
@@ -546,6 +563,7 @@ struct NewSpaceView: View {
         creating = true
         error = nil
         let kind = agentKind
+        let task = firstTask
         Task {
             defer { creating = false }
             let created: Created
@@ -558,7 +576,7 @@ struct NewSpaceView: View {
             onCreated(created)
             if let kind {
                 do {
-                    _ = try await connection.startAgent(kind: kind, in: created.paneId)
+                    _ = try await connection.startAgent(kind: kind, in: created.paneId, task: task)
                 } catch {
                     // The space exists; "Anlegen" again would make a second one.
                     createdWithoutAgent = true
@@ -602,6 +620,9 @@ struct NewWorktreeView: View {
     @State private var creating = false
     /// Set when the worktree exists but its agent did not start.
     @State private var createdWithoutAgent = false
+    #if !os(tvOS)
+    @State private var task = ""
+    #endif
     @State private var error: String?
 
     var body: some View {
@@ -617,6 +638,16 @@ struct NewWorktreeView: View {
                     Text("Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.")
                 }
                 AgentPicker(connection: source.connection, kind: $agentKind)
+                #if !os(tvOS)
+                AgentTaskField(task: $task, enabled: agentKind != nil, repo: source.repository.repoName) {
+                    let trimmed = branch.trimmingCharacters(in: .whitespaces)
+                    let space = name.trimmingCharacters(in: .whitespaces)
+                    return PromptPlaceholders.prefills(
+                        branch: trimmed.isEmpty ? nil : trimmed,
+                        space: space.isEmpty ? (trimmed.isEmpty ? nil : trimmed) : space
+                    )
+                }
+                #endif
                 if creating {
                     ProgressView()
                 }
@@ -637,7 +668,16 @@ struct NewWorktreeView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 460, height: 360)
+        .frame(width: 460, height: 460)
+        #endif
+    }
+
+    /// The task for the agent; the Apple TV has no field for one.
+    private var firstTask: String? {
+        #if os(tvOS)
+        nil
+        #else
+        task
         #endif
     }
 
@@ -645,6 +685,7 @@ struct NewWorktreeView: View {
         creating = true
         error = nil
         let kind = agentKind
+        let task = firstTask
         let connection = source.connection
         Task {
             defer { creating = false }
@@ -660,7 +701,7 @@ struct NewWorktreeView: View {
             onCreated(created)
             if let kind {
                 do {
-                    _ = try await connection.startAgent(kind: kind, in: created.paneId)
+                    _ = try await connection.startAgent(kind: kind, in: created.paneId, task: task)
                 } catch {
                     // The worktree exists; "Anlegen" again would fail on the branch.
                     createdWithoutAgent = true

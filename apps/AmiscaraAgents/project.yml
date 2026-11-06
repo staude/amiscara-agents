@@ -388,6 +388,7 @@ targets:
           - Model/SecretStore.swift
           - Views/ChainEditor.swift
           - Views/ClaudeSessionsView.swift
+          - Views/AgentTaskField.swift
           - Model/PromptTemplates.swift
           - Views/PromptTemplateEditor.swift
           - Views/PromptTemplateForm.swift
