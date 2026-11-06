@@ -30,7 +30,8 @@ pub enum ProgramKind {
     Runner,
     /// Runs a script (`node`, `python`); the script wins if it is known.
     Interpreter,
-    /// An idle shell at its prompt.
+    /// A shell: idle at its prompt, or running a script whose started
+    /// program wins.
     Shell,
 }
 
@@ -263,28 +264,38 @@ pub fn for_agent(kind: &str) -> Option<&'static Program> {
         .find(|program| program.id == kind || program.names.contains(&kind.as_str()))
 }
 
-/// What runs in a pane: the group leader decides; a runner or interpreter
-/// gives way to the first other process that is a tool or agent (`npm run
-/// dev` starts `node …/vite`). `None` without any process.
+/// What runs in a pane: the group leader decides. It gives way to the
+/// first other process that is a tool or agent when it is a runner or
+/// interpreter (`npm run dev` starts `node …/vite`), a shell running a
+/// script (`bash ./dev.sh`) or missing from the table (`sudo vim`,
+/// `caffeinate -i npm run dev`). `None` without any process.
 pub fn for_processes(info: &PaneProcessInfo) -> Option<ProgramMatch> {
     let processes = &info.foreground_processes;
     let leader = info
         .foreground_process_group_id
         .and_then(|pgid| processes.iter().find(|process| process.pid == pgid))
         .or_else(|| processes.first())?;
-    let Some(program) = resolve(leader) else {
-        return Some(ProgramMatch::Unknown(leader.name.clone()));
-    };
-    if matches!(program.kind, Runner | Interpreter)
-        && let Some(started) = processes
+    let started = || {
+        processes
             .iter()
             .filter(|process| process.pid != leader.pid)
             .filter_map(resolve)
             .find(|found| matches!(found.kind, Tool | Agent))
-    {
-        return Some(ProgramMatch::Known(started));
-    }
-    Some(ProgramMatch::Known(program))
+    };
+    let Some(program) = resolve(leader) else {
+        return Some(match started() {
+            Some(started) => ProgramMatch::Known(started),
+            None => ProgramMatch::Unknown(leader.name.clone()),
+        });
+    };
+    let gives_way = match program.kind {
+        Runner | Interpreter => true,
+        Shell => script_of(leader.argv.as_deref().unwrap_or_default()).is_some(),
+        Agent | Tool => false,
+    };
+    Some(ProgramMatch::Known(
+        gives_way.then(started).flatten().unwrap_or(program),
+    ))
 }
 
 /// One process: the first of `argv0`, `argv[0]` and `name` that is in the
@@ -307,10 +318,14 @@ fn resolve(process: &PaneProcess) -> Option<&'static Program> {
 }
 
 /// The script or package an interpreter runs: the first argument after
-/// `argv[0]` that is not a flag, as the package below `node_modules` or
-/// the file name without its script extension.
+/// `argv[0]` that is neither a flag nor `run`/`exec` (`deno run`, `bun
+/// run`), as the package below `node_modules` or the file name without
+/// its script extension.
 fn script_of(argv: &[String]) -> Option<String> {
-    let arg = argv.iter().skip(1).find(|arg| !arg.starts_with('-'))?;
+    let arg = argv
+        .iter()
+        .skip(1)
+        .find(|arg| !arg.starts_with('-') && !matches!(arg.as_str(), "run" | "exec"))?;
     if let Some((_, rest)) = arg.rsplit_once("node_modules/") {
         let rest = rest.strip_prefix(".bin/").unwrap_or(rest);
         let mut parts = rest.split('/');
@@ -332,9 +347,11 @@ fn script_of(argv: &[String]) -> Option<String> {
 }
 
 /// The table entry for one name, trying it as is, then without version
-/// endings (`python3.12` → `python3` → `python`).
+/// endings (`python3.12` → `python3` → `python`). Shortened names only
+/// count for interpreters, runners and shells, so `pi2` is not the agent.
 fn lookup(raw: &str) -> Option<&'static Program> {
     let mut name = normalize(raw);
+    let mut shortened = false;
     loop {
         if name.is_empty() {
             return None;
@@ -342,6 +359,7 @@ fn lookup(raw: &str) -> Option<&'static Program> {
         if let Some(program) = PROGRAMS
             .iter()
             .find(|program| program.names.contains(&name.as_str()))
+            .filter(|program| !shortened || matches!(program.kind, Interpreter | Runner | Shell))
         {
             return Some(program);
         }
@@ -357,6 +375,7 @@ fn lookup(raw: &str) -> Option<&'static Program> {
             return None;
         }
         name = shorter;
+        shortened = true;
     }
 }
 
@@ -496,6 +515,59 @@ mod tests {
             ],
         );
         assert_eq!(id(for_processes(&pane)).as_deref(), Some("nvim"));
+    }
+
+    #[test]
+    fn wrappers_and_scripts_show_what_they_start() {
+        let vite = || process(42, "node", None, &["node", "/p/node_modules/.bin/vite"]);
+        let script = info(
+            Some(40),
+            vec![process(40, "bash", None, &["bash", "./dev.sh"]), vite()],
+        );
+        assert_eq!(id(for_processes(&script)).as_deref(), Some("vite"));
+        let sudo = info(
+            Some(40),
+            vec![
+                process(40, "sudo", None, &["sudo", "vim", "/etc/hosts"]),
+                process(41, "vim", None, &["vim", "/etc/hosts"]),
+            ],
+        );
+        assert_eq!(id(for_processes(&sudo)).as_deref(), Some("vim"));
+        let caffeinate = info(
+            Some(40),
+            vec![
+                process(
+                    40,
+                    "caffeinate",
+                    None,
+                    &["caffeinate", "-i", "npm", "run", "dev"],
+                ),
+                process(41, "node", Some("npm run dev"), &["npm run dev"]),
+                vite(),
+            ],
+        );
+        assert_eq!(id(for_processes(&caffeinate)).as_deref(), Some("vite"));
+        // An idle shell with a child that is no tool stays the shell.
+        let idle = info(Some(40), vec![process(40, "zsh", None, &["-zsh"]), vite()]);
+        assert_eq!(id(for_processes(&idle)).as_deref(), Some("zsh"));
+    }
+
+    #[test]
+    fn subcommands_and_shortened_names() {
+        let deno = info(
+            Some(1),
+            vec![process(
+                1,
+                "deno",
+                None,
+                &["deno", "run", "-A", "/p/node_modules/vite/bin/vite.js"],
+            )],
+        );
+        assert_eq!(id(for_processes(&deno)).as_deref(), Some("vite"));
+        assert_eq!(lookup("pi2").map(|p| p.id), None);
+        assert_eq!(lookup("go1").map(|p| p.id), None);
+        assert_eq!(lookup("node22").map(|p| p.id), Some("node"));
+        assert_eq!(lookup("python3.12").map(|p| p.id), Some("python"));
     }
 
     #[test]
