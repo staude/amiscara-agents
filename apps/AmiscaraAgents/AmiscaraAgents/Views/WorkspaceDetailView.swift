@@ -291,7 +291,13 @@ struct WorkspaceDetailView: View {
                             ) {
                                 TimelineView(.everyMinute) { context in
                                     if let label = TabTime.label(since: since, now: context.date) {
-                                        Text(label).foregroundStyle(.secondary)
+                                        Text(label)
+                                            .foregroundStyle(.secondary)
+                                            .accessibilityLabel(
+                                                tab.agentState == .working
+                                                    ? String(localized: "Arbeitet seit \(label)")
+                                                    : String(localized: "Wartet seit \(label)")
+                                            )
                                     }
                                 }
                             }
