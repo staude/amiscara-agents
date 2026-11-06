@@ -40,6 +40,7 @@ if $apple; then
     scripts/notification-sound-test.sh
     scripts/pull-request-test.sh
     scripts/git-status-test.sh
+    scripts/whats-new-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
         [[ "$scheme" == AmiscaraAgents-iOS ]] && destination="generic/platform=iOS"

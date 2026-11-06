@@ -66,6 +66,13 @@ export interface AppInfo {
   os: string;
 }
 
+/** The notes of one version (#341), from apps/whats-new.json. */
+export interface WhatsNewEntry {
+  version: string;
+  de: string[];
+  en: string[];
+}
+
 export interface AddHostLink {
   name: string;
   host: string;

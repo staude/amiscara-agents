@@ -165,6 +165,9 @@ struct ContentView: View {
         }
         .task { await openDemo() }
         .task { reopenLastPane() }
+        #if os(macOS)
+        .whatsNewAfterUpdate()
+        #endif
     }
 
     /// Once per launch, not for further Mac windows.

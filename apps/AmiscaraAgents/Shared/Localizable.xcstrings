@@ -2482,6 +2482,16 @@
         }
       }
     },
+    "Keine Neuigkeiten für diese Version" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No news for this version"
+          }
+        }
+      }
+    },
     "Keine Tokens in diesen Ordnern." : {
       "localizations" : {
         "en" : {
@@ -2828,6 +2838,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Load newer entries"
+          }
+        }
+      }
+    },
+    "Neuigkeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's New"
           }
         }
       }

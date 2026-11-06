@@ -36,13 +36,15 @@ Die Mac-App wird außerhalb des App Stores verteilt: mit Developer ID signiert, 
 
 ## Release bauen
 
+Vor dem Release die Neuigkeiten der Version in `apps/whats-new.json` unter `mac` eintragen (neueste zuerst, wenige verständliche Punkte, Deutsch `de` und Englisch `en`). Die App zeigt sie nach dem Update einmal und unter „Hilfe › Neuigkeiten“ (#341). Sie richtet sich nach `MARKETING_VERSION` in `project.yml`, nicht nach der Build-Nummer: Ein Update, das Neuigkeiten zeigen soll, braucht eine höhere `MARKETING_VERSION`; ein neuer Build derselben Version zeigt nichts.
+
 ```sh
 scripts/bump-build.sh          # Build-Nummer +1, nie zurücksetzen
 git commit -am "chore(release): build N"
 scripts/release.sh             # oder --install für /Applications
 ```
 
-`release.sh` prüft zuerst das Developer-ID-Zertifikat im Schlüsselbund, Notarisierungsprofil, xcodegen und einen sauberen Git-Stand und bricht sonst ab, bevor gebaut wird. Danach:
+`release.sh` prüft zuerst das Developer-ID-Zertifikat im Schlüsselbund, Notarisierungsprofil, xcodegen, einen sauberen Git-Stand und die Neuigkeiten der Version (`scripts/whats-new.py check mac <version>`) und bricht sonst ab, bevor gebaut wird. Danach:
 
 1. Rust-Core (`scripts/build-ffi.sh release`) und Xcode-Projekt (`xcodegen generate`)
 2. Archiv (`xcodebuild archive`, Release), von Hand signiert mit `scripts/Signing-DeveloperID.xcconfig` (Developer ID und Profil „Amiscara Agents Developer ID“). Ein Entwicklerzertifikat braucht das Archiv nicht, Xcode legt dafür auch keines an (#246).
