@@ -19,7 +19,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     DEVELOPMENT_TEAM: "7N2W4T6UPV"
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
     # The pre-build script runs cargo and writes Generated/, outside the sandbox.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
