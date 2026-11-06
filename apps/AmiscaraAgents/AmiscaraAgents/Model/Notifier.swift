@@ -43,6 +43,12 @@ final class Notifier: NSObject {
         didSet { onVisibleChange?() }
     }
 
+    /// The pane shown in a peek (#332): no banner for it, but a look into
+    /// it does not mark its finish seen (#335).
+    @ObservationIgnored var peekedPane: (hostID: UUID, paneID: String)? {
+        didSet { onVisibleChange?() }
+    }
+
     @ObservationIgnored private let center = UNUserNotificationCenter.current()
     @ObservationIgnored private var authorized: Bool?
     /// The fixed answers 1, 2, 3, Enter, Esc.
@@ -333,6 +339,9 @@ final class Notifier {
         didSet { onVisibleChange?() }
     }
     @ObservationIgnored var appActive = true {
+        didSet { onVisibleChange?() }
+    }
+    @ObservationIgnored var peekedPane: (hostID: UUID, paneID: String)? {
         didSet { onVisibleChange?() }
     }
 
