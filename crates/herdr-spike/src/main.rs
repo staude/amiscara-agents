@@ -1,7 +1,8 @@
 //! Read-only probe for the herdr socket API, locally or over SSH.
 //!
 //! Answers the spike questions: does SSH streamlocal to `herdr.sock` work,
-//! and is request latency low enough for a live GUI?
+//! and is request latency low enough for a live GUI? `hc` does the same for
+//! herdr-core (#329).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -38,6 +39,11 @@ struct Cli {
     /// (remote: `/Users/<user>/...`).
     #[arg(long)]
     socket: Option<String>,
+    /// herdr-core's socket on this machine. Defaults to its default socket
+    /// (`$HC_SESSION` picks another session); over SSH the key's line or
+    /// `hc connect` decides.
+    #[arg(long)]
+    hc_socket: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
 }
@@ -87,6 +93,12 @@ enum Command {
         #[arg(long, default_value_t = 30)]
         days: u64,
     },
+    /// herdr-core: its spaces, tabs and agents as the apps see them, and
+    /// how long a request takes (read only).
+    Hc {
+        #[arg(long, default_value_t = 5)]
+        count: usize,
+    },
     /// Measure request round trips.
     Bench {
         #[arg(long, default_value_t = 50)]
@@ -118,6 +130,7 @@ async fn main() -> Result<()> {
         Command::View { pane, seconds } => view(&conn, &pane, seconds).await,
         Command::History { pane, pages } => history(&conn, &pane, pages).await,
         Command::Usage { cwd, days } => usage(&conn, &cwd, days).await,
+        Command::Hc { count } => hc(&conn, count).await,
         Command::Board { .. } => Ok(()),
     }
 }
@@ -126,7 +139,7 @@ async fn main() -> Result<()> {
 /// driver can connect again after a drop.
 enum Endpoint {
     #[cfg(unix)]
-    Local(PathBuf),
+    Local(PathBuf, Option<PathBuf>),
     Ssh {
         target: SshTarget,
         socket: String,
@@ -175,7 +188,11 @@ impl Endpoint {
             Some(path) => PathBuf::from(path),
             None => Connection::default_local_socket().context("no home directory")?,
         };
-        Ok(Self::Local(socket))
+        let hc_socket = cli
+            .hc_socket
+            .clone()
+            .or_else(Connection::default_local_hc_socket);
+        Ok(Self::Local(socket, hc_socket))
     }
 
     #[cfg(not(unix))]
@@ -186,7 +203,10 @@ impl Endpoint {
     async fn connect(&self) -> Result<Connection, TransportError> {
         match self {
             #[cfg(unix)]
-            Self::Local(socket) => Ok(Connection::local(socket.clone())),
+            Self::Local(socket, hc_socket) => Ok(Connection::local_with_hc(
+                socket.clone(),
+                hc_socket.clone(),
+            )),
             Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
         }
     }
@@ -197,6 +217,69 @@ async fn ping(conn: &Connection) -> Result<()> {
     println!("herdr {} protocol {}", pong.version, pong.protocol);
     if pong.protocol != SUPPORTED_PROTOCOL {
         println!("warning: client expects protocol {SUPPORTED_PROTOCOL}");
+    }
+    Ok(())
+}
+
+/// herdr-core's terminals mapped like the sync does it, then `count`
+/// timed `terminal.list` requests (over SSH each one `hc connect`).
+async fn hc(conn: &Connection, count: usize) -> Result<()> {
+    let started = Instant::now();
+    let hello: herdr_proto::hc::HelloResult = serde_json::from_value(
+        conn.hc_request(
+            "hello",
+            json!({ "generation": herdr_proto::hc::HC_GENERATION }),
+        )
+        .await?,
+    )?;
+    println!(
+        "herdr-core {} generation {} ({:.0} ms)",
+        hello.version,
+        hello.generation,
+        ms(started.elapsed())
+    );
+    let terminals = herdr_client::hc::list(conn).await?;
+    let mut state = SessionState::without_herdr(&hello.version);
+    state.replace_hc(&terminals);
+    for ws in &state.workspaces {
+        println!(
+            "{} {} #{} [{}]",
+            ws.workspace_id,
+            ws.label,
+            ws.number,
+            ws.agent_status.as_str()
+        );
+        for tab in state.tabs.iter().filter(|tab| tab.workspace_id == ws.workspace_id) {
+            println!(
+                "  {} {} [{}]",
+                tab.tab_id,
+                tab.label,
+                tab.agent_status.as_str()
+            );
+            for pane in state.panes.iter().filter(|pane| pane.tab_id == tab.tab_id) {
+                println!(
+                    "    {} {} [{}] {}",
+                    pane.pane_id,
+                    pane.agent.as_deref().unwrap_or("-"),
+                    pane.agent_status.as_str(),
+                    pane.title.as_deref().unwrap_or("")
+                );
+            }
+        }
+    }
+    let finished = terminals.iter().filter(|t| !t.is_live()).count();
+    println!(
+        "{} live terminals, {finished} finished",
+        terminals.len() - finished
+    );
+    let mut samples = Vec::with_capacity(count);
+    for _ in 0..count {
+        let start = Instant::now();
+        conn.hc_request("terminal.list", json!({})).await?;
+        samples.push(start.elapsed());
+    }
+    if !samples.is_empty() {
+        report("terminal.list", &mut samples);
     }
     Ok(())
 }
