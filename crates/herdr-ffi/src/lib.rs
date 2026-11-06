@@ -287,6 +287,40 @@ impl From<NewWorktree> for actions::NewWorktree {
     }
 }
 
+/// A `Host` entry of `~/.ssh/config` (#340).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SshConfigHost {
+    pub alias: String,
+    /// `HostName`, or the alias when none is set.
+    pub host_name: String,
+    pub user: Option<String>,
+    pub port: Option<u16>,
+    /// What the apps cannot do for this host, e.g. `ProxyJump`.
+    pub unsupported: Option<String>,
+}
+
+impl From<herdr_session::SshConfigHost> for SshConfigHost {
+    fn from(host: herdr_session::SshConfigHost) -> Self {
+        Self {
+            alias: host.alias,
+            host_name: host.host_name,
+            user: host.user,
+            port: host.port,
+            unsupported: host.unsupported,
+        }
+    }
+}
+
+/// The hosts of `~/.ssh/config` and its includes, without patterns; empty
+/// when there is none. Reads files, so not on the main thread.
+#[uniffi::export]
+pub fn ssh_config_hosts() -> Vec<SshConfigHost> {
+    herdr_session::ssh_config_hosts()
+        .into_iter()
+        .map(Into::into)
+        .collect()
+}
+
 /// Default `herdr.sock` path for a user on a macOS host.
 #[uniffi::export]
 pub fn default_remote_socket(user: String) -> String {
