@@ -108,7 +108,9 @@ async fn a_herdr_core_space_takes_prompts_keys_and_scripts() {
         .as_ref()
         .and_then(|update| update.server_version.clone());
     assert!(
-        version.as_deref().is_some_and(|v| v.starts_with("herdr-core")),
+        version
+            .as_deref()
+            .is_some_and(|v| v.starts_with("herdr-core")),
         "{version:?}"
     );
 

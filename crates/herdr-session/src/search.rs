@@ -154,9 +154,16 @@ impl Session {
         let conn = self.connection()?;
         let state = self.snapshot();
         let spaces = state.as_deref().map(pane_directories).unwrap_or_default();
+        // Not a space of a machine connected to herdr-core: the script
+        // goes to the host.
         let first_space = state
             .as_deref()
-            .and_then(|state| state.workspaces.first())
+            .and_then(|state| {
+                state
+                    .workspaces
+                    .iter()
+                    .find(|space| herdr_client::hc::machine_of(&space.workspace_id).is_none())
+            })
             .map(|space| space.workspace_id.clone());
         let (stop_tx, stop) = watch::channel(false);
         self.runtime.spawn(async move {

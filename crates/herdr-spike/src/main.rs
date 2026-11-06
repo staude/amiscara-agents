@@ -203,10 +203,9 @@ impl Endpoint {
     async fn connect(&self) -> Result<Connection, TransportError> {
         match self {
             #[cfg(unix)]
-            Self::Local(socket, hc_socket) => Ok(Connection::local_with_hc(
-                socket.clone(),
-                hc_socket.clone(),
-            )),
+            Self::Local(socket, hc_socket) => {
+                Ok(Connection::local_with_hc(socket.clone(), hc_socket.clone()))
+            }
             Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
         }
     }
@@ -249,7 +248,11 @@ async fn hc(conn: &Connection, count: usize) -> Result<()> {
             ws.number,
             ws.agent_status.as_str()
         );
-        for tab in state.tabs.iter().filter(|tab| tab.workspace_id == ws.workspace_id) {
+        for tab in state
+            .tabs
+            .iter()
+            .filter(|tab| tab.workspace_id == ws.workspace_id)
+        {
             println!(
                 "  {} {} [{}]",
                 tab.tab_id,

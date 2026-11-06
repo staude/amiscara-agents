@@ -1457,10 +1457,16 @@ impl Session {
                 Some((dir, label))
             })
             .collect();
-        let run_in = session.workspaces.iter().find_map(|ws| {
-            self.space_folder(&ws.workspace_id)
-                .map(|dir| (ws.workspace_id.clone(), dir))
-        });
+        // Not a space of a machine connected to herdr-core: the script
+        // goes to the host.
+        let run_in = session
+            .workspaces
+            .iter()
+            .filter(|ws| herdr_client::hc::machine_of(&ws.workspace_id).is_none())
+            .find_map(|ws| {
+                self.space_folder(&ws.workspace_id)
+                    .map(|dir| (ws.workspace_id.clone(), dir))
+            });
         (folders, run_in)
     }
 
