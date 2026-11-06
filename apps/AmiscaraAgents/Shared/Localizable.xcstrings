@@ -980,6 +980,16 @@
         }
       }
     },
+    "Alle zurückholen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring All Back"
+          }
+        }
+      }
+    },
     "Alles kopieren" : {
       "localizations" : {
         "en" : {
@@ -2752,6 +2762,16 @@
         }
       }
     },
+    "Tab wegräumen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put Tab Away"
+          }
+        }
+      }
+    },
     "Tab öffnen" : {
       "localizations" : {
         "en" : {
@@ -2958,6 +2978,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What happened on the host today"
+          }
+        }
+      }
+    },
+    "Weggeräumte Tabs" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put Away Tabs"
+          }
+        }
+      }
+    },
+    "Wegräumen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put Away"
           }
         }
       }
