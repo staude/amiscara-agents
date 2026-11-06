@@ -319,6 +319,73 @@ pub async fn start_agent(
     }
 }
 
+/// How an agent from [`start_agent`] came up (#339).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentStart {
+    /// herdr reports the agent ready for input, or it is still launching
+    /// after [`START_DEADLINE`]: nothing to report.
+    Ready,
+    /// herdr no longer knows the agent before it was ready: it exited, or
+    /// herdr released it at its 30 s launch timeout (a missing command, or
+    /// an agent that never reported ready). Its shell stays open with the
+    /// output.
+    Gone,
+}
+
+/// How often [`await_agent_start`] asks herdr.
+const START_POLL: std::time::Duration = std::time::Duration::from_millis(500);
+/// herdr gives up on a launch after 30 s and then releases the agent; a
+/// little longer here, so that release is still seen.
+const START_DEADLINE: std::time::Duration = std::time::Duration::from_secs(35);
+
+/// Waits until the agent just started in `pane_id` is ready or gone. herdr
+/// answers `agent.start` before the agent runs and reports no exit code: an
+/// agent that exits at once (bad arguments) is released within a second, a
+/// missing command only at herdr's launch timeout. Read only.
+pub async fn await_agent_start(
+    conn: &Connection,
+    pane_id: &str,
+) -> Result<AgentStart, ActionError> {
+    await_start(conn, pane_id, START_POLL, START_DEADLINE).await
+}
+
+async fn await_start(
+    conn: &Connection,
+    pane_id: &str,
+    poll: std::time::Duration,
+    deadline: std::time::Duration,
+) -> Result<AgentStart, ActionError> {
+    let until = tokio::time::Instant::now() + deadline;
+    loop {
+        let reply = conn
+            .request("agent.get", json!({ "target": pane_id }))
+            .await;
+        if let Some(start) = start_state(reply)? {
+            return Ok(start);
+        }
+        if tokio::time::Instant::now() + poll > until {
+            return Ok(AgentStart::Ready);
+        }
+        tokio::time::sleep(poll).await;
+    }
+}
+
+/// Reads one `agent.get` answer: ready, gone, or still launching (`None`).
+fn start_state(
+    reply: Result<serde_json::Value, TransportError>,
+) -> Result<Option<AgentStart>, ActionError> {
+    match reply {
+        Ok(value) if value["agent"]["interactive_ready"].as_bool() == Some(true) => {
+            Ok(Some(AgentStart::Ready))
+        }
+        Ok(_) => Ok(None),
+        Err(TransportError::Proto(ProtoError::Api { code, .. })) if code == "agent_not_found" => {
+            Ok(Some(AgentStart::Gone))
+        }
+        Err(err) => Err(err.into()),
+    }
+}
+
 /// herdr's rule for agent names: `[a-z][a-z0-9_-]{0,31}`. Anything else is
 /// turned into that shape instead of being refused.
 fn agent_name(raw: &str) -> String {
@@ -498,6 +565,117 @@ mod tests {
             ActionError::from(TransportError::Closed),
             ActionError::Transport(TransportError::Closed)
         ));
+    }
+
+    #[test]
+    fn start_answers_are_read() {
+        let ready = Ok(serde_json::json!({"type": "agent_info",
+            "agent": {"pane_id": "w1:p1", "interactive_ready": true}}));
+        assert!(matches!(start_state(ready), Ok(Some(AgentStart::Ready))));
+        let pending = Ok(serde_json::json!({"type": "agent_info",
+            "agent": {"pane_id": "w1:p1", "launch_pending": true, "interactive_ready": false}}));
+        assert!(matches!(start_state(pending), Ok(None)));
+        assert!(matches!(
+            start_state(Err(api("agent_not_found"))),
+            Ok(Some(AgentStart::Gone))
+        ));
+        assert!(matches!(
+            start_state(Err(api("pane_not_found"))),
+            Err(ActionError::Rejected { code, .. }) if code == "pane_not_found"
+        ));
+    }
+
+    // A herdr stand-in that answers `agent.get` from a script, one answer
+    // per request; the last answer repeats.
+    #[cfg(unix)]
+    mod start_watch {
+        use super::super::*;
+        use std::path::PathBuf;
+        use std::sync::{Arc, Mutex};
+        use std::time::Duration;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        fn fake_herdr(name: &str, answers: Vec<serde_json::Value>) -> (PathBuf, Arc<Mutex<usize>>) {
+            let path = std::env::temp_dir()
+                .join(format!("herdr-start-{name}-{}.sock", std::process::id()));
+            let _ = std::fs::remove_file(&path);
+            let listener = UnixListener::bind(&path).expect("bind fake socket");
+            let asked = Arc::new(Mutex::new(0));
+            let count = Arc::clone(&asked);
+            tokio::spawn(async move {
+                while let Ok((stream, _)) = listener.accept().await {
+                    let (read, mut write) = stream.into_split();
+                    let mut line = String::new();
+                    if BufReader::new(read).read_line(&mut line).await.is_err() {
+                        continue;
+                    }
+                    let request: serde_json::Value = serde_json::from_str(&line).expect("json");
+                    assert_eq!(request["method"], "agent.get");
+                    let index = {
+                        let mut count = count.lock().expect("lock");
+                        *count += 1;
+                        (*count - 1).min(answers.len() - 1)
+                    };
+                    let mut reply = answers[index].clone();
+                    reply["id"] = request["id"].clone();
+                    let _ = write.write_all(format!("{reply}\n").as_bytes()).await;
+                }
+            });
+            (path, asked)
+        }
+
+        fn pending() -> serde_json::Value {
+            json!({"result": {"type": "agent_info", "agent": {
+                "pane_id": "w1:p1", "launch_pending": true, "interactive_ready": false}}})
+        }
+
+        const POLL: Duration = Duration::from_millis(10);
+
+        #[tokio::test]
+        async fn an_agent_that_exits_is_gone() {
+            let gone = json!({"error": {"code": "agent_not_found", "message": "gone"}});
+            let (path, asked) = fake_herdr("gone", vec![pending(), pending(), gone]);
+            let conn = Connection::local(&path);
+            let start = await_start(&conn, "w1:p1", POLL, Duration::from_secs(5)).await;
+            assert!(matches!(start, Ok(AgentStart::Gone)), "{start:?}");
+            assert_eq!(*asked.lock().expect("lock"), 3);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_ready_agent_is_ready() {
+            let ready = json!({"result": {"type": "agent_info", "agent": {
+                "pane_id": "w1:p1", "interactive_ready": true}}});
+            let (path, _) = fake_herdr("ready", vec![pending(), ready]);
+            let conn = Connection::local(&path);
+            let start = await_start(&conn, "w1:p1", POLL, Duration::from_secs(5)).await;
+            assert!(matches!(start, Ok(AgentStart::Ready)), "{start:?}");
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_launch_that_never_ends_reports_nothing() {
+            let (path, asked) = fake_herdr("pending", vec![pending()]);
+            let conn = Connection::local(&path);
+            let start = await_start(&conn, "w1:p1", POLL, Duration::from_millis(100)).await;
+            assert!(matches!(start, Ok(AgentStart::Ready)), "{start:?}");
+            assert!(*asked.lock().expect("lock") >= 2);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn other_errors_are_returned() {
+            let refused = json!({"error": {"code": "pane_not_found", "message": "no pane"}});
+            let (path, _) = fake_herdr("refused", vec![refused]);
+            let conn = Connection::local(&path);
+            let start = await_start(&conn, "w1:p1", POLL, Duration::from_secs(5)).await;
+            assert!(
+                matches!(&start, Err(ActionError::Rejected { code, .. }) if code == "pane_not_found"),
+                "{start:?}"
+            );
+            let _ = std::fs::remove_file(&path);
+        }
     }
 
     #[test]

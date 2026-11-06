@@ -15,7 +15,7 @@
 //! (`pane.process_info`, #337).
 //!
 //! Only read-only methods are used: `session.snapshot`, `events.subscribe`,
-//! `worktree.list` and `pane.process_info`.
+//! `worktree.list`, `agent.get` and `pane.process_info`.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -24,8 +24,8 @@ use std::time::Duration;
 use std::collections::BTreeMap;
 
 use herdr_proto::{
-    GLOBAL_SUBSCRIPTIONS, PaneProcessInfoResult, ProtoError, SnapshotResult, WorktreeListResult,
-    parse_event,
+    AgentGetResult, AgentStatus, Event, GLOBAL_SUBSCRIPTIONS, PaneProcessInfoResult, ProtoError,
+    SnapshotResult, WorktreeListResult, parse_event,
 };
 use herdr_transport::{Connection, Subscription, TransportError};
 use serde_json::{Value, json};
@@ -330,8 +330,40 @@ async fn follow_inner(
             }
             () = tx.closed() => return Err(SyncError::Unobserved),
         };
-        match state.apply(&parse_event(item?)?) {
+        let event = parse_event(item?)?;
+        // herdr may announce a change of status with `pane.updated` as well
+        // as with `pane.agent_status_changed`, in either order.
+        let changed_pane = match &event {
+            Event::PaneAgentStatusChanged { pane_id, .. } => Some(pane_id.clone()),
+            Event::PaneUpdated { pane } => Some(pane.pane_id.clone()),
+            _ => None,
+        };
+        let before = changed_pane
+            .as_deref()
+            .and_then(|id| state.pane(id))
+            .map(|pane| {
+                (
+                    pane.agent_status,
+                    pane.tokens.get(crate::SEEN_TOKEN).cloned(),
+                )
+            });
+        match state.apply(&event) {
             Applied::Updated => {
+                // A new finish: which one it is decides whether a client
+                // has seen it (#335).
+                if let Some(pane_id) = changed_pane.as_deref()
+                    && let Some(pane) = state.pane(pane_id)
+                    && pane.agent_status == AgentStatus::Done
+                    && !state.completion_seqs.contains_key(pane_id)
+                    // Also when a missed number would decide a new mark.
+                    && before.as_ref().is_none_or(|(status, mark)| {
+                        *status != AgentStatus::Done
+                            || mark.as_ref() != pane.tokens.get(crate::SEEN_TOKEN)
+                    })
+                {
+                    let seq = finish(conn, pane_id).await;
+                    state.set_completion_seq(pane_id, seq);
+                }
                 // An agent that started or ended changes which panes the
                 // poller asks (#337).
                 programs.follow(&state);
@@ -535,6 +567,17 @@ fn branch_for(worktrees: &[(String, String)], dir: &str) -> Option<String> {
         })
         .max_by_key(|(path, _)| path.len())
         .map(|(_, branch)| branch.clone())
+}
+
+/// The `completion_seq` of the finish the agent in `pane_id` is in, from
+/// `agent.get`; `None` on an error or when herdr does not count finishes.
+async fn finish(conn: &Connection, pane_id: &str) -> Option<u64> {
+    let value = conn
+        .request("agent.get", json!({ "target": pane_id }))
+        .await
+        .ok()?;
+    let got = serde_json::from_value::<AgentGetResult>(value).ok()?;
+    crate::state::finish_seq(&got.agent)
 }
 
 async fn snapshot(conn: &Connection) -> Result<SessionState, SyncError> {

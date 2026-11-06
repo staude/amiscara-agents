@@ -28,6 +28,11 @@ pub struct SessionState {
     /// (#337); panes without a foreground process are missing. Not part of
     /// the snapshot, so the sync driver fills and carries it.
     pub programs: BTreeMap<String, ProgramMatch>,
+    /// herdr's `completion_seq` of the finish each `done` agent is in, by
+    /// pane id (#335); only when that finish is the agent's latest change.
+    /// From the snapshot, and after a change to `done` from `agent.get`.
+    /// Servers before herdr 0.9.5 do not count finishes, so it stays empty.
+    pub completion_seqs: BTreeMap<String, u64>,
 }
 
 /// What [`SessionState::apply`] did with an event.
@@ -80,6 +85,11 @@ pub const EDITOR_ID_TOKEN: &str = "editor_id";
 pub const EDITOR_DONE_TOKEN: &str = "editor_done";
 pub const EDITOR_PATH_TOKEN_PREFIX: &str = "editor_path_";
 
+/// Token a client sets to the `completion_seq` of an agent's finish once
+/// its pane was shown (#335): the agent counts as idle from then on, on
+/// every client of the server, until it finishes again.
+pub const SEEN_TOKEN: &str = "seen";
+
 /// The VS Code address that opens the folder `path` (#288): over
 /// Remote-SSH to `target` (an SSH config alias or `user@host`), or as a
 /// local folder without one. The path is percent-encoded except for
@@ -109,6 +119,11 @@ pub struct BoardEntry<'a> {
 
 impl SessionState {
     pub fn from_snapshot(snapshot: SessionSnapshot) -> Self {
+        let completion_seqs = snapshot
+            .agents
+            .iter()
+            .filter_map(|agent| finish_seq(agent).map(|seq| (agent.pane_id.clone(), seq)))
+            .collect();
         let mut state = Self {
             version: snapshot.version,
             protocol: snapshot.protocol,
@@ -124,6 +139,7 @@ impl SessionState {
                 .into_iter()
                 .filter_map(|agent| Some((agent.pane_id, agent.name?)))
                 .collect(),
+            completion_seqs,
         };
         state.workspaces.sort_by_key(|ws| ws.number);
         let order = state.workspace_order();
@@ -155,8 +171,44 @@ impl SessionState {
         self.panes.iter().map(|pane| pane.pane_id.clone()).collect()
     }
 
+    /// Records the `completion_seq` of the finish `pane_id` is in, or
+    /// forgets it with `None`.
+    pub fn set_completion_seq(&mut self, pane_id: &str, seq: Option<u64>) {
+        match seq {
+            Some(seq) => {
+                self.completion_seqs.insert(pane_id.to_owned(), seq);
+            }
+            None => {
+                self.completion_seqs.remove(pane_id);
+            }
+        }
+    }
+
+    /// Whether a `done` agent's finish was shown on a client already: its
+    /// [`SEEN_TOKEN`] names the finish it is in. Without a known finish
+    /// nothing counts as seen.
+    pub fn seen(&self, pane: &PaneInfo) -> bool {
+        pane.agent_status == AgentStatus::Done
+            && self.completion_seqs.get(&pane.pane_id).is_some_and(|seq| {
+                pane.tokens
+                    .get(SEEN_TOKEN)
+                    .and_then(|value| value.parse::<u64>().ok())
+                    == Some(*seq)
+            })
+    }
+
+    /// The status to show for a pane: a seen `done` is `idle`, otherwise
+    /// herdr's.
+    pub fn agent_status(&self, pane: &PaneInfo) -> AgentStatus {
+        if self.seen(pane) {
+            AgentStatus::Idle
+        } else {
+            pane.agent_status
+        }
+    }
+
     /// Agent panes, most urgent first: blocked, working, done, idle, unknown,
-    /// then in workspace and tab order.
+    /// then in workspace and tab order. A seen `done` counts as idle.
     pub fn board(&self) -> Vec<BoardEntry<'_>> {
         let mut entries: Vec<BoardEntry<'_>> = self
             .panes
@@ -171,7 +223,7 @@ impl SessionState {
         entries.sort_by(|a, b| {
             let key = |e: &BoardEntry<'_>| {
                 (
-                    urgency(e.pane.agent_status),
+                    urgency(self.agent_status(e.pane)),
                     e.workspace.map_or(u32::MAX, |ws| ws.number),
                     e.tab.map_or(u32::MAX, |tab| tab.number),
                 )
@@ -186,13 +238,21 @@ impl SessionState {
     /// Agent panes that now need the user and did not before: newly
     /// `blocked` (waiting for an answer) or newly `done` (finished, unseen).
     /// Panes that were already in that state stay quiet, so repeated
-    /// snapshots or reconnects do not notify twice.
+    /// snapshots or reconnects do not notify twice. A seen `done` counts as
+    /// idle and needs no attention.
     pub fn attention_since(&self, before: &SessionState) -> Vec<String> {
         self.panes
             .iter()
             .filter(|pane| pane.agent.is_some())
-            .filter(|pane| matches!(pane.agent_status, AgentStatus::Blocked | AgentStatus::Done))
             .filter(|pane| {
+                matches!(
+                    self.agent_status(pane),
+                    AgentStatus::Blocked | AgentStatus::Done
+                )
+            })
+            .filter(|pane| {
+                // Only a change herdr reports: a finish that loses its
+                // known number is not new.
                 before
                     .pane(&pane.pane_id)
                     .is_none_or(|old| old.agent_status != pane.agent_status)
@@ -331,7 +391,12 @@ impl SessionState {
                     if existing.tab_id == pane.tab_id
                         && existing.workspace_id == pane.workspace_id =>
                 {
-                    replace(existing, pane.clone())
+                    let status_changed = existing.agent_status != pane.agent_status;
+                    let applied = replace(existing, pane.clone());
+                    if status_changed {
+                        self.completion_seqs.remove(&pane.pane_id);
+                    }
+                    applied
                 }
                 _ => Applied::NeedsSnapshot,
             },
@@ -356,6 +421,8 @@ impl SessionState {
                     return Applied::NeedsSnapshot;
                 };
                 let mut applied = replace(&mut pane.agent_status, *agent_status);
+                // The finish it was in is over; a new one gets its own number.
+                let status_changed = applied == Applied::Updated;
                 if agent.is_some() {
                     applied = applied.or(replace(&mut pane.agent, agent.clone()));
                 }
@@ -364,6 +431,9 @@ impl SessionState {
                 }
                 if title.is_some() {
                     applied = applied.or(replace(&mut pane.title, title.clone()));
+                }
+                if status_changed {
+                    self.completion_seqs.remove(pane_id);
                 }
                 applied
             }
@@ -466,6 +536,15 @@ fn replace<T: PartialEq>(slot: &mut T, value: T) -> Applied {
         *slot = value;
         Applied::Updated
     }
+}
+
+/// The `completion_seq` of the finish an agent is in: only a `done` whose
+/// latest change was that finish.
+pub(crate) fn finish_seq(agent: &herdr_proto::AgentInfo) -> Option<u64> {
+    (agent.agent_status == AgentStatus::Done)
+        .then_some(agent.completion_seq)
+        .flatten()
+        .filter(|seq| *seq == agent.state_change_seq && *seq != 0)
 }
 
 fn urgency(status: AgentStatus) -> u8 {
@@ -701,6 +780,138 @@ mod tests {
             shell.agent_status = AgentStatus::Blocked;
         }
         assert!(after.attention_since(&before).is_empty());
+    }
+
+    /// The fixture with `w2:p1` done in finish 7 and its seen mark set to
+    /// `mark`.
+    fn seen_state(mark: Option<&str>) -> SessionState {
+        let mut state = snapshot();
+        state.set_completion_seq("w2:p1", Some(7));
+        if let (Some(mark), Some(pane)) =
+            (mark, state.panes.iter_mut().find(|p| p.pane_id == "w2:p1"))
+        {
+            pane.tokens.insert(SEEN_TOKEN.into(), mark.into());
+        }
+        state
+    }
+
+    fn status_of(state: &SessionState, pane_id: &str) -> Option<AgentStatus> {
+        state.pane(pane_id).map(|pane| state.agent_status(pane))
+    }
+
+    #[test]
+    fn a_seen_finish_is_idle_on_the_board() {
+        let state = seen_state(Some("7"));
+        assert_eq!(status_of(&state, "w2:p1"), Some(AgentStatus::Idle));
+        // Sorted with the idle agents, after w1:p1 by workspace number.
+        assert_eq!(board_ids(&state), ["w1:p2", "w1:p1", "w2:p1"]);
+        // herdr's own status stays as it was.
+        assert_eq!(
+            state.pane("w2:p1").map(|p| p.agent_status),
+            Some(AgentStatus::Done)
+        );
+    }
+
+    #[test]
+    fn a_mark_for_another_finish_or_without_one_is_unseen() {
+        for state in [
+            seen_state(Some("6")),
+            seen_state(Some("x")),
+            seen_state(None),
+        ] {
+            assert_eq!(status_of(&state, "w2:p1"), Some(AgentStatus::Done));
+        }
+        // A mark but no known finish (e.g. herdr before 0.9.5).
+        let mut unknown = seen_state(Some("7"));
+        unknown.set_completion_seq("w2:p1", None);
+        assert_eq!(status_of(&unknown, "w2:p1"), Some(AgentStatus::Done));
+    }
+
+    #[test]
+    fn a_seen_finish_needs_no_attention() {
+        let mut before = snapshot();
+        let set = |state: &mut SessionState, status: &str| {
+            state.apply(&event(json!({
+                "event": "pane.agent_status_changed",
+                "data": {"pane_id": "w1:p2", "workspace_id": "w1", "agent_status": status}
+            })));
+        };
+        let mut after = before.clone();
+        set(&mut after, "done");
+        after.set_completion_seq("w1:p2", Some(9));
+        if let Some(pane) = after.panes.iter_mut().find(|p| p.pane_id == "w1:p2") {
+            pane.tokens.insert(SEEN_TOKEN.into(), "9".into());
+        }
+        assert!(
+            after.attention_since(&before).is_empty(),
+            "finished in front"
+        );
+
+        // Becoming seen later is no news either.
+        before = after.clone();
+        if let Some(pane) = before.panes.iter_mut().find(|p| p.pane_id == "w1:p2") {
+            pane.tokens.remove(SEEN_TOKEN);
+        }
+        assert!(after.attention_since(&before).is_empty());
+    }
+
+    #[test]
+    fn a_seen_finish_that_loses_its_number_is_no_news() {
+        let before = seen_state(Some("7"));
+        let mut after = before.clone();
+        after.set_completion_seq("w2:p1", None);
+        assert_eq!(status_of(&after, "w2:p1"), Some(AgentStatus::Done));
+        assert!(after.attention_since(&before).is_empty());
+    }
+
+    #[test]
+    fn a_new_finish_is_unseen_again() {
+        let mut state = seen_state(Some("7"));
+        let set = |state: &mut SessionState, status: &str| {
+            state.apply(&event(json!({
+                "event": "pane.agent_status_changed",
+                "data": {"pane_id": "w2:p1", "workspace_id": "w2", "agent_status": status}
+            })))
+        };
+        assert_eq!(set(&mut state, "working"), Applied::Updated);
+        assert!(!state.completion_seqs.contains_key("w2:p1"), "finish over");
+        let working = state.clone();
+        set(&mut state, "done");
+        assert_eq!(status_of(&state, "w2:p1"), Some(AgentStatus::Done));
+        state.set_completion_seq("w2:p1", Some(12));
+        assert_eq!(status_of(&state, "w2:p1"), Some(AgentStatus::Done));
+        assert_eq!(state.attention_since(&working), ["w2:p1"]);
+    }
+
+    #[test]
+    fn a_status_change_in_a_pane_update_forgets_the_finish() {
+        let mut state = seen_state(Some("7"));
+        let mut pane = state.pane("w2:p1").cloned().expect("pane");
+        pane.title = Some("renamed".into());
+        assert_eq!(
+            state.apply(&Event::PaneUpdated { pane: pane.clone() }),
+            Applied::Updated
+        );
+        assert!(state.completion_seqs.contains_key("w2:p1"), "same status");
+        pane.agent_status = AgentStatus::Working;
+        state.apply(&Event::PaneUpdated { pane });
+        assert!(!state.completion_seqs.contains_key("w2:p1"));
+    }
+
+    #[test]
+    fn the_snapshot_knows_the_finishes_of_done_agents() {
+        let agent = |status: &str, change: u64, completion: Option<u64>| {
+            serde_json::from_value::<herdr_proto::AgentInfo>(json!({
+                "pane_id": "p", "agent_status": status,
+                "state_change_seq": change, "completion_seq": completion
+            }))
+            .expect("agent")
+        };
+        assert_eq!(finish_seq(&agent("done", 5, Some(5))), Some(5));
+        assert_eq!(finish_seq(&agent("done", 6, Some(5))), None, "older finish");
+        assert_eq!(finish_seq(&agent("done", 5, None)), None);
+        assert_eq!(finish_seq(&agent("idle", 5, Some(5))), None);
+        assert_eq!(finish_seq(&agent("done", 0, Some(0))), None);
     }
 
     fn layout_event(tab: &str, panes: &[(&str, u16)]) -> Event {

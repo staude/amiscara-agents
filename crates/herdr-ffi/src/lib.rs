@@ -245,6 +245,26 @@ impl From<actions::Created> for Created {
     }
 }
 
+/// An agent the app started that ended before it was ready (#339); its
+/// shell stays open with the output.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct StartFailure {
+    pub workspace_id: String,
+    pub pane_id: String,
+    /// The pane's last lines; empty when they could not be read.
+    pub lines: String,
+}
+
+impl From<herdr_session::StartFailure> for StartFailure {
+    fn from(failure: herdr_session::StartFailure) -> Self {
+        Self {
+            workspace_id: failure.workspace_id,
+            pane_id: failure.pane_id,
+            lines: failure.lines,
+        }
+    }
+}
+
 /// A worktree to create; empty fields are left to herdr (see
 /// `herdr_core::actions::NewWorktree`).
 #[derive(Debug, Clone, uniffi::Record)]
@@ -587,6 +607,13 @@ impl HostSession {
         Ok(runtime().block_on(self.session.dismiss_editor_request(&pane_id, &request_id))?)
     }
 
+    /// Marks the finish of the done agent in a pane as seen on the host
+    /// (#335), so every device shows it as idle; nothing happens for an
+    /// agent that is not done. Blocks for up to two round trips.
+    pub fn mark_seen(&self, pane_id: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.mark_seen(&pane_id))?)
+    }
+
     /// The folder to open a pane in VS Code with (#288), `None` when herdr
     /// reports no working directory.
     pub fn pane_folder(&self, pane_id: String) -> Option<String> {
@@ -692,6 +719,16 @@ impl HostSession {
         name: Option<String>,
     ) -> Result<String, FfiError> {
         Ok(runtime().block_on(self.session.start_agent(&pane_id, &kind, name.as_deref()))?)
+    }
+
+    /// Waits for the agent just started in `pane_id` (#339): a
+    /// `StartFailure` with the pane's last lines when it ended before it
+    /// was ready, `None` when it came up. Read only. Blocks up to about
+    /// 35 s (herdr's launch timeout); call it off the main thread.
+    pub fn watch_agent_start(&self, pane_id: String) -> Result<Option<StartFailure>, FfiError> {
+        Ok(runtime()
+            .block_on(self.session.watch_agent_start(&pane_id))?
+            .map(Into::into))
     }
 
     /// Agent kinds the server can start, the usual ones first. Never fails:

@@ -43,6 +43,10 @@ const EDITOR_TTL_MS: u64 = 30_000;
 /// How long a device's claim on one run of a chain stays (#300): herdr's
 /// longest time to live, so a late device still finds it.
 const CHAIN_CLAIM_TTL_MS: u64 = 86_400_000;
+/// The metadata source the apps mark an agent's finish as seen under
+/// (#335). Without a time to live: the mark stays until the agent
+/// finishes again and a client marks that finish.
+const SEEN_SOURCE: &str = "amiscara-agents-seen";
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -129,6 +133,75 @@ impl From<actions::ActionError> for SessionError {
             actions::ActionError::Transport(_) => Self::NotConnected(err.to_string()),
         }
     }
+}
+
+/// An agent the app started that ended before it was ready (#339). herdr
+/// leaves its shell open, so the pane can still be opened.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StartFailure {
+    pub workspace_id: String,
+    pub pane_id: String,
+    /// The pane's last lines, e.g. `command not found`; empty when they
+    /// could not be read.
+    pub lines: String,
+}
+
+/// How many of the pane's last lines a [`StartFailure`] keeps; the app
+/// shows them all, so the end of the output is never cut off.
+const START_FAILURE_LINES: u32 = 8;
+
+/// The report for an agent start that ended as `start`: `None` unless the
+/// agent is gone and its pane still there.
+async fn start_failure(
+    conn: &Connection,
+    pane_id: &str,
+    start: actions::AgentStart,
+) -> Result<Option<StartFailure>, SessionError> {
+    if start == actions::AgentStart::Ready {
+        return Ok(None);
+    }
+    let got = match conn
+        .request("pane.get", serde_json::json!({ "pane_id": pane_id }))
+        .await
+    {
+        Ok(value) => serde_json::from_value::<PaneGetResult>(value)
+            .map_err(|err| SessionError::Rejected(err.to_string()))?,
+        Err(TransportError::Proto(herdr_proto::ProtoError::Api { code, .. }))
+            if code == "pane_not_found" =>
+        {
+            return Ok(None);
+        }
+        Err(err) => return Err(actions::ActionError::from(err).into()),
+    };
+    let lines = recent_lines(conn, pane_id, START_FAILURE_LINES, true)
+        .await
+        .unwrap_or_default();
+    Ok(Some(StartFailure {
+        workspace_id: got.pane.workspace_id,
+        pane_id: pane_id.to_owned(),
+        lines,
+    }))
+}
+
+/// The last `max_lines` rows of a pane as plain text, trailing spaces
+/// trimmed and blank lines at the bottom dropped.
+async fn recent_lines(
+    conn: &Connection,
+    pane_id: &str,
+    max_lines: u32,
+    unwrap: bool,
+) -> Result<String, SessionError> {
+    let read = pane::read_recent(conn, pane_id, max_lines, unwrap).await?;
+    let mut lines: Vec<String> = read
+        .screen
+        .text_lines()
+        .into_iter()
+        .map(|line| line.trim_end().to_owned())
+        .collect();
+    while lines.last().is_some_and(String::is_empty) {
+        lines.pop();
+    }
+    Ok(lines.join("\n"))
 }
 
 pub(crate) fn files_error(err: TransportError) -> SessionError {
@@ -748,6 +821,15 @@ impl Session {
         Ok(())
     }
 
+    /// Marks the finish of the `done` agent in `pane_id` as seen on the
+    /// host (#335), so every client shows it as idle. Does nothing when
+    /// the agent is not done, herdr does not count its finishes (before
+    /// 0.9.5) or the mark is set already.
+    pub async fn mark_seen(&self, pane_id: &str) -> Result<(), SessionError> {
+        let conn = self.connection()?;
+        mark_seen(&conn, pane_id, self.session_state().as_deref()).await
+    }
+
     /// Sends a prompt to the agent in a pane, followed by Enter.
     pub async fn send_prompt(&self, pane_id: &str, text: &str) -> Result<(), SessionError> {
         let conn = self.connection()?;
@@ -777,17 +859,20 @@ impl Session {
         unwrap: bool,
     ) -> Result<String, SessionError> {
         let conn = self.connection()?;
-        let read = pane::read_recent(&conn, pane_id, max_lines, unwrap).await?;
-        let mut lines: Vec<String> = read
-            .screen
-            .text_lines()
-            .into_iter()
-            .map(|line| line.trim_end().to_owned())
-            .collect();
-        while lines.last().is_some_and(String::is_empty) {
-            lines.pop();
-        }
-        Ok(lines.join("\n"))
+        recent_lines(&conn, pane_id, max_lines, unwrap).await
+    }
+
+    /// Waits for the agent just started in `pane_id` (#339): `Some` with
+    /// the pane's last lines when it ended before it was ready, `None` when
+    /// it came up or its pane is gone as well. Takes up to herdr's launch
+    /// timeout (30 s) for a missing command. Read only.
+    pub async fn watch_agent_start(
+        &self,
+        pane_id: &str,
+    ) -> Result<Option<StartFailure>, SessionError> {
+        let conn = self.connection()?;
+        let start = actions::await_agent_start(&conn, pane_id).await?;
+        start_failure(&conn, pane_id, start).await
     }
 
     /// The choice question an agent asks at the bottom of a pane's visible
@@ -1554,6 +1639,50 @@ impl Drop for Session {
     fn drop(&mut self) {
         self.forward.abort();
     }
+}
+
+/// [`Session::mark_seen`] on `conn`; `known` is the last known state, whose
+/// mark spares a second write.
+async fn mark_seen(
+    conn: &Connection,
+    pane_id: &str,
+    known: Option<&herdr_core::SessionState>,
+) -> Result<(), SessionError> {
+    let to_error = |err: TransportError| SessionError::from(actions::ActionError::from(err));
+    let value = conn
+        .request("agent.get", serde_json::json!({ "target": pane_id }))
+        .await
+        .map_err(to_error)?;
+    let agent = serde_json::from_value::<AgentGetResult>(value)
+        .map_err(|err| SessionError::Rejected(err.to_string()))?
+        .agent;
+    if agent.agent_status != AgentStatus::Done
+        || agent.state_change_seq == 0
+        || agent.completion_seq != Some(agent.state_change_seq)
+    {
+        return Ok(());
+    }
+    let seq = agent.state_change_seq.to_string();
+    let marked = known
+        .and_then(|state| state.pane(pane_id))
+        .and_then(|pane| pane.tokens.get(herdr_core::SEEN_TOKEN))
+        .is_some_and(|mark| *mark == seq);
+    if marked {
+        return Ok(());
+    }
+    // No `seq`: herdr would drop a report whose `seq` is not above the
+    // last one of the source, and `completion_seq` counts over all panes.
+    conn.request(
+        "pane.report_metadata",
+        serde_json::json!({
+            "pane_id": pane_id,
+            "source": SEEN_SOURCE,
+            "tokens": { herdr_core::SEEN_TOKEN: seq },
+        }),
+    )
+    .await
+    .map_err(to_error)?;
+    Ok(())
 }
 
 /// Writes tokens of [`chains::CHAINS_SOURCE`] to a pane; `None` removes one.
@@ -2463,6 +2592,85 @@ mod tests {
         );
     }
 
+    // A herdr stand-in for a failed agent start (#339): `pane.get` and
+    // `pane.read` for pane `w2:p3`, any other pane is unknown.
+    #[cfg(unix)]
+    mod start_failures {
+        use super::super::*;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        fn answer(method: &str, params: &serde_json::Value) -> serde_json::Value {
+            use serde_json::json;
+            let known = params["pane_id"] == "w2:p3";
+            match method {
+                "pane.get" if known => json!({"result": {"type": "pane_info", "pane": {
+                    "pane_id": "w2:p3", "workspace_id": "w2", "tab_id": "w2:t1"
+                }}}),
+                "pane.read" if known => json!({"result": {"type": "pane_read", "read": {
+                    "pane_id": "w2:p3", "revision": 0, "truncated": false,
+                    "text": "❯ kiro-cli   \r\nzsh: command not found: kiro-cli\r\n❯\r\n\r\n"
+                }}}),
+                _ => json!({"error": {"code": "pane_not_found", "message": "no pane"}}),
+            }
+        }
+
+        fn fake_herdr(name: &str) -> std::path::PathBuf {
+            let path = std::env::temp_dir().join(format!(
+                "herdr-start-failure-{name}-{}.sock",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_file(&path);
+            let listener = UnixListener::bind(&path).expect("bind fake socket");
+            tokio::spawn(async move {
+                while let Ok((stream, _)) = listener.accept().await {
+                    tokio::spawn(async move {
+                        let (read, mut write) = stream.into_split();
+                        let mut lines = BufReader::new(read).lines();
+                        while let Ok(Some(line)) = lines.next_line().await {
+                            let request: serde_json::Value =
+                                serde_json::from_str(&line).expect("json");
+                            let mut reply = answer(
+                                request["method"].as_str().unwrap_or_default(),
+                                &request["params"],
+                            );
+                            reply["id"] = request["id"].clone();
+                            let _ = write.write_all(format!("{reply}\n").as_bytes()).await;
+                        }
+                    });
+                }
+            });
+            path
+        }
+
+        #[tokio::test]
+        async fn a_gone_agent_reports_the_last_lines() {
+            let path = fake_herdr("gone");
+            let conn = Connection::local(&path);
+            let failure = start_failure(&conn, "w2:p3", actions::AgentStart::Gone).await;
+            assert_eq!(
+                failure.ok().flatten(),
+                Some(StartFailure {
+                    workspace_id: "w2".into(),
+                    pane_id: "w2:p3".into(),
+                    lines: "❯ kiro-cli\nzsh: command not found: kiro-cli\n❯".into(),
+                })
+            );
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_ready_agent_or_a_closed_pane_reports_nothing() {
+            let path = fake_herdr("nothing");
+            let conn = Connection::local(&path);
+            let ready = start_failure(&conn, "w2:p3", actions::AgentStart::Ready).await;
+            assert!(matches!(ready, Ok(None)), "{ready:?}");
+            let closed = start_failure(&conn, "w9:p9", actions::AgentStart::Gone).await;
+            assert!(matches!(closed, Ok(None)), "{closed:?}");
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+
     // A herdr stand-in for chains (#300): one agent pane `w1:p1` with a
     // chain to `w1:p2`, metadata with herdr's `seq` rule, prompts counted.
     #[cfg(unix)]
@@ -2482,6 +2690,8 @@ mod tests {
             /// Targets waiting at a dialog, which refuse prompts.
             blocked: Vec<&'static str>,
             prompts: Vec<(String, String)>,
+            /// How many `pane.report_metadata` calls came in.
+            reports: usize,
         }
 
         impl Fake {
@@ -2504,6 +2714,7 @@ mod tests {
                         "tokens": self.tokens()
                     }}}),
                     "pane.report_metadata" => {
+                        self.reports += 1;
                         let source = params["source"].as_str().unwrap_or_default().to_owned();
                         let entry = self.sources.entry(source).or_default();
                         let seq = params["seq"].as_u64();
@@ -2702,6 +2913,66 @@ mod tests {
             assert!(results.is_empty(), "{results:?}");
             assert!(fake.lock().expect("fake").prompts.is_empty());
             let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_done_agent_is_marked_seen_once() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                ..Fake::default()
+            }));
+            let path = fake_herdr("seen", fake.clone());
+            let conn = Connection::local(&path);
+            let none = BTreeMap::new();
+            mark_seen(&conn, "w1:p1", Some(&state("done", &none)))
+                .await
+                .expect("mark");
+            let tokens = fake.lock().expect("fake").tokens();
+            assert_eq!(
+                tokens.get(herdr_core::SEEN_TOKEN).map(String::as_str),
+                Some("10")
+            );
+            assert_eq!(fake.lock().expect("fake").reports, 1);
+
+            // Known as marked: no second write.
+            mark_seen(&conn, "w1:p1", Some(&state("done", &tokens)))
+                .await
+                .expect("mark");
+            assert_eq!(fake.lock().expect("fake").reports, 1);
+
+            // A new finish gets a mark of its own.
+            fake.lock().expect("fake").seq = 14;
+            mark_seen(&conn, "w1:p1", Some(&state("done", &tokens)))
+                .await
+                .expect("mark");
+            let fake_now = fake.lock().expect("fake");
+            assert_eq!(fake_now.reports, 2);
+            assert_eq!(
+                fake_now
+                    .tokens()
+                    .get(herdr_core::SEEN_TOKEN)
+                    .map(String::as_str),
+                Some("14")
+            );
+            drop(fake_now);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn agents_not_done_or_uncounted_are_not_marked() {
+            for (status, seq) in [("working", 10), ("idle", 10), ("blocked", 10), ("done", 0)] {
+                let fake = Arc::new(Mutex::new(Fake {
+                    status,
+                    seq,
+                    ..Fake::default()
+                }));
+                let path = fake_herdr(&format!("unseen-{status}-{seq}"), fake.clone());
+                let conn = Connection::local(&path);
+                mark_seen(&conn, "w1:p1", None).await.expect("mark");
+                assert_eq!(fake.lock().expect("fake").reports, 0, "{status} {seq}");
+                let _ = std::fs::remove_file(&path);
+            }
         }
 
         #[tokio::test]
