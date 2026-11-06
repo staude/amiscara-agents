@@ -240,7 +240,10 @@ code), so a host is set up the same way everywhere.
   the host, so SSH hosts need SFTP like uploads. Mac, iPhone and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
-  question as titles.
+  question as titles. Done means finished unseen: once the agent's pane
+  was open on a device, it counts as idle on every device of the host, and
+  "ist fertig" only comes for a finish no device showed within three
+  seconds (herdr 0.9.5, not on read-only hosts).
   The sound for "waits" and for "done" is chosen in the settings, per
   device: the default, four tones the app brings, no sound, and on the Mac
   the system sounds or an own file. Mac, iPhone and iPad.
