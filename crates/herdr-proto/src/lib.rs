@@ -217,6 +217,37 @@ pub struct PaneGetResult {
     pub pane: PaneInfo,
 }
 
+/// `pane.process_info` result: what runs in the pane's foreground (#337).
+#[derive(Debug, Deserialize)]
+pub struct PaneProcessInfoResult {
+    pub process_info: PaneProcessInfo,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PaneProcessInfo {
+    pub pane_id: String,
+    /// The pane's foreground process group; its leader is the program the
+    /// user started, the other members its children (MCP servers, a dev
+    /// server behind `npm run`).
+    #[serde(default)]
+    pub foreground_process_group_id: Option<u32>,
+    #[serde(default)]
+    pub foreground_processes: Vec<PaneProcess>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PaneProcess {
+    pub pid: u32,
+    /// Executable name as the system reports it, e.g. `python3.12`.
+    pub name: String,
+    /// Name the process was started under, e.g. `python` or `-zsh`.
+    #[serde(default)]
+    pub argv0: Option<String>,
+    /// Missing when the system does not tell (other user, exited).
+    #[serde(default)]
+    pub argv: Option<Vec<String>>,
+}
+
 /// `session.snapshot` result: the whole server state in one answer.
 #[derive(Debug, Deserialize)]
 pub struct SnapshotResult {
@@ -643,6 +674,29 @@ mod tests {
         assert_eq!(
             (got.agent.state_change_seq, got.agent.completion_seq),
             (0, None)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_pane_process_info() -> Result<(), ProtoError> {
+        let line = r#"{"id":"1","result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p1","shell_pid":9539,"foreground_process_group_id":9600,"foreground_processes":[{"pid":9600,"name":"node","argv0":"node","argv":["node","/p/node_modules/.bin/vite"],"cmdline":"node /p/node_modules/.bin/vite","cwd":"/p"},{"pid":9601,"name":"esbuild"}]}}}"#;
+        let got: PaneProcessInfoResult = serde_json::from_value(parse_response(line)?)?;
+        let info = got.process_info;
+        assert_eq!(info.pane_id, "w1:p1");
+        assert_eq!(info.foreground_process_group_id, Some(9600));
+        assert_eq!(info.foreground_processes.len(), 2);
+        assert_eq!(
+            info.foreground_processes[0]
+                .argv
+                .as_deref()
+                .map(<[String]>::len),
+            Some(2)
+        );
+        let bare = &info.foreground_processes[1];
+        assert_eq!(
+            (bare.name.as_str(), &bare.argv0, &bare.argv),
+            ("esbuild", &None, &None)
         );
         Ok(())
     }
