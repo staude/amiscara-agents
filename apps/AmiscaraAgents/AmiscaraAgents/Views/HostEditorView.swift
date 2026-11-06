@@ -34,6 +34,11 @@ struct HostEditorView: View {
     @State private var originalGitHubToken = ""
     @State private var tokenLoaded = false
     #endif
+    #if os(macOS)
+    /// Hosts of `~/.ssh/config` to fill the fields from (#340).
+    @State private var configHosts: [SshConfigHost] = []
+    @State private var chosenSshConfigHost: String?
+    #endif
 
     private struct ImportedKey: Equatable {
         let key: String
@@ -63,6 +68,9 @@ struct HostEditorView: View {
 
                 if config.kind == .ssh {
                     importSection
+                    #if os(macOS)
+                    sshConfigSection
+                    #endif
                     Section {
                         TextField("Host", text: $config.host, prompt: Text("mac.example.internal"))
                             .technicalInput()
@@ -186,6 +194,9 @@ struct HostEditorView: View {
             }
         }
         .task(id: config.kind) { await loadSessions() }
+        #if os(macOS)
+        .task { configHosts = await Task.detached { sshConfigHosts() }.value }
+        #endif
         #if !os(tvOS)
         // Once per sheet, not with every new value of the view.
         .onAppear {
@@ -226,6 +237,69 @@ struct HostEditorView: View {
             Text("Auf dem Mac in Amiscara Agents im Menü des Hosts „QR-Code zeigen“ wählen. Statt zu scannen können Sie auch den dort kopierten Link einfügen.")
         }
     }
+
+    #if os(macOS)
+    /// Pick a host of `~/.ssh/config` instead of typing it (#340). Hosts
+    /// behind `ProxyJump` or `ProxyCommand` are listed but disabled.
+    @ViewBuilder
+    private var sshConfigSection: some View {
+        if !configHosts.isEmpty {
+            Section {
+                LabeledContent("SSH-Host") {
+                    Menu {
+                        ForEach(configHosts, id: \.alias) { host in
+                            if let unsupported = host.unsupported {
+                                Button(String(localized: "\(host.alias) (\(unsupported) nicht unterstützt)")) {}
+                                    .disabled(true)
+                            } else {
+                                Button(sshConfigLabel(host)) { applySshConfig(host) }
+                            }
+                        }
+                    } label: {
+                        if let chosenSshConfigHost {
+                            Text(verbatim: chosenSshConfigHost)
+                        } else {
+                            Text("Auswählen")
+                        }
+                    }
+                    .fixedSize()
+                }
+            } header: {
+                Text("Aus ~/.ssh/config")
+            } footer: {
+                Text("Übernimmt Adresse, Benutzer, Port und SSH-Ziel. Angemeldet wird mit dem eigenen Schlüssel der App.")
+            }
+        }
+    }
+
+    private func sshConfigLabel(_ host: SshConfigHost) -> String {
+        let user = host.user.map { "\($0)@" } ?? ""
+        let port = host.port.map { ":\($0)" } ?? ""
+        return "\(host.alias) – \(user)\(host.hostName)\(port)"
+    }
+
+    private func applySshConfig(_ host: SshConfigHost) {
+        // Cleared first: otherwise the new address would report a dropped
+        // host key from a code.
+        importedKey = nil
+        keyConfirmed = false
+        importError = nil
+        if config.name.trimmingCharacters(in: .whitespaces).isEmpty {
+            config.name = host.alias
+        }
+        config.host = host.hostName
+        config.port = host.port.map(Int.init) ?? 22
+        if let user = host.user {
+            config.user = user
+        }
+        config.sshTarget = host.alias
+        chosenSshConfigHost = host.alias
+        // The authorized_keys line is the one step left; show it right away.
+        if config.publicKey == nil {
+            generateKey()
+        }
+    }
+    #endif
 
     @ViewBuilder
     private var importedKeySection: some View {
