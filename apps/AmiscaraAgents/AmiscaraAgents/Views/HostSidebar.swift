@@ -35,6 +35,8 @@ struct HostSidebar: View {
     #if !os(tvOS)
     /// Claude Code sessions of a space's folder to resume (#304).
     @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    /// The repository whose existing worktrees are offered (#343).
+    @State private var openWorktreeFrom: OpenWorktreeTarget?
     #endif
     @State private var addingSessionTo: HostConnection?
     #if !os(tvOS)
@@ -217,6 +219,11 @@ struct HostSidebar: View {
         .sheet(item: $claudeSessionsFor) { target in
             ClaudeSessionsView(target: target) { created in
                 selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
+            }
+        }
+        .sheet(item: $openWorktreeFrom) { target in
+            OpenWorktreeView(target: target) { created in
+                selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId.isEmpty ? nil : created.paneId))
             }
         }
         #endif
@@ -456,7 +463,10 @@ struct HostSidebar: View {
         let row = SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
         #else
         let pullRequest = connection.pullRequests.pullRequest(for: key)
-        let row = SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped, pullRequest: pullRequest)
+        let row = SpaceRow(
+            workspace: entry.workspace, nested: entry.nested, grouped: grouped,
+            pullRequest: pullRequest, gitStatus: connection.gitStatus.status(for: key)
+        )
         #endif
         return row
             .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: key)))
@@ -496,8 +506,18 @@ struct HostSidebar: View {
                     }
                 }
                 #if !os(tvOS)
+                if OpenWorktreeTarget.available(for: entry.workspace, on: connection) {
+                    Button("Worktree öffnen …", systemImage: "folder.badge.plus") {
+                        openWorktreeFrom = OpenWorktreeTarget(connection: connection, workspace: entry.workspace)
+                    }
+                }
                 Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                     claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: key)
+                }
+                if CloseTarget.worktreeRemovable(entry.workspace, on: connection) {
+                    Button("Worktree entfernen …", systemImage: "trash", role: .destructive) {
+                        closing = .worktree(entry.workspace, on: connection)
+                    }
                 }
                 #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
@@ -1062,6 +1082,8 @@ struct SpaceRow: View {
     #if !os(tvOS)
     /// The open pull request of the space's branch (#309).
     var pullRequest: PullRequestSummary?
+    /// Ahead/behind and changes of its checkout (#343).
+    var gitStatus: SpaceGitStatus?
     #endif
 
     var body: some View {
@@ -1083,6 +1105,12 @@ struct SpaceRow: View {
                         .lineLimit(1)
                 }
                 #if !os(tvOS)
+                if nested, let statusText {
+                    Text(statusText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 if let pullRequest {
                     PullRequestBadge(pullRequest: pullRequest)
                 }
@@ -1103,10 +1131,29 @@ struct SpaceRow: View {
         return workspace.name
     }
 
-    /// The branch line; a nested worktree already shows its branch as name.
+    /// The branch line; a nested worktree already shows its branch as name
+    /// and its Git status on a line of its own.
     private var branchLine: String? {
-        nested ? nil : workspace.branch
+        if nested { return nil }
+        #if !os(tvOS)
+        if let statusText {
+            return workspace.branch.map { "\($0) \(statusText)" } ?? statusText
+        }
+        #endif
+        return workspace.branch
     }
+
+    #if !os(tvOS)
+    /// "↑3 ↓2 ● 4 geändert" (#343), `nil` when there is nothing to say.
+    private var statusText: String? {
+        guard let gitStatus else { return nil }
+        let text = gitStatusText(
+            hasUpstream: gitStatus.hasUpstream, ahead: gitStatus.ahead,
+            behind: gitStatus.behind, changes: gitStatus.changes
+        )
+        return text.isEmpty ? nil : text
+    }
+    #endif
 }
 
 /// An agent the way herdr's sidebar shows it by default: state, space and

@@ -13,6 +13,7 @@
 //! of Claude Code from its session files.
 //! [`chains`] stores and fires prompts that follow an agent's change (#300).
 //! [`programs`] tells what runs in a pane, for its icon (#337).
+//! [`gitstatus`] reads ahead/behind and changes of worktrees (#343).
 
 pub mod actions;
 pub mod browse;
@@ -22,6 +23,7 @@ pub mod daily;
 pub mod diff;
 pub mod fullscreen;
 pub mod github;
+pub mod gitstatus;
 pub mod pane;
 pub mod programs;
 pub mod question;
