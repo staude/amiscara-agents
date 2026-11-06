@@ -3,7 +3,8 @@ import Foundation
 
 /// The last lines of the screen of every card on the board (#345). Read
 /// only while the board is open, and only when due (`BoardRead.due`). A host
-/// without a connection shows the last screen this device knows.
+/// without a connection shows the last screen this device knows; that is
+/// not counted as read, so the live screen follows once it connects.
 @MainActor
 @Observable
 final class BoardExcerpts {
@@ -22,13 +23,14 @@ final class BoardExcerpts {
             if row.staleAt == nil, let connection = store.connection(for: row.hostID), connection.isLive {
                 if let screen = await connection.screenExcerpt(paneID: paneID, lines: BoardRead.readLines) {
                     lines[row.id] = ScreenLines.last(BoardRead.lines, of: screen)
+                    lastRead[row.id] = (row.agent.state, .now)
                 }
+                // A failed read stays due and is tried again.
             } else if let entry = PaneCache.shared.entry(host: row.hostID, pane: paneID) {
                 lines[row.id] = ScreenLines.last(BoardRead.lines, of: entry.content.plainText)
             } else {
                 lines[row.id] = nil
             }
-            lastRead[row.id] = (row.agent.state, .now)
         }
     }
 }

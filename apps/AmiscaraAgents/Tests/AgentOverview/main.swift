@@ -199,6 +199,10 @@ do {
     check(ids(.working) == ["a3", "a1"], "pinned agent first in its state's column")
     check(ids(.done) == ["b1"], "done column")
     check(!board.columns.flatMap(\.rows).contains { $0.agent.paneID == "a4" }, "no idle column")
+
+    let c = host("c", live: true, pinned: ["c1", "c2"], [agent("c1", .idle, since: ago(2)), agent("c2", .unknown)])
+    let pinnedReady = AgentBoard(AgentOverview(hosts: [c], boards: []))
+    check(pinnedReady.columns.first { $0.group == .done }?.rows.count == 2, "pinned ready and unknown agents stay on the board")
 }
 
 // When the board reads a screen (#345).
