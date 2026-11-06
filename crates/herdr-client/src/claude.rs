@@ -455,12 +455,16 @@ pub fn project_dir(cwd: &str) -> String {
 /// project folder of its directory, the newest file whose last AI title is
 /// the pane's terminal title (Claude Code shows it there), else the newest.
 pub async fn find_session(conn: &Connection, pane_id: &str) -> Result<Session, ClaudeError> {
-    let result = conn
-        .request("pane.get", json!({ "pane_id": pane_id }))
-        .await?;
-    let pane = serde_json::from_value::<PaneGetResult>(result)
-        .map_err(|err| TransportError::Files(err.to_string()))?
-        .pane;
+    let pane = if crate::hc::is_hc(pane_id) {
+        crate::hc::pane_info(conn, pane_id).await?
+    } else {
+        let result = conn
+            .request("pane.get", json!({ "pane_id": pane_id }))
+            .await?;
+        serde_json::from_value::<PaneGetResult>(result)
+            .map_err(|err| TransportError::Files(err.to_string()))?
+            .pane
+    };
     let cwd = pane.cwd.ok_or(ClaudeError::NoDirectory)?;
     let dir = project_dir(&cwd);
     let mut files: Vec<_> = conn

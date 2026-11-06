@@ -763,7 +763,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   interpreters, runners, shell scripts and wrappers such as `sudo` are
   looked through, so `npm run dev` with Vite shows Vite. Unknown programs
   get a neutral icon with the process name as tooltip. Core:
-  `herdr_core::programs` (table and matching), the sync driver polls
+  `herdr_client::programs` (table and matching), the sync driver polls
   `pane.process_info` every 5 s for panes without an agent on its own task,
   at most three requests at once,
   `ProgramItem` on `PaneItem` and `BoardItem`. Mac, iPhone, iPad, Apple TV.
@@ -814,7 +814,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   "Worktree entfernen …" asks first, removes the checkout with its space
   and keeps the branch, and refuses while there are uncommitted changes.
   Both are in the space's context menu and, on the iPad, in the menu of the
-  space view. Core: `herdr_core::gitstatus`, `actions::list_worktrees`,
+  space view. Core: `herdr_client::gitstatus`, `actions::list_worktrees`,
   `open_worktree`, `remove_worktree`, `Session::worktree_status`,
   `list_worktrees`, `open_worktree`, `remove_worktree`; FFI
   `SpaceGitStatus`, `WorktreeChoice`. Mac, iPhone and iPad.
@@ -825,8 +825,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
   live in `apps/whats-new.json`, per app in German and English, and
   `scripts/whats-new.py` stops a Mac or desktop release without notes for its
   version.
+- herdr-core (#329): hosts running herdr-core (`hc`), the runtime of the
+  herdr desktop app, show its spaces, tabs and agents with their status in
+  every app, beside the herdr server's or on their own; prompts and keys
+  reach its terminals, plain text key by key. The session asks both servers on every connection
+  and connects again when the missing one starts. Over SSH the key's line
+  gets an `amiscara-hc` case that runs `hc connect` while a core runs.
+  Creating, renaming and closing spaces and tabs, starting agents, chains,
+  text with umlauts or shifted signs and pane history are not available
+  there. Git branch,
+  Git changes, the day's log and the conversation search run with
+  `machine.exec`. Core: `herdr_proto::hc`, `herdr_client::hc`,
+  `Connection::hc_request`, `hc_subscribe`, `Endpoint::Local` takes
+  `hc_socket_path`; `herdr-spike hc`.
 
 ### Changed
+
+- The crate `herdr-core` is now `herdr-client` (#329), since upstream's
+  runtime is called herdr-core.
 
 - README and screenshots cover the features since 22 October; the
   screenshot run adds the overview, host dashboard, file browser and an

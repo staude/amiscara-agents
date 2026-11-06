@@ -11,8 +11,11 @@ for an answer, what they print, and the means to answer, prompt and manage
 them from the couch, the phone or another computer.
 
 The apps talk to an **unmodified herdr server**, locally over its Unix
-socket or remotely over SSH. Nothing is installed on the server, and the SSH
-key the apps use reaches the herdr socket and nothing else.
+socket or remotely over SSH, and to **herdr-core** (`hc`), the runtime of
+the herdr desktop app, on the same host (see
+[herdr-core](#herdr-core-herdr-desktop)). Nothing is installed on the
+server, and the SSH key the apps use reaches the herdr socket, herdr-core
+and nothing else.
 
 > Amiscara Agents is an unofficial project, not affiliated with herdr.
 > The user interface is German and English, following the system language.
@@ -426,14 +429,14 @@ Each device creates its own SSH key. It is locked down in
 and, besides the health script below, nothing else:
 
 ```
-restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
+restrict,command="case \"$SSH_ORIGINAL_COMMAND\" in *sftp*) exit 1 ;; amiscara-health) echo amiscara-health; exec \"$HOME/.amiscara-agents/bin/amiscara-health\" ;; amiscara-hc) s=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect ;; *) exec nc -U \"$HOME/.config/herdr/herdr.sock\" ;; esac" ssh-ed25519 AAAA... amiscara-agents
 ```
 
 `restrict` turns off all forwarding (TCP and Unix sockets), the PTY and
 agent forwarding; the forced command connects every session to the herdr
 socket, whatever the client asks to run, except SFTP (refused or allowed
-per host), the health case and, if switched on, web forwarding (both
-below). Every app shows this line for its
+per host), the health case, herdr-core and, if switched on, web forwarding
+(all below). Every app shows this line for its
 key in the host editor, ready to copy. The desktop app can log in through
 the SSH agent instead; that key then needs such a line too.
 
@@ -473,6 +476,59 @@ key could reach other machines from there; `permitopen` cannot narrow it,
 it refuses streamlocal too (OpenSSH 10.3). Replace such lines with the one
 the host editor shows now. `permitlisten="none"` is not accepted in
 `authorized_keys` (sshd rejects the whole line).
+
+### herdr-core (herdr desktop)
+
+The herdr desktop app does not run on the herdr server but on herdr-core
+(`hc`), which has an API of its own (`hc schema`, JSON-RPC, protocol
+generation 1). Its agents, whether started in herdr desktop or with
+`hc run`, show up in every app like the ones of the herdr server. A host
+may run herdr, herdr-core or both; the session asks both on every
+connection (`ping` and `hello`), shows what answers under the one host, and
+connects again when the missing one starts later (checked every 30 s).
+herdr-core's spaces come after herdr's.
+
+- **Reaching it:** locally its socket,
+  `${XDG_STATE_HOME:-~/.local/state}/herdr-core/default/default.sock`
+  (`$HC_SESSION` picks another session). Over SSH every request opens a
+  session running `amiscara-hc`, which the key's line answers with
+  `hc connect` (a key without forced command gets the same through `sh`):
+
+  ```
+  amiscara-hc) s=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect ;;
+  ```
+
+  The case only connects to a core that runs already, since `hc connect`
+  would start one. A line from before this case reaches herdr instead, so
+  the app quietly shows only the herdr server: each device needs the new
+  line once on every host with herdr-core.
+- **Spaces and tabs** are labels on herdr-core's terminals (`herdr.space`,
+  `herdr.tab`, names from `where`); a terminal without them, such as
+  `hc run --bg claude`, gets a space per directory and a tab of its own.
+  Spaces come in the order they were started, since herdr desktop keeps its
+  own order and splits in an undocumented document. A terminal on a
+  machine connected to the core is shown as `<machine>/<space>`.
+- **Status** is the program's own report (OSC 7501: `working`, `blocked`,
+  `idle`, `done`; `error` counts as waiting); the agent kind comes from it
+  (`claude-code` is `claude`).
+- **Input:** prompts (`terminal.send`, pasted once nobody has typed for
+  about 3 s; refused while the agent waits at a dialog, as on herdr) and
+  keys work. Text without Enter, as the apps send shell commands, goes key
+  by key and only with letters, digits, spaces and unshifted signs
+  (`-./,;='[]\` and the backtick); other text (umlauts, `|`, `"`, `$`, ...)
+  is refused. Hosts set to read only stay read only.
+- **Not on herdr-core:** creating, renaming and closing spaces and tabs,
+  starting or naming agents, chains, open and editor requests, and
+  scrolling a full-screen agent; the apps answer "not available on
+  herdr-core". The pane shows its screen without colours and without
+  history, because reading herdr-core's history would scroll a full-screen
+  agent on the host.
+- **Git branch, Git changes, the day's log and the conversation search**
+  run with `machine.exec` (a branch every 30 s per space, also on another
+  machine; the scripts without a tab and not for terminals on another
+  machine). Uploads, files and the conversation still go over SFTP.
+- **Spaces without herdr desktop's labels** follow their directory: a `cd`
+  in such a terminal moves it to another space.
 
 ### Uploads and the Claude conversation
 
@@ -537,8 +593,9 @@ A `.deb` does not update itself; install the new one by hand.
 
 ## Setting up a host
 
-1. Install and start [herdr](https://herdr.dev) on the host. The apps use
-   its default socket `~/.config/herdr/herdr.sock`.
+1. Install and start [herdr](https://herdr.dev) on the host, or herdr
+   desktop (step 9). The apps use herdr's default socket
+   `~/.config/herdr/herdr.sock`.
 2. Make sure SSH works: `sshd` running, `nc` installed (it connects the
    session to the socket; macOS ships it). Forwarding local web pages also
    needs `nc -z` (OpenBSD netcat, current ncat).
@@ -613,6 +670,19 @@ A `.deb` does not update itself; install the new one by hand.
    one JSON line. Key lines from before this need replacing once with the
    one the app shows now, which has the `amiscara-health` case. The Mac
    app's "Dieser Mac" runs the script directly.
+9. With herdr desktop or `hc` on the host (#329): nothing to install
+   besides herdr-core itself. Over SSH `hc` has to be in `~/.local/bin`
+   (where its installer puts it) or on the `PATH` sshd gives a command. The
+   key line the app shows has the `amiscara-hc` case, which connects to a
+   running core:
+
+   ```
+   amiscara-hc) s=\"${XDG_STATE_HOME:-$HOME/.local/state}/herdr-core/default/default.sock\"; [ -S \"$s\" ] || exit 1; PATH=\"$HOME/.local/bin:$PATH\"; exec hc connect ;;
+   ```
+
+   Lines from before need replacing once; with an old line the app shows
+   only the herdr server. herdr itself (step 1) is not needed then. See
+   [herdr-core](#herdr-core-herdr-desktop).
 
 To set up more devices, „QR-Code zeigen …“ in a host's menu (Apple apps)
 shows an `amiscara-agents://add-host?...` link as QR code with address, user
@@ -638,7 +708,7 @@ in herdr's order, spaces without `/` stay where they are. Spaces around the
 repository, even when their branch looks like `feature/x`. The name lives
 on the server, so all devices show the same groups without any sync; herdr
 itself simply shows the full name. Name a space this way when creating it
-or via "Umbenennen …". The logic is in `crates/herdr-core/src/spaces.rs`.
+or via "Umbenennen …". The logic is in `crates/herdr-client/src/spaces.rs`.
 
 The grouping is a per-host switch in the Apple apps: "Spaces nach Namen
 gruppieren" in the host settings ("…" › "Bearbeiten …"), on by default.
@@ -669,6 +739,10 @@ What the apps cannot do, because herdr's API does not offer it:
   run (Android's standby service keeps it running).
 - **Apple TV:** home network only, no VPN.
 - **Apple Watch:** no direct connection to hosts.
+- **herdr-core:** no spaces or tabs created, renamed or closed, text
+  without Enter only without umlauts and shifted signs, pane content
+  without colours and history, see
+  [herdr-core](#herdr-core-herdr-desktop).
 
 ## Architecture
 
@@ -679,7 +753,7 @@ What the apps cannot do, because herdr's API does not offer it:
                               │                                      │
                               └──────────── herdr-session ───────────┘
                                                  │
-                           herdr-core  (state, board, sync, panes, terminal)
+                           herdr-client  (state, board, sync, panes, terminal)
                                                  │
                            herdr-transport  (Unix socket, SSH)
                                                  │
@@ -687,12 +761,14 @@ What the apps cannot do, because herdr's API does not offer it:
 ```
 
 - `crates/herdr-proto`: request, response and event types of herdr's
-  socket API, protocol version check.
+  socket API, protocol version check, and of herdr-core's JSON-RPC API.
 - `crates/herdr-transport`: local socket and SSH transport, requests and
   event subscriptions, host key checks.
-- `crates/herdr-core`: session state from snapshot and events, the agent
+- `crates/herdr-client`: session state from snapshot and events, the agent
   board, the sync driver with reconnect, pane content as styled lines (ANSI
-  parsing, links), space grouping, the Claude conversation.
+  parsing, links), space grouping, the Claude conversation, herdr-core's
+  terminals as spaces, tabs and panes. Named `herdr-client`, not
+  `herdr-core`, which is upstream's runtime.
 - `crates/herdr-session`: the live session the apps use: connect and
   reconnect, view records, pane followers, actions, uploads, Claude
   history, add-host links.
@@ -703,7 +779,7 @@ What the apps cannot do, because herdr's API does not offer it:
 - `crates/uniffi-bindgen`: the binding generator, kept out of the app
   library.
 - `crates/herdr-spike`: read-only command line probe (`ping`, `list`,
-  `read`, `watch`, `board`, `check`, `view`, `bench`).
+  `read`, `watch`, `board`, `check`, `view`, `bench`, `hc`).
 - `apps/AmiscaraAgents`: SwiftUI app for Mac, iPad, iPhone and Apple TV,
   plus the Watch app, widgets, complications and the Top Shelf extension.
   The Xcode project is generated by xcodegen from `project.yml`; platform
@@ -747,6 +823,7 @@ On Linux without WebKitGTK, build the core with
 cargo build --workspace
 cargo run -p herdr-spike -- ping
 cargo run -p herdr-spike -- --ssh user@host --identity ~/.ssh/key bench
+cargo run -p herdr-spike -- hc      # herdr-core as the apps map it
 ```
 
 The spike only calls read-only methods. Pass `--accept-new-host-key` once to
@@ -819,6 +896,13 @@ demo with fictional projects, see [docs/screenshots.md](docs/screenshots.md).
 `scripts/ffi-smoke.sh` exercises the Swift bindings without the UI against
 the local server; with `HERDR_SMOKE_SSH=user@host HERDR_SMOKE_KEY=<key>` it
 also runs the SSH and host key flow.
+
+`HC_SESSION=amiscara-test cargo test -p herdr-session --test hc_live --
+--ignored` checks a herdr-core space end to end (prompt, keys, status,
+script) against a herdr-core test session started with
+`HC_SESSION=amiscara-test hc server start` (stop it with
+`HC_SESSION=amiscara-test hc server stop`); `cargo run -p herdr-spike -- hc`
+shows how the apps map a host's herdr-core.
 
 **Test input only against a separate herdr session**, never the one with
 real work:

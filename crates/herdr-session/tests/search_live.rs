@@ -41,6 +41,8 @@ async fn start() -> (Session, Arc<Mutex<Option<SessionUpdate>>>) {
     let session = Session::start(
         Endpoint::Local {
             socket_path: Some(socket),
+            // The herdr test session only, not the user's herdr-core.
+            hc_socket_path: Some("/nonexistent/herdr-core.sock".into()),
         },
         false,
         SpaceSort::Herdr,

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Spaces named "Bereich/Name" sit in the sidebar group "Bereich" and are
-/// shown as "Name" (the core splits the label, see `herdr_core::spaces`).
+/// shown as "Name" (the core splits the label, see `herdr_client::spaces`).
 /// Outside the sidebar the group goes in brackets after the name, so a
 /// chain like "Mac · Dorfkino (Privat) · Tab 2" still reads as one place.
 enum SpaceNames {

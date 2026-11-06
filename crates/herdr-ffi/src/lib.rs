@@ -11,7 +11,7 @@ mod convert;
 
 use std::sync::{Arc, OnceLock};
 
-use herdr_core::{actions, pane};
+use herdr_client::{actions, pane};
 use herdr_session::SessionError;
 use herdr_transport::{TransportError, keys};
 use tokio::runtime::Runtime;
@@ -124,7 +124,10 @@ pub enum Endpoint {
 impl From<Endpoint> for herdr_session::Endpoint {
     fn from(endpoint: Endpoint) -> Self {
         match endpoint {
-            Endpoint::Local { socket_path } => Self::Local { socket_path },
+            Endpoint::Local { socket_path } => Self::Local {
+                socket_path,
+                hc_socket_path: None,
+            },
             Endpoint::Ssh {
                 host,
                 port,
@@ -144,7 +147,7 @@ impl From<Endpoint> for herdr_session::Endpoint {
     }
 }
 
-/// How the sidebar orders spaces (see `herdr_core::spaces::SpaceSort`).
+/// How the sidebar orders spaces (see `herdr_client::spaces::SpaceSort`).
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum SpaceSort {
     Herdr,
@@ -267,7 +270,7 @@ impl From<herdr_session::StartFailure> for StartFailure {
 }
 
 /// A worktree to create; empty fields are left to herdr (see
-/// `herdr_core::actions::NewWorktree`).
+/// `herdr_client::actions::NewWorktree`).
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct NewWorktree {
     pub branch: Option<String>,
@@ -467,14 +470,14 @@ pub fn pane_content_from_json(json: String) -> Option<PaneContent> {
 /// Remote-SSH to `target`, or as a local folder without one.
 #[uniffi::export]
 pub fn vscode_url(target: Option<String>, path: String) -> String {
-    herdr_core::vscode_url(target.as_deref(), &path)
+    herdr_client::vscode_url(target.as_deref(), &path)
 }
 
 /// The files and hunks of a unified diff (#309), as for the working tree
 /// diff; used for the diff of a pull request.
 #[uniffi::export]
 pub fn parse_diff(text: String) -> Vec<DiffFile> {
-    herdr_core::diff::parse(&text)
+    herdr_client::diff::parse(&text)
 }
 
 /// The overview for the approval from an enon-tools plan comment (#296):
@@ -482,7 +485,7 @@ pub fn parse_diff(text: String) -> Vec<DiffFile> {
 /// `None` when the comment is no plan or has no such section.
 #[uniffi::export]
 pub fn plan_overview(body: String) -> Option<String> {
-    herdr_core::github::plan_overview(&body)
+    herdr_client::github::plan_overview(&body)
 }
 
 #[uniffi::export]
@@ -531,7 +534,7 @@ impl HostSession {
     /// Connects in the background and reports to `observer` from then on.
     /// `group_spaces_by_name` is the host's setting for the "Bereich/Name"
     /// convention, `space_sort` its order of spaces, `None` for herdr's (see
-    /// `herdr_core::spaces`).
+    /// `herdr_client::spaces`).
     #[uniffi::constructor(default(group_spaces_by_name = true, space_sort = None))]
     pub fn start(
         endpoint: Endpoint,
@@ -1191,7 +1194,7 @@ fn runtime() -> &'static Runtime {
         log_panics_to_logcat();
         tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
-            .thread_name("herdr-core")
+            .thread_name("herdr-client")
             .enable_all()
             .build()
             .unwrap_or_else(|err| panic!("cannot start the tokio runtime: {err}"))

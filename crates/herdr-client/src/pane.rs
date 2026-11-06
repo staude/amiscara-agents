@@ -21,6 +21,11 @@
 //! With [`Reading::unwrap`], both come from `source: "recent_unwrapped"`,
 //! which joins the rows the terminal wrapped at the pane width back into
 //! whole lines, so a narrow client can wrap them at its own width (#191).
+//!
+//! A herdr-core pane (#329) is read with `terminal.read`: plain text without
+//! colours, and only the screen, since reading its history would scroll a
+//! full-screen agent on the host. History and unwrapping are left out
+//! there.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -107,6 +112,20 @@ async fn read_raw(
     rows: u32,
     unwrap: bool,
 ) -> Result<PaneReadResult, PaneError> {
+    if let Some(address) = crate::hc::address(pane_id) {
+        let read: herdr_proto::hc::ReadResult = serde_json::from_value(
+            conn.hc_request("terminal.read", json!({ "terminal": address, "lines": 0 }))
+                .await?,
+        )?;
+        return Ok(PaneReadResult {
+            read: herdr_proto::PaneRead {
+                pane_id: pane_id.to_owned(),
+                revision: 0,
+                text: read.text,
+                truncated: false,
+            },
+        });
+    }
     let mut params = json!({
         "pane_id": pane_id,
         "source": "visible",
@@ -145,7 +164,11 @@ pub async fn read_recent(
     rows: u32,
     unwrap: bool,
 ) -> Result<PaneScreen, PaneError> {
-    let history_lines = rows.min(MAX_HISTORY_LINES);
+    let history_lines = if crate::hc::is_hc(pane_id) {
+        0
+    } else {
+        rows.min(MAX_HISTORY_LINES)
+    };
     Ok(pane_screen(
         read_raw(conn, pane_id, history_lines, unwrap).await?,
         history_lines,
@@ -204,6 +227,9 @@ pub async fn follow_with_history(
         let pace = *pacing.borrow_and_update();
         let mut now = *reading.borrow_and_update();
         now.history_lines = now.history_lines.min(MAX_HISTORY_LINES);
+        if crate::hc::is_hc(pane_id) {
+            now = Reading::default();
+        }
         let lines = now.history_lines;
         let mode_changed = last_reading != Some(now);
         let visible = read_raw(conn, pane_id, 0, false).await?;
@@ -286,7 +312,7 @@ mod tests {
     /// source and line count.
     fn fake_herdr(name: &str) -> (PathBuf, Requests) {
         let path =
-            std::env::temp_dir().join(format!("herdr-core-{name}-{}.sock", std::process::id()));
+            std::env::temp_dir().join(format!("herdr-client-{name}-{}.sock", std::process::id()));
         let _ = std::fs::remove_file(&path);
         let listener = UnixListener::bind(&path).expect("bind fake socket");
         let seen = Arc::new(Mutex::new(Vec::new()));
