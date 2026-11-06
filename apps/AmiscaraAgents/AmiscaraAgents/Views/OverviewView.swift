@@ -1,8 +1,8 @@
 import SwiftUI
 
 #if !os(tvOS)
-/// The agents of all hosts in one list (#274): waiting, working, done,
-/// newest first in each group. A tap opens the agent's pane; in the
+/// The agents of all hosts in one list (#274): pinned ones first (#334),
+/// then waiting, working, done, newest first in each group. A tap opens the agent's pane; in the
 /// selection mode it picks the agent for one prompt to several (#299).
 struct OverviewView: View {
     @Environment(HostStore.self) private var store
@@ -57,7 +57,18 @@ struct OverviewView: View {
                                     }
                                 }
                                 .buttonStyle(.plain)
-                                .peekMenu(selecting ? nil : peek, open: open) { peeking = $0 }
+                                // One menu: a view has only one (#332, #334).
+                                .contextMenu(when: !selecting) {
+                                    if let peek {
+                                        PeekMenuItems(peek: peek, open: open) { peeking = $0 }
+                                        Divider()
+                                    }
+                                    if let connection = store.connection(for: row.hostID) {
+                                        PinButton(pinned: row.pinned) {
+                                            AgentPins.shared.toggle(row.agent.paneID, on: connection)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -134,6 +145,9 @@ private struct OverviewRow: View {
                 .padding(.top, 6)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
+                    if row.pinned {
+                        PinMark()
+                    }
                     Text(row.agent.place)
                         .lineLimit(1)
                         .layoutPriority(1)

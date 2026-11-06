@@ -190,12 +190,23 @@ extension View {
     func peekMenu(_ peek: AgentPeek?, open: @escaping (SpaceRef) -> Void, peekAction: @escaping (AgentPeek) -> Void) -> some View {
         if let peek {
             contextMenu {
-                Button("Kurz ansehen", systemImage: "eye") { peekAction(peek) }
-                Button("Öffnen", systemImage: "arrow.forward.circle") { open(peek.spaceRef) }
+                PeekMenuItems(peek: peek, open: open, peekAction: peekAction)
             }
         } else {
             self
         }
+    }
+}
+
+/// "Kurz ansehen" and "Öffnen", for a context menu with further entries.
+struct PeekMenuItems: View {
+    let peek: AgentPeek
+    let open: (SpaceRef) -> Void
+    let peekAction: (AgentPeek) -> Void
+
+    var body: some View {
+        Button("Kurz ansehen", systemImage: "eye") { peekAction(peek) }
+        Button("Öffnen", systemImage: "arrow.forward.circle") { open(peek.spaceRef) }
     }
 }
 #endif

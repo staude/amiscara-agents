@@ -701,6 +701,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   an agent finishes. "Spaces und Agents in Spotlight" in the Mac's settings
   window and the iPhone's "Erscheinungsbild" menu turns it off. Mac and
   iPhone/iPad; not tvOS or Watch.
+- Pinned agents (#334): "Anheften" in an agent's context menu in the
+  overview, the host dashboard and the sidebar puts it at the top of all
+  three with a pin mark, "Lösen" takes it back. The overview shows pinned
+  agents in a group "Angeheftet" of their own, ready ones too; the sidebar
+  keeps its order below them. Pins are kept in iCloud's key-value store, so
+  Mac, iPhone and iPad share them, and go once a connected device no longer
+  sees the pane on its host. Not on Apple TV.
 - Host health on the dashboard (#306): a row of tiles under the counts with
   load (orange from one per core), memory, free disk (orange under 10 %
   free), uptime with the OS and the herdr version, read every 60 seconds
