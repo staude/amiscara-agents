@@ -12,7 +12,8 @@ import AppKit
 /// change, the host comes back, an agent in a Git space stops working, the
 /// app comes to the front, and every five minutes while the host is live
 /// and the app in front; reasons close together make one follow-up
-/// (`GitStatusPacing`). A failed run keeps the last values.
+/// (`GitStatusPacing`). A failed run keeps the last values; offline the
+/// rows show none.
 @MainActor
 @Observable
 final class GitStatusStore {
@@ -58,6 +59,8 @@ final class GitStatusStore {
         spaces = current
         working = nowWorking
         wasLive = live
+        // Offline the last values would look current; read again once back.
+        if !live, !byWorkspace.isEmpty { byWorkspace = [:] }
         if occasion { request() }
     }
 
@@ -107,7 +110,7 @@ final class GitStatusStore {
 
     private func load() async {
         guard let connection, connection.isLive else { return }
-        guard let found = try? await connection.worktreeStatus() else { return }
+        guard let found = try? await connection.worktreeStatus(), connection.isLive else { return }
         byWorkspace = Dictionary(found.map { ($0.workspaceId, $0) }, uniquingKeysWith: { first, _ in first })
     }
 

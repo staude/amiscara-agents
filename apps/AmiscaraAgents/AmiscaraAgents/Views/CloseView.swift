@@ -93,17 +93,15 @@ struct CloseTarget: Identifiable {
         case .tab(let id): try await connection.closeTab(id)
         #if !os(tvOS)
         case .worktree(let id, _):
-            // Fresh, not the row's: untracked files count too.
-            guard let status = try await connection.worktreeStatus(only: id).first else {
-                throw WorktreeRemoval.statusUnknown
-            }
-            guard status.changes == 0 else { throw WorktreeRemoval.uncommitted(status.changes) }
+            // The core reads the status fresh (untracked files count too)
+            // and refuses; its refusals in the app's language.
             do {
                 try await connection.removeWorktree(id)
             } catch FfiError.Rejected(let message) where message.hasSuffix(" uncommitted changes") {
-                // Changed since the check above: the core's refusal, in the app's language.
                 let count = UInt32(message.split(separator: " ").first ?? "") ?? 1
                 throw WorktreeRemoval.uncommitted(count)
+            } catch FfiError.Files(let message) where message == "the worktree's status could not be read" {
+                throw WorktreeRemoval.statusUnknown
             }
         #endif
         }
