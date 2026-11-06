@@ -46,6 +46,9 @@ check(NotificationSound.app("rising").pushSoundName == "rising.caf", "app tone p
 check(NotificationSound.system("Glass").pushSoundName == nil, "system sound is no push sound")
 check(NotificationSound.file("x.wav").pushSoundName == nil, "own file is no push sound")
 
+check(NotificationSound.systemCopyName("Glass") == "Amiscara Agents System - Glass.aiff", "system copy name")
+check(!NotificationSound.systemCopyName("Glass").hasPrefix(NotificationSound.filePrefix), "system copy is no own file")
+
 // MARK: UserDefaults
 
 let suite = UserDefaults(suiteName: "notification-sound-test")!

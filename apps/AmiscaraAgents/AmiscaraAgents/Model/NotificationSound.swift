@@ -31,6 +31,10 @@ enum NotificationSound: Equatable, Sendable {
         FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Sounds", isDirectory: true)
     }
 
+    /// The name of a system sound's copy in `~/Library/Sounds`; it does not
+    /// start with `filePrefix`, so the list of own files leaves it out.
+    static func systemCopyName(_ name: String) -> String { "Amiscara Agents System - \(name).aiff" }
+
     /// Without a choice, "waits" sounds as before and "done" stays silent.
     static func fallback(waiting: Bool) -> NotificationSound { waiting ? .standard : .none }
 

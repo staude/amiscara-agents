@@ -182,8 +182,21 @@ final class Notifier: NSObject {
             return nil
         case .standard:
             return .default
-        case .app, .system:
+        case .app:
             return choice.fileName.map { UNNotificationSound(named: UNNotificationSoundName($0)) }
+        case .system(let name):
+            // Only `~/Library/Sounds` is sure to be searched, so the system
+            // sound gets a copy there, which is no entry of the own files.
+            let copy = NotificationSound.systemCopyName(name)
+            let target = NotificationSound.userSoundsFolder.appendingPathComponent(copy)
+            let source = URL(fileURLWithPath: "/System/Library/Sounds/\(name).aiff")
+            if !FileManager.default.fileExists(atPath: target.path) {
+                try? FileManager.default.createDirectory(at: NotificationSound.userSoundsFolder, withIntermediateDirectories: true)
+                try? FileManager.default.copyItem(at: source, to: target)
+            }
+            return FileManager.default.fileExists(atPath: target.path)
+                ? UNNotificationSound(named: UNNotificationSoundName(copy))
+                : .default
         case .file(let name):
             return FileManager.default.fileExists(atPath: NotificationSound.userSoundsFolder.appendingPathComponent(name).path)
                 ? UNNotificationSound(named: UNNotificationSoundName(name))
