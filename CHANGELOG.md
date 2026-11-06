@@ -801,6 +801,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   start. Without input allowed the sheet says why it needs it. Mac, iPhone
   and iPad. `Session::space_working_tree_diff`, FFI
   `space_working_tree_diff`.
+- What's New after an update (#341): the Mac app opens "Neuigkeiten" once
+  after Sparkle installed a newer version, the desktop app shows the dialog
+  once after the updater did; Help › Neuigkeiten (Mac) and Settings ›
+  Neuigkeiten (desktop) show all versions up to the installed one. The notes
+  live in `apps/whats-new.json`, per app in German and English, and
+  `scripts/whats-new.py` stops a Mac or desktop release without notes for its
+  version.
 
 ### Changed
 

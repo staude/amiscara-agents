@@ -96,6 +96,12 @@ reads `latest.json` from the release `updates`, which holds the feeds of all
 apps (the Mac app's `appcast.xml` too), so the Mac and desktop tags do not
 compete for the latest release:
 
+Before the release, add the version's notes to `apps/whats-new.json` under
+`desktop` (newest first, a few plain points in German `de` and English `en`).
+The app shows them once after the update and under Settings › Neuigkeiten
+(#341); `scripts/desktop-release.sh` and the release workflow stop without
+them (`scripts/whats-new.py check desktop <version>`).
+
 ```sh
 scripts/desktop-release.sh 0.2.0      # version in package.json and Cargo.toml, commit, tag
 git push && git push origin desktop-v0.2.0
