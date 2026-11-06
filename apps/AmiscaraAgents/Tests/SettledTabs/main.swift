@@ -35,6 +35,17 @@ var failures = 0
     tabs.prune(host: hostA, keeping: ["w3:t1", "w1:t9"])
     check(tabs.tabs(host: hostA) == ["w3:t1"], "forgets tabs the host no longer has")
 
+    tabs.settle(tab: "w4:t1", host: hostA)
+    tabs.settle(tab: "w4:t2", host: hostA)
+    tabs.revive(host: hostA, tabs: [("w3:t1", false), ("w4:t1", true), ("w4:t2", false)], complete: false)
+    check(tabs.tabs(host: hostA) == ["w3:t1", "w4:t2"], "a waiting agent brings its tab back")
+    tabs.revive(host: hostA, tabs: [("w4:t2", false)], complete: false)
+    check(tabs.tabs(host: hostA) == ["w3:t1", "w4:t2"], "an incomplete update forgets nothing")
+    tabs.revive(host: hostA, tabs: [("w4:t2", false)], complete: true)
+    check(tabs.tabs(host: hostA) == ["w4:t2"], "a complete update forgets tabs the host no longer has")
+    tabs.revive(host: hostA, tabs: [("w4:t2", false)], complete: true)
+    check(tabs.tabs(host: hostA) == ["w4:t2"], "a tab that does not wait stays away")
+
     tabs.prune(host: hostA, keeping: [])
     check(tabs.tabs(host: hostA).isEmpty, "an empty host keeps nothing")
 

@@ -81,6 +81,16 @@ final class SettledTabs {
         change(host: host) { $0.formIntersection(tabs) }
     }
 
+    /// After a live update: a tab whose agent waits comes back and stays.
+    /// With `complete`, the update lists every tab of the host, and tabs
+    /// it no longer has are forgotten.
+    func revive(host: String, tabs: [(id: String, waiting: Bool)], complete: Bool) {
+        change(host: host) { settled in
+            for tab in tabs where tab.waiting { settled.remove(tab.id) }
+            if complete { settled.formIntersection(tabs.map(\.id)) }
+        }
+    }
+
     private func change(host: String, _ edit: (inout Set<String>) -> Void) {
         let key = Self.storageKey(host: host)
         let before = settled[key] ?? []
