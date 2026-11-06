@@ -19,8 +19,10 @@ final class WhatsNewState {
     }
 
     /// On start: true when an update brought notes to show once.
-    func takeUpdateNotes() -> Bool {
-        let pending = WhatsNew.onLaunch(WhatsNew.bundled(), current: WhatsNew.currentVersion)
+    func takeUpdateNotes(earlierInstall: Bool) -> Bool {
+        let pending = WhatsNew.onLaunch(
+            WhatsNew.bundled(), current: WhatsNew.currentVersion, earlierInstall: earlierInstall
+        )
         guard !pending.isEmpty else { return false }
         entries = pending
         return true
@@ -72,11 +74,12 @@ struct WhatsNewView: View {
 /// Opens the window once after an update; not in the screenshot demo.
 private struct WhatsNewAfterUpdate: ViewModifier {
     @Environment(\.openWindow) private var openWindow
+    @Environment(HostStore.self) private var store
 
     func body(content: Content) -> some View {
         content.task {
             guard !DemoMode.isOn else { return }
-            if WhatsNewState.shared.takeUpdateNotes() {
+            if WhatsNewState.shared.takeUpdateNotes(earlierInstall: store.hadSavedHosts) {
                 openWindow(id: WhatsNewWindow.id)
             }
         }

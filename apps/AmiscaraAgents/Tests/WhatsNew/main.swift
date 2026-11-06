@@ -46,6 +46,20 @@ check(WhatsNew.onLaunch(all, current: "0.3.0", defaults: defaults).isEmpty, "sec
 check(WhatsNew.onLaunch(all, current: "0.2.0", defaults: defaults).isEmpty, "downgrade shows nothing")
 check(defaults.string(forKey: WhatsNew.seenKey) == "0.2.0", "downgrade notes the version")
 
+// Versions before 0.2.0 never wrote the key (#371): saved hosts mean an update.
+let oldSuite = "whats-new-test-\(UUID().uuidString)"
+let oldDefaults = UserDefaults(suiteName: oldSuite)!
+defer { oldDefaults.removePersistentDomain(forName: oldSuite) }
+check(
+    versions(WhatsNew.onLaunch(all, current: "0.3.0", earlierInstall: true, defaults: oldDefaults)) == ["0.3.0"],
+    "missing key with saved hosts shows the current version"
+)
+check(oldDefaults.string(forKey: WhatsNew.seenKey) == "0.3.0", "the update notes the version")
+check(
+    WhatsNew.onLaunch(all, current: "0.3.0", earlierInstall: true, defaults: oldDefaults).isEmpty,
+    "second start after the update shows nothing"
+)
+
 // The file the app bundles, with an entry it cannot read.
 let file = URL(fileURLWithPath: "apps/whats-new.json")
 let mac = WhatsNew.entries(from: file, app: "mac")
