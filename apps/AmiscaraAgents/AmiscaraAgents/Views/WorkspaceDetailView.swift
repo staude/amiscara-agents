@@ -278,6 +278,8 @@ struct WorkspaceDetailView: View {
                         select(tab)
                     } label: {
                         HStack(spacing: 5) {
+                            // The focused pane's program, else the first's (#337).
+                            ProgramIcon(program: (tab.panes.first(where: \.focused) ?? tab.panes.first)?.program, size: 13)
                             Text(tab.label)
                             if tab.agentState != .idle && tab.agentState != .unknown {
                                 StatusDot(state: tab.agentState)

@@ -10,8 +10,12 @@
 //! with a status that says so. On request the driver drops the connection
 //! and connects again at once, keeping the last state (#264).
 //!
+//! Beside that it polls what herdr reports without an event: the branch per
+//! space (`worktree.list`) and the program in each pane without an agent
+//! (`pane.process_info`, #337).
+//!
 //! Only read-only methods are used: `session.snapshot`, `events.subscribe`,
-//! `worktree.list` and `agent.get`.
+//! `worktree.list`, `agent.get` and `pane.process_info`.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -20,8 +24,8 @@ use std::time::Duration;
 use std::collections::BTreeMap;
 
 use herdr_proto::{
-    AgentGetResult, AgentStatus, Event, GLOBAL_SUBSCRIPTIONS, ProtoError, SnapshotResult,
-    WorktreeListResult, parse_event,
+    AgentGetResult, AgentStatus, Event, GLOBAL_SUBSCRIPTIONS, PaneProcessInfoResult, ProtoError,
+    SnapshotResult, WorktreeListResult, parse_event,
 };
 use herdr_transport::{Connection, Subscription, TransportError};
 use serde_json::{Value, json};
@@ -29,6 +33,7 @@ use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep, sleep_until};
 
+use crate::programs::{self, ProgramMatch};
 use crate::{Applied, SessionState};
 
 /// How long structural events are collected before one snapshot answers them.
@@ -36,6 +41,12 @@ const RESNAPSHOT_DELAY: Duration = Duration::from_millis(150);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 /// Branches change by checkouts, which herdr reports with no event.
 const BRANCH_REFRESH: Duration = Duration::from_secs(30);
+/// A pane's program changes (`vim`, `npm run dev`) with no event either.
+const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
+/// At most this many `pane.process_info` requests at once: over a
+/// restricted key every request is an SSH session channel, and sshd allows
+/// 10 per connection (`MaxSessions`), shared with everything else.
+const PROGRAM_REQUESTS: usize = 3;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -235,7 +246,11 @@ fn stop_status(error: &SyncError) -> Option<SyncStatus> {
 }
 
 /// Follows one connection until it fails. Always returns the reason.
-async fn follow(conn: &Connection, tx: &watch::Sender<SyncState>, attempt: &mut u32) -> SyncError {
+async fn follow(
+    conn: &Arc<Connection>,
+    tx: &watch::Sender<SyncState>,
+    attempt: &mut u32,
+) -> SyncError {
     match follow_inner(conn, tx, attempt).await {
         Ok(never) => match never {},
         Err(err) => err,
@@ -245,7 +260,7 @@ async fn follow(conn: &Connection, tx: &watch::Sender<SyncState>, attempt: &mut 
 enum Never {}
 
 async fn follow_inner(
-    conn: &Connection,
+    conn: &Arc<Connection>,
     tx: &watch::Sender<SyncState>,
     attempt: &mut u32,
 ) -> Result<Never, SyncError> {
@@ -262,6 +277,9 @@ async fn follow_inner(
     let mut state = snapshot(conn).await?;
     state.branches = branches(conn, &state).await;
     let mut panes = PaneStatus::subscribe(conn, &state).await?;
+    // Programs come from their own task, so neither the first `Live` nor
+    // the events wait for them.
+    let mut programs = ProgramPoller::start(Arc::clone(conn), &state);
     *attempt = 0;
     publish(tx, SyncStatus::Live, &state);
 
@@ -281,13 +299,25 @@ async fn follow_inner(
                 }
                 continue;
             }
+            Some(found) = programs.rx.recv() => {
+                let fresh = merge_programs(&state, found);
+                if fresh != state.programs {
+                    state.programs = fresh;
+                    publish(tx, SyncStatus::Live, &state);
+                }
+                continue;
+            }
             () = wait_until(resnapshot_at) => {
                 resnapshot_at = None;
                 let mut fresh = snapshot(conn).await?;
                 fresh.branches = branches(conn, &fresh).await;
+                // Carried like the branches; the poller refreshes them.
+                fresh.programs = state.programs.clone();
+                fresh.programs = merge_programs(&fresh, Vec::new());
                 if fresh.pane_ids() != state.pane_ids() {
                     panes = PaneStatus::subscribe(conn, &fresh).await?;
                 }
+                programs.follow(&fresh);
                 if fresh != state {
                     state = fresh;
                     publish(tx, SyncStatus::Live, &state);
@@ -334,6 +364,9 @@ async fn follow_inner(
                     let seq = finish(conn, pane_id).await;
                     state.set_completion_seq(pane_id, seq);
                 }
+                // An agent that started or ended changes which panes the
+                // poller asks (#337).
+                programs.follow(&state);
                 publish(tx, SyncStatus::Live, &state);
             }
             Applied::Unchanged => {}
@@ -382,6 +415,126 @@ async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, S
         }
     }
     found
+}
+
+/// One pane's answer from the [`ProgramPoller`]: `Err` when the request
+/// failed, so the last known program stays.
+type ProgramAnswer = (String, Result<Option<ProgramMatch>, ()>);
+
+/// Panes that get a `pane.process_info` request. Agent panes need none:
+/// herdr names the agent, and their foreground group also holds the
+/// agent's MCP servers.
+fn program_panes(state: &SessionState) -> Vec<String> {
+    state
+        .panes
+        .iter()
+        .filter(|pane| pane.agent.is_none())
+        .map(|pane| pane.pane_id.clone())
+        .collect()
+}
+
+/// The programs after one round: answered panes take the answer, failed
+/// ones keep their last program, panes that are gone or now run an agent
+/// drop out.
+fn merge_programs(
+    state: &SessionState,
+    answers: Vec<ProgramAnswer>,
+) -> BTreeMap<String, ProgramMatch> {
+    let mut programs = state.programs.clone();
+    for (pane_id, answer) in answers {
+        match answer {
+            Ok(Some(program)) => {
+                programs.insert(pane_id, program);
+            }
+            Ok(None) => {
+                programs.remove(&pane_id);
+            }
+            Err(()) => {}
+        }
+    }
+    let wanted = program_panes(state);
+    programs.retain(|pane_id, _| wanted.contains(pane_id));
+    programs
+}
+
+/// Asks every [`PROGRAM_REFRESH`] what runs in the panes without an agent,
+/// on its own task, at most [`PROGRAM_REQUESTS`] at once. The transport's
+/// own timeouts apply, so a dead link is still noticed. Dropping the
+/// poller stops the task.
+struct ProgramPoller {
+    rx: mpsc::Receiver<Vec<ProgramAnswer>>,
+    panes: watch::Sender<Vec<String>>,
+    task: JoinHandle<()>,
+}
+
+impl ProgramPoller {
+    fn start(conn: Arc<Connection>, state: &SessionState) -> Self {
+        let (tx, rx) = mpsc::channel(1);
+        let (panes, mut wanted) = watch::channel(program_panes(state));
+        let task = tokio::spawn(async move {
+            loop {
+                let ids = wanted.borrow_and_update().clone();
+                if tx.send(query_programs(&conn, ids).await).await.is_err() {
+                    return;
+                }
+                // The next round after the pause, or at once for new panes.
+                tokio::select! {
+                    () = sleep(PROGRAM_REFRESH) => {}
+                    changed = wanted.changed() => if changed.is_err() { return },
+                }
+            }
+        });
+        Self { rx, panes, task }
+    }
+
+    /// Takes the panes of the current state; a changed set is asked at once.
+    fn follow(&self, state: &SessionState) {
+        follow_panes(&self.panes, state);
+    }
+}
+
+impl Drop for ProgramPoller {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+/// Hands the panes without an agent to the poller; `true` if they changed,
+/// which starts a round at once.
+fn follow_panes(panes: &watch::Sender<Vec<String>>, state: &SessionState) -> bool {
+    panes.send_if_modified(|panes| {
+        let fresh = program_panes(state);
+        let changed = *panes != fresh;
+        *panes = fresh;
+        changed
+    })
+}
+
+async fn query_programs(conn: &Arc<Connection>, pane_ids: Vec<String>) -> Vec<ProgramAnswer> {
+    let mut answers = Vec::with_capacity(pane_ids.len());
+    for chunk in pane_ids.chunks(PROGRAM_REQUESTS) {
+        let mut requests = tokio::task::JoinSet::new();
+        for pane_id in chunk {
+            let conn = Arc::clone(conn);
+            let pane_id = pane_id.clone();
+            requests.spawn(async move {
+                let answer = conn
+                    .request("pane.process_info", json!({ "pane_id": pane_id }))
+                    .await
+                    .ok()
+                    .and_then(|value| serde_json::from_value::<PaneProcessInfoResult>(value).ok())
+                    .map(|result| programs::for_processes(&result.process_info))
+                    .ok_or(());
+                (pane_id, answer)
+            });
+        }
+        while let Some(done) = requests.join_next().await {
+            if let Ok(answer) = done {
+                answers.push(answer);
+            }
+        }
+    }
+    answers
 }
 
 /// The directory that stands for a space: its focused pane in the active
@@ -649,6 +802,72 @@ mod tests {
             asked.elapsed() < backoff(1) / 2,
             "second attempt without the pause"
         );
+    }
+
+    #[test]
+    fn a_failed_program_request_keeps_the_last_program() {
+        let snapshot: herdr_proto::SessionSnapshot = serde_json::from_value(json!({
+            "version": "0.9.5", "protocol": 22, "workspaces": [], "tabs": [],
+            "panes": [
+                {"pane_id": "p1", "workspace_id": "w1", "tab_id": "t1"},
+                {"pane_id": "p2", "workspace_id": "w1", "tab_id": "t1"},
+                {"pane_id": "p3", "workspace_id": "w1", "tab_id": "t1", "agent": "claude"}
+            ]
+        }))
+        .expect("snapshot");
+        let mut state = SessionState::from_snapshot(snapshot);
+        let vim = ProgramMatch::Unknown("vim-ish".into());
+        state.programs.insert("p1".into(), vim.clone());
+        state.programs.insert("p2".into(), vim.clone());
+        state.programs.insert("p3".into(), vim.clone());
+        state.programs.insert("gone".into(), vim.clone());
+        let merged = merge_programs(
+            &state,
+            vec![("p1".into(), Err(())), ("p2".into(), Ok(None))],
+        );
+        // p1 failed and keeps vim; p2 has no process; p3 runs an agent now;
+        // the closed pane is gone.
+        assert_eq!(
+            merged.into_iter().collect::<Vec<_>>(),
+            vec![("p1".to_owned(), vim)]
+        );
+    }
+
+    #[test]
+    fn an_agent_that_ends_by_event_gets_its_pane_asked() {
+        let snapshot: herdr_proto::SessionSnapshot = serde_json::from_value(json!({
+            "version": "0.9.5", "protocol": 22, "workspaces": [], "tabs": [],
+            "panes": [
+                {"pane_id": "p1", "workspace_id": "w1", "tab_id": "t1"},
+                {"pane_id": "p2", "workspace_id": "w1", "tab_id": "t1", "agent": "claude"}
+            ]
+        }))
+        .expect("snapshot");
+        let mut state = SessionState::from_snapshot(snapshot);
+        let (panes, mut wanted) = watch::channel(program_panes(&state));
+        assert_eq!(*wanted.borrow_and_update(), ["p1"]);
+        assert!(!follow_panes(&panes, &state), "nothing changed yet");
+
+        // Claude exits: herdr reports the pane without an agent.
+        let event = parse_event(json!({
+            "event": "pane.agent_detected",
+            "data": {"type": "pane_agent_detected", "pane_id": "p2", "agent": null}
+        }))
+        .expect("event");
+        assert_eq!(state.apply(&event), Applied::Updated);
+        assert!(follow_panes(&panes, &state));
+        assert!(wanted.has_changed().expect("open"));
+        assert_eq!(*wanted.borrow_and_update(), ["p1", "p2"]);
+
+        // And back: an agent starts, the pane drops out.
+        let event = parse_event(json!({
+            "event": "pane.agent_detected",
+            "data": {"type": "pane_agent_detected", "pane_id": "p2", "agent": "codex"}
+        }))
+        .expect("event");
+        assert_eq!(state.apply(&event), Applied::Updated);
+        assert!(follow_panes(&panes, &state));
+        assert_eq!(*wanted.borrow_and_update(), ["p1"]);
     }
 
     #[test]

@@ -21,7 +21,8 @@ approach can be agreed on before you spend time on it.
   ```
 
   Against a productive server, use read-only methods only (`ping`,
-  `*.list`, `*.get`, `pane.read`, `session.snapshot`, `events.subscribe`).
+  `*.list`, `*.get`, `pane.read`, `pane.process_info`, `session.snapshot`,
+  `events.subscribe`).
 - Session logic lives in `crates/herdr-session`. `herdr-ffi` (Swift and
   Kotlin bindings) and the desktop crate are thin layers over it; a change
   in behavior belongs in the shared crate so every app gets it.
