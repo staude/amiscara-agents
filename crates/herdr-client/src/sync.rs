@@ -59,7 +59,8 @@ const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
 /// 10 per connection (`MaxSessions`), shared with everything else.
 const PROGRAM_REQUESTS: usize = 3;
 /// How long `ping` and `hello` may take when looking for the servers.
-const DETECT_TIMEOUT: Duration = Duration::from_secs(3);
+/// As long as opening a channel may take over SSH.
+const DETECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// herdr-core sends a heartbeat every 15 s; this long without anything the
 /// stream counts as lost.
 const HC_SILENCE: Duration = Duration::from_secs(45);
@@ -154,8 +155,9 @@ enum SyncError {
     Json(#[from] serde_json::Error),
     #[error("server closed the event stream")]
     Closed,
-    #[error("neither herdr nor herdr-core answers on this host")]
-    NoBackend,
+    /// Neither server answers; herdr's error, which says why.
+    #[error("{0}")]
+    NoBackend(String),
     #[error("another server started on the host")]
     BackendAppeared,
     #[error("nobody is watching any more")]
@@ -286,9 +288,10 @@ async fn follow_inner(
     tx: &watch::Sender<SyncState>,
     attempt: &mut u32,
 ) -> Result<Never, SyncError> {
-    let (has_herdr, hc_version) = detect(conn).await;
-    if !has_herdr && hc_version.is_none() {
-        return Err(SyncError::NoBackend);
+    let (herdr, hc_version) = detect(conn).await;
+    let has_herdr = herdr.is_ok();
+    if let (Err(error), None) = (herdr, &hc_version) {
+        return Err(SyncError::NoBackend(error));
     }
     let mut global = None;
     let mut state = match &hc_version {
@@ -314,7 +317,7 @@ async fn follow_inner(
     if let Some(hc) = &hc {
         state.replace_hc(&hc.terminals);
     }
-    state.branches = branches(conn, &state).await;
+    state.branches = branches(conn, &state, true).await;
     let mut panes = if has_herdr {
         PaneStatus::subscribe(conn, &state).await?
     } else {
@@ -354,12 +357,12 @@ async fn follow_inner(
                 continue;
             }
             _ = branch_refresh.tick() => {
-                if (!state.backends.herdr && ping(conn).await)
+                if (!state.backends.herdr && ping(conn).await.is_ok())
                     || (state.backends.hc.is_none() && hello(conn).await.is_some())
                 {
                     return Err(SyncError::BackendAppeared);
                 }
-                let fresh = branches(conn, &state).await;
+                let fresh = branches(conn, &state, true).await;
                 if fresh != state.branches {
                     state.branches = fresh;
                     publish(tx, SyncStatus::Live, &state);
@@ -381,7 +384,15 @@ async fn follow_inner(
                 if let Some(hc) = &hc {
                     fresh.replace_hc(&hc.terminals);
                 }
-                fresh.branches = branches(conn, &fresh).await;
+                // herdr-core's branches stay until the next refresh.
+                fresh.branches = branches(conn, &fresh, false).await;
+                let kept: Vec<(String, String)> = state
+                    .branches
+                    .iter()
+                    .filter(|(id, _)| crate::hc::is_hc(id) && fresh.workspace(id).is_some())
+                    .map(|(id, branch)| (id.clone(), branch.clone()))
+                    .collect();
+                fresh.branches.extend(kept);
                 // Carried like the branches; the poller refreshes them.
                 fresh.programs = state.programs.clone();
                 fresh.programs = merge_programs(&fresh, Vec::new());
@@ -470,15 +481,17 @@ fn parse_notification(value: &Value) -> Result<Notification, SyncError> {
 /// Which servers answer: herdr (`ping`, also with an error, which only a
 /// herdr server sends) and herdr-core (`hello`, with its version), each
 /// within [`DETECT_TIMEOUT`].
-async fn detect(conn: &Connection) -> (bool, Option<String>) {
+async fn detect(conn: &Connection) -> (Result<(), String>, Option<String>) {
     tokio::join!(ping(conn), hello(conn))
 }
 
-async fn ping(conn: &Connection) -> bool {
-    matches!(
-        tokio::time::timeout(DETECT_TIMEOUT, conn.request("ping", json!({}))).await,
-        Ok(Ok(_) | Err(TransportError::Proto(ProtoError::Api { .. })))
-    )
+/// `Ok` when a herdr server answers, else why not.
+async fn ping(conn: &Connection) -> Result<(), String> {
+    match tokio::time::timeout(DETECT_TIMEOUT, conn.request("ping", json!({}))).await {
+        Ok(Ok(_) | Err(TransportError::Proto(ProtoError::Api { .. }))) => Ok(()),
+        Ok(Err(err)) => Err(err.to_string()),
+        Err(_) => Err(TransportError::Timeout.to_string()),
+    }
 }
 
 async fn hello(conn: &Connection) -> Option<String> {
@@ -580,7 +593,11 @@ async fn recv_hc(feed: &mut Option<HcFeed>) -> Result<Value, SyncError> {
 /// space was created for. The branch comes from the `worktree.list` entry
 /// whose path contains that directory. One call lists all worktrees of a
 /// repository; spaces outside git get no branch.
-async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, String> {
+async fn branches(
+    conn: &Connection,
+    state: &SessionState,
+    with_hc: bool,
+) -> BTreeMap<String, String> {
     let mut worktrees: Vec<(String, String)> = Vec::new(); // (path, branch)
     let mut found = BTreeMap::new();
     // herdr-core's spaces: `git` in the directory, once per directory.
@@ -590,6 +607,9 @@ async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, S
             continue;
         };
         if crate::hc::is_hc(&workspace.workspace_id) {
+            if !with_hc {
+                continue;
+            }
             let machine = crate::hc::machine_of(&workspace.workspace_id).map(str::to_owned);
             let key = (machine, cwd);
             let branch = match hc_dirs.get(&key) {
