@@ -880,6 +880,16 @@
         }
       }
     },
+    "Agent nicht mehr da" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent is gone"
+          }
+        }
+      }
+    },
     "Agent starten" : {
       "localizations" : {
         "en" : {
@@ -2178,6 +2188,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy"
+          }
+        }
+      }
+    },
+    "Kurz ansehen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peek"
           }
         }
       }
