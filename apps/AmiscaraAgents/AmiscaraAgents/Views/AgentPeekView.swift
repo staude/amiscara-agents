@@ -185,12 +185,16 @@ extension View {
 
     /// "Kurz ansehen" and "Öffnen" for an agent's row: right-click on the
     /// Mac, long press on iPhone and iPad. No menu without `peek`.
+    /// Without a peek no menu at all, so a long press shows no empty one.
+    @ViewBuilder
     func peekMenu(_ peek: AgentPeek?, open: @escaping (SpaceRef) -> Void, peekAction: @escaping (AgentPeek) -> Void) -> some View {
-        contextMenu {
-            if let peek {
+        if let peek {
+            contextMenu {
                 Button("Kurz ansehen", systemImage: "eye") { peekAction(peek) }
                 Button("Öffnen", systemImage: "arrow.forward.circle") { open(peek.spaceRef) }
             }
+        } else {
+            self
         }
     }
 }
