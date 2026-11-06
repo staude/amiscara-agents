@@ -587,6 +587,13 @@ impl HostSession {
         Ok(runtime().block_on(self.session.dismiss_editor_request(&pane_id, &request_id))?)
     }
 
+    /// Marks the finish of the done agent in a pane as seen on the host
+    /// (#335), so every device shows it as idle; nothing happens for an
+    /// agent that is not done. Blocks for up to two round trips.
+    pub fn mark_seen(&self, pane_id: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.mark_seen(&pane_id))?)
+    }
+
     /// The folder to open a pane in VS Code with (#288), `None` when herdr
     /// reports no working directory.
     pub fn pane_folder(&self, pane_id: String) -> Option<String> {

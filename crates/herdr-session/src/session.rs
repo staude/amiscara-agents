@@ -43,6 +43,10 @@ const EDITOR_TTL_MS: u64 = 30_000;
 /// How long a device's claim on one run of a chain stays (#300): herdr's
 /// longest time to live, so a late device still finds it.
 const CHAIN_CLAIM_TTL_MS: u64 = 86_400_000;
+/// The metadata source the apps mark an agent's finish as seen under
+/// (#335). Without a time to live: the mark stays until the agent
+/// finishes again and a client marks that finish.
+const SEEN_SOURCE: &str = "amiscara-agents-seen";
 
 #[derive(Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "kind", content = "message", rename_all = "camelCase")]
@@ -746,6 +750,15 @@ impl Session {
         .await
         .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
         Ok(())
+    }
+
+    /// Marks the finish of the `done` agent in `pane_id` as seen on the
+    /// host (#335), so every client shows it as idle. Does nothing when
+    /// the agent is not done, herdr does not count its finishes (before
+    /// 0.9.5) or the mark is set already.
+    pub async fn mark_seen(&self, pane_id: &str) -> Result<(), SessionError> {
+        let conn = self.connection()?;
+        mark_seen(&conn, pane_id, self.session_state().as_deref()).await
     }
 
     /// Sends a prompt to the agent in a pane, followed by Enter.
@@ -1554,6 +1567,50 @@ impl Drop for Session {
     fn drop(&mut self) {
         self.forward.abort();
     }
+}
+
+/// [`Session::mark_seen`] on `conn`; `known` is the last known state, whose
+/// mark spares a second write.
+async fn mark_seen(
+    conn: &Connection,
+    pane_id: &str,
+    known: Option<&herdr_core::SessionState>,
+) -> Result<(), SessionError> {
+    let to_error = |err: TransportError| SessionError::from(actions::ActionError::from(err));
+    let value = conn
+        .request("agent.get", serde_json::json!({ "target": pane_id }))
+        .await
+        .map_err(to_error)?;
+    let agent = serde_json::from_value::<AgentGetResult>(value)
+        .map_err(|err| SessionError::Rejected(err.to_string()))?
+        .agent;
+    if agent.agent_status != AgentStatus::Done
+        || agent.state_change_seq == 0
+        || agent.completion_seq != Some(agent.state_change_seq)
+    {
+        return Ok(());
+    }
+    let seq = agent.state_change_seq.to_string();
+    let marked = known
+        .and_then(|state| state.pane(pane_id))
+        .and_then(|pane| pane.tokens.get(herdr_core::SEEN_TOKEN))
+        .is_some_and(|mark| *mark == seq);
+    if marked {
+        return Ok(());
+    }
+    // No `seq`: herdr would drop a report whose `seq` is not above the
+    // last one of the source, and `completion_seq` counts over all panes.
+    conn.request(
+        "pane.report_metadata",
+        serde_json::json!({
+            "pane_id": pane_id,
+            "source": SEEN_SOURCE,
+            "tokens": { herdr_core::SEEN_TOKEN: seq },
+        }),
+    )
+    .await
+    .map_err(to_error)?;
+    Ok(())
 }
 
 /// Writes tokens of [`chains::CHAINS_SOURCE`] to a pane; `None` removes one.
@@ -2482,6 +2539,8 @@ mod tests {
             /// Targets waiting at a dialog, which refuse prompts.
             blocked: Vec<&'static str>,
             prompts: Vec<(String, String)>,
+            /// How many `pane.report_metadata` calls came in.
+            reports: usize,
         }
 
         impl Fake {
@@ -2504,6 +2563,7 @@ mod tests {
                         "tokens": self.tokens()
                     }}}),
                     "pane.report_metadata" => {
+                        self.reports += 1;
                         let source = params["source"].as_str().unwrap_or_default().to_owned();
                         let entry = self.sources.entry(source).or_default();
                         let seq = params["seq"].as_u64();
@@ -2702,6 +2762,66 @@ mod tests {
             assert!(results.is_empty(), "{results:?}");
             assert!(fake.lock().expect("fake").prompts.is_empty());
             let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn a_done_agent_is_marked_seen_once() {
+            let fake = Arc::new(Mutex::new(Fake {
+                status: "done",
+                seq: 10,
+                ..Fake::default()
+            }));
+            let path = fake_herdr("seen", fake.clone());
+            let conn = Connection::local(&path);
+            let none = BTreeMap::new();
+            mark_seen(&conn, "w1:p1", Some(&state("done", &none)))
+                .await
+                .expect("mark");
+            let tokens = fake.lock().expect("fake").tokens();
+            assert_eq!(
+                tokens.get(herdr_core::SEEN_TOKEN).map(String::as_str),
+                Some("10")
+            );
+            assert_eq!(fake.lock().expect("fake").reports, 1);
+
+            // Known as marked: no second write.
+            mark_seen(&conn, "w1:p1", Some(&state("done", &tokens)))
+                .await
+                .expect("mark");
+            assert_eq!(fake.lock().expect("fake").reports, 1);
+
+            // A new finish gets a mark of its own.
+            fake.lock().expect("fake").seq = 14;
+            mark_seen(&conn, "w1:p1", Some(&state("done", &tokens)))
+                .await
+                .expect("mark");
+            let fake_now = fake.lock().expect("fake");
+            assert_eq!(fake_now.reports, 2);
+            assert_eq!(
+                fake_now
+                    .tokens()
+                    .get(herdr_core::SEEN_TOKEN)
+                    .map(String::as_str),
+                Some("14")
+            );
+            drop(fake_now);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[tokio::test]
+        async fn agents_not_done_or_uncounted_are_not_marked() {
+            for (status, seq) in [("working", 10), ("idle", 10), ("blocked", 10), ("done", 0)] {
+                let fake = Arc::new(Mutex::new(Fake {
+                    status,
+                    seq,
+                    ..Fake::default()
+                }));
+                let path = fake_herdr(&format!("unseen-{status}-{seq}"), fake.clone());
+                let conn = Connection::local(&path);
+                mark_seen(&conn, "w1:p1", None).await.expect("mark");
+                assert_eq!(fake.lock().expect("fake").reports, 0, "{status} {seq}");
+                let _ = std::fs::remove_file(&path);
+            }
         }
 
         #[tokio::test]

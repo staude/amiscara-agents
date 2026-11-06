@@ -420,6 +420,25 @@ pub fn pane_content_from_json(json: &str) -> Option<PaneContent> {
 /// off, every space keeps its full label and herdr's order. `sort` orders
 /// the spaces on each level of the sidebar. `open_requests` is false for a
 /// local host; it covers editor requests too.
+/// herdr's status of a tab or space, except that `done` turns `idle` when
+/// none of its agents is still unseen done (#335).
+fn group_status(
+    session: &SessionState,
+    reported: AgentStatus,
+    member: impl Fn(&PaneInfo) -> bool,
+) -> AgentStatus {
+    let unseen_done = || {
+        session.panes.iter().any(|pane| {
+            pane.agent.is_some() && member(pane) && session.agent_status(pane) == AgentStatus::Done
+        })
+    };
+    if reported == AgentStatus::Done && !unseen_done() {
+        AgentStatus::Idle
+    } else {
+        reported
+    }
+}
+
 pub fn session_update(
     state: &SyncState,
     previous: Option<&SessionState>,
@@ -496,7 +515,10 @@ pub fn session_update(
             name: short_name(&ws.workspace_id, &ws.label),
             group: group_of(&ws.workspace_id),
             focused: ws.focused,
-            agent_state: ws.agent_status.into(),
+            agent_state: group_status(session, ws.agent_status, |pane| {
+                pane.workspace_id == ws.workspace_id
+            })
+            .into(),
             active_tab_id: ws.active_tab_id.clone(),
             repo_key: ws
                 .worktree
@@ -532,7 +554,10 @@ pub fn session_update(
                     number: tab.number,
                     label: tab.label.clone(),
                     focused: tab.focused,
-                    agent_state: tab.agent_status.into(),
+                    agent_state: group_status(session, tab.agent_status, |pane| {
+                        pane.tab_id == tab.tab_id
+                    })
+                    .into(),
                     panes: session
                         .panes
                         .iter()
@@ -542,7 +567,7 @@ pub fn session_update(
                             title: title(pane),
                             agent: pane.display_agent.clone().or_else(|| pane.agent.clone()),
                             name: session.agent_names.get(&pane.pane_id).cloned(),
-                            agent_state: pane.agent_status.into(),
+                            agent_state: session.agent_status(pane).into(),
                             focused: pane.focused,
                         })
                         .collect(),
@@ -576,7 +601,7 @@ pub fn session_update(
                 .or_else(|| entry.pane.agent.clone())
                 .unwrap_or_default(),
             name: session.agent_names.get(&entry.pane.pane_id).cloned(),
-            agent_state: entry.pane.agent_status.into(),
+            agent_state: session.agent_status(entry.pane).into(),
             title: title(entry.pane),
             cwd: entry.pane.cwd.clone(),
             state_since_ms: None,
@@ -919,6 +944,94 @@ mod tests {
         let mut attention = board.clone();
         clock.stamp(&mut board, &mut attention, 200);
         assert_eq!(attention[0].state_since_ms, Some(200));
+    }
+
+    /// One space with two tabs: `t1` holds a done agent in finish 4 with
+    /// the seen mark `mark`, `t2` an unseen done agent unless `second_done`
+    /// is false. herdr reports both tabs and the space as done.
+    fn seen_update(mark: Option<&str>, second_done: bool) -> SessionUpdate {
+        let tokens = mark.map_or_else(|| serde_json::json!({}), |m| serde_json::json!({"seen": m}));
+        let second = if second_done { "done" } else { "working" };
+        let snapshot = serde_json::json!({
+            "version": "0.9.5", "protocol": 22,
+            "workspaces": [{"workspace_id": "w1", "number": 1, "label": "web",
+                            "agent_status": "done", "active_tab_id": "w1:t1"}],
+            "tabs": [
+                {"tab_id": "w1:t1", "workspace_id": "w1", "number": 1, "label": "1", "agent_status": "done"},
+                {"tab_id": "w1:t2", "workspace_id": "w1", "number": 2, "label": "2", "agent_status": second}
+            ],
+            "panes": [
+                {"pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                 "agent": "claude", "agent_status": "done", "tokens": tokens},
+                {"pane_id": "w1:p2", "workspace_id": "w1", "tab_id": "w1:t2",
+                 "agent": "codex", "agent_status": second}
+            ],
+            "agents": [{"pane_id": "w1:p1", "agent_status": "done",
+                        "state_change_seq": 4, "completion_seq": 4}]
+        });
+        let snapshot = serde_json::from_value(snapshot).expect("snapshot");
+        let state = SyncState {
+            status: SyncStatus::Live,
+            session: Some(std::sync::Arc::new(SessionState::from_snapshot(snapshot))),
+            ..SyncState::default()
+        };
+        session_update(&state, None, false, &SpaceSort::default(), false)
+    }
+
+    fn states(
+        update: &SessionUpdate,
+    ) -> (
+        AgentState,
+        Vec<AgentState>,
+        Vec<AgentState>,
+        Vec<AgentState>,
+    ) {
+        let ws = &update.workspaces[0];
+        (
+            ws.agent_state,
+            ws.tabs.iter().map(|tab| tab.agent_state).collect(),
+            ws.tabs
+                .iter()
+                .flat_map(|tab| &tab.panes)
+                .map(|pane| pane.agent_state)
+                .collect(),
+            update.board.iter().map(|item| item.agent_state).collect(),
+        )
+    }
+
+    #[test]
+    fn a_seen_finish_shows_as_idle_everywhere() {
+        use AgentState::{Done, Idle, Working};
+        // Unseen: as herdr reports it.
+        assert_eq!(
+            states(&seen_update(None, false)),
+            (
+                Done,
+                vec![Done, Working],
+                vec![Done, Working],
+                vec![Working, Done]
+            )
+        );
+        // Seen: pane, board, tab and space turn idle.
+        assert_eq!(
+            states(&seen_update(Some("4"), false)),
+            (
+                Idle,
+                vec![Idle, Working],
+                vec![Idle, Working],
+                vec![Working, Idle]
+            )
+        );
+        // A mark for an older finish counts for nothing.
+        assert_eq!(
+            states(&seen_update(Some("3"), false)).1,
+            vec![Done, Working]
+        );
+        // Another unseen finish keeps the space done.
+        assert_eq!(
+            states(&seen_update(Some("4"), true)),
+            (Done, vec![Idle, Done], vec![Idle, Done], vec![Done, Idle])
+        );
     }
 
     #[test]
