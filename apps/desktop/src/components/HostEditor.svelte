@@ -79,7 +79,13 @@
     if (!draft.name.trim()) draft.name = picked.alias;
     draft.host = picked.hostName;
     draft.port = picked.port ?? 22;
-    if (picked.user) draft.user = picked.user;
+    if (picked.user && picked.user !== draft.user) {
+      // A socket under the old user's default directory (also a named
+      // session there) moves to the new user, also when editing a host.
+      const oldDir = draft.user ? defaultSocket(draft.user, macHost).replace(/herdr\.sock$/, "") : null;
+      if (!draft.socketPath || (oldDir && draft.socketPath.startsWith(oldDir))) socketTouched = false;
+      draft.user = picked.user;
+    }
     draft.sshTarget = picked.alias;
   }
 
