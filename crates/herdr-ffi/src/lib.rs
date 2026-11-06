@@ -744,8 +744,10 @@ impl HostSession {
 
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. Without `name` it is named
-    /// after its kind, numbered when taken. Returns once herdr has typed
-    /// the command; the agent's state follows in the session updates.
+    /// after its kind, numbered when taken. herdr 0.9.5 (protocol 22)
+    /// answered in tests once the agent took input, but `agent.start` may
+    /// also come back earlier; whoever sends a first prompt waits with
+    /// `watch_agent_start` before.
     pub fn start_agent(
         &self,
         pane_id: String,

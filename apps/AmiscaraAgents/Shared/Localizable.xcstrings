@@ -1412,6 +1412,16 @@
         }
       }
     },
+    "Aufgabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
+          }
+        }
+      }
+    },
     "Auftrag" : {
       "localizations" : {
         "en" : {
@@ -1622,6 +1632,26 @@
         }
       }
     },
+    "Der Agent hat sich gleich nach dem Start beendet, die Aufgabe wurde nicht gesendet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent ended right after starting, the task was not sent."
+          }
+        }
+      }
+    },
+    "Der Agent läuft, die Aufgabe wurde aber nicht gesendet: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is running, but the task was not sent: %@"
+          }
+        }
+      }
+    },
     "Der Diff ist zu groß für GitHubs Schnittstelle. Auf GitHub ansehen." : {
       "localizations" : {
         "en" : {
@@ -1688,6 +1718,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Details"
+          }
+        }
+      }
+    },
+    "Die App sendet die Aufgabe, sobald der Agent bereit ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app sends the task as soon as the agent is ready."
           }
         }
       }
@@ -2098,6 +2138,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub denies access (403): token permissions or rate limit."
+          }
+        }
+      }
+    },
+    "herdr hat den Agent nicht innerhalb von 30 Sekunden bereit gemeldet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr did not report the agent ready within 30 seconds."
           }
         }
       }
@@ -2572,6 +2622,26 @@
         }
       }
     },
+    "Neuer Tab mit Aufgabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with Task"
+          }
+        }
+      }
+    },
+    "Neuer Tab mit Aufgabe …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with Task …"
+          }
+        }
+      }
+    },
     "Neuere Einträge laden" : {
       "localizations" : {
         "en" : {
@@ -2638,6 +2708,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
+          }
+        }
+      }
+    },
+    "Nur mit Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only with an agent."
           }
         }
       }
@@ -2932,6 +3012,16 @@
         }
       }
     },
+    "Starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        }
+      }
+    },
     "Stopp" : {
       "localizations" : {
         "en" : {
@@ -3132,6 +3222,16 @@
         }
       }
     },
+    "Vorlage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template"
+          }
+        }
+      }
+    },
     "Vorlesen" : {
       "localizations" : {
         "en" : {
@@ -3158,6 +3258,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reading aloud needs file access like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
+    "Warte, bis der Agent bereit ist …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the agent to be ready …"
           }
         }
       }

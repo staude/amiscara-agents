@@ -16,6 +16,8 @@ struct WorkspaceDetailView: View {
     #if !os(tvOS)
     /// Claude Code sessions of the space's folder to resume (#304).
     @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    /// The space a new tab with an agent and a first prompt is for (#344).
+    @State private var newAgentTabIn: NewAgentTabTarget?
     #endif
     @State private var tabID: String?
     @State private var paneID: String?
@@ -122,6 +124,14 @@ struct WorkspaceDetailView: View {
         }
         .sheet(item: $changesShown) { target in
             DiffView(connection: target.connection, target: .space(target.workspaceID))
+        }
+        #endif
+        #if !os(tvOS)
+        .sheet(item: $newAgentTabIn) { target in
+            NewAgentTabView(connection: target.connection, workspace: target.workspace) { created in
+                tabID = created.tabId
+                paneID = created.paneId
+            }
         }
         #endif
         .sheet(item: $newWorktreeFrom) { source in
@@ -399,6 +409,9 @@ struct WorkspaceDetailView: View {
                 }
             }
             #if !os(tvOS)
+            Button("Neuer Tab mit Aufgabe …", systemImage: "text.badge.plus") {
+                newAgentTabIn = NewAgentTabTarget(connection: connection, workspace: workspace)
+            }
             Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                 claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
             }
