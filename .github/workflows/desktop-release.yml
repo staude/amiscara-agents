@@ -56,6 +56,8 @@ jobs:
             echo "::error::tag $GITHUB_REF_NAME, but apps/desktop/package.json says $app"
             exit 1
           fi
+          # The app shows these notes after the update (#341).
+          python3 scripts/whats-new.py check desktop "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - id: create
         name: Draft release

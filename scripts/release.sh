@@ -50,6 +50,8 @@ sparkle_key=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' apps/AmiscaraAge
 [[ -n "$sparkle_key" && "$sparkle_key" != __* ]] \
     || die "SUPublicEDKey in project.yml is still the placeholder; the release could not update itself (docs/release.md)"
 require_clean_tree
+# The "What's New" window shows these notes after the update (#341).
+python3 scripts/whats-new.py check mac "$(marketing_version)" || exit 1
 
 version=$(marketing_version)
 build=$(build_number)
