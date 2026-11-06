@@ -416,23 +416,31 @@ pub fn pane_content_from_json(json: &str) -> Option<PaneContent> {
     serde_json::from_str(json).ok()
 }
 
-/// herdr's status of a tab or space, except that `done` turns `idle` when
-/// none of its agents is still unseen done (#335).
+/// herdr's status of a tab or space, except that `done` turns into the
+/// most urgent status of its agents when none of them is still unseen done
+/// (#335), `idle` without agents.
 fn group_status(
     session: &SessionState,
     reported: AgentStatus,
     member: impl Fn(&PaneInfo) -> bool,
 ) -> AgentStatus {
-    let unseen_done = || {
-        session.panes.iter().any(|pane| {
-            pane.agent.is_some() && member(pane) && session.agent_status(pane) == AgentStatus::Done
-        })
-    };
-    if reported == AgentStatus::Done && !unseen_done() {
-        AgentStatus::Idle
-    } else {
-        reported
+    if reported != AgentStatus::Done {
+        return reported;
     }
+    let shown: Vec<AgentStatus> = session
+        .panes
+        .iter()
+        .filter(|pane| pane.agent.is_some() && member(pane))
+        .map(|pane| session.agent_status(pane))
+        .collect();
+    [
+        AgentStatus::Done,
+        AgentStatus::Blocked,
+        AgentStatus::Working,
+    ]
+    .into_iter()
+    .find(|status| shown.contains(status))
+    .unwrap_or(AgentStatus::Idle)
 }
 
 /// `group_by_name` is the host's setting for the "Bereich/Name" convention:
@@ -1012,11 +1020,12 @@ mod tests {
                 vec![Working, Done]
             )
         );
-        // Seen: pane, board, tab and space turn idle.
+        // Seen: pane, board and tab turn idle, the space shows its
+        // working agent.
         assert_eq!(
             states(&seen_update(Some("4"), false)),
             (
-                Idle,
+                Working,
                 vec![Idle, Working],
                 vec![Idle, Working],
                 vec![Working, Idle]
