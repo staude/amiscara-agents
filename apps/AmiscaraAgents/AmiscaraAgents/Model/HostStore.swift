@@ -106,13 +106,17 @@ final class HostStore {
             // A finish waits a moment: shown on any device by then, it is
             // seen and needs no notice (#335). Waiting agents go at once.
             self.announce(update.attention.filter { $0.agentState != .done }, of: connection)
-            let finished = Set(update.attention.filter { $0.agentState == .done }.map(\.paneId))
-            if !finished.isEmpty {
-                Task { [weak self, weak connection] in
+            for item in update.attention where item.agentState == .done {
+                // A newer finish of the pane replaces one still waiting.
+                let key = "\(connection.id)/\(item.paneId)"
+                self.doneGraceTasks[key]?.cancel()
+                self.doneGraceTasks[key] = Task { [weak self, weak connection] in
                     try? await Task.sleep(for: Self.doneGrace)
-                    guard let self, let connection else { return }
+                    guard !Task.isCancelled, let self else { return }
+                    self.doneGraceTasks[key] = nil
+                    guard let connection else { return }
                     let unseen = (connection.update?.board ?? [])
-                        .filter { $0.agentState == .done && finished.contains($0.paneId) }
+                        .filter { $0.agentState == .done && $0.paneId == item.paneId }
                     self.announce(unseen, of: connection)
                 }
             }
@@ -159,6 +163,9 @@ final class HostStore {
     /// How long a finish waits for a device to show it before it notifies
     /// (#335).
     static let doneGrace: Duration = .seconds(3)
+
+    /// Finishes waiting out `doneGrace`, by `host/pane`.
+    @ObservationIgnored private var doneGraceTasks: [String: Task<Void, Never>] = [:]
 
     /// Notifies of agents that need the user, here and (on the Mac) through
     /// iCloud.
