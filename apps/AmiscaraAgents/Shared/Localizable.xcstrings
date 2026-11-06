@@ -930,6 +930,16 @@
         }
       }
     },
+    "Agent „%@“ in %@ ist gleich nach dem Start beendet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent “%1$@” in %2$@ exited right after start"
+          }
+        }
+      }
+    },
     "Agents" : {
       "localizations" : {
         "en" : {
@@ -6380,6 +6390,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pane cannot be read"
+          }
+        }
+      }
+    },
+    "Pane öffnen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open pane"
           }
         }
       }

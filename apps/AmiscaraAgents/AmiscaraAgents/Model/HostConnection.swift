@@ -1,6 +1,18 @@
 import Foundation
 import Observation
 
+#if !os(tvOS)
+/// An agent started from this device that ended right after its start
+/// (#339), with the last lines of its pane, whose shell stays open.
+struct AgentStartFailure: Identifiable {
+    let id = UUID()
+    let kind: String
+    let workspaceID: String
+    let paneID: String
+    let lines: String
+}
+#endif
+
 /// One host with its live session. Rust calls back on a background thread;
 /// the bridge hops to the main actor before anything touches the UI state.
 @MainActor
@@ -40,6 +52,9 @@ final class HostConnection: Identifiable {
     #if !os(tvOS)
     /// The open pull requests of the spaces (#309).
     let pullRequests: PullRequests
+    /// Agents started from this device that ended before they were ready
+    /// (#339), until closed or opened. Only in memory.
+    private(set) var startFailures: [AgentStartFailure] = []
     #endif
 
     init(config: HostConfig) {
@@ -257,10 +272,42 @@ final class HostConnection: Identifiable {
     /// background; its state arrives with the next updates.
     func startAgent(kind: String, in paneID: String) async throws -> String {
         let session = try writableSession()
-        return try await Task.detached {
+        let name = try await Task.detached {
             try session.startAgent(paneId: paneID, kind: kind, name: nil)
         }.value
+        #if !os(tvOS)
+        watchStart(of: kind, in: paneID, on: session)
+        #endif
+        return name
     }
+
+    #if !os(tvOS)
+    /// Waits in the background until the agent just started in `paneID` is
+    /// ready or gone (#339) and keeps a report when it ended first. Errors,
+    /// e.g. a dropped connection, report nothing.
+    private func watchStart(of kind: String, in paneID: String, on session: HostSession) {
+        Task { [weak self] in
+            // Blocks up to 35 s: on its own thread, not one of the few of
+            // the shared pool the other calls into Rust need.
+            let failure: StartFailure? = await withCheckedContinuation { continuation in
+                Thread.detachNewThread {
+                    continuation.resume(returning: (try? session.watchAgentStart(paneId: paneID)) ?? nil)
+                }
+            }
+            guard let self, let failure else { return }
+            self.startFailures.append(AgentStartFailure(
+                kind: kind,
+                workspaceID: failure.workspaceId,
+                paneID: failure.paneId,
+                lines: failure.lines
+            ))
+        }
+    }
+
+    func dismissStartFailure(_ id: UUID) {
+        startFailures.removeAll { $0.id == id }
+    }
+    #endif
 
     /// Agent kinds the host can start, the usual ones first. Asked once per
     /// connection; herdr's list only changes with a new herdr version.
@@ -441,9 +488,13 @@ final class HostConnection: Identifiable {
     /// (`claude --resume <id>`) and returns the agent's name (#304).
     func resumeClaude(_ sessionID: String, in paneID: String) async throws -> String {
         let session = try writableSession()
-        return try await Task.detached {
+        let name = try await Task.detached {
             try session.resumeClaude(paneId: paneID, sessionId: sessionID)
         }.value
+        #if !os(tvOS)
+        watchStart(of: "claude", in: paneID, on: session)
+        #endif
+        return name
     }
 
     /// The last `lines` rows of a pane including scrollback as plain text,
