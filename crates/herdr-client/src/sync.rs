@@ -318,6 +318,9 @@ async fn follow_inner(
         state.replace_hc(&hc.terminals);
     }
     state.branches = branches(conn, &state, true).await;
+    if let Some(feed) = hc.as_mut() {
+        feed.heard = Instant::now();
+    }
     let mut panes = if has_herdr {
         PaneStatus::subscribe(conn, &state).await?
     } else {
@@ -363,6 +366,10 @@ async fn follow_inner(
                     return Err(SyncError::BackendAppeared);
                 }
                 let fresh = branches(conn, &state, true).await;
+                // Waiting here is not the core going quiet.
+                if let Some(feed) = hc.as_mut() {
+                    feed.heard = Instant::now();
+                }
                 if fresh != state.branches {
                     state.branches = fresh;
                     publish(tx, SyncStatus::Live, &state);
@@ -502,8 +509,10 @@ async fn hello(conn: &Connection) -> Option<String> {
     .await
     .ok()?
     .ok()?;
+    // Another generation counts as no herdr-core.
     serde_json::from_value::<HelloResult>(answer)
         .ok()
+        .filter(|hello| hello.generation == HC_GENERATION)
         .map(|hello| hello.version)
 }
 

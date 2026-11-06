@@ -568,12 +568,17 @@ impl<S: SearchSink> Search<'_, S> {
                 )
                 .await
                 .map_err(files_error)?;
-            // herdr-core runs the script to its end; a cancel drops the
-            // request, which ends the script with it.
-            let mut stop = self.stop.clone();
-            let run = tokio::select! {
-                run = run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT) => run?,
-                _ = stop.wait_for(|stopped| *stopped) => return Ok(()),
+            let run = if herdr_client::hc::is_hc(space) {
+                // herdr-core runs the script to its end; a cancel drops the
+                // request, which ends the script with it.
+                let mut stop = self.stop.clone();
+                tokio::select! {
+                    run = run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT) => run?,
+                    _ = stop.wait_for(|stopped| *stopped) => return Ok(()),
+                }
+            } else {
+                // Not cut short: the tab has to be closed again.
+                run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT).await?
             };
             if let HostRun::Tab(tab) = run {
                 let finished = self.wait_for_host(&stamp).await;

@@ -332,7 +332,7 @@ pub async fn pane_info(conn: &Connection, pane_id: &str) -> Result<PaneInfo, Tra
     Ok(pane(&terminal, &space_id(&terminal), &tab_id(&terminal)))
 }
 
-/// All terminals, live and finished, with `terminal.list`.
+/// The live terminals, with `terminal.list`.
 pub async fn list(conn: &Connection) -> Result<Vec<Terminal>, TransportError> {
     let value = conn.hc_request("terminal.list", json!({})).await?;
     let list: ListResult = serde_json::from_value(value).map_err(herdr_proto::ProtoError::from)?;
@@ -409,7 +409,14 @@ pub async fn branch(conn: &Connection, dir: &str, machine: Option<&str>) -> Opti
     if let Some(machine) = machine {
         params["on"] = json!(machine);
     }
-    let value = conn.hc_request("machine.exec", params).await.ok()?;
+    // The core's own limit does not cover a stalled link.
+    let value = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        conn.hc_request("machine.exec", params),
+    )
+    .await
+    .ok()?
+    .ok()?;
     let result: herdr_proto::hc::ExecResult = serde_json::from_value(value).ok()?;
     if result.code != Some(0) || result.timed_out {
         return None;
