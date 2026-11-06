@@ -1714,6 +1714,10 @@ async fn mark_seen(
     pane_id: &str,
     known: Option<&herdr_client::SessionState>,
 ) -> Result<(), SessionError> {
+    // herdr-core keeps no marks; its agents stay done (#329).
+    if herdr_client::hc::is_hc(pane_id) {
+        return Ok(());
+    }
     let to_error = |err: TransportError| SessionError::from(actions::ActionError::from(err));
     let value = conn
         .request("agent.get", serde_json::json!({ "target": pane_id }))
