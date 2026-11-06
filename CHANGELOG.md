@@ -767,6 +767,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `pane.process_info` every 5 s for panes without an agent on its own task,
   at most three requests at once,
   `ProgramItem` on `PaneItem` and `BoardItem`. Mac, iPhone, iPad, Apple TV.
+- Notification sound per state (#336): "Mitteilungston" in the Mac's settings
+  window and the iPhone's and iPad's "Erscheinungsbild" menu picks one sound
+  for "wartet" and one for "fertig", each with "Kein Ton" and a preview. The
+  list offers the default sound and four tones the app brings (Glocke,
+  Aufsteigend, Absteigend, Klopfen; `scripts/notification-sounds.swift`
+  makes them); the Mac adds its system sounds and own files, copied to
+  `~/Library/Sounds`. Local notifications and the pushes through iCloud use
+  the choice of the device. Without a choice "wartet" sounds as before and
+  "fertig" stays silent. Mac, iPhone and iPad.
 
 ### Changed
 

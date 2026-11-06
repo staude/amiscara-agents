@@ -8969,6 +8969,126 @@
           }
         }
       }
+    },
+    "Mitteilungston" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification sound"
+          }
+        }
+      }
+    },
+    "Kein Ton" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sound"
+          }
+        }
+      }
+    },
+    "Standardton" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default sound"
+          }
+        }
+      }
+    },
+    "Glocke" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chime"
+          }
+        }
+      }
+    },
+    "Aufsteigend" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rising"
+          }
+        }
+      }
+    },
+    "Absteigend" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falling"
+          }
+        }
+      }
+    },
+    "Klopfen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Knock"
+          }
+        }
+      }
+    },
+    "Eigene Datei …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Own file …"
+          }
+        }
+      }
+    },
+    "Probehören" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "Probe des Mitteilungstons" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification sound preview"
+          }
+        }
+      }
+    },
+    "Gilt für diesen Mac. iPhone und iPad wählen ihren Ton selbst." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies to this Mac. iPhone and iPad choose their own sound."
+          }
+        }
+      }
+    },
+    "Die Datei ließ sich nicht übernehmen: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file could not be added: %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
