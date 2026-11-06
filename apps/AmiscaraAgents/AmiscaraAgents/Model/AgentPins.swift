@@ -52,9 +52,19 @@ final class AgentPins {
     }
     #endif
 
+    /// The Mac's own host key fingerprint, read from disk once it is there.
+    private static var localHostKey: String?
+
     /// The part of a pin's key that names the host and its herdr server.
     static func prefix(of connection: HostConnection) -> String {
-        let host = PaneHandoff.hostKey(of: connection) ?? "local-\(connection.config.id.uuidString)"
+        let key: String?
+        if connection.config.kind == .local {
+            if localHostKey == nil { localHostKey = PaneHandoff.hostKey(of: connection) }
+            key = localHostKey
+        } else {
+            key = PaneHandoff.hostKey(of: connection)
+        }
+        let host = key ?? "local-\(connection.config.id.uuidString)"
         return "\(host)|\(PaneHandoff.session(of: connection))|\(PaneHandoff.user(of: connection))|"
     }
 
@@ -69,9 +79,11 @@ final class AgentPins {
     func toggle(_ paneID: String, on connection: HostConnection) {
         #if !os(tvOS)
         let key = Self.prefix(of: connection) + paneID
-        var keys = keys
-        if keys.remove(key) == nil { keys.insert(key) }
-        save(keys)
+        if keys.contains(key) {
+            save(removing: [key])
+        } else {
+            save(adding: [key])
+        }
         #endif
     }
 
@@ -90,18 +102,24 @@ final class AgentPins {
     func prune(on connection: HostConnection, keeping panes: Set<String>) {
         #if !os(tvOS)
         let prefix = Self.prefix(of: connection)
-        let kept = keys.filter { key in
-            !key.hasPrefix(prefix) || panes.contains(String(key.dropFirst(prefix.count)))
+        let gone = keys.filter { key in
+            key.hasPrefix(prefix) && !panes.contains(String(key.dropFirst(prefix.count)))
         }
-        if kept != keys { save(kept) }
+        if !gone.isEmpty { save(removing: gone) }
         #endif
     }
 
     #if !os(tvOS)
-    private func save(_ keys: Set<String>) {
-        self.keys = keys
-        guard let store else { return }
-        store.set(keys.sorted(), forKey: Self.storeKey)
+    /// Applies only this change to the store's current pins, so pins set on
+    /// another device that this one has not seen yet stay.
+    private func save(adding added: Set<String> = [], removing removed: Set<String> = []) {
+        guard let store else {
+            keys = keys.subtracting(removed).union(added)
+            return
+        }
+        let merged = Self.read(store).subtracting(removed).union(added)
+        store.set(merged.sorted(), forKey: Self.storeKey)
+        keys = merged
     }
     #endif
 }
