@@ -7294,16 +7294,6 @@
         }
       }
     },
-    "Space oder Agent suchen (⌘K)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search for a space or agent (⌘K)"
-          }
-        }
-      }
-    },
     "Space schließen" : {
       "localizations" : {
         "en" : {

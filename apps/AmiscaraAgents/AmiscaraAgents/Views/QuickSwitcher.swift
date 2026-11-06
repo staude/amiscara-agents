@@ -95,7 +95,8 @@ struct QuickSwitcher: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        let palette = PaletteQuery.parse(query)
+        // Without commands (tvOS) `>` is just text.
+        let palette = commands.isEmpty ? PaletteQuery(text: query, commandsOnly: false) : PaletteQuery.parse(query)
         let results = PaletteResults.combine(
             entries: SwitcherEntry.all(in: store),
             entryFields: \.fields,
@@ -137,8 +138,6 @@ struct QuickSwitcher: View {
                     .padding(10)
                 Divider()
                 if results.isEmpty {
-                    // The app's own commands are always there, so only a
-                    // query can leave the list empty.
                     ContentUnavailableView.search(text: palette.text)
                 } else {
                     ScrollViewReader { proxy in
