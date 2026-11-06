@@ -139,7 +139,16 @@ struct QuickSwitcher: View {
                     .textFieldStyle(.roundedBorder)
                     #endif
                     .focused($searchFocused)
-                    .onSubmit { pick(current(in: results)) }
+                    .onSubmit {
+                        // The field editor may take ⌥Return as a submit.
+                        #if !os(tvOS)
+                        if Platform.optionKeyDown, let peek = current(in: results).flatMap(peek) {
+                            peeking = peek
+                            return
+                        }
+                        #endif
+                        pick(current(in: results))
+                    }
                     #if !os(tvOS)
                     .onKeyPress(.return, phases: .down) { press in
                         guard press.modifiers.contains(.option) else { return .ignored }
@@ -190,7 +199,9 @@ struct QuickSwitcher: View {
                 }
             }
             #if !os(tvOS)
+            // The peek closes before the switcher it sits on.
             .agentPeek($peeking) { target in
+                peeking = nil
                 onPick(target)
                 dismiss()
             }
