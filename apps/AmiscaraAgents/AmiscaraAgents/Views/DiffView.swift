@@ -2,12 +2,27 @@ import SwiftUI
 
 #if !os(tvOS)
 
+/// Whose changes a ``DiffView`` shows: a pane's working directory (#228)
+/// or the folder of a space (#342).
+enum DiffTarget: Hashable {
+    case pane(String)
+    case space(String)
+}
+
+/// The changes of a space to show as a sheet, from the sidebar or the
+/// space (#342).
+struct ChangesTarget: Identifiable {
+    let connection: HostConnection
+    let workspaceID: String
+    var id: String { workspaceID }
+}
+
 /// What an agent changed in its working directory (#228): `git diff`
 /// against `HEAD` plus untracked files, per file with its hunks. Read only;
 /// the host runs Git in a short-lived tab of the pane's space.
 struct DiffView: View {
     let connection: HostConnection
-    let paneID: String
+    let target: DiffTarget
     @Environment(\.dismiss) private var dismiss
     @State private var files: [DiffFile] = []
     @State private var truncated = false
@@ -71,7 +86,10 @@ struct DiffView: View {
             loaded = true
         }
         do {
-            let diff = try await connection.workingTreeDiff(paneID: paneID)
+            let diff = switch target {
+            case .pane(let paneID): try await connection.workingTreeDiff(paneID: paneID)
+            case .space(let spaceID): try await connection.workingTreeDiff(spaceID: spaceID)
+            }
             files = diff.files
             truncated = diff.truncated
             error = nil

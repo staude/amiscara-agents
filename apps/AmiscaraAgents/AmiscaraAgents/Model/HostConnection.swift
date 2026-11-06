@@ -55,6 +55,11 @@ final class HostConnection: Identifiable {
     /// Agents started from this device that ended before they were ready
     /// (#339), until closed or opened. Only in memory.
     private(set) var startFailures: [AgentStartFailure] = []
+    /// The number of changed files per space (workspace id) from the last
+    /// load of its changes (#342), for the button next to the tabs. Only
+    /// in memory; loading the changes runs Git in a tab on the host, so
+    /// the app never asks on its own.
+    private(set) var changeCounts: [String: Int] = [:]
     #endif
 
     init(config: HostConfig) {
@@ -519,6 +524,27 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    #if !os(tvOS)
+    /// What changed in the folder of a space (#342), the folder of the
+    /// focused pane in its active tab. Needs input and file access like
+    /// the diff of a pane; remembers the number of files for the space.
+    func workingTreeDiff(spaceID: String) async throws -> WorkingTreeDiff {
+        guard config.inputAllowed else { throw ConnectionFailure.diffReadOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        do {
+            let diff = try await Task.detached {
+                try session.spaceWorkingTreeDiff(workspaceId: spaceID)
+            }.value
+            changeCounts[spaceID] = diff.files.count
+            return diff
+        } catch {
+            changeCounts[spaceID] = nil
+            throw error
+        }
+    }
+    #endif
+
     /// What happened on the host between `since` and `until` (#301):
     /// Claude Code prompts and finished turns, and the commits of every
     /// space. Read only, but like the diff it opens a short-lived tab and
@@ -815,6 +841,7 @@ enum ConnectionFailure: LocalizedError {
     case uploadOff
     case filesOff
     case diffFilesOff
+    case diffReadOnly
     case dailyLogFilesOff
     case browseFilesOff
     case secretsFilesOff
@@ -836,6 +863,8 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .diffReadOnly:
+            String(localized: "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
         case .dailyLogFilesOff:
             String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:

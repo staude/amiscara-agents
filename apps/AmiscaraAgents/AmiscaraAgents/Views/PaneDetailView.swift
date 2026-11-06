@@ -125,7 +125,7 @@ struct PaneDetailView: View {
         #if !os(tvOS)
         .sheet(isPresented: $showingDiff) {
             if let selection, let connection = store.connection(for: selection.hostID) {
-                DiffView(connection: connection, paneID: selection.paneID)
+                DiffView(connection: connection, target: .pane(selection.paneID))
             }
         }
         .sheet(isPresented: $showingFiles) {

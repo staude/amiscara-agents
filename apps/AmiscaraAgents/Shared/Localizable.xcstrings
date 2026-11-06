@@ -1702,6 +1702,16 @@
         }
       }
     },
+    "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the changes through a short-lived tab on the host; turn on “Allow input” for this (Edit host)."
+          }
+        }
+      }
+    },
     "Durchsucht die Gespräche auf dem Host …" : {
       "localizations" : {
         "en" : {
@@ -2468,6 +2478,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not every Claude conversation was read back to the start of the day; early entries may be missing."
+          }
+        }
+      }
+    },
+    "Nicht committete Änderungen im Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uncommitted changes in the space"
           }
         }
       }
@@ -6284,6 +6304,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Changes requested"
+          }
+        }
+      }
+    },
+    "Änderungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes …"
           }
         }
       }
