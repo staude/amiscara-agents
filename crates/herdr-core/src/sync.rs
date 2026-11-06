@@ -301,15 +301,25 @@ async fn follow_inner(
             () = tx.closed() => return Err(SyncError::Unobserved),
         };
         let event = parse_event(item?)?;
+        // herdr may announce a change of status with `pane.updated` as well
+        // as with `pane.agent_status_changed`, in either order.
+        let changed_pane = match &event {
+            Event::PaneAgentStatusChanged { pane_id, .. } => Some(pane_id.clone()),
+            Event::PaneUpdated { pane } => Some(pane.pane_id.clone()),
+            _ => None,
+        };
+        let status_before = changed_pane
+            .as_deref()
+            .and_then(|id| state.pane(id))
+            .map(|pane| pane.agent_status);
         match state.apply(&event) {
             Applied::Updated => {
                 // A new finish: which one it is decides whether a client
                 // has seen it (#335).
-                if let Event::PaneAgentStatusChanged {
-                    pane_id,
-                    agent_status: AgentStatus::Done,
-                    ..
-                } = &event
+                if let Some(pane_id) = changed_pane.as_deref()
+                    && let Some(pane) = state.pane(pane_id)
+                    && pane.agent_status == AgentStatus::Done
+                    && status_before != Some(AgentStatus::Done)
                     && !state.completion_seqs.contains_key(pane_id)
                 {
                     let seq = finish(conn, pane_id).await;
