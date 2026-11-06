@@ -867,6 +867,17 @@ impl HostSession {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
     }
 
+    /// What changed in the folder of a space (#342), the folder of the
+    /// focused pane in its active tab. Same way and needs as
+    /// [`HostSession::working_tree_diff`]; blocks for a moment, call it
+    /// off the main thread.
+    pub fn space_working_tree_diff(
+        &self,
+        workspace_id: String,
+    ) -> Result<WorkingTreeDiff, FfiError> {
+        Ok(runtime().block_on(self.session.space_working_tree_diff(&workspace_id))?)
+    }
+
     /// What happened on the host between the Unix seconds `since_secs` and
     /// `until_secs` (#301): Claude Code prompts and finished turns, and the
     /// commits of every space, oldest first. Read only; runs a small script

@@ -30,6 +30,8 @@ struct WorkspaceDetailView: View {
     #if !os(tvOS)
     /// The space's pull request, shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
+    /// The uncommitted changes of the space, shown (#342).
+    @State private var changesShown: ChangesTarget?
     #endif
     /// The space and pane reopened on launch (#276), set by `ContentView`:
     /// not opened on purpose, so a tab put away meanwhile (#333) stays away.
@@ -116,6 +118,9 @@ struct WorkspaceDetailView: View {
         #if !os(tvOS)
         .sheet(item: $pullRequestShown) { target in
             PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
+        }
+        .sheet(item: $changesShown) { target in
+            DiffView(connection: target.connection, target: .space(target.workspaceID))
         }
         #endif
         .sheet(item: $newWorktreeFrom) { source in
@@ -342,6 +347,25 @@ struct WorkspaceDetailView: View {
                     settledMenu(settled, on: connection)
                 }
                 #if !os(tvOS)
+                // Shown without input too, like "Heute": the sheet says why
+                // it needs input. The count only after a load (#342).
+                if connection.isLive && workspace.repoKey != nil {
+                    Button {
+                        changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "plusminus")
+                            if let count = connection.changeCounts[workspace.workspaceId], count > 0 {
+                                Text(count, format: .number)
+                                    .font(.callout.monospacedDigit())
+                            }
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.leading, 8)
+                    .help(String(localized: "Nicht committete Änderungen im Space"))
+                    .accessibilityLabel(Text("Änderungen"))
+                }
                 // Reading and merging go to GitHub, not the host's input.
                 if let pullRequest = connection.pullRequests.pullRequest(for: workspace.workspaceId) {
                     Button {
@@ -376,6 +400,11 @@ struct WorkspaceDetailView: View {
             #if !os(tvOS)
             Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                 claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
+            }
+            if workspace.repoKey != nil {
+                Button("Änderungen …", systemImage: "plusminus") {
+                    changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
+                }
             }
             #endif
             Section("Neuer Tab mit Agent") {

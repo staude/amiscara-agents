@@ -1,5 +1,5 @@
 //! Against a herdr test session only (writes: opens and closes a tab):
-//! `HERDR_DIFF_SOCKET=<socket> HERDR_DIFF_PANE=<pane id> cargo test -p herdr-session --test diff_live -- --ignored --nocapture`
+//! `HERDR_DIFF_SOCKET=<socket> HERDR_DIFF_PANE=<pane id> cargo test -p herdr-session --test diff_live pane -- --ignored --nocapture`
 
 use std::time::Duration;
 
@@ -41,6 +41,42 @@ async fn diff_of_a_demo_pane() {
             file.additions,
             file.deletions,
             file.hunks.len()
+        );
+    }
+}
+
+/// `HERDR_DIFF_SOCKET=<socket> HERDR_DIFF_WORKSPACE=<workspace id> cargo test -p herdr-session --test diff_live space -- --ignored --nocapture`
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs a herdr test session"]
+async fn diff_of_a_demo_space() {
+    let socket = std::env::var("HERDR_DIFF_SOCKET").expect("HERDR_DIFF_SOCKET");
+    let workspace = std::env::var("HERDR_DIFF_WORKSPACE").expect("HERDR_DIFF_WORKSPACE");
+    let session = Session::start(
+        Endpoint::Local {
+            socket_path: Some(socket),
+        },
+        false,
+        SpaceSort::Herdr,
+        |_| {},
+    )
+    .expect("session");
+    let mut files = None;
+    for _ in 0..50 {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        match session.space_working_tree_diff(&workspace).await {
+            Ok(found) => {
+                files = Some(found);
+                break;
+            }
+            Err(err) => eprintln!("not yet: {err}"),
+        }
+    }
+    let files = files.expect("diff");
+    println!("truncated: {}", files.truncated);
+    for file in &files.files {
+        println!(
+            "{:?} {} +{} -{}",
+            file.status, file.path, file.additions, file.deletions
         );
     }
 }
