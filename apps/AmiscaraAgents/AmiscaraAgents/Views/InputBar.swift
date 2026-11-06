@@ -29,6 +29,8 @@ struct InputBar: View {
     @State private var choosingPhotos = false
     @FocusState private var composerFocused: Bool
     @Environment(HostStore.self) private var store
+    /// Open peeks in this window (#332), see the key shortcuts below.
+    @Environment(AgentPeekState.self) private var peekState: AgentPeekState?
     @State private var dictation = Dictation()
     /// Composer text from before dictation started; the transcript follows it.
     @State private var textBeforeDictation = ""
@@ -102,7 +104,7 @@ struct InputBar: View {
         .disabled(sending || !connection.isLive)
         // Keyboard shortcuts for the key bar, see AppCommands; while a peek
         // is open only its bar (the one without Esc) takes them (#332).
-        .focusedSceneValue(\.keySender, connection.isLive && (!escapeToAgent || AgentPeekState.shared.open == 0)
+        .focusedSceneValue(\.keySender, connection.isLive && (!escapeToAgent || (peekState?.open ?? 0) == 0)
             ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
         .onChange(of: dictation.error) { _, message in
             if let message { error = message }

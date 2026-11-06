@@ -1,12 +1,27 @@
 import SwiftUI
 
-/// How many peeks are open (#332). Meanwhile the input bar of the pane
-/// behind them leaves the key shortcuts to the peek's bar, so ⌘. or ⌥⌘1
-/// never answer the agent behind the overlay.
+/// How many peeks are open in a window (#332). Meanwhile the input bar of
+/// the pane behind them leaves the key shortcuts to the peek's bar, so ⌘.
+/// or ⌥⌘1 never answer the agent behind the overlay. One per window, so
+/// other windows keep their shortcuts.
 @MainActor @Observable
 final class AgentPeekState {
-    static let shared = AgentPeekState()
     var open = 0
+}
+
+/// Gives a window its own `AgentPeekState`; sheets inherit it.
+private struct AgentPeekScope: ViewModifier {
+    @State private var state = AgentPeekState()
+
+    func body(content: Content) -> some View {
+        content.environment(state)
+    }
+}
+
+extension View {
+    func agentPeekScope() -> some View {
+        modifier(AgentPeekScope())
+    }
 }
 
 #if !os(tvOS)
@@ -30,6 +45,7 @@ struct AgentPeek: Identifiable, Hashable {
 struct AgentPeekView: View {
     @Environment(HostStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(AgentPeekState.self) private var peekState: AgentPeekState?
     let peek: AgentPeek
     let open: (SpaceRef) -> Void
 
@@ -67,12 +83,12 @@ struct AgentPeekView: View {
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         // The peeked agent is on screen: no banner for it meanwhile.
         .onAppear {
-            AgentPeekState.shared.open += 1
+            peekState?.open += 1
             previousVisible = store.notifier.visiblePane
             store.notifier.visiblePane = (hostID: peek.hostID, paneID: peek.paneID)
         }
         .onDisappear {
-            AgentPeekState.shared.open -= 1
+            peekState?.open -= 1
             // Opened, the pane stays on screen; the space sets it itself.
             guard !opened, let visible = store.notifier.visiblePane,
                   visible.hostID == peek.hostID, visible.paneID == peek.paneID
@@ -161,8 +177,8 @@ struct AgentPeekView: View {
 
 extension View {
     /// Shows the peek of `item` as a sheet; `open` switches to its space.
-    func agentPeek(_ item: Binding<AgentPeek?>, open: @escaping (SpaceRef) -> Void) -> some View {
-        sheet(item: item) { peek in
+    func agentPeek(_ item: Binding<AgentPeek?>, onDismiss: (() -> Void)? = nil, open: @escaping (SpaceRef) -> Void) -> some View {
+        sheet(item: item, onDismiss: onDismiss) { peek in
             AgentPeekView(peek: peek, open: open)
         }
     }
