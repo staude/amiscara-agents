@@ -270,11 +270,7 @@ async fn hc(conn: &Connection, count: usize) -> Result<()> {
             }
         }
     }
-    let finished = terminals.iter().filter(|t| !t.is_live()).count();
-    println!(
-        "{} live terminals, {finished} finished",
-        terminals.len() - finished
-    );
+    println!("{} live terminals", terminals.len());
     let mut samples = Vec::with_capacity(count);
     for _ in 0..count {
         let start = Instant::now();

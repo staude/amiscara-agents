@@ -68,14 +68,16 @@ pub struct HcSnapshot {
 /// numbered from `first_number` (after herdr's), in the order of their
 /// first terminal; tabs from 1 the same way.
 pub fn snapshot_from(terminals: &[Terminal], first_number: u32) -> HcSnapshot {
+    // `named` gives the name: the newest terminal with a `where` label,
+    // since herdr desktop does not update it on the older ones.
     struct Tab<'a> {
         id: String,
-        first: &'a Terminal,
+        named: &'a Terminal,
         panes: Vec<&'a Terminal>,
     }
     struct Space<'a> {
         id: String,
-        first: &'a Terminal,
+        named: &'a Terminal,
         tabs: Vec<Tab<'a>>,
     }
 
@@ -91,18 +93,26 @@ pub fn snapshot_from(terminals: &[Terminal], first_number: u32) -> HcSnapshot {
             None => {
                 spaces.push(Space {
                     id: space_id,
-                    first: terminal,
+                    named: terminal,
                     tabs: Vec::new(),
                 });
                 let last = spaces.len() - 1;
                 &mut spaces[last]
             }
         };
+        if terminal.labels.contains_key("where") {
+            space.named = terminal;
+        }
         match space.tabs.iter_mut().find(|tab| tab.id == tab_id) {
-            Some(tab) => tab.panes.push(terminal),
+            Some(tab) => {
+                if terminal.labels.contains_key("where") {
+                    tab.named = terminal;
+                }
+                tab.panes.push(terminal);
+            }
             None => space.tabs.push(Tab {
                 id: tab_id,
-                first: terminal,
+                named: terminal,
                 panes: vec![terminal],
             }),
         }
@@ -126,7 +136,7 @@ pub fn snapshot_from(terminals: &[Terminal], first_number: u32) -> HcSnapshot {
                 tab_id: tab.id.clone(),
                 workspace_id: space.id.clone(),
                 number: tab_number,
-                label: tab_name(tab.first, tab_number),
+                label: tab_name(tab.named, tab_number),
                 focused: index == 0,
                 pane_count: u32::try_from(panes.len()).unwrap_or(u32::MAX),
                 agent_status: status,
@@ -136,7 +146,7 @@ pub fn snapshot_from(terminals: &[Terminal], first_number: u32) -> HcSnapshot {
         snapshot.workspaces.push(WorkspaceInfo {
             workspace_id: space.id.clone(),
             number,
-            label: space_name(space.first),
+            label: space_name(space.named),
             focused: false,
             tab_count: u32::try_from(space.tabs.len()).unwrap_or(u32::MAX),
             pane_count: u32::try_from(pane_count).unwrap_or(u32::MAX),
@@ -651,6 +661,17 @@ mod tests {
         apply_event(&mut terminals, "t1", "finished", &finished);
         assert_eq!(terminals.len(), 1);
         assert_eq!(terminals[0].address, "t2");
+    }
+
+    #[test]
+    fn the_newest_terminal_names_the_space() {
+        // herdr desktop leaves the old name on a terminal after a rename.
+        let terminals = vec![
+            desktop("t6", 1, "sp", "tb1", "abschied / 1"),
+            desktop("t7", 2, "sp", "tb2", "Bücher / 2"),
+        ];
+        let snapshot = snapshot_from(&terminals, 1);
+        assert_eq!(snapshot.workspaces[0].label, "Bücher");
     }
 
     #[test]
