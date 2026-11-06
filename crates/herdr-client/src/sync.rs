@@ -14,8 +14,17 @@
 //! space (`worktree.list`) and the program in each pane without an agent
 //! (`pane.process_info`, #337).
 //!
-//! Only read-only methods are used: `session.snapshot`, `events.subscribe`,
-//! `worktree.list`, `agent.get` and `pane.process_info`.
+//! A host may run herdr-core (#329) beside the herdr server, or instead of
+//! it. Each connection first asks both (`ping`, `hello`); herdr-core's
+//! terminals come from its own `events.subscribe`, which starts with all
+//! terminals and then sends every change, with a heartbeat every 15 s. The
+//! driver checks for a missing server every [`BRANCH_REFRESH`] and connects
+//! again when one appears.
+//!
+//! Only read-only methods are used: `ping`, `session.snapshot`,
+//! `events.subscribe`, `worktree.list`, `agent.get` and
+//! `pane.process_info` on herdr; `hello`, `events.subscribe`,
+//! `terminal.list` and `machine.exec` with `git rev-parse` on herdr-core.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -23,11 +32,12 @@ use std::time::Duration;
 
 use std::collections::BTreeMap;
 
+use herdr_proto::hc::{HC_GENERATION, HelloResult, Notification, SubscribeResult, Terminal};
 use herdr_proto::{
     AgentGetResult, AgentStatus, Event, GLOBAL_SUBSCRIPTIONS, PaneProcessInfoResult, ProtoError,
     SnapshotResult, WorktreeListResult, parse_event,
 };
-use herdr_transport::{Connection, Subscription, TransportError};
+use herdr_transport::{Connection, HcSubscription, Subscription, TransportError};
 use serde_json::{Value, json};
 use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::JoinHandle;
@@ -39,7 +49,8 @@ use crate::{Applied, SessionState};
 /// How long structural events are collected before one snapshot answers them.
 const RESNAPSHOT_DELAY: Duration = Duration::from_millis(150);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
-/// Branches change by checkouts, which herdr reports with no event.
+/// Branches change by checkouts, which herdr reports with no event. Also
+/// how often a missing server is looked for.
 const BRANCH_REFRESH: Duration = Duration::from_secs(30);
 /// A pane's program changes (`vim`, `npm run dev`) with no event either.
 const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
@@ -47,6 +58,11 @@ const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
 /// restricted key every request is an SSH session channel, and sshd allows
 /// 10 per connection (`MaxSessions`), shared with everything else.
 const PROGRAM_REQUESTS: usize = 3;
+/// How long `ping` and `hello` may take when looking for the servers.
+const DETECT_TIMEOUT: Duration = Duration::from_secs(3);
+/// herdr-core sends a heartbeat every 15 s; this long without anything the
+/// stream counts as lost.
+const HC_SILENCE: Duration = Duration::from_secs(45);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -138,6 +154,10 @@ enum SyncError {
     Json(#[from] serde_json::Error),
     #[error("server closed the event stream")]
     Closed,
+    #[error("neither herdr nor herdr-core answers on this host")]
+    NoBackend,
+    #[error("another server started on the host")]
+    BackendAppeared,
     #[error("nobody is watching any more")]
     Unobserved,
 }
@@ -178,7 +198,9 @@ where
             } => Some(error),
             () = reconnect.notified() => None,
         };
-        let Some(error) = outcome else {
+        // A server that started beside the other one: connect again at once.
+        let Some(error) = outcome.filter(|error| !matches!(error, SyncError::BackendAppeared))
+        else {
             attempt = 0;
             restart(&tx);
             continue;
@@ -264,19 +286,40 @@ async fn follow_inner(
     tx: &watch::Sender<SyncState>,
     attempt: &mut u32,
 ) -> Result<Never, SyncError> {
-    let global = conn
-        .subscribe_to(
-            GLOBAL_SUBSCRIPTIONS
-                .iter()
-                .map(|t| json!({ "type": t }))
-                .collect(),
-        )
-        .await?;
-    let mut global = Forwarder::start(global);
-
-    let mut state = snapshot(conn).await?;
+    let (has_herdr, hc_version) = detect(conn).await;
+    if !has_herdr && hc_version.is_none() {
+        return Err(SyncError::NoBackend);
+    }
+    let mut global = None;
+    let mut state = match &hc_version {
+        Some(version) if !has_herdr => SessionState::without_herdr(version),
+        _ => {
+            let subscription = conn
+                .subscribe_to(
+                    GLOBAL_SUBSCRIPTIONS
+                        .iter()
+                        .map(|t| json!({ "type": t }))
+                        .collect(),
+                )
+                .await?;
+            global = Some(Forwarder::start(subscription));
+            snapshot(conn).await?
+        }
+    };
+    state.backends.hc = hc_version.clone();
+    let mut hc = match hc_version {
+        Some(_) => Some(HcFeed::subscribe(conn).await?),
+        None => None,
+    };
+    if let Some(hc) = &hc {
+        state.replace_hc(&hc.terminals);
+    }
     state.branches = branches(conn, &state).await;
-    let mut panes = PaneStatus::subscribe(conn, &state).await?;
+    let mut panes = if has_herdr {
+        PaneStatus::subscribe(conn, &state).await?
+    } else {
+        PaneStatus(None)
+    };
     // Programs come from their own task, so neither the first `Live` nor
     // the events wait for them.
     let mut programs = ProgramPoller::start(Arc::clone(conn), &state);
@@ -285,13 +328,37 @@ async fn follow_inner(
 
     let refresh = Arc::clone(&tx.borrow().refresh);
     let mut resnapshot_at: Option<Instant> = None;
+    let mut hc_list_at: Option<Instant> = None;
     let mut branch_refresh =
         tokio::time::interval_at(Instant::now() + BRANCH_REFRESH, BRANCH_REFRESH);
     loop {
+        let silence = hc.as_ref().map(|hc| hc.heard + HC_SILENCE);
         let item = tokio::select! {
-            item = global.recv() => item,
+            item = recv(&mut global) => item,
             item = panes.recv() => item,
+            item = recv_hc(&mut hc) => {
+                let value = item?;
+                let Some(feed) = hc.as_mut() else { continue };
+                feed.heard = Instant::now();
+                match feed.notice(&parse_notification(&value)?) {
+                    HcNotice::Changed => {
+                        if state.replace_hc(&feed.terminals) == Applied::Updated {
+                            publish(tx, SyncStatus::Live, &state);
+                        }
+                    }
+                    HcNotice::Quiet => {}
+                    HcNotice::NeedsList => {
+                        hc_list_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
+                    }
+                }
+                continue;
+            }
             _ = branch_refresh.tick() => {
+                if (!state.backends.herdr && ping(conn).await)
+                    || (state.backends.hc.is_none() && hello(conn).await.is_some())
+                {
+                    return Err(SyncError::BackendAppeared);
+                }
                 let fresh = branches(conn, &state).await;
                 if fresh != state.branches {
                     state.branches = fresh;
@@ -310,6 +377,10 @@ async fn follow_inner(
             () = wait_until(resnapshot_at) => {
                 resnapshot_at = None;
                 let mut fresh = snapshot(conn).await?;
+                fresh.backends = state.backends.clone();
+                if let Some(hc) = &hc {
+                    fresh.replace_hc(&hc.terminals);
+                }
                 fresh.branches = branches(conn, &fresh).await;
                 // Carried like the branches; the poller refreshes them.
                 fresh.programs = state.programs.clone();
@@ -324,8 +395,23 @@ async fn follow_inner(
                 }
                 continue;
             }
+            () = wait_until(hc_list_at) => {
+                hc_list_at = None;
+                if let Some(feed) = hc.as_mut() {
+                    feed.terminals = crate::hc::list(conn).await?;
+                    if state.replace_hc(&feed.terminals) == Applied::Updated {
+                        publish(tx, SyncStatus::Live, &state);
+                    }
+                }
+                continue;
+            }
+            () = wait_until(silence) => return Err(SyncError::Closed),
             () = refresh.notified() => {
-                resnapshot_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
+                if state.backends.herdr {
+                    resnapshot_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
+                } else {
+                    hc_list_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
+                }
                 continue;
             }
             () = tx.closed() => return Err(SyncError::Unobserved),
@@ -377,6 +463,118 @@ async fn follow_inner(
     }
 }
 
+fn parse_notification(value: &Value) -> Result<Notification, SyncError> {
+    Ok(herdr_proto::hc::parse_notification(value)?)
+}
+
+/// Which servers answer: herdr (`ping`, also with an error, which only a
+/// herdr server sends) and herdr-core (`hello`, with its version), each
+/// within [`DETECT_TIMEOUT`].
+async fn detect(conn: &Connection) -> (bool, Option<String>) {
+    tokio::join!(ping(conn), hello(conn))
+}
+
+async fn ping(conn: &Connection) -> bool {
+    matches!(
+        tokio::time::timeout(DETECT_TIMEOUT, conn.request("ping", json!({}))).await,
+        Ok(Ok(_) | Err(TransportError::Proto(ProtoError::Api { .. })))
+    )
+}
+
+async fn hello(conn: &Connection) -> Option<String> {
+    let answer = tokio::time::timeout(
+        DETECT_TIMEOUT,
+        conn.hc_request("hello", json!({ "generation": HC_GENERATION })),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    serde_json::from_value::<HelloResult>(answer)
+        .ok()
+        .map(|hello| hello.version)
+}
+
+/// herdr-core's live terminals and the subscription that keeps them.
+struct HcFeed {
+    terminals: Vec<Terminal>,
+    /// The last event's number; after a `missed` snapshot older ones are
+    /// dropped.
+    seq: u64,
+    /// When the core last said anything, heartbeats included.
+    heard: Instant,
+    forwarder: Forwarder,
+}
+
+/// What a notification did to an [`HcFeed`].
+enum HcNotice {
+    Changed,
+    Quiet,
+    NeedsList,
+}
+
+impl HcFeed {
+    async fn subscribe(conn: &Connection) -> Result<Self, SyncError> {
+        let (snapshot, subscription) = conn.hc_subscribe(json!({})).await?;
+        let snapshot: SubscribeResult = serde_json::from_value(snapshot)?;
+        Ok(Self {
+            terminals: live(snapshot.terminals),
+            seq: snapshot.seq,
+            heard: Instant::now(),
+            forwarder: Forwarder::start_hc(subscription),
+        })
+    }
+
+    fn notice(&mut self, notification: &Notification) -> HcNotice {
+        match notification {
+            Notification::Event {
+                seq,
+                terminal,
+                kind,
+                data,
+            } => {
+                if *seq != 0 && *seq <= self.seq {
+                    return HcNotice::Quiet;
+                }
+                self.seq = (*seq).max(self.seq);
+                match crate::hc::apply_event(&mut self.terminals, terminal, kind, data) {
+                    crate::hc::EventOutcome::Applied => HcNotice::Changed,
+                    crate::hc::EventOutcome::NeedsList => HcNotice::NeedsList,
+                }
+            }
+            Notification::Missed { params } => {
+                match serde_json::from_value::<SubscribeResult>(params.clone()) {
+                    Ok(snapshot) if params.get("terminals").is_some() => {
+                        self.terminals = live(snapshot.terminals);
+                        self.seq = snapshot.seq;
+                        HcNotice::Changed
+                    }
+                    _ => HcNotice::NeedsList,
+                }
+            }
+            Notification::Heartbeat { .. } | Notification::Other => HcNotice::Quiet,
+        }
+    }
+}
+
+fn live(mut terminals: Vec<Terminal>) -> Vec<Terminal> {
+    terminals.retain(Terminal::is_live);
+    terminals
+}
+
+async fn recv(forwarder: &mut Option<Forwarder>) -> Result<Value, SyncError> {
+    match forwarder {
+        Some(forwarder) => forwarder.recv().await,
+        None => std::future::pending().await,
+    }
+}
+
+async fn recv_hc(feed: &mut Option<HcFeed>) -> Result<Value, SyncError> {
+    match feed {
+        Some(feed) => feed.forwarder.recv().await,
+        None => std::future::pending().await,
+    }
+}
+
 /// Branch per workspace, resolved like herdr's sidebar: the working
 /// directory of the space's focused pane decides, not the directory the
 /// space was created for. The branch comes from the `worktree.list` entry
@@ -385,10 +583,28 @@ async fn follow_inner(
 async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, String> {
     let mut worktrees: Vec<(String, String)> = Vec::new(); // (path, branch)
     let mut found = BTreeMap::new();
+    // herdr-core's spaces: `git` in the directory, once per directory.
+    let mut hc_dirs: BTreeMap<(Option<String>, String), Option<String>> = BTreeMap::new();
     for workspace in &state.workspaces {
         let Some(cwd) = space_directory(state, &workspace.workspace_id) else {
             continue;
         };
+        if crate::hc::is_hc(&workspace.workspace_id) {
+            let machine = crate::hc::machine_of(&workspace.workspace_id).map(str::to_owned);
+            let key = (machine, cwd);
+            let branch = match hc_dirs.get(&key) {
+                Some(branch) => branch.clone(),
+                None => {
+                    let branch = crate::hc::branch(conn, &key.1, key.0.as_deref()).await;
+                    hc_dirs.insert(key, branch.clone());
+                    branch
+                }
+            };
+            if let Some(branch) = branch {
+                found.insert(workspace.workspace_id.clone(), branch);
+            }
+            continue;
+        }
         if let Some(branch) = branch_for(&worktrees, &cwd) {
             found.insert(workspace.workspace_id.clone(), branch);
             continue;
@@ -428,7 +644,8 @@ fn program_panes(state: &SessionState) -> Vec<String> {
     state
         .panes
         .iter()
-        .filter(|pane| pane.agent.is_none())
+        // herdr-core's panes are no herdr panes.
+        .filter(|pane| pane.agent.is_none() && !crate::hc::is_hc(&pane.pane_id))
         .map(|pane| pane.pane_id.clone())
         .collect()
 }
@@ -631,6 +848,25 @@ impl Forwarder {
         Self { rx, task }
     }
 
+    /// The same for herdr-core's notifications.
+    fn start_hc(mut subscription: HcSubscription) -> Self {
+        let (tx, rx) = mpsc::channel(64);
+        let task = tokio::spawn(async move {
+            loop {
+                let item = match subscription.next().await {
+                    Ok(Some(value)) => Ok(value),
+                    Ok(None) => Err(SyncError::Closed),
+                    Err(err) => Err(err.into()),
+                };
+                let last = item.is_err();
+                if tx.send(item).await.is_err() || last {
+                    return;
+                }
+            }
+        });
+        Self { rx, task }
+    }
+
     async fn recv(&mut self) -> Result<Value, SyncError> {
         self.rx.recv().await.unwrap_or(Err(SyncError::Closed))
     }
@@ -648,14 +884,15 @@ struct PaneStatus(Option<Forwarder>);
 
 impl PaneStatus {
     async fn subscribe(conn: &Connection, state: &SessionState) -> Result<Self, SyncError> {
-        if state.panes.is_empty() {
-            return Ok(Self(None));
-        }
-        let subscriptions = state
+        let subscriptions: Vec<Value> = state
             .panes
             .iter()
+            .filter(|pane| !crate::hc::is_hc(&pane.pane_id))
             .map(|pane| json!({ "type": "pane.agent_status_changed", "pane_id": pane.pane_id }))
             .collect();
+        if subscriptions.is_empty() {
+            return Ok(Self(None));
+        }
         let subscription = conn.subscribe_to(subscriptions).await?;
         Ok(Self(Some(Forwarder::start(subscription))))
     }
@@ -804,6 +1041,99 @@ mod tests {
             asked.elapsed() < backoff(1) / 2,
             "second attempt without the pause"
         );
+    }
+
+    // A herdr-core stand-in on a Unix socket, without a herdr server: one
+    // terminal in the snapshot, then a status change on the subscription.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_host_with_only_herdr_core_shows_its_terminals() {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::UnixListener;
+
+        let dir = std::env::temp_dir();
+        let hc_path = dir.join(format!("herdr-client-hc-{}.sock", std::process::id()));
+        let herdr_path = dir.join(format!("herdr-client-no-herdr-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&hc_path);
+        let listener = UnixListener::bind(&hc_path).expect("bind fake hc");
+        let terminal = json!({
+            "address": "t1", "cwd": "/x", "state": "live", "created_ms": 1, "argv": ["claude"],
+            "labels": {"herdr.space": "sp1", "herdr.tab": "tb1", "where": "Kino / 1"},
+            "status": {"app": "claude-code", "state": "working"}
+        });
+        tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                let terminal = terminal.clone();
+                tokio::spawn(async move {
+                    let (read, mut write) = stream.into_split();
+                    let mut lines = BufReader::new(read).lines();
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        let request: Value = serde_json::from_str(&line).expect("json");
+                        let result = match request["method"].as_str() {
+                            Some("hello") => json!({"generation": 1, "version": "0.1.18",
+                                "core": {"id": "c", "name": "work"}, "framed": false,
+                                "methods": [], "features": []}),
+                            Some("events.subscribe") => {
+                                json!({"seq": 5, "terminals": [terminal]})
+                            }
+                            Some("terminal.list") => json!({"terminals": [terminal]}),
+                            Some("machine.exec") => json!({"code": 1, "stdout": "", "stderr": "",
+                                "truncated": false, "timed_out": false, "ms": 1}),
+                            _ => json!({}),
+                        };
+                        let reply =
+                            json!({"jsonrpc": "2.0", "id": request["id"], "result": result});
+                        if write
+                            .write_all(format!("{reply}\n").as_bytes())
+                            .await
+                            .is_err()
+                        {
+                            return;
+                        }
+                        if request["method"] == "events.subscribe" {
+                            let event = json!({"jsonrpc": "2.0", "method": "event", "params": {
+                                "seq": 6, "terminal": "t1", "type": "status",
+                                "data": {"status": {"app": "claude-code", "state": "blocked"}}}});
+                            let _ = write.write_all(format!("{event}\n").as_bytes()).await;
+                        }
+                    }
+                });
+            }
+        });
+
+        let rx = spawn({
+            let (herdr_path, hc_path) = (herdr_path.clone(), hc_path.clone());
+            move || {
+                let conn = Connection::local_with_hc(&herdr_path, Some(hc_path.clone()));
+                async move { Ok(conn) }
+            }
+        });
+        let mut watcher = rx.clone();
+        let state = tokio::time::timeout(
+            Duration::from_secs(10),
+            watcher.wait_for(|state| {
+                state.session.as_ref().is_some_and(|session| {
+                    session
+                        .pane("hc:t1")
+                        .is_some_and(|pane| pane.agent_status == herdr_proto::AgentStatus::Blocked)
+                })
+            }),
+        )
+        .await
+        .expect("blocked within 10 s")
+        .expect("driver runs")
+        .clone();
+        assert_eq!(state.status, SyncStatus::Live);
+        let session = state.session.expect("session");
+        assert!(!session.backends.herdr);
+        assert_eq!(session.backends.hc.as_deref(), Some("0.1.18"));
+        assert_eq!(session.version, "herdr-core 0.1.18");
+        assert_eq!(session.workspaces[0].label, "Kino");
+        assert_eq!(
+            session.pane("hc:t1").and_then(|pane| pane.agent.clone()),
+            Some("claude".to_owned())
+        );
+        let _ = std::fs::remove_file(&hc_path);
     }
 
     #[test]

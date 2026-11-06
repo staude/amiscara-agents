@@ -329,6 +329,85 @@ pub async fn list(conn: &Connection) -> Result<Vec<Terminal>, TransportError> {
     Ok(list.terminals)
 }
 
+/// What [`apply_event`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventOutcome {
+    Applied,
+    /// The event names a terminal not known yet or a change this client
+    /// does not read; a fresh `terminal.list` answers it.
+    NeedsList,
+}
+
+/// Applies one `event` notification to the live `terminals`. Only
+/// `created` carries the whole terminal; the others carry the changed
+/// fields (`foreground` the new foreground itself). A finished terminal
+/// leaves the list.
+pub fn apply_event(
+    terminals: &mut Vec<Terminal>,
+    address: &str,
+    kind: &str,
+    data: &serde_json::Value,
+) -> EventOutcome {
+    use serde_json::Value;
+
+    let field = |key: &str| data.get(key).cloned().unwrap_or(Value::Null);
+    match kind {
+        "created" => {
+            let Ok(terminal) = serde_json::from_value::<Terminal>(data.clone()) else {
+                return EventOutcome::NeedsList;
+            };
+            terminals.retain(|known| known.address != terminal.address);
+            if terminal.is_live() {
+                terminals.push(terminal);
+            }
+            return EventOutcome::Applied;
+        }
+        "finished" | "removed" => {
+            terminals.retain(|known| known.address != address);
+            return EventOutcome::Applied;
+        }
+        _ => {}
+    }
+    let Some(terminal) = terminals.iter_mut().find(|known| known.address == address) else {
+        return EventOutcome::NeedsList;
+    };
+    let applied = match kind {
+        "status" => serde_json::from_value(field("status")).map(|status| terminal.status = status),
+        "turn" => serde_json::from_value(field("turn")).map(|turn| terminal.turn = turn),
+        "title" => serde_json::from_value(field("title")).map(|title| terminal.title = title),
+        "labels" => serde_json::from_value(field("labels")).map(|labels| terminal.labels = labels),
+        "foreground" => {
+            serde_json::from_value(data.clone()).map(|foreground| terminal.foreground = foreground)
+        }
+        // Size, recovery setting and documents change nothing shown.
+        "size" | "keep" | "doc" => Ok(()),
+        _ => return EventOutcome::NeedsList,
+    };
+    match applied {
+        Ok(()) => EventOutcome::Applied,
+        Err(_) => EventOutcome::NeedsList,
+    }
+}
+
+/// The Git branch checked out in `dir` on the core's machine (or on
+/// `machine`), with `machine.exec`; `None` outside Git or when detached.
+pub async fn branch(conn: &Connection, dir: &str, machine: Option<&str>) -> Option<String> {
+    let mut params = json!({
+        "argv": ["git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD"],
+        "timeout": 5,
+    });
+    if let Some(machine) = machine {
+        params["on"] = json!(machine);
+    }
+    let value = conn.hc_request("machine.exec", params).await.ok()?;
+    let result: herdr_proto::hc::ExecResult = serde_json::from_value(value).ok()?;
+    if result.code != Some(0) || result.timed_out {
+        return None;
+    }
+    let branch = result.stdout_text().trim().to_owned();
+    (!branch.is_empty() && branch != "HEAD").then_some(branch)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -511,6 +590,67 @@ mod tests {
         assert_eq!(snapshot.tabs[2].agent_status, AgentStatus::Unknown);
         assert_eq!(snapshot.workspaces[0].agent_status, AgentStatus::Blocked);
         assert_eq!(agent_status(None), AgentStatus::Unknown);
+    }
+
+    #[test]
+    fn events_change_the_terminals_they_name() {
+        let mut terminals = vec![desktop("t1", 1, "s", "a", "S / 1")];
+        let created = json!({"address": "t2", "cwd": "/x", "state": "live", "created_ms": 2,
+            "labels": {}, "argv": ["zsh"]});
+        assert_eq!(
+            apply_event(&mut terminals, "t2", "created", &created),
+            EventOutcome::Applied
+        );
+        assert_eq!(terminals.len(), 2);
+        let status = json!({"records": {}, "reported": true,
+            "status": {"app": "claude-code", "state": "blocked", "kind": "permission"}});
+        assert_eq!(
+            apply_event(&mut terminals, "t1", "status", &status),
+            EventOutcome::Applied
+        );
+        assert_eq!(
+            agent_status(terminals[0].status.as_ref()),
+            AgentStatus::Blocked
+        );
+        // `turn` carries the status word as `state`; the terminal stays live.
+        let turn = json!({"state": "blocked", "turn": 4});
+        assert_eq!(
+            apply_event(&mut terminals, "t1", "turn", &turn),
+            EventOutcome::Applied
+        );
+        assert!(terminals[0].is_live() && terminals[0].turn == 4);
+        let foreground = json!({"argv": ["vim"], "cwd": "/y", "name": "vim", "pid": 3});
+        apply_event(&mut terminals, "t1", "foreground", &foreground);
+        assert_eq!(
+            terminals[0].foreground.as_ref().map(|fg| fg.name.as_str()),
+            Some("vim")
+        );
+        let labels = json!({"labels": {"herdr.space": "s2", "where": "Neu / 1"}});
+        apply_event(&mut terminals, "t1", "labels", &labels);
+        assert_eq!(terminals[0].labels["herdr.space"], "s2");
+        apply_event(&mut terminals, "t1", "title", &json!({"title": "vim x"}));
+        assert_eq!(terminals[0].title, "vim x");
+        assert_eq!(
+            apply_event(
+                &mut terminals,
+                "t1",
+                "size",
+                &json!({"cols": 80, "rows": 24})
+            ),
+            EventOutcome::Applied
+        );
+        assert_eq!(
+            apply_event(&mut terminals, "t9", "title", &json!({"title": "?"})),
+            EventOutcome::NeedsList
+        );
+        assert_eq!(
+            apply_event(&mut terminals, "t1", "lost", &json!({})),
+            EventOutcome::NeedsList
+        );
+        let finished = json!({"exit_code": 0, "reason": "exited"});
+        apply_event(&mut terminals, "t1", "finished", &finished);
+        assert_eq!(terminals.len(), 1);
+        assert_eq!(terminals[0].address, "t2");
     }
 
     #[test]
