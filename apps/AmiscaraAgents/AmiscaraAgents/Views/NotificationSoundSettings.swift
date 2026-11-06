@@ -58,7 +58,9 @@ private struct NotificationSoundPicker: View {
         .fileImporter(isPresented: $importing, allowedContentTypes: Self.fileTypes) { result in
             switch result {
             case .success(let url): add(url)
-            case .failure(let error): failure = error.localizedDescription
+            case .failure(let error):
+                // Closing the dialog is no error.
+                if (error as? CocoaError)?.code != .userCancelled { failure = error.localizedDescription }
             }
         }
         #endif
