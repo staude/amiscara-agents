@@ -64,6 +64,7 @@ struct AmiscaraAgentsApp: App {
         // The id lets the menu bar item open a window (MainWindow.id).
         WindowGroup(id: "main") {
             ContentView()
+                .agentPeekScope()
                 .environment(store)
                 .appAppearance(appearance)
                 #if !os(tvOS)

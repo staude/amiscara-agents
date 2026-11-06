@@ -767,6 +767,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `pane.process_info` every 5 s for panes without an agent on its own task,
   at most three requests at once,
   `ProgramItem` on `PaneItem` and `BoardItem`. Mac, iPhone, iPad, Apple TV.
+- Agent peek (#332): "Kurz ansehen" in the context menu of an agent in the
+  overview, a host's dashboard and the quick switcher, on the Mac also
+  ⌥-click and ⌥Return in the switcher, shows the agent's live pane with its
+  input bar over the current view. "Öffnen" switches there; Esc, the close
+  button or a swipe down close it and leave the view below as it was. Esc
+  closes the peek even while the agent waits; the key bar's Esc still goes
+  to the agent. Closed from the switcher, it goes back to the switcher.
+  Mac, iPhone and iPad.
 - Notification sound per state (#336): "Mitteilungston" in the Mac's settings
   window and the iPhone's and iPad's "Erscheinungsbild" menu picks one sound
   for "wartet" and one for "fertig", each with "Kein Ton" and a preview. The

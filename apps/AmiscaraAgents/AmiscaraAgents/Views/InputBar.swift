@@ -14,6 +14,9 @@ struct InputBar: View {
     /// The choice question the agent asks on the screen (#272): its options
     /// replace the buttons 1, 2, 3.
     var question: ChoiceQuestion?
+    /// Esc from the keyboard goes to the agent. Off in the peek (#332), where
+    /// Esc closes the overlay; the key bar's Esc still reaches the agent.
+    var escapeToAgent = true
 
     @State private var text = ""
     @State private var sending = false
@@ -26,6 +29,8 @@ struct InputBar: View {
     @State private var choosingPhotos = false
     @FocusState private var composerFocused: Bool
     @Environment(HostStore.self) private var store
+    /// Open peeks in this window (#332), see the key shortcuts below.
+    @Environment(AgentPeekState.self) private var peekState: AgentPeekState?
     @State private var dictation = Dictation()
     /// Composer text from before dictation started; the transcript follows it.
     @State private var textBeforeDictation = ""
@@ -97,8 +102,10 @@ struct InputBar: View {
         }
         .padding(10)
         .disabled(sending || !connection.isLive)
-        // Keyboard shortcuts for the key bar, see AppCommands.
-        .focusedSceneValue(\.keySender, connection.isLive ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
+        // Keyboard shortcuts for the key bar, see AppCommands; while a peek
+        // is open only its bar (the one without Esc) takes them (#332).
+        .focusedSceneValue(\.keySender, connection.isLive && (!escapeToAgent || (peekState?.open ?? 0) == 0)
+            ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
         .onChange(of: dictation.error) { _, message in
             if let message { error = message }
         }
@@ -517,6 +524,8 @@ struct InputBar: View {
                   let key = Self.answerKeys[event.keyCode]
             else { return event }
             let handled = MainActor.assumeIsolated { () -> Bool in
+                // In the peek Esc closes the overlay, not the question.
+                if key == "esc", !escapeToAgent { return false }
                 guard isBlocked, connection.isLive, !AppLock.shared.isCovered,
                       let window = windowBox.window, event.window === window, window.attachedSheet == nil
                 else { return false }
@@ -720,7 +729,7 @@ struct InputBar: View {
             .onKeyPress(keys: [.upArrow, .downArrow, .leftArrow, .rightArrow]) { press in
                 arrow(press)
             }
-            .onKeyPress(.escape) { liveArrow("esc") }
+            .onKeyPress(.escape) { escapeToAgent ? liveArrow("esc") : .ignored }
             .onChange(of: text) { syncLive() }
             // Another pane has its own input line: start live typing over.
             .onChange(of: pane.paneId) {

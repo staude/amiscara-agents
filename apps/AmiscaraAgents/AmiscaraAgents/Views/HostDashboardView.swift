@@ -20,6 +20,8 @@ struct HostDashboardView: View {
     @State private var showsDay = false
     /// The plan whose overview is shown (#296).
     @State private var approval: Approvals.Item?
+    /// The agent looked into over the dashboard (#332).
+    @State private var peeking: AgentPeek?
     @State private var searchText = ""
     @State private var search = ConversationSearch()
     /// The hit whose conversation is open.
@@ -79,11 +81,15 @@ struct HostDashboardView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(rows, id: \.target.id) { agent, target in
+                        let peek = AgentPeek(hostID: connection.id, workspaceID: agent.workspaceID, paneID: agent.paneID)
                         Button {
                             if selecting {
                                 MultiSend.toggle(target, in: &selected)
+                            } else if Platform.optionKeyDown {
+                                // ⌥-click peeks instead of opening.
+                                peeking = peek
                             } else {
-                                open(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceID, paneID: agent.paneID))
+                                open(peek.spaceRef)
                             }
                         } label: {
                             if selecting {
@@ -96,7 +102,10 @@ struct HostDashboardView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        // One menu: a view has only one (#332, #334).
                         .contextMenu(when: !selecting) {
+                            PeekMenuItems(peek: peek, open: open) { peeking = $0 }
+                            Divider()
                             PinButton(pinned: pinned.contains(agent.paneID)) {
                                 AgentPins.shared.toggle(agent.paneID, on: connection)
                             }
@@ -133,6 +142,7 @@ struct HostDashboardView: View {
             DailyLogView(connection: connection)
         }
         .approvals(store, selected: $approval, open: open)
+        .agentPeek($peeking, open: open)
         .searchable(text: $searchText, prompt: Text("Gespräche durchsuchen"))
         // Each search scans the host's files, so only on Return.
         .onSubmit(of: .search) {

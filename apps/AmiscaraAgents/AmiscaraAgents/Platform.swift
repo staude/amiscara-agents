@@ -38,6 +38,17 @@ enum Platform {
         #endif
     }
 
+    /// ⌥ is held right now, e.g. for ⌥-click to peek into an agent (#332);
+    /// always `false` on iOS.
+    @MainActor
+    static var optionKeyDown: Bool {
+        #if os(macOS)
+        NSEvent.modifierFlags.contains(.option)
+        #else
+        false
+        #endif
+    }
+
     /// Login name on this Mac, the SSH user other devices use for it.
     static var userName: String {
         #if os(macOS)

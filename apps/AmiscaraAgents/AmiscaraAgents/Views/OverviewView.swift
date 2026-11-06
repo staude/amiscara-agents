@@ -13,6 +13,8 @@ struct OverviewView: View {
     @State private var sending = false
     /// The plan whose overview is shown (#296).
     @State private var approval: Approvals.Item?
+    /// The agent looked into over the list (#332).
+    @State private var peeking: AgentPeek?
 
     var body: some View {
         let overview = store.overview
@@ -33,11 +35,17 @@ struct OverviewView: View {
                         Section(section.group.title) {
                             ForEach(section.rows) { row in
                                 let target = targets.first { $0.id == row.id }
+                                let peek = peek(row)
                                 Button {
                                     if selecting, let target {
                                         MultiSend.toggle(target, in: &selected)
                                     } else if !selecting {
-                                        open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
+                                        // ⌥-click peeks instead of opening.
+                                        if Platform.optionKeyDown, let peek {
+                                            peeking = peek
+                                        } else {
+                                            open(SpaceRef(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID))
+                                        }
                                     }
                                 } label: {
                                     if selecting, let target {
@@ -49,7 +57,12 @@ struct OverviewView: View {
                                     }
                                 }
                                 .buttonStyle(.plain)
+                                // One menu: a view has only one (#332, #334).
                                 .contextMenu(when: !selecting) {
+                                    if let peek {
+                                        PeekMenuItems(peek: peek, open: open) { peeking = $0 }
+                                        Divider()
+                                    }
                                     if let connection = store.connection(for: row.hostID) {
                                         PinButton(pinned: row.pinned) {
                                             AgentPins.shared.toggle(row.agent.paneID, on: connection)
@@ -65,6 +78,7 @@ struct OverviewView: View {
         }
         .navigationTitle("Übersicht")
         .approvals(store, selected: $approval, open: open)
+        .agentPeek($peeking, open: open)
         .toolbar {
             ToolbarItemGroup {
                 if selecting {
@@ -96,6 +110,12 @@ struct OverviewView: View {
         .onChange(of: targets) { _, targets in
             selected.formIntersection(targets.map(\.id))
         }
+    }
+
+    /// The peek of a row; none for a host without a connection.
+    private func peek(_ row: AgentOverview.Row) -> AgentPeek? {
+        guard store.connection(for: row.hostID) != nil else { return nil }
+        return AgentPeek(hostID: row.hostID, workspaceID: row.agent.workspaceID, paneID: row.agent.paneID)
     }
 
     /// Every agent of the list as a target; a row from a host without a

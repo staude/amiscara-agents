@@ -110,6 +110,9 @@ code), so a host is set up the same way everywhere.
   agents come first in a group "Angeheftet", ready ones too. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
+- **Peek into an agent:** "Kurz ansehen" (context menu, ⌥-click on the Mac)
+  in the overview, a dashboard or the quick switcher shows the agent's live
+  pane with its input bar over the current view, without leaving it.
 - **Pinned agents:** "Anheften" in an agent's context menu keeps it at the
   top of the overview, the host dashboard and the sidebar, the same on Mac,
   iPhone and iPad; a pin goes when its pane closes.
