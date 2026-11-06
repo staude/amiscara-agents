@@ -92,6 +92,9 @@ targets:
           - CloudKit
         # Commands from the Watch arrive as silent pushes (#160).
         com.apple.developer.aps-environment: development
+        # Put away tabs sync through the key-value store (#333): changes
+        # arrive by themselves, unlike a CloudKit record.
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
     info:
       path: AmiscaraAgents/Info.plist
       properties:
@@ -161,6 +164,9 @@ targets:
           - iCloud.net.staude.amiscara.agents
         com.apple.developer.icloud-services:
           - CloudKit
+        # Put away tabs sync through the key-value store (#333): changes
+        # arrive by themselves, unlike a CloudKit record.
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: net.staude.amiscara.agents
