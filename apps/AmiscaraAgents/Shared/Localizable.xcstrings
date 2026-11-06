@@ -1602,6 +1602,16 @@
         }
       }
     },
+    "Der Agent hat sich gleich nach dem Start beendet, die Aufgabe wurde nicht gesendet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent ended right after starting, the task was not sent."
+          }
+        }
+      }
+    },
     "Der Agent läuft, die Aufgabe wurde aber nicht gesendet: %@" : {
       "localizations" : {
         "en" : {

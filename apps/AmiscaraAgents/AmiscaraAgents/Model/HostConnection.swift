@@ -270,46 +270,62 @@ final class HostConnection: Identifiable {
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. herdr (0.9.5, protocol 22)
     /// answers once the agent takes input, or with the error `timeout`
-    /// after 30 s. With a `task` the first prompt goes out right after;
-    /// if that fails the agent runs, and `AgentTaskNotSent` says so.
+    /// after 30 s. With a `task` the app still checks that the agent is
+    /// ready before sending the first prompt, then sends it. If the agent
+    /// ended at once, `AgentEndedAtStart` says so; if only the send failed,
+    /// `AgentTaskNotSent` says the agent runs.
     func startAgent(kind: String, in paneID: String, task: String? = nil) async throws -> String {
         let session = try writableSession()
         let name = try await Task.detached {
             try session.startAgent(paneId: paneID, kind: kind, name: nil)
         }.value
+        #if !os(tvOS)
         if let task = task?.trimmingCharacters(in: .whitespacesAndNewlines), !task.isEmpty {
+            if let failure = await awaitStart(in: paneID, on: session) {
+                report(failure, of: kind)
+                throw AgentEndedAtStart()
+            }
             do {
                 try await submit(task, to: paneID, isAgent: true)
             } catch {
                 throw AgentTaskNotSent(underlying: error)
             }
+            return name
         }
-        #if !os(tvOS)
         watchStart(of: kind, in: paneID, on: session)
         #endif
         return name
     }
 
     #if !os(tvOS)
-    /// Waits in the background until the agent just started in `paneID` is
-    /// ready or gone (#339) and keeps a report when it ended first. Errors,
-    /// e.g. a dropped connection, report nothing.
+    /// Waits until the agent just started in `paneID` is ready or gone
+    /// (#339); `nil` when it came up. Errors, e.g. a dropped connection,
+    /// count as "came up".
+    private func awaitStart(in paneID: String, on session: HostSession) async -> StartFailure? {
+        // Blocks up to 35 s: on its own thread, not one of the few of the
+        // shared pool the other calls into Rust need.
+        await withCheckedContinuation { continuation in
+            Thread.detachNewThread {
+                continuation.resume(returning: (try? session.watchAgentStart(paneId: paneID)) ?? nil)
+            }
+        }
+    }
+
+    private func report(_ failure: StartFailure, of kind: String) {
+        startFailures.append(AgentStartFailure(
+            kind: kind,
+            workspaceID: failure.workspaceId,
+            paneID: failure.paneId,
+            lines: failure.lines
+        ))
+    }
+
+    /// Waits in the background and keeps a report when the agent ended
+    /// before it was ready (#339).
     private func watchStart(of kind: String, in paneID: String, on session: HostSession) {
         Task { [weak self] in
-            // Blocks up to 35 s: on its own thread, not one of the few of
-            // the shared pool the other calls into Rust need.
-            let failure: StartFailure? = await withCheckedContinuation { continuation in
-                Thread.detachNewThread {
-                    continuation.resume(returning: (try? session.watchAgentStart(paneId: paneID)) ?? nil)
-                }
-            }
-            guard let self, let failure else { return }
-            self.startFailures.append(AgentStartFailure(
-                kind: kind,
-                workspaceID: failure.workspaceId,
-                paneID: failure.paneId,
-                lines: failure.lines
-            ))
+            guard let self, let failure = await self.awaitStart(in: paneID, on: session) else { return }
+            self.report(failure, of: kind)
         }
     }
 
@@ -896,11 +912,17 @@ struct AgentTaskNotSent: Error {
     let underlying: Error
 }
 
+/// The agent ended before it was ready, so no task was sent (#344).
+struct AgentEndedAtStart: Error {}
+
 /// Text for an error from starting an agent. herdr's codes travel in the
 /// message of `FfiError.Rejected`.
 func agentStartErrorMessage(_ error: Error) -> String {
     if let notSent = error as? AgentTaskNotSent {
         return String(localized: "Der Agent läuft, die Aufgabe wurde aber nicht gesendet: \(inputErrorMessage(notSent.underlying))")
+    }
+    if error is AgentEndedAtStart {
+        return String(localized: "Der Agent hat sich gleich nach dem Start beendet, die Aufgabe wurde nicht gesendet.")
     }
     let reason: String
     if case FfiError.Rejected(let message) = error {

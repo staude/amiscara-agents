@@ -933,9 +933,10 @@ impl Session {
 
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. Without `name` it is named
-    /// after its kind, numbered when taken. herdr (0.9.5, protocol 22)
-    /// answers once the agent takes input, or with the error `timeout`
-    /// after 30 s, so a first prompt can follow right away.
+    /// after its kind, numbered when taken. herdr 0.9.5 (protocol 22)
+    /// answered in tests once the agent took input, but `agent.start` may
+    /// also come back earlier; whoever sends a first prompt waits with
+    /// `watch_agent_start` before.
     pub async fn start_agent(
         &self,
         pane_id: &str,
