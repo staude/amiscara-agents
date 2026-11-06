@@ -26,10 +26,11 @@ final class BoardExcerpts {
                     lastRead[row.id] = (row.agent.state, .now)
                 }
                 // A failed read stays due and is tried again.
-            } else if let entry = PaneCache.shared.entry(host: row.hostID, pane: paneID) {
-                lines[row.id] = ScreenLines.last(BoardRead.lines, of: entry.content.plainText)
             } else {
-                lines[row.id] = nil
+                // Offline: the cache stands in, and the live screen is due again once connected.
+                lastRead[row.id] = nil
+                lines[row.id] = PaneCache.shared.entry(host: row.hostID, pane: paneID)
+                    .map { ScreenLines.last(BoardRead.lines, of: $0.content.plainText) }
             }
         }
     }
