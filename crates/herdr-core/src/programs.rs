@@ -264,11 +264,26 @@ pub fn for_agent(kind: &str) -> Option<&'static Program> {
         .find(|program| program.id == kind || program.names.contains(&kind.as_str()))
 }
 
+/// Programs that only start another one; missing from the table, they
+/// give way to the tool they start.
+const WRAPPERS: &[&str] = &[
+    "sudo",
+    "doas",
+    "env",
+    "caffeinate",
+    "time",
+    "nice",
+    "nohup",
+    "op",
+    "dotenv",
+    "direnv",
+];
+
 /// What runs in a pane: the group leader decides. It gives way to the
-/// first other process that is a tool or agent when it is a runner or
-/// interpreter (`npm run dev` starts `node …/vite`), a shell running a
-/// script (`bash ./dev.sh`) or missing from the table (`sudo vim`,
-/// `caffeinate -i npm run dev`). `None` without any process.
+/// first other process that is a tool when it is a runner, an interpreter
+/// without a script (`npm run dev` starts `node …/vite`), a shell running
+/// a script (`bash ./dev.sh`) or a wrapper (`sudo vim`, `caffeinate -i
+/// npm run dev`). `None` without any process.
 pub fn for_processes(info: &PaneProcessInfo) -> Option<ProgramMatch> {
     let processes = &info.foreground_processes;
     let leader = info
@@ -280,17 +295,30 @@ pub fn for_processes(info: &PaneProcessInfo) -> Option<ProgramMatch> {
             .iter()
             .filter(|process| process.pid != leader.pid)
             .filter_map(resolve)
-            .find(|found| matches!(found.kind, Tool | Agent))
+            .find(|found| found.kind == Tool)
     };
+    let argv = leader.argv.as_deref().unwrap_or_default();
     let Some(program) = resolve(leader) else {
-        return Some(match started() {
+        let wrapper = [leader.argv0.as_deref(), argv.first().map(String::as_str)]
+            .into_iter()
+            .flatten()
+            .chain(std::iter::once(leader.name.as_str()))
+            .any(|name| WRAPPERS.contains(&normalize(name).as_str()));
+        return Some(match wrapper.then(started).flatten() {
             Some(started) => ProgramMatch::Known(started),
             None => ProgramMatch::Unknown(leader.name.clone()),
         });
     };
     let gives_way = match program.kind {
-        Runner | Interpreter => true,
-        Shell => script_of(leader.argv.as_deref().unwrap_or_default()).is_some(),
+        Runner => true,
+        // `node server.js` is its own program; `npm run dev` shows up as
+        // node without a script.
+        Interpreter => script_of(argv).is_none(),
+        // A script or `-c` command, not an interactive shell's options.
+        Shell => {
+            argv.get(1).is_some_and(|arg| !arg.starts_with('-'))
+                || argv.iter().skip(1).any(|arg| arg == "-c")
+        }
         Agent | Tool => false,
     };
     Some(ProgramMatch::Known(
@@ -347,8 +375,8 @@ fn script_of(argv: &[String]) -> Option<String> {
 }
 
 /// The table entry for one name, trying it as is, then without version
-/// endings (`python3.12` → `python3` → `python`). Shortened names only
-/// count for interpreters, runners and shells, so `pi2` is not the agent.
+/// endings (`python3.12` → `python3` → `python`). Shortened names never
+/// count for agents, so `pi2` is not the agent Pi.
 fn lookup(raw: &str) -> Option<&'static Program> {
     let mut name = normalize(raw);
     let mut shortened = false;
@@ -359,7 +387,7 @@ fn lookup(raw: &str) -> Option<&'static Program> {
         if let Some(program) = PROGRAMS
             .iter()
             .find(|program| program.names.contains(&name.as_str()))
-            .filter(|program| !shortened || matches!(program.kind, Interpreter | Runner | Shell))
+            .filter(|program| !shortened || program.kind != Agent)
         {
             return Some(program);
         }
@@ -550,6 +578,32 @@ mod tests {
         // An idle shell with a child that is no tool stays the shell.
         let idle = info(Some(40), vec![process(40, "zsh", None, &["-zsh"]), vite()]);
         assert_eq!(id(for_processes(&idle)).as_deref(), Some("zsh"));
+        let rcfile = info(
+            Some(40),
+            vec![
+                process(40, "bash", None, &["bash", "--rcfile", "/x/.devrc"]),
+                vite(),
+            ],
+        );
+        assert_eq!(id(for_processes(&rcfile)).as_deref(), Some("bash"));
+        // An unknown program that is no wrapper keeps its place.
+        let goose = info(
+            Some(40),
+            vec![
+                process(40, "goose", None, &["goose"]),
+                process(41, "git", None, &["git", "status"]),
+            ],
+        );
+        assert_eq!(id(for_processes(&goose)).as_deref(), Some("?goose"));
+        // An interpreter running its own script keeps its place too.
+        let server = info(
+            Some(40),
+            vec![
+                process(40, "node", None, &["node", "server.js"]),
+                process(41, "git", None, &["git", "fetch"]),
+            ],
+        );
+        assert_eq!(id(for_processes(&server)).as_deref(), Some("node"));
     }
 
     #[test]
@@ -565,7 +619,8 @@ mod tests {
         );
         assert_eq!(id(for_processes(&deno)).as_deref(), Some("vite"));
         assert_eq!(lookup("pi2").map(|p| p.id), None);
-        assert_eq!(lookup("go1").map(|p| p.id), None);
+        assert_eq!(lookup("go1.22.0").map(|p| p.id), Some("go"));
+        assert_eq!(lookup("amp3").map(|p| p.id), None);
         assert_eq!(lookup("node22").map(|p| p.id), Some("node"));
         assert_eq!(lookup("python3.12").map(|p| p.id), Some("python"));
     }
