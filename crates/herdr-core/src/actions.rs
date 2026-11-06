@@ -322,10 +322,12 @@ pub async fn start_agent(
 /// How an agent from [`start_agent`] came up (#339).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentStart {
-    /// herdr reports the agent ready for input, or it took longer than
-    /// herdr's own launch timeout: nothing to report.
+    /// herdr reports the agent ready for input, or it is still launching
+    /// after [`START_DEADLINE`]: nothing to report.
     Ready,
-    /// The agent ended before it was ready. Its shell stays open with the
+    /// herdr no longer knows the agent before it was ready: it exited, or
+    /// herdr released it at its 30 s launch timeout (a missing command, or
+    /// an agent that never reported ready). Its shell stays open with the
     /// output.
     Gone,
 }
