@@ -303,6 +303,16 @@ final class HostStore {
         .filter { !ignoredOpenRequests.contains($0.key) }
     }
 
+    #if !os(tvOS)
+    /// Agents started from this device that ended right after their start
+    /// (#339), over all hosts in sidebar order.
+    var startFailures: [PendingStartFailure] {
+        connections.flatMap { connection in
+            connection.startFailures.map { PendingStartFailure(connection: connection, failure: $0) }
+        }
+    }
+    #endif
+
     func connection(for id: UUID?) -> HostConnection? {
         connections.first { $0.id == id }
     }
@@ -481,6 +491,17 @@ enum AnswerResult: Equatable {
     case questionChanged
     case failed(String)
 }
+
+#if !os(tvOS)
+/// An agent start that failed, with its host (#339).
+struct PendingStartFailure: Identifiable {
+    let connection: HostConnection
+    let failure: AgentStartFailure
+
+    var key: String { "start|\(connection.id)|\(failure.id)" }
+    var id: String { key }
+}
+#endif
 
 /// A folder an agent on a host wants opened in VS Code, with its host.
 struct PendingEditor: Identifiable {

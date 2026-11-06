@@ -20,6 +20,9 @@ struct OpenRequestBanner: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            ForEach(store.startFailures) { pending in
+                card(pending)
+            }
             ForEach(store.openRequests) { pending in
                 card(pending)
             }
@@ -64,6 +67,43 @@ struct OpenRequestBanner: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(opening.contains(pending.key))
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(radius: 4)
+    }
+
+    /// An agent started here that ended right after its start (#339).
+    private func card(_ pending: PendingStartFailure) -> some View {
+        let failure = pending.failure
+        let connection = pending.connection
+        let label = connection.update?.workspaces.first { $0.workspaceId == failure.workspaceID }?.label
+        let space = label.flatMap { $0.isEmpty ? nil : $0 } ?? connection.config.name
+        return VStack(alignment: .leading, spacing: 6) {
+            Label("Agent „\(failure.kind)“ in \(space) ist gleich nach dem Start beendet", systemImage: "exclamationmark.triangle")
+                .font(.headline)
+            if !failure.lines.isEmpty {
+                Text(verbatim: failure.lines)
+                    .font(.caption.monospaced())
+                    .lineLimit(8)
+                    .foregroundStyle(.secondary)
+                    .selectableText()
+            }
+            HStack {
+                Spacer()
+                Button("Schließen") {
+                    connection.dismissStartFailure(failure.id)
+                }
+                Button("Pane öffnen") {
+                    store.notifier.openRequest = SpaceRef(
+                        hostID: connection.id,
+                        workspaceID: failure.workspaceID,
+                        paneID: failure.paneID
+                    )
+                    connection.dismissStartFailure(failure.id)
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding()
