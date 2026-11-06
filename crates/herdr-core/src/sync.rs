@@ -10,7 +10,8 @@
 //! with a status that says so. On request the driver drops the connection
 //! and connects again at once, keeping the last state (#264).
 //!
-//! Only read-only methods are used: `session.snapshot` and `events.subscribe`.
+//! Only read-only methods are used: `session.snapshot`, `events.subscribe`,
+//! `worktree.list` and `agent.get`.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -19,7 +20,8 @@ use std::time::Duration;
 use std::collections::BTreeMap;
 
 use herdr_proto::{
-    GLOBAL_SUBSCRIPTIONS, ProtoError, SnapshotResult, WorktreeListResult, parse_event,
+    AgentGetResult, AgentStatus, Event, GLOBAL_SUBSCRIPTIONS, ProtoError, SnapshotResult,
+    WorktreeListResult, parse_event,
 };
 use herdr_transport::{Connection, Subscription, TransportError};
 use serde_json::{Value, json};
@@ -298,8 +300,23 @@ async fn follow_inner(
             }
             () = tx.closed() => return Err(SyncError::Unobserved),
         };
-        match state.apply(&parse_event(item?)?) {
-            Applied::Updated => publish(tx, SyncStatus::Live, &state),
+        let event = parse_event(item?)?;
+        match state.apply(&event) {
+            Applied::Updated => {
+                // A new finish: which one it is decides whether a client
+                // has seen it (#335).
+                if let Event::PaneAgentStatusChanged {
+                    pane_id,
+                    agent_status: AgentStatus::Done,
+                    ..
+                } = &event
+                    && !state.completion_seqs.contains_key(pane_id)
+                {
+                    let seq = finish(conn, pane_id).await;
+                    state.set_completion_seq(pane_id, seq);
+                }
+                publish(tx, SyncStatus::Live, &state);
+            }
             Applied::Unchanged => {}
             Applied::NeedsSnapshot => {
                 resnapshot_at.get_or_insert_with(|| Instant::now() + RESNAPSHOT_DELAY);
@@ -378,6 +395,17 @@ fn branch_for(worktrees: &[(String, String)], dir: &str) -> Option<String> {
         })
         .max_by_key(|(path, _)| path.len())
         .map(|(_, branch)| branch.clone())
+}
+
+/// The `completion_seq` of the finish the agent in `pane_id` is in, from
+/// `agent.get`; `None` on an error or when herdr does not count finishes.
+async fn finish(conn: &Connection, pane_id: &str) -> Option<u64> {
+    let value = conn
+        .request("agent.get", json!({ "target": pane_id }))
+        .await
+        .ok()?;
+    let got = serde_json::from_value::<AgentGetResult>(value).ok()?;
+    crate::state::finish_seq(&got.agent)
 }
 
 async fn snapshot(conn: &Connection) -> Result<SessionState, SyncError> {
