@@ -1473,17 +1473,9 @@ impl Session {
         workspace_id: &str,
     ) -> Result<Vec<herdr_proto::WorktreeEntry>, SessionError> {
         let conn = self.connection()?;
-        let mut entries: Vec<_> = actions::list_worktrees(&conn, workspace_id)
-            .await?
-            .into_iter()
-            .filter(|entry| {
-                entry.open_workspace_id.is_none() && !entry.is_bare && !entry.is_prunable
-            })
-            .collect();
-        entries.sort_by(|a, b| {
-            (a.branch.is_none(), &a.branch, &a.path).cmp(&(b.branch.is_none(), &b.branch, &b.path))
-        });
-        Ok(entries)
+        Ok(worktree_choices(
+            actions::list_worktrees(&conn, workspace_id).await?,
+        ))
     }
 
     /// Opens the existing worktree at `path` of the repository of space
@@ -1522,18 +1514,8 @@ impl Session {
                 "the space shows no linked worktree".into(),
             ));
         }
-        let status = self
-            .worktree_status(Some(workspace_id))
-            .await?
-            .into_iter()
-            .next()
-            .ok_or_else(|| SessionError::Files("the worktree's status could not be read".into()))?;
-        if status.changes > 0 {
-            return Err(SessionError::Rejected(format!(
-                "{} uncommitted changes",
-                status.changes
-            )));
-        }
+        let status = self.worktree_status(Some(workspace_id)).await?;
+        removable(status.first())?;
         let conn = self.connection()?;
         Ok(actions::remove_worktree(&conn, workspace_id).await?)
     }
@@ -2535,6 +2517,34 @@ async fn read_day(
     })
 }
 
+/// The worktrees "open a worktree" offers (#343): those no space shows,
+/// without bare and prunable entries, by branch, detached ones last, then
+/// by path.
+fn worktree_choices(entries: Vec<herdr_proto::WorktreeEntry>) -> Vec<herdr_proto::WorktreeEntry> {
+    let mut entries: Vec<_> = entries
+        .into_iter()
+        .filter(|entry| entry.open_workspace_id.is_none() && !entry.is_bare && !entry.is_prunable)
+        .collect();
+    entries.sort_by(|a, b| {
+        (a.branch.is_none(), &a.branch, &a.path).cmp(&(b.branch.is_none(), &b.branch, &b.path))
+    });
+    entries
+}
+
+/// Whether a worktree with this status may be removed (#343): only with a
+/// status read and nothing uncommitted or untracked.
+fn removable(status: Option<&gitstatus::SpaceGitStatus>) -> Result<(), SessionError> {
+    let status = status
+        .ok_or_else(|| SessionError::Files("the worktree's status could not be read".into()))?;
+    if status.changes > 0 {
+        return Err(SessionError::Rejected(format!(
+            "{} uncommitted changes",
+            status.changes
+        )));
+    }
+    Ok(())
+}
+
 /// The spaces of each Git repository, by its `.git` path (#296); spaces
 /// outside a repository are left out.
 fn spaces_by_repo_key<'a>(
@@ -2637,8 +2647,47 @@ fn upload_name(ext: &str) -> String {
 mod tests {
     use super::{
         SessionError, TransportError, files_error, health_error, merge_github_repos, named_upload,
-        spaces_by_repo_key,
+        removable, spaces_by_repo_key, worktree_choices,
     };
+
+    #[test]
+    fn worktree_choices_leave_out_open_bare_and_prunable() {
+        let entries: Vec<herdr_proto::WorktreeEntry> =
+            match serde_json::from_value(serde_json::json!([
+                {"path": "/r", "branch": "main", "label": "r", "open_workspace_id": "w1"},
+                {"path": "/r/.wt/z", "branch": "zeta", "label": "z"},
+                {"path": "/r/.wt/d", "branch": null, "label": "d", "is_detached": true},
+                {"path": "/r/.wt/a", "branch": "alpha", "label": "a"},
+                {"path": "/r/.wt/gone", "branch": "gone", "label": "gone", "is_prunable": true},
+                {"path": "/r.git", "branch": null, "label": "bare", "is_bare": true},
+                {"path": "/r/.wt/c", "branch": null, "label": "c", "is_detached": true}
+            ])) {
+                Ok(entries) => entries,
+                Err(err) => panic!("fixture: {err}"),
+            };
+        let paths: Vec<String> = worktree_choices(entries)
+            .into_iter()
+            .map(|entry| entry.path)
+            .collect();
+        assert_eq!(paths, ["/r/.wt/a", "/r/.wt/z", "/r/.wt/c", "/r/.wt/d"]);
+    }
+
+    #[test]
+    fn a_worktree_is_removable_only_when_clean() {
+        let status = |changes| herdr_core::gitstatus::SpaceGitStatus {
+            workspace_id: "w3".into(),
+            has_upstream: true,
+            ahead: 2,
+            behind: 0,
+            changes,
+        };
+        assert!(removable(Some(&status(0))).is_ok());
+        assert!(matches!(
+            removable(Some(&status(4))),
+            Err(SessionError::Rejected(message)) if message == "4 uncommitted changes"
+        ));
+        assert!(matches!(removable(None), Err(SessionError::Files(_))));
+    }
 
     fn workspace(value: serde_json::Value) -> herdr_proto::WorkspaceInfo {
         match serde_json::from_value(value) {
