@@ -1,5 +1,5 @@
 [package]
-name = "herdr-core"
+name = "herdr-client"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

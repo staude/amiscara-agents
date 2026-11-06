@@ -35,9 +35,12 @@ if $apple; then
     scripts/multi-send-test.sh
     scripts/agent-status-test.sh
     scripts/spotlight-test.sh
+    scripts/command-palette-test.sh
     scripts/question-binding-test.sh
     scripts/notification-sound-test.sh
     scripts/pull-request-test.sh
+    scripts/git-status-test.sh
+    scripts/whats-new-test.sh
     for scheme in AmiscaraAgents AmiscaraAgents-iOS; do
         destination="platform=macOS"
         [[ "$scheme" == AmiscaraAgents-iOS ]] && destination="generic/platform=iOS"

@@ -94,6 +94,11 @@ struct AmiscaraAgentsApp: App {
             // The screenshot demo (#199) leaves widgets and iCloud alone.
             guard !DemoMode.isOn else { return }
             if phase == .active {
+                #if os(iOS)
+                // The Git status of the worktrees may have changed meanwhile
+                // (#343); the Mac follows its app activation instead.
+                store.connections.forEach { $0.gitStatus.cameToFront() }
+                #endif
                 #if os(macOS)
                 store.reconnectStale()
                 #else
@@ -125,8 +130,18 @@ struct AmiscaraAgentsApp: App {
         #endif
         #if os(macOS)
         .commands { UpdateCommands() }
+        .commands { WhatsNewCommands() }
         #endif
         #if os(macOS)
+        // What changed in this version (#341): once after an update and
+        // from the Help menu, never restored at launch.
+        Window("Neuigkeiten", id: WhatsNewWindow.id) {
+            WhatsNewView()
+                .appAppearance(appearance)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+        .windowResizability(.contentMinSize)
         Settings {
             SettingsView()
                 .environment(store)

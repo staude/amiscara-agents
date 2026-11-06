@@ -15,6 +15,7 @@ struct PaneDetailView: View {
     @State private var editorError: String?
     #endif
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
+    @AppStorage(TerminalZoom.storageKey) private var fontSize = Platform.defaultTerminalFontSize
     /// The pane's buttons sit in the vertical bar of an iPhone Duo (#215).
     @State private var verticalBar = false
     #if !os(tvOS)
@@ -125,7 +126,7 @@ struct PaneDetailView: View {
         #if !os(tvOS)
         .sheet(isPresented: $showingDiff) {
             if let selection, let connection = store.connection(for: selection.hostID) {
-                DiffView(connection: connection, paneID: selection.paneID)
+                DiffView(connection: connection, target: .pane(selection.paneID))
             }
         }
         .sheet(isPresented: $showingFiles) {
@@ -136,6 +137,7 @@ struct PaneDetailView: View {
         #endif
         .tracksVerticalBar($verticalBar)
         .focusedSceneValue(\.paneSearch, selection == nil ? nil : search.actions(matches))
+        .focusedSceneValue(\.paneCommands, paneCommands)
         .task(id: selection) {
             // The screenshot demo (#199) opens these for its pane.
             guard DemoMode.isOn, selection?.paneID == DemoMode.pane else { return }
@@ -192,6 +194,7 @@ struct PaneDetailView: View {
         let pane = pane(connection, paneID)
         return HStack(spacing: 8) {
             StatusDot(state: pane?.agent == nil ? nil : pane?.agentState)
+            ProgramIcon(program: pane?.program, size: 16)
             Text(title(pane, connection: connection, paneID: paneID))
                 .font(.headline)
                 .lineLimit(1)
@@ -257,6 +260,76 @@ struct PaneDetailView: View {
         .disabled(model.content == nil)
         PaneSearchButton(state: search)
         TerminalZoomMenu()
+    }
+
+    /// What the header offers, for the switcher (#346), under the same
+    /// conditions as its buttons and menus.
+    private var paneCommands: [PaletteCommand]? {
+        guard let selection, let connection = store.connection(for: selection.hostID) else { return nil }
+        let paneID = selection.paneID
+        let pane = pane(connection, paneID)
+        var commands: [PaletteCommand] = []
+        func add(_ id: String, _ title: String, shortcut: CommandShortcut? = nil, keywords: [String] = [], run: @escaping @MainActor () -> Void) {
+            commands.append(PaletteCommand(id: "pane.\(id)", title: title, section: .pane, shortcut: shortcut, keywords: keywords, run: run))
+        }
+        if pane?.agent == "claude" {
+            add("conversation", String(localized: "Gesprächsverlauf")) { showingConversation = true }
+            #if !os(tvOS)
+            if connection.config.uploadAllowed {
+                if voice.state == .speaking, !voice.voiceMode {
+                    add("stopReading", String(localized: "Vorlesen beenden")) { voice.stop() }
+                }
+                add("readLast", String(localized: "Letzte Antwort vorlesen")) {
+                    voice.readLast(connection: connection, paneID: paneID)
+                }
+                let reads = AgentVoice.readsReplies(host: connection.id, pane: paneID)
+                add(
+                    "readReplies",
+                    reads ? String(localized: "Antworten vorlesen ausschalten") : String(localized: "Antworten vorlesen einschalten")
+                ) {
+                    AgentVoice.setReadsReplies(!reads, host: connection.id, pane: paneID)
+                }
+                if voice.voiceMode {
+                    add("voiceMode", String(localized: "Sprachmodus beenden")) { voice.stop() }
+                } else if connection.config.inputAllowed {
+                    let state = pane?.agentState
+                    add("voiceMode", String(localized: "Sprachmodus")) {
+                        voice.startVoiceMode(connection: connection, paneID: paneID, agentState: state)
+                    }
+                }
+            }
+            #endif
+        }
+        #if !os(tvOS)
+        if connection.config.inputAllowed {
+            add("diff", String(localized: "Änderungen"), keywords: ["diff", "git"]) { showingDiff = true }
+        }
+        add("files", String(localized: "Dateien")) { showingFiles = true }
+        #endif
+        #if os(macOS)
+        add("vscode", String(localized: "In VS Code öffnen"), keywords: ["editor"]) {
+            Task {
+                let folder = await connection.paneFolder(paneID)
+                editorError = openInVSCode(folder, on: connection)
+            }
+        }
+        #endif
+        if fontSize < TerminalZoom.range.upperBound {
+            add("zoomIn", String(localized: "Schrift größer"), shortcut: Shortcuts.zoomIn) {
+                fontSize = TerminalZoom.larger(fontSize)
+            }
+        }
+        if fontSize > TerminalZoom.range.lowerBound {
+            add("zoomOut", String(localized: "Schrift kleiner"), shortcut: Shortcuts.zoomOut) {
+                fontSize = TerminalZoom.smaller(fontSize)
+            }
+        }
+        if fontSize != Platform.defaultTerminalFontSize {
+            add("zoomReset", String(localized: "Originalgröße"), shortcut: Shortcuts.zoomReset) {
+                fontSize = Platform.defaultTerminalFontSize
+            }
+        }
+        return commands
     }
 
     /// Offers a summary of what is new since the last visit (#273), only

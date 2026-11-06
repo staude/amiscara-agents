@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::programs::ProgramMatch;
 use herdr_proto::{
     AgentStatus, Event, PaneInfo, SessionSnapshot, TabInfo, TabLayout, WorkspaceInfo,
 };
@@ -23,11 +24,27 @@ pub struct SessionState {
     /// Custom agent names (`agent.rename`) by pane id. herdr sends them only
     /// with the snapshot, so the sync driver takes a fresh one after a rename.
     pub agent_names: BTreeMap<String, String>,
+    /// What runs in each pane without an agent, from `pane.process_info`
+    /// (#337); panes without a foreground process are missing. Not part of
+    /// the snapshot, so the sync driver fills and carries it.
+    pub programs: BTreeMap<String, ProgramMatch>,
     /// herdr's `completion_seq` of the finish each `done` agent is in, by
     /// pane id (#335); only when that finish is the agent's latest change.
     /// From the snapshot, and after a change to `done` from `agent.get`.
     /// Servers before herdr 0.9.5 do not count finishes, so it stays empty.
     pub completion_seqs: BTreeMap<String, u64>,
+    /// Which servers of the host answer; herdr-core's spaces, tabs and
+    /// panes sit beside herdr's with ids starting `hc:` (#329).
+    pub backends: Backends,
+}
+
+/// The servers a host runs.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Backends {
+    /// The herdr server answers.
+    pub herdr: bool,
+    /// herdr-core answers, with its version.
+    pub hc: Option<String>,
 }
 
 /// What [`SessionState::apply`] did with an event.
@@ -128,12 +145,17 @@ impl SessionState {
             layouts: snapshot.layouts,
             focused_pane_id: snapshot.focused_pane_id,
             branches: BTreeMap::new(),
+            programs: BTreeMap::new(),
             agent_names: snapshot
                 .agents
                 .into_iter()
                 .filter_map(|agent| Some((agent.pane_id, agent.name?)))
                 .collect(),
             completion_seqs,
+            backends: Backends {
+                herdr: true,
+                hc: None,
+            },
         };
         state.workspaces.sort_by_key(|ws| ws.number);
         let order = state.workspace_order();
@@ -141,6 +163,77 @@ impl SessionState {
             .tabs
             .sort_by_key(|tab| (order(&tab.workspace_id), tab.number));
         state
+    }
+
+    /// A host without a herdr server: nothing until herdr-core's terminals
+    /// come in through [`Self::replace_hc`].
+    pub fn without_herdr(hc_version: &str) -> Self {
+        Self {
+            version: format!("herdr-core {hc_version}"),
+            protocol: 0,
+            workspaces: Vec::new(),
+            tabs: Vec::new(),
+            panes: Vec::new(),
+            layouts: Vec::new(),
+            focused_pane_id: None,
+            branches: BTreeMap::new(),
+            agent_names: BTreeMap::new(),
+            programs: BTreeMap::new(),
+            completion_seqs: BTreeMap::new(),
+            backends: Backends {
+                herdr: false,
+                hc: Some(hc_version.to_owned()),
+            },
+        }
+    }
+
+    /// Puts herdr-core's live `terminals` in place of the ones known so
+    /// far, numbered after herdr's spaces. `Updated` when that changes
+    /// what the apps see.
+    pub fn replace_hc(&mut self, terminals: &[herdr_proto::hc::Terminal]) -> Applied {
+        let first_number = self
+            .workspaces
+            .iter()
+            .filter(|ws| !crate::hc::is_hc(&ws.workspace_id))
+            .map(|ws| ws.number)
+            .max()
+            .unwrap_or(0)
+            + 1;
+        let fresh = crate::hc::snapshot_from(terminals, first_number);
+        let is_hc = crate::hc::is_hc;
+        let before = (
+            self.workspaces.clone(),
+            self.tabs.clone(),
+            self.panes.clone(),
+        );
+        self.workspaces.retain(|ws| !is_hc(&ws.workspace_id));
+        self.tabs.retain(|tab| !is_hc(&tab.tab_id));
+        self.panes.retain(|pane| !is_hc(&pane.pane_id));
+        self.workspaces.extend(fresh.workspaces);
+        self.tabs.extend(fresh.tabs);
+        self.panes.extend(fresh.panes);
+        self.workspaces.sort_by_key(|ws| ws.number);
+        let order = self.workspace_order();
+        self.tabs
+            .sort_by_key(|tab| (order(&tab.workspace_id), tab.number));
+        let spaces: Vec<String> = self
+            .workspaces
+            .iter()
+            .map(|ws| ws.workspace_id.clone())
+            .collect();
+        self.branches
+            .retain(|id, _| !is_hc(id) || spaces.contains(id));
+        if before
+            == (
+                self.workspaces.clone(),
+                self.tabs.clone(),
+                self.panes.clone(),
+            )
+        {
+            Applied::Unchanged
+        } else {
+            Applied::Updated
+        }
     }
 
     pub fn workspace(&self, workspace_id: &str) -> Option<&WorkspaceInfo> {
@@ -541,6 +634,14 @@ pub(crate) fn finish_seq(agent: &herdr_proto::AgentInfo) -> Option<u64> {
         .filter(|seq| *seq == agent.state_change_seq && *seq != 0)
 }
 
+/// The status that needs the user most, as the board orders them;
+/// `Unknown` without any.
+pub(crate) fn most_urgent(statuses: impl Iterator<Item = AgentStatus>) -> AgentStatus {
+    statuses
+        .min_by_key(|status| urgency(*status))
+        .unwrap_or(AgentStatus::Unknown)
+}
+
 fn urgency(status: AgentStatus) -> u8 {
     match status {
         AgentStatus::Blocked => 0,
@@ -617,6 +718,63 @@ mod tests {
             .iter()
             .map(|e| e.pane.pane_id.as_str())
             .collect()
+    }
+
+    fn hc_terminal(address: &str, space: &str, status: &str) -> herdr_proto::hc::Terminal {
+        let value = json!({
+            "address": address, "cwd": "/x", "state": "live", "created_ms": 1,
+            "labels": {"herdr.space": space, "herdr.tab": format!("tb-{address}"),
+                       "where": format!("{space} / 1")},
+            "status": {"app": "claude-code", "state": status}
+        });
+        match serde_json::from_value(value) {
+            Ok(terminal) => terminal,
+            Err(err) => panic!("fixture: {err}"),
+        }
+    }
+
+    #[test]
+    fn herdr_core_sits_after_herdr_and_is_replaced_whole() {
+        let mut state = snapshot();
+        assert!(state.backends.herdr && state.backends.hc.is_none());
+        let applied = state.replace_hc(&[hc_terminal("t1", "kino", "blocked")]);
+        assert_eq!(applied, Applied::Updated);
+        let spaces: Vec<_> = state
+            .workspaces
+            .iter()
+            .map(|ws| (ws.workspace_id.as_str(), ws.number))
+            .collect();
+        assert_eq!(spaces, [("w1", 1), ("w2", 2), ("hc:kino", 3)]);
+        assert_eq!(
+            state.tabs.last().map(|tab| tab.tab_id.as_str()),
+            Some("hc:tb-t1")
+        );
+        assert_eq!(
+            board_ids(&state)[0],
+            "hc:t1",
+            "a waiting hc agent comes first"
+        );
+        assert_eq!(
+            state.replace_hc(&[hc_terminal("t1", "kino", "blocked")]),
+            Applied::Unchanged
+        );
+        state.branches.insert("hc:kino".into(), "main".into());
+        assert_eq!(
+            state.replace_hc(&[hc_terminal("t2", "web", "idle")]),
+            Applied::Updated
+        );
+        assert!(state.pane("hc:t1").is_none() && state.pane("hc:t2").is_some());
+        assert!(state.pane("w1:p1").is_some(), "herdr's panes stay");
+        assert!(!state.branches.contains_key("hc:kino"));
+
+        let mut only = SessionState::without_herdr("0.1.18");
+        only.replace_hc(&[hc_terminal("t1", "kino", "idle")]);
+        assert_eq!(
+            (only.version.as_str(), only.protocol),
+            ("herdr-core 0.1.18", 0)
+        );
+        assert_eq!(only.workspaces[0].number, 1);
+        assert!(!only.backends.herdr);
     }
 
     #[test]

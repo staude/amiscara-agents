@@ -10,17 +10,20 @@ mod search;
 pub mod secrets;
 pub mod session;
 pub mod sessions;
+pub mod ssh_config;
 pub mod view;
 
 pub use access::authorized_keys_line;
 pub use health::{Health, HealthStatus};
-pub use herdr_core::browse::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
-pub use herdr_core::daily::{DailyItem, DailyItemKind, DailyLog};
-pub use herdr_core::diff::{
+pub use herdr_client::browse::{Directory, DirectoryEntry, EntryKind, FileContent, FilePreview};
+pub use herdr_client::daily::{DailyItem, DailyItemKind, DailyLog};
+pub use herdr_client::diff::{
     DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind, WorkingTreeDiff,
 };
-pub use herdr_core::github::GitHubRepo;
-pub use herdr_core::spaces::SpaceSort;
+pub use herdr_client::github::GitHubRepo;
+pub use herdr_client::gitstatus::SpaceGitStatus;
+pub use herdr_client::spaces::SpaceSort;
+pub use herdr_proto::WorktreeEntry;
 pub use link::{
     ADD_HOST_PREFIX, ADD_HOST_VERSION, AddHostLink, LinkError, decode_add_host_link,
     encode_add_host_link, public_key_fingerprint,
@@ -37,3 +40,4 @@ pub use sessions::local_herdr_sessions;
 pub use sessions::{
     HerdrSessionEntry, is_valid_session_name, session_name_of_socket, session_socket_path,
 };
+pub use ssh_config::{SshConfigHost, parse_ssh_config, ssh_config_hosts};

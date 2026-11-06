@@ -7,6 +7,7 @@ mod hosts;
 mod i18n;
 mod notify;
 mod tray;
+mod whats_new;
 
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -78,6 +79,7 @@ pub fn run() {
             app::valid_session_name,
             app::local_default_socket,
             app::local_sessions,
+            app::ssh_config_hosts,
             app::host_sessions,
             app::connect,
             app::disconnect,
@@ -113,6 +115,7 @@ pub fn run() {
             app::close,
             app::autostart,
             app::set_autostart,
+            whats_new::whats_new,
             pending_links,
         ])
         .run(tauri::generate_context!())

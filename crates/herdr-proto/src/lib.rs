@@ -2,7 +2,10 @@
 //!
 //! The server speaks newline-delimited JSON: one request line in, one
 //! response line out. Subscriptions keep the connection open and stream one
-//! event per line after the initial acknowledgement.
+//! event per line after the initial acknowledgement. [`hc`] has the types of
+//! herdr-core, the second backend (#329).
+
+pub mod hc;
 
 use std::collections::BTreeMap;
 
@@ -38,6 +41,9 @@ pub struct ApiError {
 pub enum ProtoError {
     #[error("herdr error {code}: {message}")]
     Api { code: String, message: String },
+    /// herdr-core refused the call; `kind` is its stable `data.kind`.
+    #[error("herdr-core error {kind}: {message}")]
+    Rpc { kind: String, message: String },
     #[error("malformed response: {0}")]
     Malformed(String),
     #[error(transparent)]
@@ -144,6 +150,20 @@ pub struct WorktreeEntry {
     /// The space showing this worktree, if one is open.
     #[serde(default)]
     pub open_workspace_id: Option<String>,
+    /// herdr's name for it, the folder's name.
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub is_bare: bool,
+    /// Its folder is gone; `git worktree prune` would drop it.
+    #[serde(default)]
+    pub is_prunable: bool,
+    /// No branch checked out.
+    #[serde(default)]
+    pub is_detached: bool,
+    /// A linked worktree, not the repository's main checkout.
+    #[serde(default)]
+    pub is_linked_worktree: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -215,6 +235,37 @@ pub struct PaneInfo {
 #[derive(Debug, Deserialize)]
 pub struct PaneGetResult {
     pub pane: PaneInfo,
+}
+
+/// `pane.process_info` result: what runs in the pane's foreground (#337).
+#[derive(Debug, Deserialize)]
+pub struct PaneProcessInfoResult {
+    pub process_info: PaneProcessInfo,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PaneProcessInfo {
+    pub pane_id: String,
+    /// The pane's foreground process group; its leader is the program the
+    /// user started, the other members its children (MCP servers, a dev
+    /// server behind `npm run`).
+    #[serde(default)]
+    pub foreground_process_group_id: Option<u32>,
+    #[serde(default)]
+    pub foreground_processes: Vec<PaneProcess>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PaneProcess {
+    pub pid: u32,
+    /// Executable name as the system reports it, e.g. `python3.12`.
+    pub name: String,
+    /// Name the process was started under, e.g. `python` or `-zsh`.
+    #[serde(default)]
+    pub argv0: Option<String>,
+    /// Missing when the system does not tell (other user, exited).
+    #[serde(default)]
+    pub argv: Option<Vec<String>>,
 }
 
 /// `session.snapshot` result: the whole server state in one answer.
@@ -643,6 +694,44 @@ mod tests {
         assert_eq!(
             (got.agent.state_change_seq, got.agent.completion_seq),
             (0, None)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_worktree_list() -> Result<(), ProtoError> {
+        let line = r#"{"id":"1","result":{"type":"worktree_list","source":{},"worktrees":[{"path":"/r","branch":"main","label":"r","is_bare":false,"is_detached":false,"is_prunable":false,"is_linked_worktree":false,"open_workspace_id":"w1"},{"path":"/r/.wt/x","branch":null,"label":"x","is_bare":false,"is_detached":true,"is_prunable":true,"is_linked_worktree":true}]}}"#;
+        let got: WorktreeListResult = serde_json::from_value(parse_response(line)?)?;
+        let [main, linked] = got.worktrees.as_slice() else {
+            panic!("two worktrees expected");
+        };
+        assert_eq!(main.open_workspace_id.as_deref(), Some("w1"));
+        assert!(!main.is_linked_worktree);
+        assert_eq!(linked.label, "x");
+        assert!(linked.is_detached && linked.is_prunable && linked.is_linked_worktree);
+        assert_eq!(linked.branch, None);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_pane_process_info() -> Result<(), ProtoError> {
+        let line = r#"{"id":"1","result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p1","shell_pid":9539,"foreground_process_group_id":9600,"foreground_processes":[{"pid":9600,"name":"node","argv0":"node","argv":["node","/p/node_modules/.bin/vite"],"cmdline":"node /p/node_modules/.bin/vite","cwd":"/p"},{"pid":9601,"name":"esbuild"}]}}}"#;
+        let got: PaneProcessInfoResult = serde_json::from_value(parse_response(line)?)?;
+        let info = got.process_info;
+        assert_eq!(info.pane_id, "w1:p1");
+        assert_eq!(info.foreground_process_group_id, Some(9600));
+        assert_eq!(info.foreground_processes.len(), 2);
+        assert_eq!(
+            info.foreground_processes[0]
+                .argv
+                .as_deref()
+                .map(<[String]>::len),
+            Some(2)
+        );
+        let bare = &info.foreground_processes[1];
+        assert_eq!(
+            (bare.name.as_str(), &bare.argv0, &bare.argv),
+            ("esbuild", &None, &None)
         );
         Ok(())
     }

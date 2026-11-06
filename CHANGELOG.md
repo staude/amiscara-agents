@@ -757,6 +757,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
   when a commit came in since. The repositories come from
   `Session::github_repos` like the approvals'. Without a token nothing
   changes. Mac, iPhone and iPad. FFI `parse_diff`.
+- Program icons (#337): pane header, split pane header, tab and the agent
+  rows of the sidebar show what runs in the pane, as an SF Symbol in the
+  program's colour or a letter tile for agents (Claude Code, Codex ...);
+  interpreters, runners, shell scripts and wrappers such as `sudo` are
+  looked through, so `npm run dev` with Vite shows Vite. Unknown programs
+  get a neutral icon with the process name as tooltip. Core:
+  `herdr_client::programs` (table and matching), the sync driver polls
+  `pane.process_info` every 5 s for panes without an agent on its own task,
+  at most three requests at once,
+  `ProgramItem` on `PaneItem` and `BoardItem`. Mac, iPhone, iPad, Apple TV.
 - Agent peek (#332): "Kurz ansehen" in the context menu of an agent in the
   overview, a host's dashboard and the quick switcher, on the Mac also
   ⌥-click and ⌥Return in the switcher, shows the agent's live pane with its
@@ -783,8 +793,56 @@ and the project uses [Semantic Versioning](https://semver.org/).
   as push from the Mac; a delivered one goes once the agent is seen
   elsewhere. Needs herdr 0.9.5, not on read-only hosts. `SessionState::seen`,
   `agent_status`, `Session::mark_seen`, FFI `mark_seen`.
+- Changes of a space (#342): "Änderungen …" in the menu of a Git space in
+  the sidebar and in the ✦ menu next to the tabs, and a ± button next to
+  the tabs, open the uncommitted changes of the space's folder (the focused
+  pane's in the active tab) in the same sheet as a pane's diff. After a
+  load the button shows the number of files until the next load or app
+  start. Without input allowed the sheet says why it needs it. Mac, iPhone
+  and iPad. `Session::space_working_tree_diff`, FFI
+  `space_working_tree_diff`.
+- Worktree status, open and remove (#343): Git spaces show ahead/behind
+  against their upstream ("↑3 ↓2"), "kein Upstream" for a branch never
+  pushed and "● 4 geändert" for uncommitted and untracked files, behind the
+  branch or, for a linked worktree, as its own line; a clean branch shows
+  nothing. The app reads it with one script for all spaces in a
+  short-lived tab, like the diff (input and file access needed), on
+  connecting, coming to the front, new spaces or branches, an agent that
+  stops working and every five minutes while in front; reasons within
+  20 s make one follow-up. "Worktree öffnen …" lists the repository's
+  worktrees that no space shows, with a search, and opens one as a space;
+  "Worktree entfernen …" asks first, removes the checkout with its space
+  and keeps the branch, and refuses while there are uncommitted changes.
+  Both are in the space's context menu and, on the iPad, in the menu of the
+  space view. Core: `herdr_client::gitstatus`, `actions::list_worktrees`,
+  `open_worktree`, `remove_worktree`, `Session::worktree_status`,
+  `list_worktrees`, `open_worktree`, `remove_worktree`; FFI
+  `SpaceGitStatus`, `WorktreeChoice`. Mac, iPhone and iPad.
+- What's New after an update (#341): the Mac app opens "Neuigkeiten" once
+  after Sparkle installed a newer version, the desktop app shows the dialog
+  once after the updater did; Help › Neuigkeiten (Mac) and Settings ›
+  Neuigkeiten (desktop) show all versions up to the installed one. The notes
+  live in `apps/whats-new.json`, per app in German and English, and
+  `scripts/whats-new.py` stops a Mac or desktop release without notes for its
+  version.
+- herdr-core (#329): hosts running herdr-core (`hc`), the runtime of the
+  herdr desktop app, show its spaces, tabs and agents with their status in
+  every app, beside the herdr server's or on their own; prompts and keys
+  reach its terminals, plain text key by key. The session asks both servers on every connection
+  and connects again when the missing one starts. Over SSH the key's line
+  gets an `amiscara-hc` case that runs `hc connect` while a core runs.
+  Creating, renaming and closing spaces and tabs, starting agents, chains,
+  text with umlauts or shifted signs and pane history are not available
+  there. Git branch,
+  Git changes, the day's log and the conversation search run with
+  `machine.exec`. Core: `herdr_proto::hc`, `herdr_client::hc`,
+  `Connection::hc_request`, `hc_subscribe`, `Endpoint::Local` takes
+  `hc_socket_path`; `herdr-spike hc`.
 
 ### Changed
+
+- The crate `herdr-core` is now `herdr-client` (#329), since upstream's
+  runtime is called herdr-core.
 
 - README and screenshots cover the features since 22 October; the
   screenshot run adds the overview, host dashboard, file browser and an

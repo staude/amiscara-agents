@@ -110,6 +110,7 @@ private struct PaneTile: View {
     private var header: some View {
         HStack(spacing: 6) {
             StatusDot(state: pane?.agent == nil ? nil : pane?.agentState)
+            ProgramIcon(program: pane?.program, size: 12)
             Text(pane.map { $0.title.isEmpty ? $0.paneId : $0.title } ?? paneID)
                 .lineLimit(1)
                 .truncationMode(.middle)

@@ -11,6 +11,8 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 cd "$(dirname "$0")/.."
+# The app shows these notes after the update (#341).
+python3 scripts/whats-new.py check desktop "$version"
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "working tree not clean" >&2
     exit 1

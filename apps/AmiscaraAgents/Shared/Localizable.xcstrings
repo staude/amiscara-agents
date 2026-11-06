@@ -494,6 +494,46 @@
         }
       }
     },
+    "%lld Commits sind nicht gepusht." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commit ist nicht gepusht."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Commits sind nicht gepusht."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commit is not pushed."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld commits are not pushed."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld Dateien, +%lld −%lld" : {
       "localizations" : {
         "en" : {
@@ -750,6 +790,16 @@
         }
       }
     },
+    "(losgelöst) %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(detached) %@"
+          }
+        }
+      }
+    },
     "/Users/<benutzer>/.config/herdr/herdr.sock" : {
       "localizations" : {
         "en" : {
@@ -996,6 +1046,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "All finished"
+          }
+        }
+      }
+    },
+    "Alle Worktrees dieses Repos sind schon als Space offen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All worktrees of this repository are open as spaces already."
           }
         }
       }
@@ -1262,6 +1322,36 @@
         }
       }
     },
+    "Antworten vorlesen ausschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Reading Replies Aloud"
+          }
+        }
+      }
+    },
+    "Antworten vorlesen einschalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read Replies Aloud"
+          }
+        }
+      }
+    },
+    "App" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App"
+          }
+        }
+      }
+    },
     "App sperren" : {
       "localizations" : {
         "en" : {
@@ -1322,6 +1412,16 @@
         }
       }
     },
+    "Arbeitet seit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working for %@"
+          }
+        }
+      }
+    },
     "Arbeitsverzeichnis der Pane in VS Code öffnen" : {
       "localizations" : {
         "en" : {
@@ -1368,6 +1468,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open on GitHub"
+          }
+        }
+      }
+    },
+    "Aufgabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
           }
         }
       }
@@ -1532,6 +1642,16 @@
         }
       }
     },
+    "Darin läuft noch ein Agent; er wird beendet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An agent is still running in it; it will be ended."
+          }
+        }
+      }
+    },
     "Das mittlere Widget zeigt unten die Tokens und geschätzten Kosten des Tages je Host." : {
       "localizations" : {
         "en" : {
@@ -1548,6 +1668,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The repository allows no merge method."
+          }
+        }
+      }
+    },
+    "Das Verzeichnis wird gelöscht, der Branch bleibt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The directory is deleted; the branch stays."
           }
         }
       }
@@ -1572,6 +1702,16 @@
         }
       }
     },
+    "Den Git-Status der Worktrees liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the worktrees' Git status through file access, like “Upload images” (Edit host)."
+          }
+        }
+      }
+    },
     "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
@@ -1582,12 +1722,52 @@
         }
       }
     },
+    "Der Agent hat sich gleich nach dem Start beendet, die Aufgabe wurde nicht gesendet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent ended right after starting, the task was not sent."
+          }
+        }
+      }
+    },
+    "Der Agent läuft, die Aufgabe wurde aber nicht gesendet: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The agent is running, but the task was not sent: %@"
+          }
+        }
+      }
+    },
+    "Der Branch ist nicht gepusht." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The branch has not been pushed."
+          }
+        }
+      }
+    },
     "Der Diff ist zu groß für GitHubs Schnittstelle. Auf GitHub ansehen." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The diff is too large for GitHub's API. View it on GitHub."
+          }
+        }
+      }
+    },
+    "Der Git-Status des Worktrees ließ sich nicht lesen. Nichts wurde entfernt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The worktree's Git status could not be read. Nothing was removed."
           }
         }
       }
@@ -1652,6 +1832,16 @@
         }
       }
     },
+    "Die App sendet die Aufgabe, sobald der Agent bereit ist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app sends the task as soon as the agent is ready."
+          }
+        }
+      }
+    },
     "Die Frage im Planungs-Tab nimmt keine Notiz an. Im Tab beantworten." : {
       "localizations" : {
         "en" : {
@@ -1692,6 +1882,16 @@
         }
       }
     },
+    "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app reads the changes through a short-lived tab on the host; turn on “Allow input” for this (Edit host)."
+          }
+        }
+      }
+    },
     "Durchsucht die Gespräche auf dem Host …" : {
       "localizations" : {
         "en" : {
@@ -1708,6 +1908,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A draft cannot be merged. Mark it as ready on GitHub."
+          }
+        }
+      }
+    },
+    "Eingaben an den Host erlauben" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow Input to the Host"
           }
         }
       }
@@ -1732,12 +1942,32 @@
         }
       }
     },
+    "Einstellungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings …"
+          }
+        }
+      }
+    },
     "Ende der Sitzung" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "End of the session"
+          }
+        }
+      }
+    },
+    "Entfernen fehlgeschlagen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing failed"
           }
         }
       }
@@ -1758,6 +1988,126 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop the dictation in the input bar first."
+          }
+        }
+      }
+    },
+    "Host bearbeiten …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Host …"
+          }
+        }
+      }
+    },
+    "Host hinzufügen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Host …"
+          }
+        }
+      }
+    },
+    "Host nur lesend schalten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make Host Read Only"
+          }
+        }
+      }
+    },
+    "Im Worktree sind %lld Änderungen nicht committet. Erst committen oder verwerfen." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Im Worktree ist %lld Änderung nicht committet. Erst committen oder verwerfen."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Im Worktree sind %lld Änderungen nicht committet. Erst committen oder verwerfen."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The worktree has %lld uncommitted change. Commit or discard it first."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The worktree has %lld uncommitted changes. Commit or discard them first."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "kein Upstream" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no upstream"
+          }
+        }
+      }
+    },
+    "Kein Worktree passt zur Suche." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No worktree matches the search."
+          }
+        }
+      }
+    },
+    "Neuer Tab mit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with %@"
+          }
+        }
+      }
+    },
+    "Space, Agent oder > Befehl" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Space, agent or > command"
+          }
+        }
+      }
+    },
+    "Space, Agent oder Befehl suchen (⌘K)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search spaces, agents or commands (⌘K)"
           }
         }
       }
@@ -1972,6 +2322,16 @@
         }
       }
     },
+    "herdr hat den Agent nicht innerhalb von 30 Sekunden bereit gemeldet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "herdr did not report the agent ready within 30 seconds."
+          }
+        }
+      }
+    },
     "Heute" : {
       "localizations" : {
         "en" : {
@@ -2118,6 +2478,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No entries."
+          }
+        }
+      }
+    },
+    "Keine Neuigkeiten für diese Version" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No news for this version"
           }
         }
       }
@@ -2442,6 +2812,26 @@
         }
       }
     },
+    "Neuer Tab mit Aufgabe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with Task"
+          }
+        }
+      }
+    },
+    "Neuer Tab mit Aufgabe …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Tab with Task …"
+          }
+        }
+      }
+    },
     "Neuere Einträge laden" : {
       "localizations" : {
         "en" : {
@@ -2452,12 +2842,32 @@
         }
       }
     },
+    "Neuigkeiten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What's New"
+          }
+        }
+      }
+    },
     "Nicht alle Claude-Verläufe wurden bis zum Tagesbeginn gelesen; frühe Einträge können fehlen." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not every Claude conversation was read back to the start of the day; early entries may be missing."
+          }
+        }
+      }
+    },
+    "Nicht committete Änderungen im Space" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uncommitted changes in the space"
           }
         }
       }
@@ -2498,6 +2908,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only the conversations of the last 30 days were searched; older ones are missing. The app searches on the host itself when input is allowed and a space is open."
+          }
+        }
+      }
+    },
+    "Nur mit Agent." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only with an agent."
           }
         }
       }
@@ -2792,6 +3212,16 @@
         }
       }
     },
+    "Starten" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
+          }
+        }
+      }
+    },
     "Stopp" : {
       "localizations" : {
         "en" : {
@@ -2992,6 +3422,16 @@
         }
       }
     },
+    "Vorlage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template"
+          }
+        }
+      }
+    },
     "Vorlesen" : {
       "localizations" : {
         "en" : {
@@ -3018,6 +3458,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reading aloud needs file access like “Upload images” (edit the host)."
+          }
+        }
+      }
+    },
+    "Warte, bis der Agent bereit ist …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the agent to be ready …"
           }
         }
       }
@@ -6268,12 +6718,72 @@
         }
       }
     },
+    "Worktree entfernen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Worktree"
+          }
+        }
+      }
+    },
+    "Worktree entfernen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Worktree …"
+          }
+        }
+      }
+    },
+    "Worktree öffnen – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Worktree – %@"
+          }
+        }
+      }
+    },
+    "Worktree öffnen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Worktree …"
+          }
+        }
+      }
+    },
+    "Worktree „%@“ entfernen?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove worktree “%@”?"
+          }
+        }
+      }
+    },
     "Änderungen verlangt" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Changes requested"
+          }
+        }
+      }
+    },
+    "Änderungen …" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes …"
           }
         }
       }
@@ -6410,6 +6920,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "With a QR Code"
+          }
+        }
+      }
+    },
+    "SSH-Host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SSH host"
+          }
+        }
+      }
+    },
+    "%@ (%@ nicht unterstützt)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@ not supported)"
+          }
+        }
+      }
+    },
+    "Aus ~/.ssh/config" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From ~/.ssh/config"
+          }
+        }
+      }
+    },
+    "Übernimmt Adresse, Benutzer, Port und SSH-Ziel. Angemeldet wird mit dem eigenen Schlüssel der App." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fills in address, user, port and SSH target. The app logs in with its own key."
           }
         }
       }
@@ -7100,16 +7650,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search for a space or agent"
-          }
-        }
-      }
-    },
-    "Space oder Agent suchen (⌘K)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search for a space or agent (⌘K)"
           }
         }
       }
@@ -8110,6 +8650,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting"
+          }
+        }
+      }
+    },
+    "Wartet seit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for %@"
           }
         }
       }
@@ -9126,6 +9676,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The file could not be added: %@"
+          }
+        }
+      }
+    },
+    "● %lld geändert" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "● %lld changed"
           }
         }
       }

@@ -15,7 +15,7 @@ func bucket(_ cwd: String, _ start: Date, _ model: String, input: UInt64 = 0, ou
 }
 
 @MainActor func run() {
-    // As `project_dir_like_claude_code` in herdr-core, without the prefix.
+    // As `project_dir_like_claude_code` in herdr-client, without the prefix.
     check(UsageSums.projectFolder("/Users/me/dev/shop/.claude/worktrees/x_y")
           == "-Users-me-dev-shop--claude-worktrees-x-y", "folder like the core")
     // Rust goes by scalar: a decomposed "ä" and a flag are two each.

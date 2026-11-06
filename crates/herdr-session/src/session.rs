@@ -5,11 +5,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use herdr_core::chains::{self, Chain};
-use herdr_core::pane::{self, Pacing};
-use herdr_core::spaces::SpaceSort;
-use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, usage};
+use herdr_client::chains::{self, Chain};
+use herdr_client::pane::{self, Pacing};
+use herdr_client::spaces::SpaceSort;
+use herdr_client::sync::{self, SyncState, SyncStatus};
+use herdr_client::{actions, browse, claude, daily, diff, fullscreen, github, gitstatus, usage};
 use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
     Connection, HealthLine, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError,
@@ -130,6 +130,7 @@ impl From<actions::ActionError> for SessionError {
         match err {
             actions::ActionError::AgentBlocked => Self::AgentBlocked(err.to_string()),
             actions::ActionError::Rejected { .. } => Self::Rejected(err.to_string()),
+            actions::ActionError::Unsupported(message) => Self::Unsupported(message),
             actions::ActionError::Transport(_) => Self::NotConnected(err.to_string()),
         }
     }
@@ -217,6 +218,17 @@ pub(crate) fn files_error(err: TransportError) -> SessionError {
     }
 }
 
+/// [`SessionError::Unsupported`] for a herdr-core space, tab or pane
+/// (#329), for what only herdr offers.
+fn herdr_only(id: &str) -> Result<(), SessionError> {
+    if herdr_client::hc::is_hc(id) {
+        return Err(SessionError::Unsupported(
+            herdr_client::hc::NOT_AVAILABLE.into(),
+        ));
+    }
+    Ok(())
+}
+
 fn health_error(err: TransportError) -> SessionError {
     match err {
         TransportError::Io(err) => SessionError::Health(err.to_string()),
@@ -237,7 +249,12 @@ fn upload_error(err: TransportError) -> SessionError {
 #[derive(Debug, Clone)]
 pub enum Endpoint {
     /// The Unix socket on this machine. `None` uses `~/.config/herdr/herdr.sock`.
-    Local { socket_path: Option<String> },
+    /// herdr-core is reached on `hc_socket_path`, `None` uses its default
+    /// socket (see `Connection::default_local_hc_socket`).
+    Local {
+        socket_path: Option<String>,
+        hc_socket_path: Option<String>,
+    },
     /// A remote server over SSH streamlocal.
     Ssh {
         host: String,
@@ -446,7 +463,7 @@ impl Session {
     /// Connects in the background and calls `on_update` with every state
     /// change from then on, on a runtime thread. `group_spaces_by_name` is
     /// the host's setting for the "Bereich/Name" convention, `space_sort`
-    /// its order of spaces (see `herdr_core::spaces`). Call it inside a Tokio runtime; the session's
+    /// its order of spaces (see `herdr_client::spaces`). Call it inside a Tokio runtime; the session's
     /// tasks run there.
     pub fn start(
         endpoint: Endpoint,
@@ -467,7 +484,7 @@ impl Session {
         let (chain_runner, runner) = watch::channel(None);
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
-            let mut previous: Option<Arc<herdr_core::SessionState>> = None;
+            let mut previous: Option<Arc<herdr_client::SessionState>> = None;
             // Since when each agent is in its state; kept across reconnects.
             let mut clock = view::StateClock::default();
             let (results_tx, mut results) = mpsc::unbounded_channel();
@@ -583,6 +600,8 @@ impl Session {
         target_pane_id: &str,
         text: &str,
     ) -> Result<String, SessionError> {
+        herdr_only(pane_id)?;
+        herdr_only(target_pane_id)?;
         let text = chains::normalize_text(text).ok_or_else(|| {
             SessionError::Rejected(format!(
                 "a chain's prompt needs 1 to {} characters without control characters",
@@ -649,6 +668,7 @@ impl Session {
     /// Removes a chain of the agent in `pane_id`; an unknown one is no
     /// error.
     pub async fn remove_chain(&self, pane_id: &str, chain_id: &str) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         if !chains::is_chain_id(chain_id) {
             return Err(SessionError::Rejected(format!("no chain {chain_id:?}")));
         }
@@ -671,7 +691,7 @@ impl Session {
     }
 
     /// The last known state of the server, if any.
-    fn session_state(&self) -> Option<Arc<herdr_core::SessionState>> {
+    fn session_state(&self) -> Option<Arc<herdr_client::SessionState>> {
         self.state
             .lock()
             .ok()
@@ -755,6 +775,7 @@ impl Session {
         pane_id: &str,
         request_id: &str,
     ) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         // A mark under a source of its own instead of clearing the
         // request: herdr has no compare-and-set, and clearing could take a
         // newer request of the pane along that this client has not seen
@@ -765,7 +786,7 @@ impl Session {
             session
                 .pane(pane_id)?
                 .tokens
-                .get(herdr_core::OPEN_ID_TOKEN)
+                .get(herdr_client::OPEN_ID_TOKEN)
                 .cloned()
         });
         if current.as_deref() != Some(request_id) {
@@ -777,7 +798,7 @@ impl Session {
             serde_json::json!({
                 "pane_id": pane_id,
                 "source": OPEN_DONE_SOURCE,
-                "tokens": { herdr_core::OPEN_DONE_TOKEN: request_id },
+                "tokens": { herdr_client::OPEN_DONE_TOKEN: request_id },
                 "ttl_ms": OPEN_TTL_MS,
             }),
         )
@@ -795,12 +816,13 @@ impl Session {
         pane_id: &str,
         request_id: &str,
     ) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         let current = self.state.lock().ok().and_then(|state| {
             let session = state.as_ref()?.borrow().session.clone()?;
             session
                 .pane(pane_id)?
                 .tokens
-                .get(herdr_core::EDITOR_ID_TOKEN)
+                .get(herdr_client::EDITOR_ID_TOKEN)
                 .cloned()
         });
         if current.as_deref() != Some(request_id) {
@@ -812,7 +834,7 @@ impl Session {
             serde_json::json!({
                 "pane_id": pane_id,
                 "source": EDITOR_DONE_SOURCE,
-                "tokens": { herdr_core::EDITOR_DONE_TOKEN: request_id },
+                "tokens": { herdr_client::EDITOR_DONE_TOKEN: request_id },
                 "ttl_ms": EDITOR_TTL_MS,
             }),
         )
@@ -905,6 +927,14 @@ impl Session {
         label: Option<&str>,
         cwd: &str,
     ) -> Result<actions::Created, SessionError> {
+        if self
+            .session_state()
+            .is_some_and(|session| !session.backends.herdr)
+        {
+            return Err(SessionError::Unsupported(
+                herdr_client::hc::NOT_AVAILABLE.into(),
+            ));
+        }
         let conn = self.connection()?;
         Ok(actions::create_workspace(&conn, label, cwd).await?)
     }
@@ -933,8 +963,10 @@ impl Session {
 
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. Without `name` it is named
-    /// after its kind, numbered when taken. Returns once herdr has typed
-    /// the command; the agent's state follows in the session updates.
+    /// after its kind, numbered when taken. herdr 0.9.5 (protocol 22)
+    /// answered in tests once the agent took input, but `agent.start` may
+    /// also come back earlier; whoever sends a first prompt waits with
+    /// `watch_agent_start` before.
     pub async fn start_agent(
         &self,
         pane_id: &str,
@@ -1147,6 +1179,7 @@ impl Session {
     /// it fails with [`SessionError::AgentWorking`] unless the agent is
     /// idle. Takes a moment.
     pub async fn agent_history(&self, pane_id: &str) -> Result<PaneContent, SessionError> {
+        herdr_only(pane_id)?;
         let conn = self.connection()?;
         let screen = fullscreen::read_history(&conn, pane_id).await?;
         Ok(view::pane_content(&screen))
@@ -1156,6 +1189,7 @@ impl Session {
     /// the view in herdr's own client on the host too; end with
     /// [`ScrollStep::Bottom`].
     pub async fn scroll_agent(&self, pane_id: &str, step: ScrollStep) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         let conn = self.connection()?;
         Ok(fullscreen::scroll(&conn, pane_id, step.into()).await?)
     }
@@ -1268,14 +1302,40 @@ impl Session {
         &self,
         pane_id: &str,
     ) -> Result<diff::WorkingTreeDiff, SessionError> {
-        let conn = self.connection()?;
         let (workspace_id, cwd) = self.pane_directory(pane_id).ok_or_else(|| {
             SessionError::Files(format!("no working directory known for pane {pane_id}"))
         })?;
+        self.diff_in(&workspace_id, &cwd).await
+    }
+
+    /// What changed in the folder of a space (#342), like
+    /// [`Session::working_tree_diff`] for a pane. The folder is the one of
+    /// the focused pane in herdr's active tab of the space, as
+    /// [`Session::space_folder`] finds it.
+    pub async fn space_working_tree_diff(
+        &self,
+        workspace_id: &str,
+    ) -> Result<diff::WorkingTreeDiff, SessionError> {
+        let cwd = self.space_folder(workspace_id).ok_or_else(|| {
+            SessionError::Files(format!(
+                "no working directory known for space {workspace_id}"
+            ))
+        })?;
+        self.diff_in(workspace_id, &cwd).await
+    }
+
+    /// Runs the diff script in `cwd` through a short-lived tab of the
+    /// space `workspace_id`.
+    async fn diff_in(
+        &self,
+        workspace_id: &str,
+        cwd: &str,
+    ) -> Result<diff::WorkingTreeDiff, SessionError> {
+        let conn = self.connection()?;
         let output = run_script(
             &conn,
-            &workspace_id,
-            &cwd,
+            workspace_id,
+            cwd,
             "diff",
             diff::diff_script,
             MAX_DIFF_BYTES,
@@ -1373,6 +1433,125 @@ impl Session {
         Ok(daily::DailyLog { items, truncated })
     }
 
+    /// Ahead/behind and uncommitted changes of every space showing a Git
+    /// checkout (#343), or only of space `only`. One script for all of them
+    /// runs in a short-lived, unfocused tab of the first such space and
+    /// the output comes through SFTP, like [`Session::working_tree_diff`],
+    /// so it needs input and file access. Spaces Git could not read are
+    /// left out; without such spaces nothing runs. Read only.
+    pub async fn worktree_status(
+        &self,
+        only: Option<&str>,
+    ) -> Result<Vec<gitstatus::SpaceGitStatus>, SessionError> {
+        let spaces = self.checkout_spaces(only);
+        let Some((run_in, cwd)) = spaces.first().cloned() else {
+            return Ok(Vec::new());
+        };
+        let conn = self.connection()?;
+        let mut dirs: Vec<String> = Vec::new();
+        for (_, dir) in &spaces {
+            if !dirs.contains(dir) {
+                dirs.push(dir.clone());
+            }
+        }
+        let output = run_script(
+            &conn,
+            &run_in,
+            &cwd,
+            "git-status",
+            |out| gitstatus::status_script(out, &dirs),
+            MAX_GIT_STATUS_BYTES,
+            |text| !text.contains(gitstatus::DIR_MARK),
+        )
+        .await?;
+        let found = gitstatus::parse_status(&output.text);
+        Ok(spaces
+            .iter()
+            .filter_map(|(workspace_id, dir)| {
+                found
+                    .iter()
+                    .find(|status| &status.path == dir)
+                    .map(|status| gitstatus::SpaceGitStatus::new(workspace_id.clone(), status))
+            })
+            .collect())
+    }
+
+    /// The spaces showing a Git checkout with its path, all or only `only`.
+    fn checkout_spaces(&self, only: Option<&str>) -> Vec<SpaceDir> {
+        let Some(session) = self
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().session.clone()))
+        else {
+            return Vec::new();
+        };
+        session
+            .workspaces
+            .iter()
+            .filter(|ws| only.is_none_or(|id| ws.workspace_id == id))
+            .filter_map(|ws| {
+                let dir = &ws.worktree.as_ref()?.checkout_path;
+                (!dir.is_empty()).then(|| (ws.workspace_id.clone(), dir.clone()))
+            })
+            .collect()
+    }
+
+    /// The worktrees of the repository of space `workspace_id` that no
+    /// space shows (#343), sorted by branch, detached ones last, then by
+    /// path. Bare and prunable entries are left out. Read only.
+    pub async fn list_worktrees(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<herdr_proto::WorktreeEntry>, SessionError> {
+        let conn = self.connection()?;
+        Ok(worktree_choices(
+            actions::list_worktrees(&conn, workspace_id).await?,
+        ))
+    }
+
+    /// Opens the existing worktree at `path` of the repository of space
+    /// `workspace_id` as a new, unfocused space (#343).
+    pub async fn open_worktree(
+        &self,
+        workspace_id: &str,
+        path: &str,
+    ) -> Result<actions::Created, SessionError> {
+        let conn = self.connection()?;
+        Ok(actions::open_worktree(&conn, workspace_id, path).await?)
+    }
+
+    /// Removes the linked worktree that space `workspace_id` shows, with
+    /// its space (#343); the branch stays. Refused for a repository's main
+    /// checkout and while the worktree has uncommitted or untracked
+    /// changes, which are checked first like [`Session::worktree_status`]
+    /// (input and file access).
+    pub async fn remove_worktree(&self, workspace_id: &str) -> Result<(), SessionError> {
+        let linked = {
+            let state = self.state.lock().ok();
+            state
+                .as_ref()
+                .and_then(|state| state.as_ref())
+                .and_then(|rx| rx.borrow().session.clone())
+                .and_then(|session| {
+                    session
+                        .workspace(workspace_id)
+                        .and_then(|ws| ws.worktree.as_ref())
+                        .map(|wt| wt.is_linked_worktree)
+                })
+                .unwrap_or(false)
+        };
+        if !linked {
+            return Err(SessionError::Rejected(
+                "the space shows no linked worktree".into(),
+            ));
+        }
+        let status = self.worktree_status(Some(workspace_id)).await?;
+        removable(status.first())?;
+        let conn = self.connection()?;
+        Ok(actions::remove_worktree(&conn, workspace_id).await?)
+    }
+
     /// The working directories of all panes with their space's name, and
     /// the space and folder to run a script in: the first space with one.
     fn day_folders(&self) -> (Vec<(String, String)>, Option<SpaceDir>) {
@@ -1397,10 +1576,16 @@ impl Session {
                 Some((dir, label))
             })
             .collect();
-        let run_in = session.workspaces.iter().find_map(|ws| {
-            self.space_folder(&ws.workspace_id)
-                .map(|dir| (ws.workspace_id.clone(), dir))
-        });
+        // Not a space of a machine connected to herdr-core: the script
+        // goes to the host.
+        let run_in = session
+            .workspaces
+            .iter()
+            .filter(|ws| herdr_client::hc::machine_of(&ws.workspace_id).is_none())
+            .find_map(|ws| {
+                self.space_folder(&ws.workspace_id)
+                    .map(|dir| (ws.workspace_id.clone(), dir))
+            });
         (folders, run_in)
     }
 
@@ -1646,8 +1831,12 @@ impl Drop for Session {
 async fn mark_seen(
     conn: &Connection,
     pane_id: &str,
-    known: Option<&herdr_core::SessionState>,
+    known: Option<&herdr_client::SessionState>,
 ) -> Result<(), SessionError> {
+    // herdr-core keeps no marks; its agents stay done (#329).
+    if herdr_client::hc::is_hc(pane_id) {
+        return Ok(());
+    }
     let to_error = |err: TransportError| SessionError::from(actions::ActionError::from(err));
     let value = conn
         .request("agent.get", serde_json::json!({ "target": pane_id }))
@@ -1665,7 +1854,7 @@ async fn mark_seen(
     let seq = agent.state_change_seq.to_string();
     let marked = known
         .and_then(|state| state.pane(pane_id))
-        .and_then(|pane| pane.tokens.get(herdr_core::SEEN_TOKEN))
+        .and_then(|pane| pane.tokens.get(herdr_client::SEEN_TOKEN))
         .is_some_and(|mark| *mark == seq);
     if marked {
         return Ok(());
@@ -1677,7 +1866,7 @@ async fn mark_seen(
         serde_json::json!({
             "pane_id": pane_id,
             "source": SEEN_SOURCE,
-            "tokens": { herdr_core::SEEN_TOKEN: seq },
+            "tokens": { herdr_client::SEEN_TOKEN: seq },
         }),
     )
     .await
@@ -1708,7 +1897,7 @@ struct ChainRuns {
     conn: Arc<Connection>,
     device: String,
     /// The state the change was seen in: chains, targets and names.
-    state: Arc<herdr_core::SessionState>,
+    state: Arc<herdr_client::SessionState>,
     /// Chain id and state change each run on this device already handled,
     /// so seeing a change again (e.g. around a reconnect) sends nothing.
     claimed: Arc<Mutex<HashSet<(String, u64)>>>,
@@ -1718,7 +1907,7 @@ struct ChainRuns {
 impl ChainRuns {
     /// Starts a task per chain whose agent changed to its trigger since
     /// `before`; each reports its result unless another device ran it.
-    fn start(&self, before: &herdr_core::SessionState) {
+    fn start(&self, before: &herdr_client::SessionState) {
         for (pane_id, trigger) in chains::fired(before, &self.state) {
             let Some(pane) = self.state.pane(&pane_id) else {
                 continue;
@@ -2084,7 +2273,7 @@ impl PaneFollow {
 
     /// Shows the last `lines` rows including scrollback instead of only the
     /// visible screen; 0 goes back to the screen. Capped at
-    /// `herdr_core::pane::MAX_HISTORY_LINES`. Content with the new value
+    /// `herdr_client::pane::MAX_HISTORY_LINES`. Content with the new value
     /// follows at once.
     pub fn set_history_lines(&self, lines: u32) {
         let lines = lines.min(pane::MAX_HISTORY_LINES);
@@ -2114,7 +2303,10 @@ impl Drop for PaneFollow {
 #[derive(Clone)]
 enum Connector {
     #[cfg(unix)]
-    Local(std::path::PathBuf),
+    Local {
+        socket: std::path::PathBuf,
+        hc_socket: Option<std::path::PathBuf>,
+    },
     Ssh {
         target: SshTarget,
         socket: String,
@@ -2125,14 +2317,23 @@ impl Connector {
     fn new(endpoint: Endpoint) -> Result<Self, SessionError> {
         match endpoint {
             #[cfg(unix)]
-            Endpoint::Local { socket_path } => {
+            Endpoint::Local {
+                socket_path,
+                hc_socket_path,
+            } => {
                 let path = match socket_path {
                     Some(path) => std::path::PathBuf::from(path),
                     None => Connection::default_local_socket().ok_or_else(|| {
                         SessionError::Unsupported("no home directory for the local socket".into())
                     })?,
                 };
-                Ok(Self::Local(path))
+                let hc_socket = hc_socket_path
+                    .map(std::path::PathBuf::from)
+                    .or_else(Connection::default_local_hc_socket);
+                Ok(Self::Local {
+                    socket: path,
+                    hc_socket,
+                })
             }
             #[cfg(not(unix))]
             Endpoint::Local { .. } => Err(SessionError::Unsupported(
@@ -2169,7 +2370,9 @@ impl Connector {
     async fn connect(&self) -> Result<Connection, TransportError> {
         match self {
             #[cfg(unix)]
-            Self::Local(path) => Ok(Connection::local(path.clone())),
+            Self::Local { socket, hc_socket } => {
+                Ok(Connection::local_with_hc(socket.clone(), hc_socket.clone()))
+            }
             Self::Ssh { target, socket } => Connection::ssh(target, socket.clone()).await,
         }
     }
@@ -2214,6 +2417,8 @@ fn named_upload(file_name: &str) -> String {
 /// listing of the upload folder says what is what.
 /// The most of a diff the apps read; a bigger one is cut off.
 const MAX_DIFF_BYTES: u64 = 4 * 1024 * 1024;
+/// The most of the Git status script's output (#343).
+const MAX_GIT_STATUS_BYTES: u64 = 64 * 1024;
 /// The same for the day script's output (#301).
 const MAX_DAY_BYTES: u64 = 4 * 1024 * 1024;
 /// Session files read for a day, the newest; more mark the day truncated.
@@ -2265,19 +2470,13 @@ async fn run_script(
     let err_file = format!("{out}.err");
 
     let result = async {
-        // A leading space keeps it out of the shell's history where the
-        // shell honours that (fish, zsh/bash with ignorespace).
-        let tab = run_in_tab(
-            conn,
-            workspace_id,
-            cwd,
-            &format!(" sh '{script_path}'; exit"),
-        )
-        .await?;
-        let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
-        // The shell exits by itself; close the tab in case it stayed.
-        let _ = actions::close_tab(conn, &tab).await;
-        finished?;
+        let run = run_host_script(conn, workspace_id, cwd, &script_path, SCRIPT_TIMEOUT).await?;
+        if let HostRun::Tab(tab) = run {
+            let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
+            // The shell exits by itself; close the tab in case it stayed.
+            let _ = actions::close_tab(conn, &tab).await;
+            finished?;
+        }
         let mut data = conn
             .read_file_range(&done, 0, max_bytes + 1)
             .await
@@ -2368,6 +2567,34 @@ async fn read_day(
     })
 }
 
+/// The worktrees "open a worktree" offers (#343): those no space shows,
+/// without bare and prunable entries, by branch, detached ones last, then
+/// by path.
+fn worktree_choices(entries: Vec<herdr_proto::WorktreeEntry>) -> Vec<herdr_proto::WorktreeEntry> {
+    let mut entries: Vec<_> = entries
+        .into_iter()
+        .filter(|entry| entry.open_workspace_id.is_none() && !entry.is_bare && !entry.is_prunable)
+        .collect();
+    entries.sort_by(|a, b| {
+        (a.branch.is_none(), &a.branch, &a.path).cmp(&(b.branch.is_none(), &b.branch, &b.path))
+    });
+    entries
+}
+
+/// Whether a worktree with this status may be removed (#343): only with a
+/// status read and nothing uncommitted or untracked.
+fn removable(status: Option<&gitstatus::SpaceGitStatus>) -> Result<(), SessionError> {
+    let status = status
+        .ok_or_else(|| SessionError::Files("the worktree's status could not be read".into()))?;
+    if status.changes > 0 {
+        return Err(SessionError::Rejected(format!(
+            "{} uncommitted changes",
+            status.changes
+        )));
+    }
+    Ok(())
+}
+
 /// The spaces of each Git repository, by its `.git` path (#296); spaces
 /// outside a repository are left out.
 fn spaces_by_repo_key<'a>(
@@ -2403,6 +2630,68 @@ fn merge_github_repos(origins: Vec<(String, Vec<String>)>) -> Vec<github::GitHub
 
 /// The most of a Git `config` read for its `origin` (#296).
 const MAX_GIT_CONFIG_BYTES: u64 = 64 * 1024;
+
+/// How long a script of [`run_script`] may run on herdr-core.
+const SCRIPT_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// What [`run_host_script`] did.
+pub(crate) enum HostRun {
+    /// The script runs in this tab of herdr's; it is still to be waited
+    /// for and closed.
+    Tab(String),
+    /// herdr-core ran it to its end.
+    Finished,
+}
+
+/// Runs the uploaded script `script_path` with `sh` in `cwd` for the space
+/// `workspace_id`: on herdr in a short-lived, unfocused tab, on herdr-core
+/// (#329) with `machine.exec` up to `timeout`, without a tab. A space of a
+/// machine connected to the core is refused: the script was uploaded to
+/// the host.
+pub(crate) async fn run_host_script(
+    conn: &Connection,
+    workspace_id: &str,
+    cwd: &str,
+    script_path: &str,
+    timeout: Duration,
+) -> Result<HostRun, SessionError> {
+    if herdr_client::hc::is_hc(workspace_id) {
+        if herdr_client::hc::machine_of(workspace_id).is_some() {
+            return Err(SessionError::Unsupported(
+                "not available for terminals on another machine".into(),
+            ));
+        }
+        let value = conn
+            .hc_request(
+                "machine.exec",
+                serde_json::json!({
+                    "argv": ["sh", script_path],
+                    "cwd": cwd,
+                    "timeout": timeout.as_secs(),
+                }),
+            )
+            .await
+            .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        let result: herdr_proto::hc::ExecResult =
+            serde_json::from_value(value).map_err(|err| SessionError::Rejected(err.to_string()))?;
+        if result.timed_out {
+            return Err(SessionError::Files(
+                "the script on the host did not finish in time".into(),
+            ));
+        }
+        return Ok(HostRun::Finished);
+    }
+    // A leading space keeps it out of the shell's history where the shell
+    // honours that (fish, zsh/bash with ignorespace).
+    let tab = run_in_tab(
+        conn,
+        workspace_id,
+        cwd,
+        &format!(" sh '{script_path}'; exit"),
+    )
+    .await?;
+    Ok(HostRun::Tab(tab))
+}
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
 /// returns the tab's id.
@@ -2470,8 +2759,47 @@ fn upload_name(ext: &str) -> String {
 mod tests {
     use super::{
         SessionError, TransportError, files_error, health_error, merge_github_repos, named_upload,
-        spaces_by_repo_key,
+        removable, spaces_by_repo_key, worktree_choices,
     };
+
+    #[test]
+    fn worktree_choices_leave_out_open_bare_and_prunable() {
+        let entries: Vec<herdr_proto::WorktreeEntry> =
+            match serde_json::from_value(serde_json::json!([
+                {"path": "/r", "branch": "main", "label": "r", "open_workspace_id": "w1"},
+                {"path": "/r/.wt/z", "branch": "zeta", "label": "z"},
+                {"path": "/r/.wt/d", "branch": null, "label": "d", "is_detached": true},
+                {"path": "/r/.wt/a", "branch": "alpha", "label": "a"},
+                {"path": "/r/.wt/gone", "branch": "gone", "label": "gone", "is_prunable": true},
+                {"path": "/r.git", "branch": null, "label": "bare", "is_bare": true},
+                {"path": "/r/.wt/c", "branch": null, "label": "c", "is_detached": true}
+            ])) {
+                Ok(entries) => entries,
+                Err(err) => panic!("fixture: {err}"),
+            };
+        let paths: Vec<String> = worktree_choices(entries)
+            .into_iter()
+            .map(|entry| entry.path)
+            .collect();
+        assert_eq!(paths, ["/r/.wt/a", "/r/.wt/z", "/r/.wt/c", "/r/.wt/d"]);
+    }
+
+    #[test]
+    fn a_worktree_is_removable_only_when_clean() {
+        let status = |changes| herdr_client::gitstatus::SpaceGitStatus {
+            workspace_id: "w3".into(),
+            has_upstream: true,
+            ahead: 2,
+            behind: 0,
+            changes,
+        };
+        assert!(removable(Some(&status(0))).is_ok());
+        assert!(matches!(
+            removable(Some(&status(4))),
+            Err(SessionError::Rejected(message)) if message == "4 uncommitted changes"
+        ));
+        assert!(matches!(removable(None), Err(SessionError::Files(_))));
+    }
 
     fn workspace(value: serde_json::Value) -> herdr_proto::WorkspaceInfo {
         match serde_json::from_value(value) {
@@ -2541,7 +2869,7 @@ mod tests {
             )),
             SessionError::Files(_)
         ));
-        let unread = format!("{}: connection lost", herdr_core::browse::SAVED_NOT_READ);
+        let unread = format!("{}: connection lost", herdr_client::browse::SAVED_NOT_READ);
         assert!(matches!(
             files_error(TransportError::Files(unread)),
             SessionError::SavedNotRead(_)
@@ -2780,8 +3108,11 @@ mod tests {
             path
         }
 
-        fn state(status: &str, tokens: &BTreeMap<String, String>) -> Arc<herdr_core::SessionState> {
-            Arc::new(herdr_core::SessionState::from_snapshot(
+        fn state(
+            status: &str,
+            tokens: &BTreeMap<String, String>,
+        ) -> Arc<herdr_client::SessionState> {
+            Arc::new(herdr_client::SessionState::from_snapshot(
                 serde_json::from_value(serde_json::json!({
                     "version": "0.9.5", "protocol": 22,
                     "workspaces": [{"workspace_id": "w1", "number": 1, "label": "space"}],
@@ -2823,8 +3154,8 @@ mod tests {
         async fn run(
             path: &std::path::Path,
             devices: &[&str],
-            before: &herdr_core::SessionState,
-            now: &Arc<herdr_core::SessionState>,
+            before: &herdr_client::SessionState,
+            now: &Arc<herdr_client::SessionState>,
         ) -> Vec<ChainResult> {
             let (tx, mut rx) = mpsc::unbounded_channel();
             for device in devices {
@@ -2930,7 +3261,7 @@ mod tests {
                 .expect("mark");
             let tokens = fake.lock().expect("fake").tokens();
             assert_eq!(
-                tokens.get(herdr_core::SEEN_TOKEN).map(String::as_str),
+                tokens.get(herdr_client::SEEN_TOKEN).map(String::as_str),
                 Some("10")
             );
             assert_eq!(fake.lock().expect("fake").reports, 1);
@@ -2951,7 +3282,7 @@ mod tests {
             assert_eq!(
                 fake_now
                     .tokens()
-                    .get(herdr_core::SEEN_TOKEN)
+                    .get(herdr_client::SEEN_TOKEN)
                     .map(String::as_str),
                 Some("14")
             );
@@ -3134,6 +3465,15 @@ mod tests {
             }
         }
 
+        /// A herdr-core socket that is not there, so the fake herdr is the
+        /// only backend and the user's herdr-core stays out of the test.
+        fn missing_hc_socket() -> String {
+            std::env::temp_dir()
+                .join(format!("herdr-session-no-hc-{}.sock", std::process::id()))
+                .to_string_lossy()
+                .into_owned()
+        }
+
         /// A herdr stand-in; `answer: false` takes requests and never
         /// replies, like a link that died while the device slept.
         fn fake_herdr(name: &str, answer: bool) -> std::path::PathBuf {
@@ -3172,6 +3512,7 @@ mod tests {
             let session = Session::start(
                 Endpoint::Local {
                     socket_path: Some(dead.to_string_lossy().into_owned()),
+                    hc_socket_path: Some(missing_hc_socket()),
                 },
                 false,
                 SpaceSort::default(),

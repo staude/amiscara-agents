@@ -20,6 +20,7 @@
   import { applyTheme, prefs } from "./lib/prefs.svelte";
   import { model } from "./lib/state.svelte";
   import { updater } from "./lib/update.svelte";
+  import { whatsNew } from "./lib/whats-new.svelte";
   import type { EditorRequest, HostConfig, OpenRequest } from "./lib/types";
 
   let editing = $state<{ host: HostConfig | null } | null>(null);
@@ -94,7 +95,11 @@
   onMount(() => {
     model
       .load()
-      .then(() => openDemo(() => (editing = { host: null })))
+      .then(() => {
+        openDemo(() => (editing = { host: null }));
+        // The notes of an update, once (#341); the mock has no updates.
+        if (import.meta.env.MODE !== "mock") void whatsNew.start();
+      })
       .catch((err) => (model.error = core.errorText(err)));
     if (import.meta.env.MODE !== "mock") updater.start();
     void core.onAddHostLink((url) => (linkDialog = { url }));

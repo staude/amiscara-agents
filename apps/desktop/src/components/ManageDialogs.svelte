@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "../lib/i18n.svelte";
+  import { i18n, t } from "../lib/i18n.svelte";
   import * as core from "../lib/core";
   import { ui } from "../lib/manage.svelte";
   import type { LangSetting } from "../lib/i18n.svelte";
@@ -7,6 +7,7 @@
   import type { TerminalAppearance, TerminalScheme } from "../lib/term";
   import { model } from "../lib/state.svelte";
   import { updater } from "../lib/update.svelte";
+  import { whatsNew } from "../lib/whats-new.svelte";
   import AgentPicker from "./AgentPicker.svelte";
   import Sheet from "./Sheet.svelte";
 
@@ -39,6 +40,11 @@
   });
 
   const close = () => (ui.dialog = null);
+  /** Notes the version as seen when the dialog came up after an update (#341). */
+  function closeWhatsNew() {
+    whatsNew.closed();
+    ui.dialog = ui.dialog?.kind === "whatsNew" ? ui.dialog.back : null;
+  }
   let hostName = $derived(dialog && "hostId" in dialog ? (model.host(dialog.hostId)?.name ?? "") : "");
   let groupHint = $derived(
     dialog && "hostId" in dialog && (model.host(dialog.hostId)?.groupSpaces ?? true)
@@ -288,6 +294,7 @@
     <div class="update-row">
       <span>{t("version", { version: model.info?.version ?? "" })}</span>
       <button disabled={updater.state === "checking"} onclick={() => updater.check()}>{t("checkForUpdates")}</button>
+      <button onclick={() => void whatsNew.showAll()}>{t("whatsNew")}</button>
       {#if updater.state === "checking"}<span class="hint">{t("checking")}</span>{/if}
       {#if updater.state === "current"}<span class="hint">{t("upToDate")}</span>{/if}
       {#if updater.available}<span class="hint">{t("versionAvailable", { version: updater.available.version })}</span>{/if}
@@ -297,6 +304,26 @@
     {#if error}<p class="error">{error}</p>{/if}
     {#snippet buttons()}
       <button class="primary" onclick={close}>{t("done")}</button>
+    {/snippet}
+  </Sheet>
+{:else if dialog?.kind === "whatsNew"}
+  <Sheet title={t("whatsNew")} close={closeWhatsNew} width={460}>
+    <div class="whats-new">
+      {#each dialog.entries as entry (entry.version)}
+        <section>
+          <h3>{t("version", { version: entry.version })}</h3>
+          <ul>
+            {#each i18n.lang === "de" ? entry.de : entry.en as note, index (index)}
+              <li>{note}</li>
+            {/each}
+          </ul>
+        </section>
+      {:else}
+        <p class="hint">{t("whatsNewEmpty")}</p>
+      {/each}
+    </div>
+    {#snippet buttons()}
+      <button class="primary" onclick={closeWhatsNew}>{t("done")}</button>
     {/snippet}
   </Sheet>
 {/if}
@@ -310,7 +337,20 @@
   .update-row {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
+  }
+  .whats-new {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .whats-new h3 {
+    margin: 0 0 4px;
+    font-size: 1em;
+  }
+  .whats-new ul {
+    margin: 0 0 14px;
+    padding-left: 1.2em;
   }
   .check {
     display: flex;

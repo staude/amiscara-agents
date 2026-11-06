@@ -16,6 +16,10 @@ struct WorkspaceDetailView: View {
     #if !os(tvOS)
     /// Claude Code sessions of the space's folder to resume (#304).
     @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    /// The space a new tab with an agent and a first prompt is for (#344).
+    @State private var newAgentTabIn: NewAgentTabTarget?
+    /// The repository whose existing worktrees are offered (#343).
+    @State private var openWorktreeFrom: OpenWorktreeTarget?
     #endif
     @State private var tabID: String?
     @State private var paneID: String?
@@ -30,6 +34,8 @@ struct WorkspaceDetailView: View {
     #if !os(tvOS)
     /// The space's pull request, shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
+    /// The uncommitted changes of the space, shown (#342).
+    @State private var changesShown: ChangesTarget?
     #endif
     /// The space and pane reopened on launch (#276), set by `ContentView`:
     /// not opened on purpose, so a tab put away meanwhile (#333) stays away.
@@ -73,6 +79,7 @@ struct WorkspaceDetailView: View {
                     visibleTabs(workspace, on: connection).count > 1
                         ? TabNavigator(step: { step(by: $0, in: workspace, on: connection) }) : nil
                 )
+                .focusedSceneValue(\.spaceCommands, commands(workspace, on: connection))
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
                 #if !os(tvOS)
                 .navigationSubtitle(workspace.group ?? "")
@@ -117,6 +124,17 @@ struct WorkspaceDetailView: View {
         .sheet(item: $pullRequestShown) { target in
             PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
         }
+        .sheet(item: $changesShown) { target in
+            DiffView(connection: target.connection, target: .space(target.workspaceID))
+        }
+        #endif
+        #if !os(tvOS)
+        .sheet(item: $newAgentTabIn) { target in
+            NewAgentTabView(connection: target.connection, workspace: target.workspace) { created in
+                tabID = created.tabId
+                paneID = created.paneId
+            }
+        }
         #endif
         .sheet(item: $newWorktreeFrom) { source in
             NewWorktreeView(source: source) { created in
@@ -128,6 +146,11 @@ struct WorkspaceDetailView: View {
             ClaudeSessionsView(target: target) { created in
                 tabID = created.tabId
                 paneID = created.paneId
+            }
+        }
+        .sheet(item: $openWorktreeFrom) { target in
+            OpenWorktreeView(target: target) { created in
+                selection = SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId.isEmpty ? nil : created.paneId)
             }
         }
         #endif
@@ -278,6 +301,8 @@ struct WorkspaceDetailView: View {
                         select(tab)
                     } label: {
                         HStack(spacing: 5) {
+                            // The focused pane's program, else the first's (#337).
+                            ProgramIcon(program: (tab.panes.first(where: \.focused) ?? tab.panes.first)?.program, size: 13)
                             Text(tab.label)
                             if tab.agentState != .idle && tab.agentState != .unknown {
                                 StatusDot(state: tab.agentState)
@@ -289,7 +314,13 @@ struct WorkspaceDetailView: View {
                             ) {
                                 TimelineView(.everyMinute) { context in
                                     if let label = TabTime.label(since: since, now: context.date) {
-                                        Text(label).foregroundStyle(.secondary)
+                                        Text(label)
+                                            .foregroundStyle(.secondary)
+                                            .accessibilityLabel(
+                                                tab.agentState == .working
+                                                    ? String(localized: "Arbeitet seit \(label)")
+                                                    : String(localized: "Wartet seit \(label)")
+                                            )
                                     }
                                 }
                             }
@@ -334,6 +365,25 @@ struct WorkspaceDetailView: View {
                     settledMenu(settled, on: connection)
                 }
                 #if !os(tvOS)
+                // Shown without input too, like "Heute": the sheet says why
+                // it needs input. The count only after a load (#342).
+                if connection.isLive && workspace.repoKey != nil {
+                    Button {
+                        changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "plusminus")
+                            if let count = connection.changeCounts[workspace.workspaceId], count > 0 {
+                                Text(count, format: .number)
+                                    .font(.callout.monospacedDigit())
+                            }
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.leading, 8)
+                    .help(String(localized: "Nicht committete Änderungen im Space"))
+                    .accessibilityLabel(Text("Änderungen"))
+                }
                 // Reading and merging go to GitHub, not the host's input.
                 if let pullRequest = connection.pullRequests.pullRequest(for: workspace.workspaceId) {
                     Button {
@@ -366,8 +416,21 @@ struct WorkspaceDetailView: View {
                 }
             }
             #if !os(tvOS)
+            Button("Neuer Tab mit Aufgabe …", systemImage: "text.badge.plus") {
+                newAgentTabIn = NewAgentTabTarget(connection: connection, workspace: workspace)
+            }
+            if OpenWorktreeTarget.available(for: workspace, on: connection) {
+                Button("Worktree öffnen …", systemImage: "folder.badge.plus") {
+                    openWorktreeFrom = OpenWorktreeTarget(connection: connection, workspace: workspace)
+                }
+            }
             Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                 claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
+            }
+            if workspace.repoKey != nil {
+                Button("Änderungen …", systemImage: "plusminus") {
+                    changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
+                }
             }
             #endif
             Section("Neuer Tab mit Agent") {
@@ -395,6 +458,13 @@ struct WorkspaceDetailView: View {
                         closing = closeTarget(tab, on: connection)
                     }
                 }
+                #if !os(tvOS)
+                if CloseTarget.worktreeRemovable(workspace, on: connection) {
+                    Button("Worktree entfernen …", systemImage: "trash", role: .destructive) {
+                        closing = .worktree(workspace, on: connection)
+                    }
+                }
+                #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
                     closing = .space(workspace, on: connection)
                 }
@@ -440,6 +510,73 @@ struct WorkspaceDetailView: View {
         .buttonStyle(.borderless)
         .padding(.trailing, 8)
         .help(String(localized: "Weggeräumte Tabs"))
+    }
+
+    /// What the tab bar and its menus offer, for the switcher (#346): with
+    /// input allowed the writing ones, always the pull request, putting a
+    /// tab away and stepping through the tabs.
+    private func commands(_ workspace: WorkspaceItem, on connection: HostConnection) -> [PaletteCommand] {
+        var commands: [PaletteCommand] = []
+        func add(_ id: String, _ title: String, shortcut: CommandShortcut? = nil, keywords: [String] = [], run: @escaping @MainActor () -> Void) {
+            commands.append(PaletteCommand(id: "space.\(id)", title: title, section: .space, shortcut: shortcut, keywords: keywords, run: run))
+        }
+        let tab = workspace.tabs.first(where: isCurrent)
+        if RenameTarget.available(on: connection) {
+            add("newTab", String(localized: "Neuer Tab")) { newTab(in: workspace, on: connection) }
+            if !startingAgent {
+                for kind in agentKinds {
+                    add("newTab.\(kind)", String(localized: "Neuer Tab mit \(kind)"), keywords: ["agent"]) {
+                        newTab(in: workspace, on: connection, agent: kind)
+                    }
+                }
+            }
+            if let repo = WorktreeSource.repository(of: workspace, in: connection.update?.workspaces ?? []) {
+                add("newWorktree", String(localized: "Neuer Worktree …"), keywords: ["git", "branch"]) {
+                    newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                }
+            }
+            if let tab {
+                add("renameTab", String(localized: "Tab umbenennen …")) {
+                    renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                }
+            }
+            add("renameSpace", String(localized: "Space umbenennen …")) {
+                renaming = RenameTarget(connection: connection, kind: .space(workspaceID: workspace.workspaceId), current: workspace.label)
+            }
+            if let paneID, let pane = tab?.panes.first(where: { $0.paneId == paneID }), pane.agent != nil {
+                add("renameAgent", String(localized: "Agent benennen …")) {
+                    renaming = RenameTarget(connection: connection, kind: .agent(paneID: paneID), current: pane.name ?? "")
+                }
+            }
+            if let tab {
+                add("closeTab", String(localized: "Tab schließen …")) { closing = closeTarget(tab, on: connection) }
+            }
+            add("closeSpace", String(localized: "Space schließen …")) { closing = .space(workspace, on: connection) }
+            #if !os(tvOS)
+            add("claudeSessions", String(localized: "Claude-Sitzungen …"), keywords: ["resume"]) {
+                claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
+            }
+            #endif
+        }
+        if let tab, canSettle(tab, in: workspace, on: connection) {
+            add("settleTab", String(localized: "Tab wegräumen")) { settle(tab, in: workspace, on: connection) }
+        }
+        #if !os(tvOS)
+        if let pullRequest = connection.pullRequests.pullRequest(for: workspace.workspaceId) {
+            add("pullRequest", String(localized: "Pull Request #\(pullRequest.number) …"), keywords: ["pr", "github"]) {
+                pullRequestShown = PullRequestTarget(connection: connection, pullRequest: pullRequest)
+            }
+        }
+        #endif
+        if visibleTabs(workspace, on: connection).count > 1 {
+            add("previousTab", String(localized: "Vorheriger Tab"), shortcut: Shortcuts.previousTab) {
+                step(by: -1, in: workspace, on: connection)
+            }
+            add("nextTab", String(localized: "Nächster Tab"), shortcut: Shortcuts.nextTab) {
+                step(by: 1, in: workspace, on: connection)
+            }
+        }
+        return commands
     }
 
     private func closeTarget(_ tab: TabItem, on connection: HostConnection) -> CloseTarget {

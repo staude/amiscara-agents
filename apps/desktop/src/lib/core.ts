@@ -15,11 +15,15 @@ import type {
   ScrollStep,
   SessionUpdate,
   SpaceSortMode,
+  SshConfigHost,
   TranscriptCursor,
   TranscriptPage,
+  WhatsNewEntry,
 } from "./types";
 
 export const appInfo = () => invoke<AppInfo>("app_info");
+/** With `since` the versions after it up to the installed one, else all up to it (#341). */
+export const whatsNew = (since: string | null) => invoke<WhatsNewEntry[]>("whats_new", { since });
 export const demoTarget = () => invoke<DemoTarget | null>("demo_target");
 export const listHosts = () => invoke<HostConfig[]>("list_hosts");
 export const saveHost = (host: HostConfig) => invoke<HostConfig>("save_host", { host });
@@ -41,6 +45,7 @@ export const sessionOfSocket = (socketPath: string) =>
 export const validSessionName = (name: string) => invoke<boolean>("valid_session_name", { name });
 export const localDefaultSocket = () => invoke<string | null>("local_default_socket");
 export const localSessions = () => invoke<HerdrSession[]>("local_sessions");
+export const sshConfigHosts = () => invoke<SshConfigHost[]>("ssh_config_hosts");
 export const hostSessions = (hostId: string) => invoke<HerdrSession[]>("host_sessions", { hostId });
 export const pendingLinks = () => invoke<string[]>("pending_links");
 export const connect = (hostId: string) => invoke<void>("connect", { hostId });

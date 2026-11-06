@@ -52,9 +52,16 @@ final class HostConnection: Identifiable {
     #if !os(tvOS)
     /// The open pull requests of the spaces (#309).
     let pullRequests: PullRequests
+    /// Ahead/behind and changes of the Git spaces (#343).
+    let gitStatus: GitStatusStore
     /// Agents started from this device that ended before they were ready
     /// (#339), until closed or opened. Only in memory.
     private(set) var startFailures: [AgentStartFailure] = []
+    /// The number of changed files per space (workspace id) from the last
+    /// load of its changes (#342), for the button next to the tabs. Only
+    /// in memory; loading the changes runs Git in a tab on the host, so
+    /// the app never asks on its own.
+    private(set) var changeCounts: [String: Int] = [:]
     #endif
 
     init(config: HostConfig) {
@@ -63,7 +70,9 @@ final class HostConnection: Identifiable {
         id = config.id
         #if !os(tvOS)
         pullRequests = PullRequests(host: config.id)
+        gitStatus = GitStatusStore()
         pullRequests.connection = self
+        gitStatus.connection = self
         #endif
         usage.attach(self)
     }
@@ -106,6 +115,7 @@ final class HostConnection: Identifiable {
                     self.onUpdate?(self, update)
                     #if !os(tvOS)
                     self.pullRequests.updated(update, live: self.isLive)
+                    self.gitStatus.updated(update, live: self.isLive)
                     #endif
                 }
             }
@@ -267,40 +277,107 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    #if !os(tvOS)
+    /// Ahead/behind and uncommitted changes of the Git spaces (#343), or
+    /// only of `workspaceID`. Read only, but like the diff it opens a
+    /// short-lived tab and reads its output through SFTP, so it needs
+    /// input and file access.
+    func worktreeStatus(only workspaceID: String? = nil) async throws -> [SpaceGitStatus] {
+        guard config.inputAllowed else { throw ConnectionFailure.readOnly }
+        guard config.uploadAllowed else { throw ConnectionFailure.gitStatusFilesOff }
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.worktreeStatus(onlyWorkspaceId: workspaceID)
+        }.value
+    }
+
+    /// The worktrees of a space's repository that no space shows (#343).
+    func listWorktrees(of workspaceID: String) async throws -> [WorktreeChoice] {
+        guard let session, isLive else { throw ConnectionFailure.notConnected }
+        return try await Task.detached {
+            try session.listWorktrees(workspaceId: workspaceID)
+        }.value
+    }
+
+    /// Opens an existing worktree of a space's repository as a new space.
+    func openWorktree(from workspaceID: String, path: String) async throws -> Created {
+        let session = try writableSession()
+        return try await Task.detached {
+            try session.openWorktree(workspaceId: workspaceID, path: path)
+        }.value
+    }
+
+    /// Removes the linked worktree a space shows, with the space; the
+    /// branch stays. The core refuses while there are uncommitted changes,
+    /// which it reads like `worktreeStatus`.
+    func removeWorktree(_ workspaceID: String) async throws {
+        guard config.uploadAllowed else { throw ConnectionFailure.gitStatusFilesOff }
+        let session = try writableSession()
+        try await Task.detached {
+            try session.removeWorktree(workspaceId: workspaceID)
+        }.value
+    }
+    #endif
+
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
-    /// prompt and returns the agent's name. The agent comes up in the
-    /// background; its state arrives with the next updates.
-    func startAgent(kind: String, in paneID: String) async throws -> String {
+    /// prompt and returns the agent's name. herdr (0.9.5, protocol 22)
+    /// answers once the agent takes input, or with the error `timeout`
+    /// after 30 s. With a `task` the app still checks that the agent is
+    /// ready before sending the first prompt, then sends it. If the agent
+    /// ended at once, `AgentEndedAtStart` says so; if only the send failed,
+    /// `AgentTaskNotSent` says the agent runs.
+    func startAgent(kind: String, in paneID: String, task: String? = nil) async throws -> String {
         let session = try writableSession()
         let name = try await Task.detached {
             try session.startAgent(paneId: paneID, kind: kind, name: nil)
         }.value
         #if !os(tvOS)
+        if let task = task?.trimmingCharacters(in: .whitespacesAndNewlines), !task.isEmpty {
+            if let failure = await awaitStart(in: paneID, on: session) {
+                report(failure, of: kind)
+                throw AgentEndedAtStart()
+            }
+            do {
+                try await submit(task, to: paneID, isAgent: true)
+            } catch {
+                throw AgentTaskNotSent(underlying: error)
+            }
+            return name
+        }
         watchStart(of: kind, in: paneID, on: session)
         #endif
         return name
     }
 
     #if !os(tvOS)
-    /// Waits in the background until the agent just started in `paneID` is
-    /// ready or gone (#339) and keeps a report when it ended first. Errors,
-    /// e.g. a dropped connection, report nothing.
+    /// Waits until the agent just started in `paneID` is ready or gone
+    /// (#339); `nil` when it came up. Errors, e.g. a dropped connection,
+    /// count as "came up".
+    private func awaitStart(in paneID: String, on session: HostSession) async -> StartFailure? {
+        // Blocks up to 35 s: on its own thread, not one of the few of the
+        // shared pool the other calls into Rust need.
+        await withCheckedContinuation { continuation in
+            Thread.detachNewThread {
+                continuation.resume(returning: (try? session.watchAgentStart(paneId: paneID)) ?? nil)
+            }
+        }
+    }
+
+    private func report(_ failure: StartFailure, of kind: String) {
+        startFailures.append(AgentStartFailure(
+            kind: kind,
+            workspaceID: failure.workspaceId,
+            paneID: failure.paneId,
+            lines: failure.lines
+        ))
+    }
+
+    /// Waits in the background and keeps a report when the agent ended
+    /// before it was ready (#339).
     private func watchStart(of kind: String, in paneID: String, on session: HostSession) {
         Task { [weak self] in
-            // Blocks up to 35 s: on its own thread, not one of the few of
-            // the shared pool the other calls into Rust need.
-            let failure: StartFailure? = await withCheckedContinuation { continuation in
-                Thread.detachNewThread {
-                    continuation.resume(returning: (try? session.watchAgentStart(paneId: paneID)) ?? nil)
-                }
-            }
-            guard let self, let failure else { return }
-            self.startFailures.append(AgentStartFailure(
-                kind: kind,
-                workspaceID: failure.workspaceId,
-                paneID: failure.paneId,
-                lines: failure.lines
-            ))
+            guard let self, let failure = await self.awaitStart(in: paneID, on: session) else { return }
+            self.report(failure, of: kind)
         }
     }
 
@@ -518,6 +595,27 @@ final class HostConnection: Identifiable {
             try session.workingTreeDiff(paneId: paneID)
         }.value
     }
+
+    #if !os(tvOS)
+    /// What changed in the folder of a space (#342), the folder of the
+    /// focused pane in its active tab. Needs input and file access like
+    /// the diff of a pane; remembers the number of files for the space.
+    func workingTreeDiff(spaceID: String) async throws -> WorkingTreeDiff {
+        do {
+            guard config.inputAllowed else { throw ConnectionFailure.diffReadOnly }
+            guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
+            guard let session, isLive else { throw ConnectionFailure.notConnected }
+            let diff = try await Task.detached {
+                try session.spaceWorkingTreeDiff(workspaceId: spaceID)
+            }.value
+            changeCounts[spaceID] = diff.files.count
+            return diff
+        } catch {
+            changeCounts[spaceID] = nil
+            throw error
+        }
+    }
+    #endif
 
     /// What happened on the host between `since` and `until` (#301):
     /// Claude Code prompts and finished turns, and the commits of every
@@ -815,7 +913,9 @@ enum ConnectionFailure: LocalizedError {
     case uploadOff
     case filesOff
     case diffFilesOff
+    case diffReadOnly
     case dailyLogFilesOff
+    case gitStatusFilesOff
     case browseFilesOff
     case secretsFilesOff
     case searchFilesOff
@@ -836,8 +936,12 @@ enum ConnectionFailure: LocalizedError {
             String(localized: "Bilder hochladen ist für diesen Host ausgeschaltet (Host bearbeiten).")
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .diffReadOnly:
+            String(localized: "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
         case .dailyLogFilesOff:
             String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
+        case .gitStatusFilesOff:
+            String(localized: "Den Git-Status der Worktrees liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .browseFilesOff:
             String(localized: "Der Dateibrowser liest über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .secretsFilesOff:
@@ -882,12 +986,28 @@ func inputErrorMessage(_ error: Error) -> String {
     }
 }
 
+/// The agent came up, but its first prompt could not be sent (#344).
+struct AgentTaskNotSent: Error {
+    let underlying: Error
+}
+
+/// The agent ended before it was ready, so no task was sent (#344).
+struct AgentEndedAtStart: Error {}
+
 /// Text for an error from starting an agent. herdr's codes travel in the
 /// message of `FfiError.Rejected`.
 func agentStartErrorMessage(_ error: Error) -> String {
+    if let notSent = error as? AgentTaskNotSent {
+        return String(localized: "Der Agent läuft, die Aufgabe wurde aber nicht gesendet: \(inputErrorMessage(notSent.underlying))")
+    }
+    if error is AgentEndedAtStart {
+        return String(localized: "Der Agent hat sich gleich nach dem Start beendet, die Aufgabe wurde nicht gesendet.")
+    }
     let reason: String
     if case FfiError.Rejected(let message) = error {
-        if message.contains("(agent_pane_busy)") {
+        if message.contains("(timeout)") {
+            reason = String(localized: "herdr hat den Agent nicht innerhalb von 30 Sekunden bereit gemeldet.")
+        } else if message.contains("(agent_pane_busy)") {
             reason = String(localized: "Im Pane läuft schon ein Programm. Ein Agent startet nur an der Shell-Eingabe.")
         } else if message.contains("(unsupported_agent_kind)") {
             reason = String(localized: "herdr kennt diesen Agent nicht.")

@@ -23,7 +23,8 @@ struct HostSidebar: View {
     @Environment(HostStore.self) private var store
     @Binding var selection: SidebarItem?
     @Binding var editing: HostConfig?
-    @Binding var switching: Bool
+    /// ⌘K's switcher, with the commands of the focused space and pane (#346).
+    let openSwitcher: (PaletteSources) -> Void
     /// Text from the clipboard to an agent (#236).
     let openHandoff: () -> Void
     @State private var newSpaceOn: HostConnection?
@@ -34,6 +35,8 @@ struct HostSidebar: View {
     #if !os(tvOS)
     /// Claude Code sessions of a space's folder to resume (#304).
     @State private var claudeSessionsFor: ClaudeSessionsTarget?
+    /// The repository whose existing worktrees are offered (#343).
+    @State private var openWorktreeFrom: OpenWorktreeTarget?
     #endif
     @State private var addingSessionTo: HostConnection?
     #if !os(tvOS)
@@ -41,6 +44,8 @@ struct HostSidebar: View {
     @State private var secretsFor: HostConnection?
     /// The pull request shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
+    /// The uncommitted changes of a space shown (#342).
+    @State private var changesShown: ChangesTarget?
     /// The agent a chain is being added to (#300).
     @State private var chainFrom: ChainSource?
     #endif
@@ -116,8 +121,7 @@ struct HostSidebar: View {
                 AddHostButton(editing: $editing)
             }
             ToolbarItem(placement: .primaryAction) {
-                Button("Schnell wechseln", systemImage: "magnifyingglass") { switching = true }
-                    .help(String(localized: "Space oder Agent suchen (⌘K)"))
+                SwitcherButton(openSwitcher: openSwitcher)
                     .disabled(store.connections.isEmpty)
             }
             #if os(iOS)
@@ -179,6 +183,9 @@ struct HostSidebar: View {
         .sheet(item: $pullRequestShown) { target in
             PullRequestView(connection: target.connection, pullRequest: target.pullRequest)
         }
+        .sheet(item: $changesShown) { target in
+            DiffView(connection: target.connection, target: .space(target.workspaceID))
+        }
         .sheet(item: $chainFrom) { source in
             ChainEditor(source: source)
         }
@@ -212,6 +219,11 @@ struct HostSidebar: View {
         .sheet(item: $claudeSessionsFor) { target in
             ClaudeSessionsView(target: target) { created in
                 selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId))
+            }
+        }
+        .sheet(item: $openWorktreeFrom) { target in
+            OpenWorktreeView(target: target) { created in
+                selection = .space(SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId.isEmpty ? nil : created.paneId))
             }
         }
         #endif
@@ -423,6 +435,17 @@ struct HostSidebar: View {
             }
         }
     }
+
+    /// "Änderungen …" for a Git space (#342), also without input: the
+    /// sheet then says why it needs input.
+    @ViewBuilder
+    private func changesButton(_ workspace: WorkspaceItem, on connection: HostConnection) -> some View {
+        if workspace.repoKey != nil && connection.isLive {
+            Button("Änderungen …", systemImage: "plusminus") {
+                changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
+            }
+        }
+    }
     #endif
 
     /// Stores the order after a drop; `false` when the drop is not allowed
@@ -440,7 +463,10 @@ struct HostSidebar: View {
         let row = SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped)
         #else
         let pullRequest = connection.pullRequests.pullRequest(for: key)
-        let row = SpaceRow(workspace: entry.workspace, nested: entry.nested, grouped: grouped, pullRequest: pullRequest)
+        let row = SpaceRow(
+            workspace: entry.workspace, nested: entry.nested, grouped: grouped,
+            pullRequest: pullRequest, gitStatus: connection.gitStatus.status(for: key)
+        )
         #endif
         return row
             .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: key)))
@@ -450,12 +476,14 @@ struct HostSidebar: View {
             .contextMenu(when: !renamable) {
                 OpenInVSCodeButton(connection: connection, target: .space(key), error: $editorError)
                 pullRequestButton(pullRequest, on: connection)
+                changesButton(entry.workspace, on: connection)
             }
             #elseif os(iOS)
             // By `renamable` only, so the row keeps its identity when a pull
             // request comes or goes; an empty menu does not show.
             .contextMenu(when: !renamable) {
                 pullRequestButton(pullRequest, on: connection)
+                changesButton(entry.workspace, on: connection)
             }
             #endif
             .renameAction(available: renamable) {
@@ -470,6 +498,7 @@ struct HostSidebar: View {
                 #endif
                 #if !os(tvOS)
                 pullRequestButton(pullRequest, on: connection)
+                changesButton(entry.workspace, on: connection)
                 #endif
                 if let repo = WorktreeSource.repository(of: entry.workspace, in: update.workspaces) {
                     Button("Neuer Worktree …", systemImage: "arrow.triangle.branch") {
@@ -477,8 +506,18 @@ struct HostSidebar: View {
                     }
                 }
                 #if !os(tvOS)
+                if OpenWorktreeTarget.available(for: entry.workspace, on: connection) {
+                    Button("Worktree öffnen …", systemImage: "folder.badge.plus") {
+                        openWorktreeFrom = OpenWorktreeTarget(connection: connection, workspace: entry.workspace)
+                    }
+                }
                 Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                     claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: key)
+                }
+                if CloseTarget.worktreeRemovable(entry.workspace, on: connection) {
+                    Button("Worktree entfernen …", systemImage: "trash", role: .destructive) {
+                        closing = .worktree(entry.workspace, on: connection)
+                    }
                 }
                 #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
@@ -501,6 +540,9 @@ struct NewSpaceView: View {
     @State private var creating = false
     /// Set when the space exists but its agent did not start.
     @State private var createdWithoutAgent = false
+    #if !os(tvOS)
+    @State private var task = ""
+    #endif
     @State private var error: String?
 
     var body: some View {
@@ -521,6 +563,11 @@ struct NewSpaceView: View {
                     }
                 }
                 AgentPicker(connection: connection, kind: $agentKind)
+                #if !os(tvOS)
+                AgentTaskField(task: $task, enabled: agentKind != nil, repo: nil) {
+                    PromptPlaceholders.prefills(branch: nil, space: name.isEmpty ? nil : name)
+                }
+                #endif
                 if let error {
                     Text(error).foregroundStyle(.red).selectableText()
                 }
@@ -538,7 +585,16 @@ struct NewSpaceView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 440, height: 340)
+        .frame(width: 440, height: 440)
+        #endif
+    }
+
+    /// The task for the agent; the Apple TV has no field for one.
+    private var firstTask: String? {
+        #if os(tvOS)
+        nil
+        #else
+        task
         #endif
     }
 
@@ -546,6 +602,7 @@ struct NewSpaceView: View {
         creating = true
         error = nil
         let kind = agentKind
+        let task = firstTask
         Task {
             defer { creating = false }
             let created: Created
@@ -558,7 +615,7 @@ struct NewSpaceView: View {
             onCreated(created)
             if let kind {
                 do {
-                    _ = try await connection.startAgent(kind: kind, in: created.paneId)
+                    _ = try await connection.startAgent(kind: kind, in: created.paneId, task: task)
                 } catch {
                     // The space exists; "Anlegen" again would make a second one.
                     createdWithoutAgent = true
@@ -602,6 +659,9 @@ struct NewWorktreeView: View {
     @State private var creating = false
     /// Set when the worktree exists but its agent did not start.
     @State private var createdWithoutAgent = false
+    #if !os(tvOS)
+    @State private var task = ""
+    #endif
     @State private var error: String?
 
     var body: some View {
@@ -617,6 +677,16 @@ struct NewWorktreeView: View {
                     Text("Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.")
                 }
                 AgentPicker(connection: source.connection, kind: $agentKind)
+                #if !os(tvOS)
+                AgentTaskField(task: $task, enabled: agentKind != nil, repo: source.repository.repoName) {
+                    let trimmed = branch.trimmingCharacters(in: .whitespaces)
+                    let space = name.trimmingCharacters(in: .whitespaces)
+                    return PromptPlaceholders.prefills(
+                        branch: trimmed.isEmpty ? nil : trimmed,
+                        space: space.isEmpty ? (trimmed.isEmpty ? nil : trimmed) : space
+                    )
+                }
+                #endif
                 if creating {
                     ProgressView()
                 }
@@ -637,7 +707,16 @@ struct NewWorktreeView: View {
             }
         }
         #if os(macOS)
-        .frame(width: 460, height: 360)
+        .frame(width: 460, height: 460)
+        #endif
+    }
+
+    /// The task for the agent; the Apple TV has no field for one.
+    private var firstTask: String? {
+        #if os(tvOS)
+        nil
+        #else
+        task
         #endif
     }
 
@@ -645,6 +724,7 @@ struct NewWorktreeView: View {
         creating = true
         error = nil
         let kind = agentKind
+        let task = firstTask
         let connection = source.connection
         Task {
             defer { creating = false }
@@ -660,7 +740,7 @@ struct NewWorktreeView: View {
             onCreated(created)
             if let kind {
                 do {
-                    _ = try await connection.startAgent(kind: kind, in: created.paneId)
+                    _ = try await connection.startAgent(kind: kind, in: created.paneId, task: task)
                 } catch {
                     // The worktree exists; "Anlegen" again would fail on the branch.
                     createdWithoutAgent = true
@@ -1002,6 +1082,8 @@ struct SpaceRow: View {
     #if !os(tvOS)
     /// The open pull request of the space's branch (#309).
     var pullRequest: PullRequestSummary?
+    /// Ahead/behind and changes of its checkout (#343).
+    var gitStatus: SpaceGitStatus?
     #endif
 
     var body: some View {
@@ -1023,6 +1105,12 @@ struct SpaceRow: View {
                         .lineLimit(1)
                 }
                 #if !os(tvOS)
+                if nested, let statusText {
+                    Text(statusText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 if let pullRequest {
                     PullRequestBadge(pullRequest: pullRequest)
                 }
@@ -1043,10 +1131,29 @@ struct SpaceRow: View {
         return workspace.name
     }
 
-    /// The branch line; a nested worktree already shows its branch as name.
+    /// The branch line; a nested worktree already shows its branch as name
+    /// and its Git status on a line of its own.
     private var branchLine: String? {
-        nested ? nil : workspace.branch
+        if nested { return nil }
+        #if !os(tvOS)
+        if let statusText {
+            return workspace.branch.map { "\($0) \(statusText)" } ?? statusText
+        }
+        #endif
+        return workspace.branch
     }
+
+    #if !os(tvOS)
+    /// "↑3 ↓2 ● 4 geändert" (#343), `nil` when there is nothing to say.
+    private var statusText: String? {
+        guard let gitStatus else { return nil }
+        let text = gitStatusText(
+            hasUpstream: gitStatus.hasUpstream, ahead: gitStatus.ahead,
+            behind: gitStatus.behind, changes: gitStatus.changes
+        )
+        return text.isEmpty ? nil : text
+    }
+    #endif
 }
 
 /// An agent the way herdr's sidebar shows it by default: state, space and
@@ -1080,6 +1187,7 @@ private struct AgentRow: View {
                     if pinned {
                         PinMark()
                     }
+                    ProgramIcon(program: agent.program, size: 13)
                     Text(tabNumber.map { "\(agent.workspaceName) · \($0)" } ?? agent.workspaceName)
                         .lineLimit(1)
                         .layoutPriority(1)
@@ -1300,3 +1408,20 @@ private struct LiveActivityToggle: View {
     }
 }
 #endif
+
+/// Opens the switcher with the commands of the focused space and pane
+/// (#346). Its own view, so only this button follows their changes.
+private struct SwitcherButton: View {
+    let openSwitcher: (PaletteSources) -> Void
+    @FocusedValue(\.spaceCommands) private var spaceCommands
+    @FocusedValue(\.paneCommands) private var paneCommands
+    @FocusedValue(\.keySender) private var keySender
+    @FocusedValue(\.paneSearch) private var paneSearch
+
+    var body: some View {
+        Button("Schnell wechseln", systemImage: "magnifyingglass") {
+            openSwitcher(PaletteSources(space: spaceCommands, pane: paneCommands, keySender: keySender, paneSearch: paneSearch))
+        }
+        .help(String(localized: "Space, Agent oder Befehl suchen (⌘K)"))
+    }
+}

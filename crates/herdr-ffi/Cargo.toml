@@ -9,7 +9,7 @@ authors.workspace = true
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-herdr-core = { version = "0.1.0", path = "../herdr-core" }
+herdr-client = { version = "0.1.0", path = "../herdr-client" }
 herdr-proto = { version = "0.1.0", path = "../herdr-proto" }
 herdr-transport = { version = "0.1.0", path = "../herdr-transport" }
 herdr-session = { version = "0.1.0", path = "../herdr-session" }

@@ -11,6 +11,8 @@ struct AppCommands: Commands {
     @FocusedValue(\.tabNavigator) private var tabNavigator
     @FocusedValue(\.keySender) private var keySender
     @FocusedValue(\.paneSearch) private var paneSearch
+    @FocusedValue(\.spaceCommands) private var spaceCommands
+    @FocusedValue(\.paneCommands) private var paneCommands
 
     /// Behind the app lock (#232) no shortcut reaches a pane.
     private var locked: Bool { AppLock.shared.isCovered }
@@ -22,63 +24,93 @@ struct AppCommands: Commands {
         CommandGroup(after: .textEditing) {
             Divider()
             Button("Suchen …") { if !locked { paneSearch?.open() } }
-                .keyboardShortcut("f", modifiers: .command)
+                .keyboardShortcut(Shortcuts.find)
                 .disabled(paneSearch == nil)
             Button("Weitersuchen") { paneSearch?.step(1) }
-                .keyboardShortcut("g", modifiers: .command)
+                .keyboardShortcut(Shortcuts.findNext)
                 .disabled(paneSearch?.canStep != true)
             Button("Rückwärts suchen") { paneSearch?.step(-1) }
-                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .keyboardShortcut(Shortcuts.findPrevious)
                 .disabled(paneSearch?.canStep != true)
         }
         CommandMenu("Gehe zu") {
-            Button("Schnell wechseln …") { if !locked { navigator?.openSwitcher() } }
-                .keyboardShortcut("k", modifiers: .command)
+            Button("Schnell wechseln …") {
+                guard !locked else { return }
+                navigator?.openSwitcher(PaletteSources(
+                    space: spaceCommands,
+                    pane: paneCommands,
+                    keySender: keySender,
+                    paneSearch: paneSearch
+                ))
+            }
+                .keyboardShortcut(Shortcuts.switcher)
                 .disabled(navigator == nil)
             Button("Übergabe aus Zwischenablage …") { if !locked { navigator?.openHandoff() } }
-                .keyboardShortcut("v", modifiers: [.command, .option])
+                .keyboardShortcut(Shortcuts.handoff)
                 .disabled(navigator == nil)
             Divider()
             ForEach(1..<10) { number in
                 Button("Space \(number)") { navigator?.selectSpace(number) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(number)")), modifiers: .command)
+                    .keyboardShortcut(Shortcuts.space(number))
                     .disabled((navigator?.spaceCount ?? 0) < number)
             }
             Divider()
             Button("Vorheriger Tab") { tabNavigator?.step(-1) }
-                .keyboardShortcut("[", modifiers: [.command, .shift])
+                .keyboardShortcut(Shortcuts.previousTab)
                 .disabled(tabNavigator == nil)
             Button("Nächster Tab") { tabNavigator?.step(1) }
-                .keyboardShortcut("]", modifiers: [.command, .shift])
+                .keyboardShortcut(Shortcuts.nextTab)
                 .disabled(tabNavigator == nil)
         }
         CommandMenu("Tasten") {
-            key("Esc senden", "esc", ".", .command)
-            key("Control-C senden", "ctrl+c", "c", .control)
-            key("Enter senden", "enter", .return, [.command, .shift])
+            key("Esc senden", "esc", Shortcuts.escape)
+            key("Control-C senden", "ctrl+c", Shortcuts.controlC)
+            key("Enter senden", "enter", Shortcuts.enter)
             Divider()
-            key("Pfeil nach oben", "up", .upArrow, [.command, .option])
-            key("Pfeil nach unten", "down", .downArrow, [.command, .option])
-            key("Pfeil nach links", "left", .leftArrow, [.command, .option])
-            key("Pfeil nach rechts", "right", .rightArrow, [.command, .option])
+            key("Pfeil nach oben", "up", Shortcuts.arrowUp)
+            key("Pfeil nach unten", "down", Shortcuts.arrowDown)
+            key("Pfeil nach links", "left", Shortcuts.arrowLeft)
+            key("Pfeil nach rechts", "right", Shortcuts.arrowRight)
             Divider()
-            ForEach(["1", "2", "3"], id: \.self) { option in
+            ForEach(1...3, id: \.self) { number in
+                let option = "\(number)"
                 Button("Option \(option) wählen") { if !locked { keySender?.send([option]) } }
-                    .keyboardShortcut(KeyEquivalent(Character(option)), modifiers: [.command, .option])
+                    .keyboardShortcut(Shortcuts.option(number))
                     .disabled(keySender?.isBlocked != true)
             }
         }
     }
 
-    private func key(
-        _ title: LocalizedStringKey,
-        _ name: String,
-        _ equivalent: KeyEquivalent,
-        _ modifiers: EventModifiers
-    ) -> some View {
+    private func key(_ title: LocalizedStringKey, _ name: String, _ shortcut: CommandShortcut) -> some View {
         Button(title) { if !locked { keySender?.send([name]) } }
-            .keyboardShortcut(equivalent, modifiers: modifiers)
+            .keyboardShortcut(shortcut)
             .disabled(keySender == nil)
+    }
+}
+
+extension CommandShortcut {
+    var keyboardShortcut: KeyboardShortcut {
+        let equivalent: KeyEquivalent = switch key {
+        case "return": .return
+        case "up": .upArrow
+        case "down": .downArrow
+        case "left": .leftArrow
+        case "right": .rightArrow
+        default: KeyEquivalent(Character(key))
+        }
+        var flags: EventModifiers = []
+        if modifiers.contains(.control) { flags.insert(.control) }
+        if modifiers.contains(.option) { flags.insert(.option) }
+        if modifiers.contains(.shift) { flags.insert(.shift) }
+        if modifiers.contains(.command) { flags.insert(.command) }
+        return KeyboardShortcut(equivalent, modifiers: flags)
+    }
+}
+
+extension View {
+    /// The shortcut from `Shortcuts`, the same the switcher shows.
+    func keyboardShortcut(_ shortcut: CommandShortcut) -> some View {
+        keyboardShortcut(shortcut.keyboardShortcut)
     }
 }
 #endif
@@ -86,7 +118,8 @@ struct AppCommands: Commands {
 /// What the main window offers: the switcher, spaces by number and the
 /// handoff from the clipboard.
 struct Navigator {
-    let openSwitcher: @MainActor () -> Void
+    /// With what the focused space and pane offer as commands (#346).
+    let openSwitcher: @MainActor (PaletteSources) -> Void
     /// Number of spaces on the current host, for ⌘1 to ⌘9.
     let spaceCount: Int
     let selectSpace: @MainActor (Int) -> Void
@@ -114,8 +147,21 @@ struct PaneSearchActions {
     let canStep: Bool
 }
 
+/// The commands of the focused space and pane for the switcher (#346),
+/// read where it opens: from inside its sheet they are out of reach.
+struct PaletteSources {
+    var space: [PaletteCommand]?
+    var pane: [PaletteCommand]?
+    var keySender: KeySender?
+    var paneSearch: PaneSearchActions?
+}
+
 extension FocusedValues {
     @Entry var navigator: Navigator?
+    /// Commands of the open space: tabs, worktree, rename, close (#346).
+    @Entry var spaceCommands: [PaletteCommand]?
+    /// Commands of the shown pane: conversation, voice, files, font (#346).
+    @Entry var paneCommands: [PaletteCommand]?
     @Entry var tabNavigator: TabNavigator?
     @Entry var keySender: KeySender?
     @Entry var paneSearch: PaneSearchActions?
@@ -130,6 +176,20 @@ struct UpdateCommands: Commands {
         CommandGroup(after: .appInfo) {
             Button("Nach Updates suchen …") { updater.checkForUpdates() }
                 .disabled(!updater.isAvailable)
+        }
+    }
+}
+
+/// "Hilfe › Neuigkeiten" in place of the empty standard help item.
+struct WhatsNewCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Neuigkeiten") {
+                WhatsNewState.shared.showHistory()
+                openWindow(id: WhatsNewWindow.id)
+            }
         }
     }
 }

@@ -5,8 +5,14 @@
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
 //! combinations such as `ctrl+c`. herdr validates all keys before it writes
 //! anything.
+//!
+//! herdr-core's panes (ids starting `hc:`, #329) take prompts and keys
+//! (`terminal.send`, `terminal.keys`, which know the same key names). Text
+//! without Enter goes key by key, so only without umlauts and shifted
+//! signs; nothing that changes spaces, tabs or agents, which herdr desktop
+//! keeps to itself: [`ActionError::Unsupported`].
 
-use herdr_proto::{PaneInfo, ProtoError};
+use herdr_proto::{PaneInfo, ProtoError, WorktreeEntry, WorktreeListResult};
 use herdr_transport::{Connection, TransportError};
 use serde_json::json;
 
@@ -19,6 +25,9 @@ pub enum ActionError {
     /// herdr refused the call, e.g. unknown pane or invalid key.
     #[error("herdr refused ({code}): {message}")]
     Rejected { code: String, message: String },
+    /// The server cannot do this, e.g. herdr-core with spaces and tabs.
+    #[error("{0}")]
+    Unsupported(String),
     #[error(transparent)]
     Transport(TransportError),
 }
@@ -32,15 +41,39 @@ impl From<TransportError> for ActionError {
             TransportError::Proto(ProtoError::Api { code, message }) => {
                 Self::Rejected { code, message }
             }
+            TransportError::Proto(ProtoError::Rpc { kind, .. }) if kind == "blocked" => {
+                Self::AgentBlocked
+            }
+            TransportError::Proto(ProtoError::Rpc { kind, message }) => Self::Rejected {
+                code: kind,
+                message,
+            },
             other => Self::Transport(other),
         }
     }
 }
 
+/// [`ActionError::Unsupported`] for a herdr-core space, tab or pane.
+fn herdr_only(id: &str) -> Result<(), ActionError> {
+    if crate::hc::is_hc(id) {
+        return Err(ActionError::Unsupported(crate::hc::NOT_AVAILABLE.into()));
+    }
+    Ok(())
+}
+
 /// Sends a prompt to the agent in a pane, followed by Enter. Returns once
 /// herdr has written it; whether the agent starts a turn shows up in its
-/// status.
+/// status. herdr-core pastes it once nobody has typed for about 3 s and,
+/// like herdr, refuses an agent waiting at a dialog.
 pub async fn send_prompt(conn: &Connection, pane_id: &str, text: &str) -> Result<(), ActionError> {
+    if let Some(address) = crate::hc::address(pane_id) {
+        conn.hc_request(
+            "terminal.send",
+            json!({ "terminal": address, "text": text }),
+        )
+        .await?;
+        return Ok(());
+    }
     conn.request("agent.prompt", json!({ "target": pane_id, "text": text }))
         .await?;
     Ok(())
@@ -52,6 +85,14 @@ pub async fn send_keys(
     pane_id: &str,
     keys: &[String],
 ) -> Result<(), ActionError> {
+    if let Some(address) = crate::hc::address(pane_id) {
+        conn.hc_request(
+            "terminal.keys",
+            json!({ "terminal": address, "keys": keys }),
+        )
+        .await?;
+        return Ok(());
+    }
     conn.request(
         "pane.send_keys",
         json!({ "pane_id": pane_id, "keys": keys }),
@@ -61,13 +102,44 @@ pub async fn send_keys(
 }
 
 /// Types text into a pane without pressing Enter.
+/// On herdr-core the text goes key by key (`terminal.keys`), which only
+/// knows unshifted keys: text with other characters (umlauts, `|`, `"`,
+/// `$`, ...) is [`ActionError::Unsupported`].
 pub async fn send_text(conn: &Connection, pane_id: &str, text: &str) -> Result<(), ActionError> {
+    if let Some(address) = crate::hc::address(pane_id) {
+        let keys = hc_text_keys(text).ok_or_else(|| {
+            ActionError::Unsupported(
+                "herdr-core types only letters, digits, spaces and unshifted signs".into(),
+            )
+        })?;
+        if !keys.is_empty() {
+            conn.hc_request(
+                "terminal.keys",
+                json!({ "terminal": address, "keys": keys }),
+            )
+            .await?;
+        }
+        return Ok(());
+    }
     conn.request(
         "pane.send_text",
         json!({ "pane_id": pane_id, "text": text }),
     )
     .await?;
     Ok(())
+}
+
+/// `text` as herdr-core key names, `None` when a character has none.
+/// `terminal.keys` takes letters, digits and the unshifted signs of a US
+/// keyboard as themselves (tested against hc 0.1.18), a space as `space`.
+fn hc_text_keys(text: &str) -> Option<Vec<String>> {
+    text.chars()
+        .map(|ch| match ch {
+            ' ' => Some("space".to_owned()),
+            ch if ch.is_ascii_alphanumeric() || "',-./;=[\\]`".contains(ch) => Some(ch.to_string()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Where a new space or tab starts: its first pane.
@@ -123,6 +195,7 @@ pub async fn create_tab(
     workspace_id: &str,
     cwd: Option<&str>,
 ) -> Result<Created, ActionError> {
+    herdr_only(workspace_id)?;
     let mut params = json!({ "workspace_id": workspace_id, "focus": false });
     if let Some(cwd) = cwd {
         params["cwd"] = json!(cwd);
@@ -160,6 +233,7 @@ pub async fn create_worktree(
     workspace_id: &str,
     new: &NewWorktree,
 ) -> Result<Created, ActionError> {
+    herdr_only(workspace_id)?;
     let mut params = json!({ "workspace_id": workspace_id, "focus": false });
     for (key, value) in [
         ("branch", &new.branch),
@@ -179,6 +253,82 @@ pub async fn create_worktree(
             }
         })?;
     Ok(reply.into())
+}
+
+/// The worktrees of the repository of space `workspace_id` (#343), with
+/// the spaces that show them. Read only.
+pub async fn list_worktrees(
+    conn: &Connection,
+    workspace_id: &str,
+) -> Result<Vec<WorktreeEntry>, ActionError> {
+    herdr_only(workspace_id)?;
+    let reply: WorktreeListResult = serde_json::from_value(
+        conn.request("worktree.list", json!({ "workspace_id": workspace_id }))
+            .await?,
+    )
+    .map_err(|err| ActionError::Rejected {
+        code: "malformed_reply".into(),
+        message: err.to_string(),
+    })?;
+    Ok(reply.worktrees)
+}
+
+#[derive(serde::Deserialize)]
+struct OpenedReply {
+    workspace: OpenedSpace,
+    /// Missing when the worktree was open already.
+    #[serde(default)]
+    root_pane: Option<PaneInfo>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenedSpace {
+    workspace_id: String,
+}
+
+impl From<OpenedReply> for Created {
+    fn from(reply: OpenedReply) -> Self {
+        let (tab_id, pane_id) = reply
+            .root_pane
+            .map(|pane| (pane.tab_id, pane.pane_id))
+            .unwrap_or_default();
+        Self {
+            workspace_id: reply.workspace.workspace_id,
+            tab_id,
+            pane_id,
+        }
+    }
+}
+
+/// Opens an existing worktree at `path` of the repository of space
+/// `workspace_id` as a new, unfocused space (#343). A worktree that is open
+/// already comes back with its space and empty tab and pane.
+pub async fn open_worktree(
+    conn: &Connection,
+    workspace_id: &str,
+    path: &str,
+) -> Result<Created, ActionError> {
+    herdr_only(workspace_id)?;
+    let params = json!({ "workspace_id": workspace_id, "path": path, "focus": false });
+    let reply: OpenedReply = serde_json::from_value(conn.request("worktree.open", params).await?)
+        .map_err(|err| ActionError::Rejected {
+        code: "malformed_reply".into(),
+        message: err.to_string(),
+    })?;
+    Ok(reply.into())
+}
+
+/// Removes the linked worktree that space `workspace_id` shows, with its
+/// space (#343): `git worktree remove` without `--force`, so the branch
+/// stays and Git refuses a worktree with changes.
+pub async fn remove_worktree(conn: &Connection, workspace_id: &str) -> Result<(), ActionError> {
+    herdr_only(workspace_id)?;
+    conn.request(
+        "worktree.remove",
+        json!({ "workspace_id": workspace_id, "force": false }),
+    )
+    .await?;
+    Ok(())
 }
 
 /// Agent kinds herdr can start, for servers that cannot list them. The
@@ -211,7 +361,7 @@ pub const AGENT_KINDS: &[&str] = &[
 ];
 
 /// Shown first in a picker, in this order, when the server knows them.
-const COMMON_KINDS: &[&str] = &["claude", "codex", "opencode", "gemini", "pi"];
+pub(crate) const COMMON_KINDS: &[&str] = &["claude", "codex", "opencode", "gemini", "pi"];
 
 /// The agent kinds this server can start. herdr has no list of installed
 /// agents; `server.agent_manifests` names every agent it can detect, which
@@ -287,6 +437,7 @@ pub async fn start_agent(
     name: Option<&str>,
     args: &[String],
 ) -> Result<StartedAgent, ActionError> {
+    herdr_only(pane_id)?;
     let base = agent_name(name.filter(|name| !name.trim().is_empty()).unwrap_or(kind));
     let mut attempt = 1;
     let mut busy = 0;
@@ -430,6 +581,7 @@ pub async fn rename_workspace(
     workspace_id: &str,
     label: &str,
 ) -> Result<(), ActionError> {
+    herdr_only(workspace_id)?;
     let label = non_empty(label)?;
     conn.request(
         "workspace.rename",
@@ -441,6 +593,7 @@ pub async fn rename_workspace(
 
 /// Renames a tab; announced with `tab_renamed`.
 pub async fn rename_tab(conn: &Connection, tab_id: &str, label: &str) -> Result<(), ActionError> {
+    herdr_only(tab_id)?;
     let label = non_empty(label)?;
     conn.request("tab.rename", json!({ "tab_id": tab_id, "label": label }))
         .await?;
@@ -450,6 +603,7 @@ pub async fn rename_tab(conn: &Connection, tab_id: &str, label: &str) -> Result<
 /// Closes a tab with its panes, ending what runs in them; announced with
 /// `tab_closed`. herdr closes the space too when it was its last tab.
 pub async fn close_tab(conn: &Connection, tab_id: &str) -> Result<(), ActionError> {
+    herdr_only(tab_id)?;
     conn.request("tab.close", json!({ "tab_id": tab_id }))
         .await?;
     Ok(())
@@ -464,6 +618,7 @@ pub async fn close_workspace(
     workspace_id: &str,
     with_worktrees: bool,
 ) -> Result<(), ActionError> {
+    herdr_only(workspace_id)?;
     conn.request(
         "workspace.close",
         json!({ "workspace_id": workspace_id, "close_group": with_worktrees }),
@@ -482,6 +637,7 @@ pub async fn rename_agent(
     pane_id: &str,
     name: Option<&str>,
 ) -> Result<(), ActionError> {
+    herdr_only(pane_id)?;
     let name = name.map(str::trim).filter(|name| !name.is_empty());
     conn.request("agent.rename", json!({ "target": pane_id, "name": name }))
         .await?;
@@ -536,6 +692,38 @@ mod tests {
     }
 
     #[test]
+    fn opened_worktree_names_its_space() -> Result<(), serde_json::Error> {
+        let reply: OpenedReply = serde_json::from_value(serde_json::json!({
+            "type": "worktree_opened",
+            "already_open": false,
+            "workspace": {"workspace_id": "w4", "number": 4, "label": "fix-x"},
+            "tab": {"tab_id": "w4:t1", "workspace_id": "w4"},
+            "root_pane": {"pane_id": "w4:p1", "workspace_id": "w4", "tab_id": "w4:t1",
+                          "terminal_id": "t", "focused": false, "agent_status": "unknown", "revision": 0},
+            "worktree": {"path": "/x/repo/fix-x", "branch": "fix/x", "label": "fix-x",
+                         "is_bare": false, "is_detached": false, "is_prunable": false, "is_linked_worktree": true}
+        }))?;
+        let created = Created::from(reply);
+        assert_eq!(
+            (created.workspace_id.as_str(), created.pane_id.as_str()),
+            ("w4", "w4:p1")
+        );
+        let open: OpenedReply = serde_json::from_value(serde_json::json!({
+            "type": "worktree_opened",
+            "already_open": true,
+            "workspace": {"workspace_id": "w2"},
+            "worktree": {"path": "/x", "label": "x", "is_bare": false, "is_detached": false,
+                         "is_prunable": false, "is_linked_worktree": true}
+        }))?;
+        let created = Created::from(open);
+        assert_eq!(
+            (created.workspace_id.as_str(), created.pane_id.as_str()),
+            ("w2", "")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn common_kinds_come_first() {
         let kinds = ["pi", "claude", "cursor", "codex", "amp"].map(String::from);
         assert_eq!(
@@ -564,6 +752,75 @@ mod tests {
         assert!(matches!(
             ActionError::from(TransportError::Closed),
             ActionError::Transport(TransportError::Closed)
+        ));
+    }
+
+    #[test]
+    fn herdr_core_errors_and_limits() {
+        let rpc = |kind: &str| {
+            TransportError::Proto(ProtoError::Rpc {
+                kind: kind.into(),
+                message: "msg".into(),
+            })
+        };
+        assert!(matches!(
+            ActionError::from(rpc("blocked")),
+            ActionError::AgentBlocked
+        ));
+        assert!(matches!(
+            ActionError::from(rpc("not_found")),
+            ActionError::Rejected { code, .. } if code == "not_found"
+        ));
+        assert!(matches!(
+            herdr_only("hc:t1"),
+            Err(ActionError::Unsupported(message)) if message == crate::hc::NOT_AVAILABLE
+        ));
+        assert!(herdr_only("w1:t1").is_ok());
+        assert_eq!(hc_text_keys("ls -la ~"), None, "a shifted sign has no key");
+        assert_eq!(
+            hc_text_keys("cd dev/A1"),
+            Some(
+                ["c", "d", "space", "d", "e", "v", "/", "A", "1"]
+                    .map(String::from)
+                    .to_vec()
+            )
+        );
+        assert_eq!(hc_text_keys("über"), None);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn herdr_core_tabs_and_spaces_are_refused_before_any_call() {
+        // A connection that would fail if anything were sent.
+        let conn = Connection::local("/nonexistent/herdr.sock");
+        let unsupported =
+            |result: Result<(), ActionError>| matches!(result, Err(ActionError::Unsupported(_)));
+        assert!(unsupported(send_text(&conn, "hc:t1", "grep x | wc").await));
+        assert!(unsupported(rename_tab(&conn, "hc:tb1", "x").await));
+        assert!(unsupported(rename_workspace(&conn, "hc:sp1", "x").await));
+        assert!(unsupported(close_tab(&conn, "hc:tb1").await));
+        assert!(unsupported(close_workspace(&conn, "hc:sp1", false).await));
+        assert!(unsupported(rename_agent(&conn, "hc:t1", None).await));
+        assert!(matches!(
+            create_tab(&conn, "hc:sp1", None).await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            create_worktree(&conn, "hc:sp1", &NewWorktree::default()).await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            start_agent(&conn, "hc:t1", "claude", None, &[]).await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(unsupported(remove_worktree(&conn, "hc:sp1").await));
+        assert!(matches!(
+            list_worktrees(&conn, "hc:sp1").await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            open_worktree(&conn, "hc:sp1", "/x").await,
+            Err(ActionError::Unsupported(_))
         ));
     }
 

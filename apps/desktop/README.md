@@ -90,6 +90,13 @@ them as artifacts. With `gh workflow run ci.yml -f scope=installers` only
 the installers are built (Windows x64 and ARM64, Linux), without the tests
 on macOS and Windows. Pull requests run the full chain without the
 installers; check them first with `scripts/check.sh`.
+
+Before the release, add the version's notes to `apps/whats-new.json` under
+`desktop` (newest first, a few plain points in German `de` and English `en`)
+and commit them. The app shows them once after the update and under
+Settings › Neuigkeiten (#341); `scripts/desktop-release.sh` and the release
+workflow stop without them (`scripts/whats-new.py check desktop <version>`).
+
 Releases go to this repository's
 [releases](https://github.com/staude/amiscara-agents/releases); the updater
 reads `latest.json` from the release `updates`, which holds the feeds of all

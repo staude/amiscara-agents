@@ -11,7 +11,7 @@ mod convert;
 
 use std::sync::{Arc, OnceLock};
 
-use herdr_core::{actions, pane};
+use herdr_client::{actions, pane};
 use herdr_session::SessionError;
 use herdr_transport::{TransportError, keys};
 use tokio::runtime::Runtime;
@@ -23,14 +23,15 @@ pub use add_host::{
 pub use convert::{
     AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
     ChoiceQuestion, ClaudeSessionItem, EditorRequest, HostStatus, OpenRequest, PaneContent,
-    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
-    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
-    TranscriptPage, TranscriptSpan, UsageBucket, UsageReport, WorkspaceItem,
+    PaneFrame, PaneItem, ProgramItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout,
+    StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry,
+    TranscriptKind, TranscriptPage, TranscriptSpan, UsageBucket, UsageReport, WorkspaceItem,
 };
 pub use convert::{ConversationHit, SearchEnd};
 pub use convert::{
     DailyItem, DailyItemKind, DailyLog, DiffFile, DiffFileStatus, DiffHunk, DiffLine, DiffLineKind,
-    Directory, DirectoryEntry, EntryKind, FileContent, FilePreview, GitHubRepo, WorkingTreeDiff,
+    Directory, DirectoryEntry, EntryKind, FileContent, FilePreview, GitHubRepo, SpaceGitStatus,
+    WorkingTreeDiff, WorktreeChoice,
 };
 pub use herdr_session::UPLOAD_DIR;
 
@@ -123,7 +124,10 @@ pub enum Endpoint {
 impl From<Endpoint> for herdr_session::Endpoint {
     fn from(endpoint: Endpoint) -> Self {
         match endpoint {
-            Endpoint::Local { socket_path } => Self::Local { socket_path },
+            Endpoint::Local { socket_path } => Self::Local {
+                socket_path,
+                hc_socket_path: None,
+            },
             Endpoint::Ssh {
                 host,
                 port,
@@ -143,7 +147,7 @@ impl From<Endpoint> for herdr_session::Endpoint {
     }
 }
 
-/// How the sidebar orders spaces (see `herdr_core::spaces::SpaceSort`).
+/// How the sidebar orders spaces (see `herdr_client::spaces::SpaceSort`).
 #[derive(Debug, Clone, uniffi::Enum)]
 pub enum SpaceSort {
     Herdr,
@@ -266,7 +270,7 @@ impl From<herdr_session::StartFailure> for StartFailure {
 }
 
 /// A worktree to create; empty fields are left to herdr (see
-/// `herdr_core::actions::NewWorktree`).
+/// `herdr_client::actions::NewWorktree`).
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct NewWorktree {
     pub branch: Option<String>,
@@ -285,6 +289,40 @@ impl From<NewWorktree> for actions::NewWorktree {
             path: new.path,
         }
     }
+}
+
+/// A `Host` entry of `~/.ssh/config` (#340).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct SshConfigHost {
+    pub alias: String,
+    /// `HostName`, or the alias when none is set.
+    pub host_name: String,
+    pub user: Option<String>,
+    pub port: Option<u16>,
+    /// What the apps cannot do for this host, e.g. `ProxyJump`.
+    pub unsupported: Option<String>,
+}
+
+impl From<herdr_session::SshConfigHost> for SshConfigHost {
+    fn from(host: herdr_session::SshConfigHost) -> Self {
+        Self {
+            alias: host.alias,
+            host_name: host.host_name,
+            user: host.user,
+            port: host.port,
+            unsupported: host.unsupported,
+        }
+    }
+}
+
+/// The hosts of `~/.ssh/config` and its includes, without patterns; empty
+/// when there is none. Reads files, so not on the main thread.
+#[uniffi::export]
+pub fn ssh_config_hosts() -> Vec<SshConfigHost> {
+    herdr_session::ssh_config_hosts()
+        .into_iter()
+        .map(Into::into)
+        .collect()
 }
 
 /// Default `herdr.sock` path for a user on a macOS host.
@@ -432,14 +470,14 @@ pub fn pane_content_from_json(json: String) -> Option<PaneContent> {
 /// Remote-SSH to `target`, or as a local folder without one.
 #[uniffi::export]
 pub fn vscode_url(target: Option<String>, path: String) -> String {
-    herdr_core::vscode_url(target.as_deref(), &path)
+    herdr_client::vscode_url(target.as_deref(), &path)
 }
 
 /// The files and hunks of a unified diff (#309), as for the working tree
 /// diff; used for the diff of a pull request.
 #[uniffi::export]
 pub fn parse_diff(text: String) -> Vec<DiffFile> {
-    herdr_core::diff::parse(&text)
+    herdr_client::diff::parse(&text)
 }
 
 /// The overview for the approval from an enon-tools plan comment (#296):
@@ -447,7 +485,7 @@ pub fn parse_diff(text: String) -> Vec<DiffFile> {
 /// `None` when the comment is no plan or has no such section.
 #[uniffi::export]
 pub fn plan_overview(body: String) -> Option<String> {
-    herdr_core::github::plan_overview(&body)
+    herdr_client::github::plan_overview(&body)
 }
 
 #[uniffi::export]
@@ -496,7 +534,7 @@ impl HostSession {
     /// Connects in the background and reports to `observer` from then on.
     /// `group_spaces_by_name` is the host's setting for the "Bereich/Name"
     /// convention, `space_sort` its order of spaces, `None` for herdr's (see
-    /// `herdr_core::spaces`).
+    /// `herdr_client::spaces`).
     #[uniffi::constructor(default(group_spaces_by_name = true, space_sort = None))]
     pub fn start(
         endpoint: Endpoint,
@@ -710,8 +748,10 @@ impl HostSession {
 
     /// Starts an agent of `kind` (e.g. `claude`) in a pane at its shell
     /// prompt and returns the agent's name. Without `name` it is named
-    /// after its kind, numbered when taken. Returns once herdr has typed
-    /// the command; the agent's state follows in the session updates.
+    /// after its kind, numbered when taken. herdr 0.9.5 (protocol 22)
+    /// answered in tests once the agent took input, but `agent.start` may
+    /// also come back earlier; whoever sends a first prompt waits with
+    /// `watch_agent_start` before.
     pub fn start_agent(
         &self,
         pane_id: String,
@@ -833,6 +873,17 @@ impl HostSession {
         Ok(runtime().block_on(self.session.working_tree_diff(&pane_id))?)
     }
 
+    /// What changed in the folder of a space (#342), the folder of the
+    /// focused pane in its active tab. Same way and needs as
+    /// [`HostSession::working_tree_diff`]; blocks for a moment, call it
+    /// off the main thread.
+    pub fn space_working_tree_diff(
+        &self,
+        workspace_id: String,
+    ) -> Result<WorkingTreeDiff, FfiError> {
+        Ok(runtime().block_on(self.session.space_working_tree_diff(&workspace_id))?)
+    }
+
     /// What happened on the host between the Unix seconds `since_secs` and
     /// `until_secs` (#301): Claude Code prompts and finished turns, and the
     /// commits of every space, oldest first. Read only; runs a small script
@@ -841,6 +892,48 @@ impl HostSession {
     /// main thread.
     pub fn daily_log(&self, since_secs: u64, until_secs: u64) -> Result<DailyLog, FfiError> {
         Ok(runtime().block_on(self.session.daily_log(since_secs, until_secs))?)
+    }
+
+    /// Ahead/behind and uncommitted changes of every space showing a Git
+    /// checkout (#343), or only of `only_workspace_id`. Read only; runs one
+    /// small script in a short-lived, unfocused tab and reads its output
+    /// through SFTP, so it needs input and file access. Spaces Git could
+    /// not read are left out. Blocks for a moment; call it off the main
+    /// thread.
+    pub fn worktree_status(
+        &self,
+        only_workspace_id: Option<String>,
+    ) -> Result<Vec<SpaceGitStatus>, FfiError> {
+        Ok(runtime().block_on(self.session.worktree_status(only_workspace_id.as_deref()))?)
+    }
+
+    /// The worktrees of the repository of space `workspace_id` that no
+    /// space shows (#343), sorted by branch, detached ones last. Read
+    /// only. Blocks; call it off the main thread.
+    pub fn list_worktrees(&self, workspace_id: String) -> Result<Vec<WorktreeChoice>, FfiError> {
+        Ok(runtime()
+            .block_on(self.session.list_worktrees(&workspace_id))?
+            .into_iter()
+            .map(WorktreeChoice::from)
+            .collect())
+    }
+
+    /// Opens the existing worktree at `path` of the repository of space
+    /// `workspace_id` as a new, unfocused space (#343) and returns its
+    /// first pane. Blocks; call it off the main thread.
+    pub fn open_worktree(&self, workspace_id: String, path: String) -> Result<Created, FfiError> {
+        Ok(runtime()
+            .block_on(self.session.open_worktree(&workspace_id, &path))?
+            .into())
+    }
+
+    /// Removes the linked worktree that space `workspace_id` shows, with
+    /// its space (#343); the branch stays. Refused (`Rejected`) for a main
+    /// checkout and while there are uncommitted changes, which it checks
+    /// first with input and file access. Blocks; call it off the main
+    /// thread.
+    pub fn remove_worktree(&self, workspace_id: String) -> Result<(), FfiError> {
+        Ok(runtime().block_on(self.session.remove_worktree(&workspace_id))?)
     }
 
     /// The directory at the absolute `path` on the host, empty for the home
@@ -1101,7 +1194,7 @@ fn runtime() -> &'static Runtime {
         log_panics_to_logcat();
         tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
-            .thread_name("herdr-core")
+            .thread_name("herdr-client")
             .enable_all()
             .build()
             .unwrap_or_else(|err| panic!("cannot start the tokio runtime: {err}"))

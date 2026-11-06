@@ -4,8 +4,8 @@
 pub use herdr_session::view::{
     AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
     ChoiceQuestion, EditorRequest, HostStatus, OpenRequest, PaneContent, PaneFrame, PaneItem,
-    SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor, TokenItem,
-    WorkspaceItem,
+    ProgramItem, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan, TabItem, TermColor,
+    TokenItem, WorkspaceItem,
 };
 
 #[uniffi::remote(Enum)]
@@ -213,6 +213,19 @@ pub struct PaneItem {
     pub name: Option<String>,
     pub agent_state: AgentState,
     pub focused: bool,
+    /// What runs in the pane, for its icon (#337); `None` while unknown.
+    pub program: Option<ProgramItem>,
+}
+
+/// A program for an icon (#337); `other` and `agent` are ids missing
+/// from the table, with `known: false`.
+#[uniffi::remote(Record)]
+pub struct ProgramItem {
+    pub id: String,
+    pub name: String,
+    /// `#RRGGBB`.
+    pub color: String,
+    pub known: bool,
 }
 
 #[uniffi::remote(Record)]
@@ -236,6 +249,8 @@ pub struct BoardItem {
     pub state_since_ms: Option<u64>,
     /// Prompts that follow this agent's change (#300).
     pub chains: Vec<ChainItem>,
+    /// The agent as a program, for its icon (#337).
+    pub program: Option<ProgramItem>,
 }
 
 #[uniffi::remote(Record)]
@@ -599,4 +614,45 @@ pub struct GitHubRepo {
     /// `owner/name`.
     pub repo: String,
     pub workspace_ids: Vec<String>,
+}
+
+pub use herdr_session::SpaceGitStatus;
+
+/// Ahead/behind and uncommitted changes of the checkout a space shows
+/// (#343).
+#[uniffi::remote(Record)]
+pub struct SpaceGitStatus {
+    pub workspace_id: String,
+    /// Without an upstream `ahead` and `behind` are 0.
+    pub has_upstream: bool,
+    pub ahead: u32,
+    pub behind: u32,
+    /// Changed, staged and untracked files.
+    pub changes: u32,
+}
+
+/// An existing worktree no space shows (#343), to open as a space.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct WorktreeChoice {
+    /// Absolute path of the checkout.
+    pub path: String,
+    /// `None` when detached.
+    pub branch: Option<String>,
+    /// herdr's name for it, the folder's name.
+    pub label: String,
+    /// A linked worktree, not the repository's main checkout.
+    pub is_linked: bool,
+    pub is_detached: bool,
+}
+
+impl From<herdr_session::WorktreeEntry> for WorktreeChoice {
+    fn from(entry: herdr_session::WorktreeEntry) -> Self {
+        Self {
+            path: entry.path,
+            branch: entry.branch,
+            label: entry.label,
+            is_linked: entry.is_linked_worktree,
+            is_detached: entry.is_detached,
+        }
+    }
 }
