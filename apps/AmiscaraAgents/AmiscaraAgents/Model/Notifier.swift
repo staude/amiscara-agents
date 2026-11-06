@@ -25,16 +25,23 @@ final class Notifier: NSObject {
     /// The host a push from iCloud names by its host key fingerprint.
     @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
 
+    /// Called when the pane on screen or the app's state in front changes,
+    /// so the store can mark a finished agent there as seen (#335).
+    @ObservationIgnored var onVisibleChange: (@MainActor () -> Void)?
+
     /// The pane on screen, which gets no banner for its own changes.
     @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)? {
         didSet {
+            onVisibleChange?()
             guard let visiblePane else { return }
             center.removeDeliveredNotifications(withIdentifiers: [Self.identifier(visiblePane.hostID, visiblePane.paneID)])
         }
     }
 
     /// While the app is in front, the visible pane gets no banner.
-    @ObservationIgnored var appActive = true
+    @ObservationIgnored var appActive = true {
+        didSet { onVisibleChange?() }
+    }
 
     @ObservationIgnored private let center = UNUserNotificationCenter.current()
     @ObservationIgnored private var authorized: Bool?
@@ -52,6 +59,9 @@ final class Notifier: NSObject {
     /// identifier, also those still delivered from an earlier run;
     /// withdrawn once the agent no longer waits (#286).
     @ObservationIgnored private var waitingNotified: Set<String> = []
+    /// Panes with an "agent is done" notification of this run, withdrawn
+    /// once the agent is no longer done, e.g. seen on another device (#335).
+    @ObservationIgnored private var doneNotified: Set<String> = []
 
     override init() {
         // Answer buttons for "agent waits", local and pushed (#94). Not
@@ -101,8 +111,10 @@ final class Notifier: NSObject {
                 let identifier = Self.identifier(host.id, item.paneId)
                 if item.agentState == .blocked {
                     waitingNotified.insert(identifier)
+                    doneNotified.remove(identifier)
                 } else {
                     waitingNotified.remove(identifier)
+                    doneNotified.insert(identifier)
                 }
             }
         }
@@ -130,16 +142,26 @@ final class Notifier: NSObject {
     }
 
     /// Removes the "agent waits" notifications of panes on `board` whose
-    /// agent no longer waits, wherever it was answered (#286). Panes not
-    /// on the board keep theirs.
+    /// agent no longer waits, wherever it was answered (#286), and the
+    /// "agent is done" ones of agents no longer done, e.g. seen on another
+    /// device (#335). Panes not on the board keep theirs.
     func withdraw(answeredIn board: [BoardItem], hostID: UUID) {
         let answered = board
             .filter { $0.agentState != .blocked }
             .map { Self.identifier(hostID, $0.paneId) }
             .filter { waitingNotified.contains($0) }
-        guard !answered.isEmpty else { return }
-        center.removeDeliveredNotifications(withIdentifiers: answered)
+        let over = board
+            .filter { $0.agentState != .done && $0.agentState != .blocked }
+            .map { Self.identifier(hostID, $0.paneId) }
+            .filter { doneNotified.contains($0) }
+        // Waiting again: the same identifier, already replaced.
+        doneNotified.subtract(board
+            .filter { $0.agentState == .blocked }
+            .map { Self.identifier(hostID, $0.paneId) })
+        guard !answered.isEmpty || !over.isEmpty else { return }
+        center.removeDeliveredNotifications(withIdentifiers: answered + over)
         waitingNotified.subtract(answered)
+        doneNotified.subtract(over)
     }
 
     /// App badge: agents waiting for an answer, over all hosts.
@@ -306,8 +328,13 @@ final class Notifier {
     var dictateRequest: DictateRequest?
     @ObservationIgnored var answer: (@MainActor (_ hostID: UUID, _ paneID: String, _ key: String, _ shown: [[String]]?) async -> AnswerResult)?
     @ObservationIgnored var hostForKey: (@MainActor (_ fingerprint: String) -> UUID?)?
-    @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)?
-    @ObservationIgnored var appActive = true
+    @ObservationIgnored var onVisibleChange: (@MainActor () -> Void)?
+    @ObservationIgnored var visiblePane: (hostID: UUID, paneID: String)? {
+        didSet { onVisibleChange?() }
+    }
+    @ObservationIgnored var appActive = true {
+        didSet { onVisibleChange?() }
+    }
 
     func notify(
         _ items: [BoardItem],

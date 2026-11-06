@@ -650,6 +650,16 @@ final class HostConnection: Identifiable {
         }.value
     }
 
+    /// Marks the finish of the done agent in `paneID` as seen on the host
+    /// (#335), so every device shows it as idle. Not on a read-only host;
+    /// best effort like `dismiss(_:)`.
+    func markSeen(paneID: String) async {
+        guard config.inputAllowed, let session else { return }
+        try? await Task.detached {
+            try session.markSeen(paneId: paneID)
+        }.value
+    }
+
     /// Takes an editor request back on the host (#288), so other devices
     /// stop offering it and the host does not open VS Code itself. Best
     /// effort like `dismiss(_:)`.

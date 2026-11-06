@@ -77,6 +77,9 @@ final class HostStore {
             await self.widgets.refreshFromCloud(self)
         }
         #endif
+        notifier.onVisibleChange = { [weak self] in
+            self?.markVisibleSeen()
+        }
         notifier.hostForKey = { [weak self] key in
             self?.connections.first { CloudPush.hostKey(forPublicKey: $0.config.pinnedHostKey) == key }?.id
         }
@@ -100,9 +103,20 @@ final class HostStore {
         connection.onUpdate = { [weak self] connection, update in
             guard let self else { return }
             ChainLog.shared.record(update.chainResults.map(ChainLog.Entry.init), host: connection.id)
-            self.notifier.notify(update.attention, on: connection.config) { [weak connection] paneID in
-                await connection?.choiceQuestion(paneID: paneID)
+            // A finish waits a moment: shown on any device by then, it is
+            // seen and needs no notice (#335). Waiting agents go at once.
+            self.announce(update.attention.filter { $0.agentState != .done }, of: connection)
+            let finished = Set(update.attention.filter { $0.agentState == .done }.map(\.paneId))
+            if !finished.isEmpty {
+                Task { [weak self, weak connection] in
+                    try? await Task.sleep(for: Self.doneGrace)
+                    guard let self, let connection else { return }
+                    let unseen = (connection.update?.board ?? [])
+                        .filter { $0.agentState == .done && finished.contains($0.paneId) }
+                    self.announce(unseen, of: connection)
+                }
             }
+            self.markVisibleSeen()
             if connection.isLive {
                 self.notifier.withdraw(answeredIn: update.board, hostID: connection.config.id)
                 Self.reviveSettledTabs(in: update, of: connection)
@@ -121,9 +135,6 @@ final class HostStore {
             guard !DemoMode.isOn else { return }
             #if os(macOS)
             if let (key, name) = self.cloudHost(of: connection) {
-                self.cloudPush.send(update.attention, hostKey: key, hostName: name) { [weak connection] paneID in
-                    await connection?.screenExcerpt(paneID: paneID, lines: CloudPush.excerptLines)
-                }
                 self.cloudPush.sendBoard(update.board, live: connection.isLive, hostKey: key, hostName: name)
             }
             #endif
@@ -143,6 +154,54 @@ final class HostStore {
             tabs: tabs.map { (id: $0.tabId, waiting: $0.agentState == .blocked) },
             complete: !update.workspaces.isEmpty && update.serverVersion != nil && update.protocolSupported
         )
+    }
+
+    /// How long a finish waits for a device to show it before it notifies
+    /// (#335).
+    static let doneGrace: Duration = .seconds(3)
+
+    /// Notifies of agents that need the user, here and (on the Mac) through
+    /// iCloud.
+    private func announce(_ items: [BoardItem], of connection: HostConnection) {
+        guard !items.isEmpty else { return }
+        notifier.notify(items, on: connection.config) { [weak connection] paneID in
+            await connection?.choiceQuestion(paneID: paneID)
+        }
+        guard !DemoMode.isOn else { return }
+        #if os(macOS)
+        if let (key, name) = cloudHost(of: connection) {
+            cloudPush.send(items, hostKey: key, hostName: name) { [weak connection] paneID in
+                await connection?.screenExcerpt(paneID: paneID, lines: CloudPush.excerptLines)
+            }
+        }
+        #endif
+    }
+
+    /// The pane last marked seen, as `host/pane`, while it stays done on
+    /// screen: one try per finish, not one per update, also on a herdr that
+    /// does not count finishes and never turns it idle.
+    @ObservationIgnored private var seenTried: String?
+
+    /// Marks the agent in the pane on screen as seen once it is done
+    /// (#335), so every device shows it as idle. Only the open pane
+    /// counts, while the app is in front; the Apple TV marks nothing.
+    private func markVisibleSeen() {
+        #if !os(tvOS)
+        guard !DemoMode.isOn, notifier.appActive, let visible = notifier.visiblePane,
+              let connection = connection(for: visible.hostID), connection.isLive,
+              connection.update?.board.contains(where: { $0.paneId == visible.paneID && $0.agentState == .done }) == true
+        else {
+            // Idle, gone or out of sight: the next finish tries anew.
+            seenTried = nil
+            return
+        }
+        let key = "\(visible.hostID)/\(visible.paneID)"
+        guard seenTried != key else { return }
+        seenTried = key
+        Task {
+            await connection.markSeen(paneID: visible.paneID)
+        }
+        #endif
     }
 
     #if os(macOS)
