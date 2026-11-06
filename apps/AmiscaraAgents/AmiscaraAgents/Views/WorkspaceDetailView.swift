@@ -192,7 +192,13 @@ struct WorkspaceDetailView: View {
     }
 
     private func tabBar(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        // Time in state (#338): the live board, the Mac's board fills gaps.
+        let items = (connection.update?.board ?? []).filter { $0.workspaceId == workspace.workspaceId }
+        let cloud = AgentOverview.newestBoard(
+            for: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
+            in: store.cloudBoards
+        )
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
                 ForEach(workspace.tabs, id: \.tabId) { tab in
                     Button {
@@ -202,6 +208,17 @@ struct WorkspaceDetailView: View {
                             Text(tab.label)
                             if tab.agentState != .idle && tab.agentState != .unknown {
                                 StatusDot(state: tab.agentState)
+                            }
+                            if let since = TabTime.since(
+                                state: WidgetSnapshot.State(tab.agentState),
+                                agents: items.filter { $0.tabId == tab.tabId }.map(WidgetSnapshot.Agent.init),
+                                board: cloud
+                            ) {
+                                TimelineView(.everyMinute) { context in
+                                    if let label = TabTime.label(since: since, now: context.date) {
+                                        Text(label).foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                         }
                         .font(.callout.monospaced())

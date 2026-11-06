@@ -136,5 +136,26 @@ do {
     check(idle.liveAt == ago(1), "a reconnect while not live suspects nothing")
 }
 
+// The time next to a tab's title (#338).
+do {
+    let de = Locale(identifier: "de_DE")
+    let two = [agent("t1", .working, since: ago(5)), agent("t2", .working, since: ago(9)), agent("t3", .blocked, since: ago(20))]
+    check(TabTime.since(state: .working, agents: two, board: nil) == ago(9), "earliest start of the same state")
+    check(TabTime.since(state: .blocked, agents: two, board: nil) == ago(20), "other state does not count")
+    for state in [WidgetSnapshot.State.idle, .done, .unknown] {
+        check(TabTime.since(state: state, agents: [agent("x", state, since: ago(5))], board: nil) == nil, "no time for \(state)")
+    }
+    let unknown = [agent("b1", .blocked)]
+    check(TabTime.since(state: .blocked, agents: unknown, board: nil) == nil, "no start known")
+    check(TabTime.since(state: .blocked, agents: unknown, board: board("K", updated: now, [agent("b1", .blocked, since: ago(7))])) == ago(7), "start from the board")
+    check(TabTime.since(state: .blocked, agents: unknown, board: board("K", updated: now, [agent("b1", .working, since: ago(7))])) == nil, "board in another state")
+    check(TabTime.since(state: .blocked, agents: unknown, board: board("K", updated: now, [agent("other", .blocked, since: ago(7))])) == nil, "board of another pane")
+
+    check(TabTime.label(since: ago(0.5), now: now, locale: de) == nil, "under a minute")
+    check(TabTime.label(since: ago(12.9), now: now, locale: de) == "12 Min.", "whole minutes, rounded down")
+    check(TabTime.label(since: ago(119), now: now, locale: de) == "1 Std.", "whole hours, rounded down")
+    check(TabTime.label(since: ago(-5), now: now, locale: de) == nil, "start in the future")
+}
+
 if failures > 0 { exit(1) }
 print("agent-overview: ok")
