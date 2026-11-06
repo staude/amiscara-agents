@@ -416,10 +416,6 @@ pub fn pane_content_from_json(json: &str) -> Option<PaneContent> {
     serde_json::from_str(json).ok()
 }
 
-/// `group_by_name` is the host's setting for the "Bereich/Name" convention:
-/// off, every space keeps its full label and herdr's order. `sort` orders
-/// the spaces on each level of the sidebar. `open_requests` is false for a
-/// local host; it covers editor requests too.
 /// herdr's status of a tab or space, except that `done` turns `idle` when
 /// none of its agents is still unseen done (#335).
 fn group_status(
@@ -439,6 +435,10 @@ fn group_status(
     }
 }
 
+/// `group_by_name` is the host's setting for the "Bereich/Name" convention:
+/// off, every space keeps its full label and herdr's order. `sort` orders
+/// the spaces on each level of the sidebar. `open_requests` is false for a
+/// local host; it covers editor requests too.
 pub fn session_update(
     state: &SyncState,
     previous: Option<&SessionState>,
