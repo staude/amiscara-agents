@@ -529,10 +529,10 @@ final class HostConnection: Identifiable {
     /// focused pane in its active tab. Needs input and file access like
     /// the diff of a pane; remembers the number of files for the space.
     func workingTreeDiff(spaceID: String) async throws -> WorkingTreeDiff {
-        guard config.inputAllowed else { throw ConnectionFailure.diffReadOnly }
-        guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
-        guard let session, isLive else { throw ConnectionFailure.notConnected }
         do {
+            guard config.inputAllowed else { throw ConnectionFailure.diffReadOnly }
+            guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
+            guard let session, isLive else { throw ConnectionFailure.notConnected }
             let diff = try await Task.detached {
                 try session.spaceWorkingTreeDiff(workspaceId: spaceID)
             }.value
