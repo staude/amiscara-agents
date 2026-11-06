@@ -196,14 +196,25 @@ fn resolve(alias: String, options: &[Setting]) -> SshConfigHost {
     let port = first("port")
         .and_then(|port| port.parse::<u16>().ok())
         .filter(|port| *port != 0);
-    let set = |key: &str| first(key).is_some_and(|value| !value.eq_ignore_ascii_case("none"));
-    let unsupported = if set("proxyjump") {
-        Some("ProxyJump".to_owned())
-    } else if set("proxycommand") {
-        Some("ProxyCommand".to_owned())
-    } else {
-        None
-    };
+    // Like ssh, whichever of ProxyJump and ProxyCommand comes first, also
+    // as `none`, decides; the other is ignored then.
+    let unsupported = options
+        .iter()
+        .find(|option| {
+            matches!(option.key.as_str(), "proxyjump" | "proxycommand")
+                && option
+                    .conditions
+                    .iter()
+                    .all(|patterns| host_matches(patterns, &alias))
+        })
+        .filter(|option| !option.value.eq_ignore_ascii_case("none"))
+        .map(|option| {
+            if option.key == "proxyjump" {
+                "ProxyJump".to_owned()
+            } else {
+                "ProxyCommand".to_owned()
+            }
+        });
     SshConfigHost {
         alias,
         host_name,
@@ -453,6 +464,16 @@ mod tests {
         assert_eq!(hosts[0].unsupported.as_deref(), Some("ProxyJump"));
         assert_eq!(hosts[1].unsupported.as_deref(), Some("ProxyCommand"));
         assert_eq!(hosts[2].unsupported, None);
+    }
+
+    #[test]
+    fn ssh_config_first_proxy_option_decides() {
+        let hosts = parse(
+            "Host direct\n  ProxyCommand none\nHost cmd\n  ProxyJump none\nHost *\n  ProxyJump bastion\n  ProxyCommand nc %h %p\n",
+            &[],
+        );
+        assert_eq!(hosts[0].unsupported, None);
+        assert_eq!(hosts[1].unsupported, None);
     }
 
     #[test]
