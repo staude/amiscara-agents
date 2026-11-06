@@ -36,7 +36,7 @@ Die Mac-App wird außerhalb des App Stores verteilt: mit Developer ID signiert, 
 
 ## Release bauen
 
-Vor dem Release die Neuigkeiten der Version in `apps/whats-new.json` unter `mac` eintragen (neueste zuerst, wenige verständliche Punkte, Deutsch `de` und Englisch `en`). Die App zeigt sie nach dem Update einmal und unter „Hilfe › Neuigkeiten“ (#341).
+Vor dem Release die Neuigkeiten der Version in `apps/whats-new.json` unter `mac` eintragen (neueste zuerst, wenige verständliche Punkte, Deutsch `de` und Englisch `en`). Die App zeigt sie nach dem Update einmal und unter „Hilfe › Neuigkeiten“ (#341). Sie richtet sich nach `MARKETING_VERSION` in `project.yml`, nicht nach der Build-Nummer: Ein Update, das Neuigkeiten zeigen soll, braucht eine höhere `MARKETING_VERSION`; ein neuer Build derselben Version zeigt nichts.
 
 ```sh
 scripts/bump-build.sh          # Build-Nummer +1, nie zurücksetzen
