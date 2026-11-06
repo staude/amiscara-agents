@@ -43,6 +43,9 @@ const MAX_BACKOFF: Duration = Duration::from_secs(30);
 const BRANCH_REFRESH: Duration = Duration::from_secs(30);
 /// A pane's program changes (`vim`, `npm run dev`) with no event either.
 const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
+/// A pane whose process request takes longer is left out this round, so a
+/// stuck channel cannot hold up the events.
+const PROGRAM_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -242,7 +245,11 @@ fn stop_status(error: &SyncError) -> Option<SyncStatus> {
 }
 
 /// Follows one connection until it fails. Always returns the reason.
-async fn follow(conn: &Connection, tx: &watch::Sender<SyncState>, attempt: &mut u32) -> SyncError {
+async fn follow(
+    conn: &Arc<Connection>,
+    tx: &watch::Sender<SyncState>,
+    attempt: &mut u32,
+) -> SyncError {
     match follow_inner(conn, tx, attempt).await {
         Ok(never) => match never {},
         Err(err) => err,
@@ -252,7 +259,7 @@ async fn follow(conn: &Connection, tx: &watch::Sender<SyncState>, attempt: &mut 
 enum Never {}
 
 async fn follow_inner(
-    conn: &Connection,
+    conn: &Arc<Connection>,
     tx: &watch::Sender<SyncState>,
     attempt: &mut u32,
 ) -> Result<Never, SyncError> {
@@ -373,21 +380,30 @@ async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, S
 
 /// What runs in every pane without an agent. Agent panes need no request:
 /// herdr names the agent, and their foreground group also holds the
-/// agent's MCP servers. A pane whose request fails is left out.
-async fn pane_programs(conn: &Connection, state: &SessionState) -> BTreeMap<String, ProgramMatch> {
-    let mut found = BTreeMap::new();
+/// agent's MCP servers. The requests run side by side, so a round costs
+/// one round trip; a pane whose request fails or times out is left out.
+async fn pane_programs(
+    conn: &Arc<Connection>,
+    state: &SessionState,
+) -> BTreeMap<String, ProgramMatch> {
+    let mut requests = tokio::task::JoinSet::new();
     for pane in state.panes.iter().filter(|pane| pane.agent.is_none()) {
-        let Ok(value) = conn
-            .request("pane.process_info", json!({ "pane_id": pane.pane_id }))
-            .await
-        else {
-            continue;
-        };
-        let Ok(result) = serde_json::from_value::<PaneProcessInfoResult>(value) else {
-            continue;
-        };
-        if let Some(program) = programs::for_processes(&result.process_info) {
-            found.insert(pane.pane_id.clone(), program);
+        let conn = Arc::clone(conn);
+        let pane_id = pane.pane_id.clone();
+        requests.spawn(async move {
+            let request = conn.request("pane.process_info", json!({ "pane_id": pane_id }));
+            let value = tokio::time::timeout(PROGRAM_TIMEOUT, request)
+                .await
+                .ok()?
+                .ok()?;
+            let result = serde_json::from_value::<PaneProcessInfoResult>(value).ok()?;
+            Some((pane_id, programs::for_processes(&result.process_info)?))
+        });
+    }
+    let mut found = BTreeMap::new();
+    while let Some(done) = requests.join_next().await {
+        if let Ok(Some((pane_id, program))) = done {
+            found.insert(pane_id, program);
         }
     }
     found
