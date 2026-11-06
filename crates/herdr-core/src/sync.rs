@@ -301,38 +301,17 @@ async fn follow_inner(
             () = tx.closed() => return Err(SyncError::Unobserved),
         };
         let event = parse_event(item?)?;
-        // herdr may announce a change of status with `pane.updated` as well
-        // as with `pane.agent_status_changed`, in either order.
-        let changed_pane = match &event {
-            Event::PaneAgentStatusChanged { pane_id, .. } => Some(pane_id.clone()),
-            Event::PaneUpdated { pane } => Some(pane.pane_id.clone()),
-            _ => None,
-        };
-        let before = changed_pane
-            .as_deref()
-            .and_then(|id| state.pane(id))
-            .map(|pane| {
-                (
-                    pane.agent_status,
-                    pane.tokens.get(crate::SEEN_TOKEN).cloned(),
-                )
-            });
+        // Only the pane an event changes, not a copy of the whole state
+        // for every output event.
+        let before = event_pane(&event).and_then(|id| state.pane(id).cloned());
         match state.apply(&event) {
             Applied::Updated => {
                 // A new finish: which one it is decides whether a client
                 // has seen it (#335).
-                if let Some(pane_id) = changed_pane.as_deref()
-                    && let Some(pane) = state.pane(pane_id)
-                    && pane.agent_status == AgentStatus::Done
-                    && !state.completion_seqs.contains_key(pane_id)
-                    // Also when a missed number would decide a new mark.
-                    && before.as_ref().is_none_or(|(status, mark)| {
-                        *status != AgentStatus::Done
-                            || mark.as_ref() != pane.tokens.get(crate::SEEN_TOKEN)
-                    })
-                {
-                    let seq = finish(conn, pane_id).await;
-                    state.set_completion_seq(pane_id, seq);
+                if let Some(pane_id) = finish_to_fetch(before.as_ref(), &state, &event) {
+                    let pane_id = pane_id.to_owned();
+                    let seq = finish(conn, &pane_id).await;
+                    state.set_completion_seq(&pane_id, seq);
                 }
                 publish(tx, SyncStatus::Live, &state);
             }
@@ -414,6 +393,36 @@ fn branch_for(worktrees: &[(String, String)], dir: &str) -> Option<String> {
         })
         .max_by_key(|(path, _)| path.len())
         .map(|(_, branch)| branch.clone())
+}
+
+/// The pane whose finish number to fetch after `event` took `before` to
+/// `after`: a done agent without a known number that just became done or
+/// got a new seen mark, which the number decides. herdr may announce a
+/// change of status with `pane.updated` as well as with
+/// `pane.agent_status_changed`, in either order.
+fn finish_to_fetch<'a>(
+    before: Option<&herdr_proto::PaneInfo>,
+    after: &SessionState,
+    event: &'a Event,
+) -> Option<&'a str> {
+    let pane_id = event_pane(event)?;
+    let pane = after.pane(pane_id)?;
+    if pane.agent_status != AgentStatus::Done || after.completion_seqs.contains_key(pane_id) {
+        return None;
+    }
+    let mark = |pane: &herdr_proto::PaneInfo| pane.tokens.get(crate::SEEN_TOKEN).cloned();
+    before
+        .is_none_or(|old| old.agent_status != AgentStatus::Done || mark(old) != mark(pane))
+        .then_some(pane_id)
+}
+
+/// The pane whose status or tokens an event may change.
+fn event_pane(event: &Event) -> Option<&str> {
+    match event {
+        Event::PaneAgentStatusChanged { pane_id, .. } => Some(pane_id),
+        Event::PaneUpdated { pane } => Some(&pane.pane_id),
+        _ => None,
+    }
 }
 
 /// The `completion_seq` of the finish the agent in `pane_id` is in, from
@@ -518,6 +527,7 @@ impl PaneStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn branch_comes_from_the_innermost_worktree() {
@@ -649,6 +659,75 @@ mod tests {
             asked.elapsed() < backoff(1) / 2,
             "second attempt without the pause"
         );
+    }
+
+    fn fetch_state(status: &str, seen: Option<&str>) -> SessionState {
+        let tokens = seen.map_or_else(|| json!({}), |mark| json!({ crate::SEEN_TOKEN: mark }));
+        let snapshot = json!({
+            "version": "0.9.5", "protocol": 22,
+            "workspaces": [{"workspace_id": "w1", "number": 1, "label": "web"}],
+            "tabs": [{"tab_id": "w1:t1", "workspace_id": "w1", "number": 1, "label": "1"}],
+            "panes": [{"pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                       "agent": "claude", "agent_status": status, "tokens": tokens}]
+        });
+        SessionState::from_snapshot(serde_json::from_value(snapshot).expect("snapshot"))
+    }
+
+    fn status_event(status: &str) -> Event {
+        parse_event(json!({
+            "event": "pane.agent_status_changed",
+            "data": {"pane_id": "w1:p1", "workspace_id": "w1", "agent_status": status}
+        }))
+        .expect("event")
+    }
+
+    fn pane_event(state: &SessionState) -> Event {
+        Event::PaneUpdated {
+            pane: state.pane("w1:p1").cloned().expect("pane"),
+        }
+    }
+
+    /// What the driver does: apply, then ask which finish to fetch.
+    fn fetch_after(before: &SessionState, event: &Event) -> Option<String> {
+        let mut after = before.clone();
+        after.apply(event);
+        finish_to_fetch(before.pane("w1:p1"), &after, event).map(str::to_owned)
+    }
+
+    #[test]
+    fn a_change_to_done_fetches_its_finish_by_either_event() {
+        let working = fetch_state("working", None);
+        assert_eq!(
+            fetch_after(&working, &status_event("done")).as_deref(),
+            Some("w1:p1")
+        );
+        let done = fetch_state("done", None);
+        assert_eq!(
+            fetch_after(&working, &pane_event(&done)).as_deref(),
+            Some("w1:p1")
+        );
+        // The second announcement of the same change fetches nothing more.
+        assert_eq!(fetch_after(&done, &status_event("done")), None);
+        assert_eq!(fetch_after(&working, &status_event("idle")), None);
+    }
+
+    #[test]
+    fn a_new_mark_fetches_a_missed_finish_but_a_known_one_is_kept() {
+        let done = fetch_state("done", None);
+        let marked = fetch_state("done", Some("7"));
+        assert_eq!(
+            fetch_after(&done, &pane_event(&marked)).as_deref(),
+            Some("w1:p1")
+        );
+        let mut known = done.clone();
+        known.set_completion_seq("w1:p1", Some(7));
+        assert_eq!(fetch_after(&known, &pane_event(&marked)), None);
+        // Same mark, nothing to decide.
+        let mut retitled = marked.clone();
+        if let Some(pane) = retitled.panes.first_mut() {
+            pane.title = Some("other".into());
+        }
+        assert_eq!(fetch_after(&marked, &pane_event(&retitled)), None);
     }
 
     #[test]
