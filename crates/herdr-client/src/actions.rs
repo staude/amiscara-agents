@@ -211,7 +211,7 @@ pub const AGENT_KINDS: &[&str] = &[
 ];
 
 /// Shown first in a picker, in this order, when the server knows them.
-const COMMON_KINDS: &[&str] = &["claude", "codex", "opencode", "gemini", "pi"];
+pub(crate) const COMMON_KINDS: &[&str] = &["claude", "codex", "opencode", "gemini", "pi"];
 
 /// The agent kinds this server can start. herdr has no list of installed
 /// agents; `server.agent_manifests` names every agent it can detect, which

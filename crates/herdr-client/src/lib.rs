@@ -13,6 +13,7 @@
 //! of Claude Code from its session files.
 //! [`chains`] stores and fires prompts that follow an agent's change (#300).
 //! [`programs`] tells what runs in a pane, for its icon (#337).
+//! [`hc`] maps herdr-core's terminals onto spaces, tabs and panes (#329).
 
 pub mod actions;
 pub mod browse;
@@ -22,6 +23,7 @@ pub mod daily;
 pub mod diff;
 pub mod fullscreen;
 pub mod github;
+pub mod hc;
 pub mod pane;
 pub mod programs;
 pub mod question;
@@ -32,7 +34,7 @@ pub mod terminal;
 pub mod usage;
 
 pub use state::{
-    Applied, BoardEntry, EDITOR_DONE_TOKEN, EDITOR_ID_TOKEN, EDITOR_PATH_TOKEN_PREFIX,
+    Applied, Backends, BoardEntry, EDITOR_DONE_TOKEN, EDITOR_ID_TOKEN, EDITOR_PATH_TOKEN_PREFIX,
     EditorRequest, OPEN_DONE_TOKEN, OPEN_ID_TOKEN, OPEN_URL_PARTS, OPEN_URL_TOKEN_PREFIX,
     OpenRequest, SEEN_TOKEN, SessionState, vscode_url,
 };
