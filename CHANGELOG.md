@@ -819,6 +819,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Freigaben (#348): plans labelled `plan-ready` (enon-tools 5) show up again;
+  issues with `awaiting-approval` from older plugin versions still do, and
+  an issue with both shows once. Without a planning tab the app offers
+  `/issue-plan-accept <nr>` for `plan-ready` and `/issue-approve <nr>` for
+  `awaiting-approval`.
 - iPhone Duo: the composer's text field no longer sits under the keyboard.
   On the iPhone the "Tastatur ausblenden" button moved from the keyboard
   toolbar, whose height the keyboard avoidance did not count, into the
