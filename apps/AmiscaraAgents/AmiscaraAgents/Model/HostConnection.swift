@@ -53,10 +53,16 @@ final class HostConnection: Identifiable {
         usage.attach(self)
     }
 
+    /// The socket counts as its full path: an empty one means the user's
+    /// default, and two users on one machine have two herdr servers.
     private static func settledHost(for config: HostConfig) -> String {
         let line = config.kind == .local ? Platform.localHostKey() : config.pinnedHostKey
         guard let key = CloudPush.hostKey(forPublicKey: line) else { return "device|" + config.id.uuidString }
-        return key + "|" + config.socketPath
+        let socket = switch config.kind {
+        case .local: config.socketPath.isEmpty ? Platform.localSocketPath : config.socketPath
+        case .ssh: config.socketPath.isEmpty ? defaultRemoteSocket(user: config.user) : config.socketPath
+        }
+        return key + "|" + socket
     }
 
     var status: HostStatus? { update?.status }
@@ -69,6 +75,8 @@ final class HostConnection: Identifiable {
     func start() {
         stop()
         startError = nil
+        // This Mac's host key may have become readable since (Remote Login).
+        settledHost = Self.settledHost(for: config)
         do {
             let bridge = SessionBridge { [weak self] update in
                 Task { @MainActor in
