@@ -100,8 +100,10 @@ struct InputBar: View {
         }
         .padding(10)
         .disabled(sending || !connection.isLive)
-        // Keyboard shortcuts for the key bar, see AppCommands.
-        .focusedSceneValue(\.keySender, connection.isLive ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
+        // Keyboard shortcuts for the key bar, see AppCommands; while a peek
+        // is open only its bar (the one without Esc) takes them (#332).
+        .focusedSceneValue(\.keySender, connection.isLive && (!escapeToAgent || AgentPeekState.shared.open == 0)
+            ? KeySender(send: { send(keys: $0) }, isBlocked: isBlocked) : nil)
         .onChange(of: dictation.error) { _, message in
             if let message { error = message }
         }

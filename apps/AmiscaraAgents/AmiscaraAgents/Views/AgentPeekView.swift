@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// How many peeks are open (#332). Meanwhile the input bar of the pane
+/// behind them leaves the key shortcuts to the peek's bar, so ⌘. or ⌥⌘1
+/// never answer the agent behind the overlay.
+@MainActor @Observable
+final class AgentPeekState {
+    static let shared = AgentPeekState()
+    var open = 0
+}
+
 #if !os(tvOS)
 /// An agent to look into without leaving the current view (#332).
 struct AgentPeek: Identifiable, Hashable {
@@ -58,10 +67,12 @@ struct AgentPeekView: View {
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         // The peeked agent is on screen: no banner for it meanwhile.
         .onAppear {
+            AgentPeekState.shared.open += 1
             previousVisible = store.notifier.visiblePane
             store.notifier.visiblePane = (hostID: peek.hostID, paneID: peek.paneID)
         }
         .onDisappear {
+            AgentPeekState.shared.open -= 1
             // Opened, the pane stays on screen; the space sets it itself.
             guard !opened, let visible = store.notifier.visiblePane,
                   visible.hostID == peek.hostID, visible.paneID == peek.paneID
