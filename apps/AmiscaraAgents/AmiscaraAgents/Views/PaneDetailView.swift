@@ -192,6 +192,7 @@ struct PaneDetailView: View {
         let pane = pane(connection, paneID)
         return HStack(spacing: 8) {
             StatusDot(state: pane?.agent == nil ? nil : pane?.agentState)
+            ProgramIcon(program: pane?.program, size: 16)
             Text(title(pane, connection: connection, paneID: paneID))
                 .font(.headline)
                 .lineLimit(1)

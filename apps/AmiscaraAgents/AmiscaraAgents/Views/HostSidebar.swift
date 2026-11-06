@@ -1076,6 +1076,7 @@ private struct AgentRow: View {
                     if pinned {
                         PinMark()
                     }
+                    ProgramIcon(program: agent.program, size: 13)
                     Text(tabNumber.map { "\(agent.workspaceName) · \($0)" } ?? agent.workspaceName)
                         .lineLimit(1)
                         .layoutPriority(1)
