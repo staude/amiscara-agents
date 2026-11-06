@@ -84,7 +84,7 @@ dependencies = [
 name = "amiscara-desktop"
 version = "0.1.0"
 dependencies = [
- "herdr-core",
+ "herdr-client",
  "herdr-proto",
  "herdr-session",
  "herdr-transport",
@@ -2387,7 +2387,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
-name = "herdr-core"
+name = "herdr-client"
 version = "0.1.0"
 dependencies = [
  "herdr-proto",
@@ -2404,7 +2404,7 @@ name = "herdr-ffi"
 version = "0.1.0"
 dependencies = [
  "android_logger",
- "herdr-core",
+ "herdr-client",
  "herdr-proto",
  "herdr-session",
  "herdr-transport",
@@ -2427,7 +2427,7 @@ dependencies = [
 name = "herdr-session"
 version = "0.1.0"
 dependencies = [
- "herdr-core",
+ "herdr-client",
  "herdr-proto",
  "herdr-transport",
  "serde",
@@ -2444,7 +2444,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs 7.0.0",
- "herdr-core",
+ "herdr-client",
  "herdr-proto",
  "herdr-transport",
  "serde_json",

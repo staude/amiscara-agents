@@ -634,7 +634,7 @@ in herdr's order, spaces without `/` stay where they are. Spaces around the
 repository, even when their branch looks like `feature/x`. The name lives
 on the server, so all devices show the same groups without any sync; herdr
 itself simply shows the full name. Name a space this way when creating it
-or via "Umbenennen …". The logic is in `crates/herdr-core/src/spaces.rs`.
+or via "Umbenennen …". The logic is in `crates/herdr-client/src/spaces.rs`.
 
 The grouping is a per-host switch in the Apple apps: "Spaces nach Namen
 gruppieren" in the host settings ("…" › "Bearbeiten …"), on by default.
@@ -675,7 +675,7 @@ What the apps cannot do, because herdr's API does not offer it:
                               │                                      │
                               └──────────── herdr-session ───────────┘
                                                  │
-                           herdr-core  (state, board, sync, panes, terminal)
+                           herdr-client  (state, board, sync, panes, terminal)
                                                  │
                            herdr-transport  (Unix socket, SSH)
                                                  │
@@ -686,7 +686,7 @@ What the apps cannot do, because herdr's API does not offer it:
   socket API, protocol version check.
 - `crates/herdr-transport`: local socket and SSH transport, requests and
   event subscriptions, host key checks.
-- `crates/herdr-core`: session state from snapshot and events, the agent
+- `crates/herdr-client`: session state from snapshot and events, the agent
   board, the sync driver with reconnect, pane content as styled lines (ANSI
   parsing, links), space grouping, the Claude conversation.
 - `crates/herdr-session`: the live session the apps use: connect and

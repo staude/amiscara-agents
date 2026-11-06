@@ -5,11 +5,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use herdr_core::chains::{self, Chain};
-use herdr_core::pane::{self, Pacing};
-use herdr_core::spaces::SpaceSort;
-use herdr_core::sync::{self, SyncState, SyncStatus};
-use herdr_core::{actions, browse, claude, daily, diff, fullscreen, github, usage};
+use herdr_client::chains::{self, Chain};
+use herdr_client::pane::{self, Pacing};
+use herdr_client::spaces::SpaceSort;
+use herdr_client::sync::{self, SyncState, SyncStatus};
+use herdr_client::{actions, browse, claude, daily, diff, fullscreen, github, usage};
 use herdr_proto::{AgentGetResult, AgentStatus, PaneGetResult};
 use herdr_transport::{
     Connection, HealthLine, HerdrSessionEntry, HostKeyPolicy, Identity, SshTarget, TransportError,
@@ -446,7 +446,7 @@ impl Session {
     /// Connects in the background and calls `on_update` with every state
     /// change from then on, on a runtime thread. `group_spaces_by_name` is
     /// the host's setting for the "Bereich/Name" convention, `space_sort`
-    /// its order of spaces (see `herdr_core::spaces`). Call it inside a Tokio runtime; the session's
+    /// its order of spaces (see `herdr_client::spaces`). Call it inside a Tokio runtime; the session's
     /// tasks run there.
     pub fn start(
         endpoint: Endpoint,
@@ -467,7 +467,7 @@ impl Session {
         let (chain_runner, runner) = watch::channel(None);
         let forward = runtime.spawn(async move {
             // The state the last update was based on, to report what changed.
-            let mut previous: Option<Arc<herdr_core::SessionState>> = None;
+            let mut previous: Option<Arc<herdr_client::SessionState>> = None;
             // Since when each agent is in its state; kept across reconnects.
             let mut clock = view::StateClock::default();
             let (results_tx, mut results) = mpsc::unbounded_channel();
@@ -671,7 +671,7 @@ impl Session {
     }
 
     /// The last known state of the server, if any.
-    fn session_state(&self) -> Option<Arc<herdr_core::SessionState>> {
+    fn session_state(&self) -> Option<Arc<herdr_client::SessionState>> {
         self.state
             .lock()
             .ok()
@@ -765,7 +765,7 @@ impl Session {
             session
                 .pane(pane_id)?
                 .tokens
-                .get(herdr_core::OPEN_ID_TOKEN)
+                .get(herdr_client::OPEN_ID_TOKEN)
                 .cloned()
         });
         if current.as_deref() != Some(request_id) {
@@ -777,7 +777,7 @@ impl Session {
             serde_json::json!({
                 "pane_id": pane_id,
                 "source": OPEN_DONE_SOURCE,
-                "tokens": { herdr_core::OPEN_DONE_TOKEN: request_id },
+                "tokens": { herdr_client::OPEN_DONE_TOKEN: request_id },
                 "ttl_ms": OPEN_TTL_MS,
             }),
         )
@@ -800,7 +800,7 @@ impl Session {
             session
                 .pane(pane_id)?
                 .tokens
-                .get(herdr_core::EDITOR_ID_TOKEN)
+                .get(herdr_client::EDITOR_ID_TOKEN)
                 .cloned()
         });
         if current.as_deref() != Some(request_id) {
@@ -812,7 +812,7 @@ impl Session {
             serde_json::json!({
                 "pane_id": pane_id,
                 "source": EDITOR_DONE_SOURCE,
-                "tokens": { herdr_core::EDITOR_DONE_TOKEN: request_id },
+                "tokens": { herdr_client::EDITOR_DONE_TOKEN: request_id },
                 "ttl_ms": EDITOR_TTL_MS,
             }),
         )
@@ -1674,7 +1674,7 @@ impl Drop for Session {
 async fn mark_seen(
     conn: &Connection,
     pane_id: &str,
-    known: Option<&herdr_core::SessionState>,
+    known: Option<&herdr_client::SessionState>,
 ) -> Result<(), SessionError> {
     let to_error = |err: TransportError| SessionError::from(actions::ActionError::from(err));
     let value = conn
@@ -1693,7 +1693,7 @@ async fn mark_seen(
     let seq = agent.state_change_seq.to_string();
     let marked = known
         .and_then(|state| state.pane(pane_id))
-        .and_then(|pane| pane.tokens.get(herdr_core::SEEN_TOKEN))
+        .and_then(|pane| pane.tokens.get(herdr_client::SEEN_TOKEN))
         .is_some_and(|mark| *mark == seq);
     if marked {
         return Ok(());
@@ -1705,7 +1705,7 @@ async fn mark_seen(
         serde_json::json!({
             "pane_id": pane_id,
             "source": SEEN_SOURCE,
-            "tokens": { herdr_core::SEEN_TOKEN: seq },
+            "tokens": { herdr_client::SEEN_TOKEN: seq },
         }),
     )
     .await
@@ -1736,7 +1736,7 @@ struct ChainRuns {
     conn: Arc<Connection>,
     device: String,
     /// The state the change was seen in: chains, targets and names.
-    state: Arc<herdr_core::SessionState>,
+    state: Arc<herdr_client::SessionState>,
     /// Chain id and state change each run on this device already handled,
     /// so seeing a change again (e.g. around a reconnect) sends nothing.
     claimed: Arc<Mutex<HashSet<(String, u64)>>>,
@@ -1746,7 +1746,7 @@ struct ChainRuns {
 impl ChainRuns {
     /// Starts a task per chain whose agent changed to its trigger since
     /// `before`; each reports its result unless another device ran it.
-    fn start(&self, before: &herdr_core::SessionState) {
+    fn start(&self, before: &herdr_client::SessionState) {
         for (pane_id, trigger) in chains::fired(before, &self.state) {
             let Some(pane) = self.state.pane(&pane_id) else {
                 continue;
@@ -2112,7 +2112,7 @@ impl PaneFollow {
 
     /// Shows the last `lines` rows including scrollback instead of only the
     /// visible screen; 0 goes back to the screen. Capped at
-    /// `herdr_core::pane::MAX_HISTORY_LINES`. Content with the new value
+    /// `herdr_client::pane::MAX_HISTORY_LINES`. Content with the new value
     /// follows at once.
     pub fn set_history_lines(&self, lines: u32) {
         let lines = lines.min(pane::MAX_HISTORY_LINES);
@@ -2569,7 +2569,7 @@ mod tests {
             )),
             SessionError::Files(_)
         ));
-        let unread = format!("{}: connection lost", herdr_core::browse::SAVED_NOT_READ);
+        let unread = format!("{}: connection lost", herdr_client::browse::SAVED_NOT_READ);
         assert!(matches!(
             files_error(TransportError::Files(unread)),
             SessionError::SavedNotRead(_)
@@ -2808,8 +2808,11 @@ mod tests {
             path
         }
 
-        fn state(status: &str, tokens: &BTreeMap<String, String>) -> Arc<herdr_core::SessionState> {
-            Arc::new(herdr_core::SessionState::from_snapshot(
+        fn state(
+            status: &str,
+            tokens: &BTreeMap<String, String>,
+        ) -> Arc<herdr_client::SessionState> {
+            Arc::new(herdr_client::SessionState::from_snapshot(
                 serde_json::from_value(serde_json::json!({
                     "version": "0.9.5", "protocol": 22,
                     "workspaces": [{"workspace_id": "w1", "number": 1, "label": "space"}],
@@ -2851,8 +2854,8 @@ mod tests {
         async fn run(
             path: &std::path::Path,
             devices: &[&str],
-            before: &herdr_core::SessionState,
-            now: &Arc<herdr_core::SessionState>,
+            before: &herdr_client::SessionState,
+            now: &Arc<herdr_client::SessionState>,
         ) -> Vec<ChainResult> {
             let (tx, mut rx) = mpsc::unbounded_channel();
             for device in devices {
@@ -2958,7 +2961,7 @@ mod tests {
                 .expect("mark");
             let tokens = fake.lock().expect("fake").tokens();
             assert_eq!(
-                tokens.get(herdr_core::SEEN_TOKEN).map(String::as_str),
+                tokens.get(herdr_client::SEEN_TOKEN).map(String::as_str),
                 Some("10")
             );
             assert_eq!(fake.lock().expect("fake").reports, 1);
@@ -2979,7 +2982,7 @@ mod tests {
             assert_eq!(
                 fake_now
                     .tokens()
-                    .get(herdr_core::SEEN_TOKEN)
+                    .get(herdr_client::SEEN_TOKEN)
                     .map(String::as_str),
                 Some("14")
             );

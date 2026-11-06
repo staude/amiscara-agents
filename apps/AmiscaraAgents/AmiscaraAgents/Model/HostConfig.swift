@@ -59,7 +59,7 @@ struct HostConfig: Codable, Identifiable, Hashable, Sendable {
     /// Workspace IDs in the user's order, for `SpaceSortMode.manual`.
     var spaceOrder: [String]?
 
-    /// What the session sorts by (see `herdr_core::spaces::SpaceSort`).
+    /// What the session sorts by (see `herdr_client::spaces::SpaceSort`).
     var spaceSorting: SpaceSort {
         switch spaceSort ?? .herdr {
         case .herdr: .herdr

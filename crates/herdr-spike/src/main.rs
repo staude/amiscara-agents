@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use herdr_core::pane::Pacing;
-use herdr_core::terminal::Screen;
-use herdr_core::{SessionState, SyncStatus};
+use herdr_client::pane::Pacing;
+use herdr_client::terminal::Screen;
+use herdr_client::{SessionState, SyncStatus};
 use herdr_proto::{
     GLOBAL_SUBSCRIPTIONS, PaneList, PaneRead, PaneReadResult, Pong, SUPPORTED_PROTOCOL,
     WorkspaceList,
@@ -243,7 +243,7 @@ async fn read_pane(conn: &Connection, pane: &str, ansi: bool) -> Result<PaneRead
 
 async fn history(conn: &Connection, pane: &str, pages: usize) -> Result<()> {
     let started = Instant::now();
-    let session = herdr_core::claude::find_session(conn, pane).await?;
+    let session = herdr_client::claude::find_session(conn, pane).await?;
     eprintln!(
         "-- {} ({} bytes), found in {:?}",
         session.path,
@@ -254,7 +254,7 @@ async fn history(conn: &Connection, pane: &str, pages: usize) -> Result<()> {
     let mut shown = Vec::new();
     for _ in 0..pages {
         let started = Instant::now();
-        let page = herdr_core::claude::read_back(conn, &session, end).await?;
+        let page = herdr_client::claude::read_back(conn, &session, end).await?;
         eprintln!(
             "-- page {}..{}: {} entries in {:?}",
             page.start,
@@ -415,7 +415,7 @@ async fn check(conn: &Connection) -> Result<()> {
 async fn view(conn: &Connection, pane: &str, seconds: u64) -> Result<()> {
     let (tx, mut rx) = tokio::sync::watch::channel(None);
     let started = Instant::now();
-    let follow = herdr_core::pane::follow(conn, pane, Pacing::default(), &tx);
+    let follow = herdr_client::pane::follow(conn, pane, Pacing::default(), &tx);
     let report = async {
         while rx.changed().await.is_ok() {
             let Some(screen) = rx.borrow_and_update().clone() else {
@@ -446,7 +446,7 @@ async fn view(conn: &Connection, pane: &str, seconds: u64) -> Result<()> {
 
 async fn board(endpoint: Endpoint, seconds: u64) -> Result<()> {
     let endpoint = Arc::new(endpoint);
-    let mut rx = herdr_core::sync::spawn(move || {
+    let mut rx = herdr_client::sync::spawn(move || {
         let endpoint = Arc::clone(&endpoint);
         async move { endpoint.connect().await }
     });
@@ -507,7 +507,7 @@ fn print_board(at: f64, session: &SessionState) {
 
 async fn usage(conn: &Connection, cwd: &str, days: u64) -> Result<()> {
     use chrono::{Local, TimeZone};
-    use herdr_core::usage::{self, Tokens, UsageCache};
+    use herdr_client::usage::{self, Tokens, UsageCache};
 
     let now = Local::now();
     let start = (now.date_naive() - chrono::Days::new(days.saturating_sub(1)))

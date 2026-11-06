@@ -4,14 +4,14 @@
 
 use std::collections::HashMap;
 
-use herdr_core::SessionState;
-use herdr_core::chains;
-use herdr_core::pane::PaneScreen;
-use herdr_core::programs::{self, ProgramMatch};
-use herdr_core::question;
-use herdr_core::spaces::{self, SpaceSort};
-use herdr_core::sync::{SyncState, SyncStatus};
-use herdr_core::terminal::{Color, Screen, Span};
+use herdr_client::SessionState;
+use herdr_client::chains;
+use herdr_client::pane::PaneScreen;
+use herdr_client::programs::{self, ProgramMatch};
+use herdr_client::question;
+use herdr_client::spaces::{self, SpaceSort};
+use herdr_client::sync::{SyncState, SyncStatus};
+use herdr_client::terminal::{Color, Screen, Span};
 use herdr_proto::{AgentStatus, PaneInfo, TabLayout};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -277,7 +277,7 @@ pub struct PaneItem {
 }
 
 /// A program for an icon (#337). `id` names a table entry
-/// (`herdr_core::programs`); `other` is a process missing from the table,
+/// (`herdr_client::programs`); `other` is a process missing from the table,
 /// `agent` an agent kind missing from it, both with `known: false`.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -801,7 +801,7 @@ pub fn pane_content(screen: &PaneScreen) -> PaneContent {
 }
 
 /// The choice question at the bottom of a screen, see
-/// [`herdr_core::question`].
+/// [`herdr_client::question`].
 pub fn choice_question(screen: &Screen) -> Option<ChoiceQuestion> {
     let choices = question::detect(screen)?;
     Some(ChoiceQuestion {

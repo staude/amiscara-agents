@@ -286,7 +286,7 @@ mod tests {
     /// source and line count.
     fn fake_herdr(name: &str) -> (PathBuf, Requests) {
         let path =
-            std::env::temp_dir().join(format!("herdr-core-{name}-{}.sock", std::process::id()));
+            std::env::temp_dir().join(format!("herdr-client-{name}-{}.sock", std::process::id()));
         let _ = std::fs::remove_file(&path);
         let listener = UnixListener::bind(&path).expect("bind fake socket");
         let seen = Arc::new(Mutex::new(Vec::new()));

@@ -777,7 +777,7 @@ pub async fn dismiss_editor_request(
 
 fn open_in_vscode(app: &AppHandle, host: &HostConfig, path: &str) -> Result<(), AppError> {
     use tauri_plugin_opener::OpenerExt;
-    let url = herdr_core::vscode_url(host.editor_target().as_deref(), path);
+    let url = herdr_client::vscode_url(host.editor_target().as_deref(), path);
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|err| ConfigError::Other(format!("VS Code: {err}")).into())
@@ -909,8 +909,8 @@ pub struct Created {
     pane_id: String,
 }
 
-impl From<herdr_core::actions::Created> for Created {
-    fn from(created: herdr_core::actions::Created) -> Self {
+impl From<herdr_client::actions::Created> for Created {
+    fn from(created: herdr_client::actions::Created) -> Self {
         Self {
             workspace_id: created.workspace_id,
             tab_id: created.tab_id,
@@ -1002,7 +1002,7 @@ pub async fn create_worktree(
         let text = text.trim().to_owned();
         (!text.is_empty()).then_some(text)
     };
-    let worktree = herdr_core::actions::NewWorktree {
+    let worktree = herdr_client::actions::NewWorktree {
         branch: field(branch),
         base: field(base),
         label: field(label),

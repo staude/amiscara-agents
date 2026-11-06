@@ -54,7 +54,7 @@ struct ProgramIcon: View {
             }
     }
 
-    /// Program id (`herdr_core::programs`) → SF Symbol.
+    /// Program id (`herdr_client::programs`) → SF Symbol.
     private static let symbols: [String: String] = {
         var map: [String: String] = [:]
         func set(_ symbol: String, _ ids: String...) { for id in ids { map[id] = symbol } }

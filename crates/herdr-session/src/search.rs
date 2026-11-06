@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use herdr_core::claude::{self, Query};
-use herdr_core::{SessionState, actions};
+use herdr_client::claude::{self, Query};
+use herdr_client::{SessionState, actions};
 use herdr_transport::{Connection, EntryKind as FileKind};
 use tokio::sync::watch;
 
@@ -710,7 +710,7 @@ impl<S: SearchSink> Search<'_, S> {
 #[cfg(test)]
 mod tests {
     use super::{LineScan, RECENT_BYTES, SessionFile, keep_recent, space_of};
-    use herdr_core::claude::{self, Query};
+    use herdr_client::claude::{self, Query};
 
     fn line(text: &str) -> Vec<u8> {
         format!(

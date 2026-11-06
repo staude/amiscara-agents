@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use herdr_core::sync::SyncState;
+use herdr_client::sync::SyncState;
 use tokio::net::TcpListener;
 use tokio::runtime::Handle;
 use tokio::sync::{Semaphore, watch};

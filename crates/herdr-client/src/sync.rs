@@ -708,8 +708,10 @@ mod tests {
 
         // Takes connections and never answers, like a link that died while
         // the device slept.
-        let path =
-            std::env::temp_dir().join(format!("herdr-core-reconnect-{}.sock", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "herdr-client-reconnect-{}.sock",
+            std::process::id()
+        ));
         let _ = std::fs::remove_file(&path);
         let listener = UnixListener::bind(&path).expect("bind fake socket");
         tokio::spawn(async move {
