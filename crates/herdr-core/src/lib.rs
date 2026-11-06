@@ -12,6 +12,7 @@
 //! the overview of a plan waiting for approval. [`usage`] sums the tokens
 //! of Claude Code from its session files.
 //! [`chains`] stores and fires prompts that follow an agent's change (#300).
+//! [`programs`] tells what runs in a pane, for its icon (#337).
 
 pub mod actions;
 pub mod browse;
@@ -22,6 +23,7 @@ pub mod diff;
 pub mod fullscreen;
 pub mod github;
 pub mod pane;
+pub mod programs;
 pub mod question;
 pub mod spaces;
 mod state;

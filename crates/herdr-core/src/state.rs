@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::programs::ProgramMatch;
 use herdr_proto::{
     AgentStatus, Event, PaneInfo, SessionSnapshot, TabInfo, TabLayout, WorkspaceInfo,
 };
@@ -23,6 +24,10 @@ pub struct SessionState {
     /// Custom agent names (`agent.rename`) by pane id. herdr sends them only
     /// with the snapshot, so the sync driver takes a fresh one after a rename.
     pub agent_names: BTreeMap<String, String>,
+    /// What runs in each pane without an agent, from `pane.process_info`
+    /// (#337); panes without a foreground process are missing. Not part of
+    /// the snapshot, so the sync driver fills and carries it.
+    pub programs: BTreeMap<String, ProgramMatch>,
 }
 
 /// What [`SessionState::apply`] did with an event.
@@ -113,6 +118,7 @@ impl SessionState {
             layouts: snapshot.layouts,
             focused_pane_id: snapshot.focused_pane_id,
             branches: BTreeMap::new(),
+            programs: BTreeMap::new(),
             agent_names: snapshot
                 .agents
                 .into_iter()

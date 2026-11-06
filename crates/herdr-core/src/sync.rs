@@ -10,7 +10,12 @@
 //! with a status that says so. On request the driver drops the connection
 //! and connects again at once, keeping the last state (#264).
 //!
-//! Only read-only methods are used: `session.snapshot` and `events.subscribe`.
+//! Beside that it polls what herdr reports without an event: the branch per
+//! space (`worktree.list`) and the program in each pane without an agent
+//! (`pane.process_info`, #337).
+//!
+//! Only read-only methods are used: `session.snapshot`, `events.subscribe`,
+//! `worktree.list` and `pane.process_info`.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -19,7 +24,8 @@ use std::time::Duration;
 use std::collections::BTreeMap;
 
 use herdr_proto::{
-    GLOBAL_SUBSCRIPTIONS, ProtoError, SnapshotResult, WorktreeListResult, parse_event,
+    GLOBAL_SUBSCRIPTIONS, PaneProcessInfoResult, ProtoError, SnapshotResult, WorktreeListResult,
+    parse_event,
 };
 use herdr_transport::{Connection, Subscription, TransportError};
 use serde_json::{Value, json};
@@ -27,6 +33,7 @@ use tokio::sync::{Notify, mpsc, watch};
 use tokio::task::JoinHandle;
 use tokio::time::{Instant, sleep, sleep_until};
 
+use crate::programs::{self, ProgramMatch};
 use crate::{Applied, SessionState};
 
 /// How long structural events are collected before one snapshot answers them.
@@ -34,6 +41,8 @@ const RESNAPSHOT_DELAY: Duration = Duration::from_millis(150);
 const MAX_BACKOFF: Duration = Duration::from_secs(30);
 /// Branches change by checkouts, which herdr reports with no event.
 const BRANCH_REFRESH: Duration = Duration::from_secs(30);
+/// A pane's program changes (`vim`, `npm run dev`) with no event either.
+const PROGRAM_REFRESH: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncStatus {
@@ -259,6 +268,7 @@ async fn follow_inner(
 
     let mut state = snapshot(conn).await?;
     state.branches = branches(conn, &state).await;
+    state.programs = pane_programs(conn, &state).await;
     let mut panes = PaneStatus::subscribe(conn, &state).await?;
     *attempt = 0;
     publish(tx, SyncStatus::Live, &state);
@@ -267,6 +277,10 @@ async fn follow_inner(
     let mut resnapshot_at: Option<Instant> = None;
     let mut branch_refresh =
         tokio::time::interval_at(Instant::now() + BRANCH_REFRESH, BRANCH_REFRESH);
+    let mut program_refresh =
+        tokio::time::interval_at(Instant::now() + PROGRAM_REFRESH, PROGRAM_REFRESH);
+    // A slow link must not pile up requests.
+    program_refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         let item = tokio::select! {
             item = global.recv() => item,
@@ -279,10 +293,19 @@ async fn follow_inner(
                 }
                 continue;
             }
+            _ = program_refresh.tick() => {
+                let fresh = pane_programs(conn, &state).await;
+                if fresh != state.programs {
+                    state.programs = fresh;
+                    publish(tx, SyncStatus::Live, &state);
+                }
+                continue;
+            }
             () = wait_until(resnapshot_at) => {
                 resnapshot_at = None;
                 let mut fresh = snapshot(conn).await?;
                 fresh.branches = branches(conn, &fresh).await;
+                fresh.programs = pane_programs(conn, &fresh).await;
                 if fresh.pane_ids() != state.pane_ids() {
                     panes = PaneStatus::subscribe(conn, &fresh).await?;
                 }
@@ -343,6 +366,28 @@ async fn branches(conn: &Connection, state: &SessionState) -> BTreeMap<String, S
         );
         if let Some(branch) = branch_for(&worktrees, &cwd) {
             found.insert(workspace.workspace_id.clone(), branch);
+        }
+    }
+    found
+}
+
+/// What runs in every pane without an agent. Agent panes need no request:
+/// herdr names the agent, and their foreground group also holds the
+/// agent's MCP servers. A pane whose request fails is left out.
+async fn pane_programs(conn: &Connection, state: &SessionState) -> BTreeMap<String, ProgramMatch> {
+    let mut found = BTreeMap::new();
+    for pane in state.panes.iter().filter(|pane| pane.agent.is_none()) {
+        let Ok(value) = conn
+            .request("pane.process_info", json!({ "pane_id": pane.pane_id }))
+            .await
+        else {
+            continue;
+        };
+        let Ok(result) = serde_json::from_value::<PaneProcessInfoResult>(value) else {
+            continue;
+        };
+        if let Some(program) = programs::for_processes(&result.process_info) {
+            found.insert(pane.pane_id.clone(), program);
         }
     }
     found
