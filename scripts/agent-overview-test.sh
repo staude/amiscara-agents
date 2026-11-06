@@ -13,6 +13,7 @@ mkdir -p "$out"
 
 swiftc -swift-version 6 \
     apps/AmiscaraAgents/AmiscaraAgents/Model/AgentOverview.swift \
+    apps/AmiscaraAgents/AmiscaraAgents/Model/AgentBoard.swift \
     apps/AmiscaraAgents/AmiscaraAgents/Model/LiveClock.swift \
     apps/AmiscaraAgents/AmiscaraAgents/Model/TabTime.swift \
     apps/AmiscaraAgents/Shared/WidgetSnapshot.swift \
