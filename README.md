@@ -488,7 +488,8 @@ already trusts.
   never leaves the TV.
 - **iCloud** (Apple devices only) holds the agent states the Mac app
   publishes, the TV pairing data and the Watch's commands, in the user's
-  **private** database. No server of this project is involved.
+  **private** database, and the IDs of tabs put away, in the app's
+  key-value store. No server of this project is involved.
 - **Read-only hosts:** a per-host switch turns off all input.
 - **herdr's API is powerful:** whoever reaches the socket can type into
   every pane, shells included. Treat each device key like a shell login to

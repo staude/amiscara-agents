@@ -171,6 +171,7 @@ struct ContentView: View {
               store.connection(for: last.host) != nil
         else { return }
         selection = SpaceRef(hostID: last.host, workspaceID: last.workspace, paneID: last.pane)
+        WorkspaceDetailView.reopened = selection
     }
 
     /// Opens what the screenshot demo asks for (#199) once the demo

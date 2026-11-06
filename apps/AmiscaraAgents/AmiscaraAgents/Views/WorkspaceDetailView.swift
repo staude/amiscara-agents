@@ -31,6 +31,9 @@ struct WorkspaceDetailView: View {
     /// The space's pull request, shown (#309).
     @State private var pullRequestShown: PullRequestTarget?
     #endif
+    /// The space and pane reopened on launch (#276), set by `ContentView`:
+    /// not opened on purpose, so a tab put away meanwhile (#333) stays away.
+    @MainActor static var reopened: SpaceRef?
 
     var body: some View {
         Group {
@@ -62,7 +65,14 @@ struct WorkspaceDetailView: View {
                     if let tabID, !tabs.contains(tabID) { focus(on: selection) }
                     remember()
                 }
-                .focusedSceneValue(\.tabNavigator, workspace.tabs.count > 1 ? TabNavigator(step: { step(by: $0, in: workspace) }) : nil)
+                .onChange(of: SettledTabs.shared.tabs(host: connection.settledHost)) { _, settled in
+                    settledElsewhere(settled, in: workspace, on: connection)
+                }
+                .focusedSceneValue(
+                    \.tabNavigator,
+                    visibleTabs(workspace, on: connection).count > 1
+                        ? TabNavigator(step: { step(by: $0, in: workspace, on: connection) }) : nil
+                )
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
                 #if !os(tvOS)
                 .navigationSubtitle(workspace.group ?? "")
@@ -122,12 +132,12 @@ struct WorkspaceDetailView: View {
         }
         #endif
         .onChange(of: selection, initial: true) { _, selection in
-            focus(on: selection)
+            focus(on: selection, opened: true)
         }
         .onChange(of: isKnown) { _, known in
             // The host lists the space only now (a launch while offline, a
             // space created a moment ago): its tab.
-            if known, tabID == nil { focus(on: selection) }
+            if known, tabID == nil { focus(on: selection, opened: true) }
         }
         .onChange(of: isGone) { _, gone in
             // The space shown last was closed on the host: not again on launch.
@@ -191,6 +201,68 @@ struct WorkspaceDetailView: View {
         return layout
     }
 
+    /// The tabs of the tab bar: all but those put away (#333).
+    private func visibleTabs(_ workspace: WorkspaceItem, on connection: HostConnection) -> [TabItem] {
+        let settled = SettledTabs.shared.tabs(host: connection.settledHost)
+        return workspace.tabs.filter { !settled.contains($0.tabId) }
+    }
+
+    /// The tabs of the space put away (#333), in herdr's order.
+    private func settledTabs(_ workspace: WorkspaceItem, on connection: HostConnection) -> [TabItem] {
+        let settled = SettledTabs.shared.tabs(host: connection.settledHost)
+        return workspace.tabs.filter { settled.contains($0.tabId) }
+    }
+
+    /// The last visible tab of a space stays, so the space never looks
+    /// empty. A waiting agent's tab stays too: it would come right back.
+    private func canSettle(_ tab: TabItem, in workspace: WorkspaceItem, on connection: HostConnection) -> Bool {
+        tab.agentState != .blocked && visibleTabs(workspace, on: connection).count > 1
+    }
+
+    /// Puts a tab away; the shown one hands over to its neighbour first.
+    private func settle(_ tab: TabItem, in workspace: WorkspaceItem, on connection: HostConnection) {
+        if isCurrent(tab), let next = neighbour(of: tab.tabId, in: workspace, on: connection) {
+            select(next)
+            // The neighbour is the tab to come back to.
+            remember()
+        }
+        dropPane(of: tab.tabId, in: workspace)
+        SettledTabs.shared.settle(tab: tab.tabId, host: connection.settledHost)
+    }
+
+    /// Tabs put away on another device (#333): the tab next to the shown one.
+    private func settledElsewhere(_ settled: Set<String>, in workspace: WorkspaceItem, on connection: HostConnection) {
+        if let pane = selection?.paneID,
+           let tab = workspace.tabs.first(where: { $0.panes.contains { $0.paneId == pane } }),
+           settled.contains(tab.tabId) {
+            dropPane(of: tab.tabId, in: workspace)
+        }
+        guard let tabID, settled.contains(tabID) else { return }
+        if let next = neighbour(of: tabID, in: workspace, on: connection) {
+            select(next)
+            remember()
+        } else {
+            focus(on: selection)
+        }
+    }
+
+    /// A selection that names a pane of a tab put away drops the pane, so
+    /// opening that agent again is a change and brings the tab back.
+    private func dropPane(of tabID: String, in workspace: WorkspaceItem) {
+        guard let pane = selection?.paneID,
+              workspace.tabs.first(where: { $0.tabId == tabID })?.panes.contains(where: { $0.paneId == pane }) == true
+        else { return }
+        selection?.paneID = nil
+    }
+
+    /// The visible tab right of `tabID`, else left of it.
+    private func neighbour(of tabID: String, in workspace: WorkspaceItem, on connection: HostConnection) -> TabItem? {
+        let settled = SettledTabs.shared.tabs(host: connection.settledHost)
+        guard let index = workspace.tabs.firstIndex(where: { $0.tabId == tabID }) else { return nil }
+        let shown = { (tab: TabItem) in !settled.contains(tab.tabId) }
+        return workspace.tabs[(index + 1)...].first(where: shown) ?? workspace.tabs[..<index].last(where: shown)
+    }
+
     private func tabBar(_ workspace: WorkspaceItem, connection: HostConnection) -> some View {
         // Time in state (#338): the live board, the Mac's board fills gaps.
         let items = (connection.update?.board ?? []).filter { $0.workspaceId == workspace.workspaceId }
@@ -198,9 +270,10 @@ struct WorkspaceDetailView: View {
             for: CloudPush.hostKey(forPublicKey: connection.config.pinnedHostKey),
             in: store.cloudBoards
         )
+        let settled = settledTabs(workspace, on: connection)
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 2) {
-                ForEach(workspace.tabs, id: \.tabId) { tab in
+                ForEach(visibleTabs(workspace, on: connection), id: \.tabId) { tab in
                     Button {
                         select(tab)
                     } label: {
@@ -230,11 +303,21 @@ struct WorkspaceDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .renameAction(available: RenameTarget.available(on: connection)) {
-                        renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
-                    } more: {
-                        Button("Tab schließen …", systemImage: "xmark", role: .destructive) {
-                            closing = closeTarget(tab, on: connection)
+                    .contextMenu(when: RenameTarget.available(on: connection) || canSettle(tab, in: workspace, on: connection)) {
+                        if RenameTarget.available(on: connection) {
+                            Button("Umbenennen …", systemImage: "pencil") {
+                                renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                            }
+                        }
+                        if canSettle(tab, in: workspace, on: connection) {
+                            Button("Wegräumen", systemImage: "tray.and.arrow.down") {
+                                settle(tab, in: workspace, on: connection)
+                            }
+                        }
+                        if RenameTarget.available(on: connection) {
+                            Button("Tab schließen …", systemImage: "xmark", role: .destructive) {
+                                closing = closeTarget(tab, on: connection)
+                            }
                         }
                     }
                 }
@@ -246,6 +329,9 @@ struct WorkspaceDetailView: View {
                     .buttonStyle(.borderless)
                     .padding(.leading, 8)
                     agentTabMenu(in: workspace, on: connection)
+                }
+                if !settled.isEmpty {
+                    settledMenu(settled, on: connection)
                 }
                 #if !os(tvOS)
                 // Reading and merging go to GitHub, not the host's input.
@@ -298,6 +384,12 @@ struct WorkspaceDetailView: View {
             }
             // Here as well: long presses on the tabs are unreliable on iPad.
             Section {
+                if let tab = visibleTabs(workspace, on: connection).first(where: isCurrent),
+                   canSettle(tab, in: workspace, on: connection) {
+                    Button("Tab wegräumen", systemImage: "tray.and.arrow.down") {
+                        settle(tab, in: workspace, on: connection)
+                    }
+                }
                 if let tab = workspace.tabs.first(where: isCurrent) {
                     Button("Tab schließen …", systemImage: "xmark", role: .destructive) {
                         closing = closeTarget(tab, on: connection)
@@ -318,6 +410,36 @@ struct WorkspaceDetailView: View {
         .disabled(startingAgent)
         .help(String(localized: "Neuer Tab mit Agent"))
         .task(id: connection.id) { agentKinds = await connection.agentKinds() }
+    }
+
+    /// The tabs put away (#333), to bring one or all of them back.
+    private func settledMenu(_ tabs: [TabItem], on connection: HostConnection) -> some View {
+        Menu {
+            ForEach(tabs, id: \.tabId) { tab in
+                Button {
+                    SettledTabs.shared.unsettle(tab: tab.tabId, host: connection.settledHost)
+                    select(tab)
+                } label: {
+                    Text(verbatim: tab.label)
+                }
+            }
+            Divider()
+            Button("Alle zurückholen", systemImage: "tray.and.arrow.up") {
+                SettledTabs.shared.unsettleAll(host: connection.settledHost, tabs: Set(tabs.map(\.tabId)))
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Label("Weggeräumte Tabs", systemImage: "tray.full")
+                    .labelStyle(.iconOnly)
+                Text(verbatim: "\(tabs.count)")
+                    .font(.caption.monospacedDigit())
+            }
+        }
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .buttonStyle(.borderless)
+        .padding(.trailing, 8)
+        .help(String(localized: "Weggeräumte Tabs"))
     }
 
     private func closeTarget(_ tab: TabItem, on connection: HostConnection) -> CloseTarget {
@@ -367,8 +489,8 @@ struct WorkspaceDetailView: View {
     }
 
     /// ⌘⇧[ and ⌘⇧]: the neighbouring tab, wrapping around like herdr.
-    private func step(by offset: Int, in workspace: WorkspaceItem) {
-        let tabs = workspace.tabs
+    private func step(by offset: Int, in workspace: WorkspaceItem, on connection: HostConnection) {
+        let tabs = visibleTabs(workspace, on: connection)
         guard !tabs.isEmpty else { return }
         let index = tabs.firstIndex(where: isCurrent) ?? 0
         select(tabs[(index + offset % tabs.count + tabs.count) % tabs.count])
@@ -400,11 +522,18 @@ struct WorkspaceDetailView: View {
     }
 
     /// An agent picks its own tab and pane; a space opened without one
-    /// returns to the tab shown last, else herdr's active tab.
-    private func focus(on selection: SpaceRef?) {
+    /// returns to the tab shown last, else herdr's active tab. Put away
+    /// tabs (#333) count only when `opened` on purpose, through their pane:
+    /// not when the shown tab closed and the selection still names a pane.
+    private func focus(on selection: SpaceRef?, opened: Bool = false) {
         tabError = nil
+        // Another selection ends the launch: the reopened pane chosen again
+        // later is opened on purpose.
+        if selection != Self.reopened { Self.reopened = nil }
+        let opened = opened && (selection == nil || selection != Self.reopened)
         guard let selection,
-              let workspace = store.connection(for: selection.hostID)?.update?.workspaces
+              let connection = store.connection(for: selection.hostID),
+              let workspace = connection.update?.workspaces
                 .first(where: { $0.workspaceId == selection.workspaceID })
         else {
             // A space created a moment ago is not in the snapshot yet; its
@@ -413,16 +542,26 @@ struct WorkspaceDetailView: View {
             paneID = selection?.paneID
             return
         }
+        let visible = visibleTabs(workspace, on: connection)
+        Self.reopened = nil
         if let pane = selection.paneID,
-           let tab = workspace.tabs.first(where: { $0.panes.contains { $0.paneId == pane } }) {
+           let tab = (opened ? workspace.tabs : visible).first(where: { $0.panes.contains { $0.paneId == pane } }) {
+            // From the agent list, a notification or the switcher: the tab
+            // comes back, the tab bar would miss it otherwise.
+            SettledTabs.shared.unsettle(tab: tab.tabId, host: connection.settledHost)
             tabID = tab.tabId
             paneID = pane
         } else if let last = LastTabs.shared.entry(host: selection.hostID, workspace: selection.workspaceID),
-                  let tab = workspace.tabs.first(where: { $0.tabId == last.tab }) {
+                  let tab = visible.first(where: { $0.tabId == last.tab }) {
             tabID = tab.tabId
             paneID = last.pane.flatMap { id in tab.panes.contains { $0.paneId == id } ? id : nil }
                 ?? (tab.panes.first { $0.focused } ?? tab.panes.first)?.paneId
+        } else if let tab = visible.first(where: { $0.tabId == workspace.activeTabId }) ?? visible.first {
+            select(tab)
         } else if let tab = workspace.tabs.first(where: { $0.tabId == workspace.activeTabId }) ?? workspace.tabs.first {
+            // Every tab put away, e.g. after closing the last shown one:
+            // herdr's active tab comes back.
+            SettledTabs.shared.unsettle(tab: tab.tabId, host: connection.settledHost)
             select(tab)
         }
     }
