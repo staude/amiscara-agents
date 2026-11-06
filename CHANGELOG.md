@@ -793,6 +793,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
   as push from the Mac; a delivered one goes once the agent is seen
   elsewhere. Needs herdr 0.9.5, not on read-only hosts. `SessionState::seen`,
   `agent_status`, `Session::mark_seen`, FFI `mark_seen`.
+- Changes of a space (#342): "Änderungen …" in the menu of a Git space in
+  the sidebar and in the ✦ menu next to the tabs, and a ± button next to
+  the tabs, open the uncommitted changes of the space's folder (the focused
+  pane's in the active tab) in the same sheet as a pane's diff. After a
+  load the button shows the number of files until the next load or app
+  start. Without input allowed the sheet says why it needs it. Mac, iPhone
+  and iPad. `Session::space_working_tree_diff`, FFI
+  `space_working_tree_diff`.
 
 ### Changed
 
