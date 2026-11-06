@@ -4,7 +4,7 @@
   import * as core from "../lib/core";
   import { defaultSocket, errorText } from "../lib/core";
   import { model } from "../lib/state.svelte";
-  import type { HerdrSession, HostConfig } from "../lib/types";
+  import type { HerdrSession, HostConfig, SshConfigHost } from "../lib/types";
 
   let { host, close }: { host: HostConfig | null; close: () => void } = $props();
 
@@ -43,6 +43,9 @@
   let sessionError = $state<string | null>(null);
   let sessions = $state<HerdrSession[]>([]);
   let localDefault: string | null = null;
+  // Hosts of ~/.ssh/config to fill the fields from (#340).
+  let configHosts = $state<SshConfigHost[]>([]);
+  let chosenConfigHost = $state("");
 
   $effect(() => {
     if (!socketTouched && draft.kind === "ssh") {
@@ -52,6 +55,10 @@
   });
 
   onMount(async () => {
+    void core
+      .sshConfigHosts()
+      .then((hosts) => (configHosts = hosts))
+      .catch(() => {});
     localDefault = await core.localDefaultSocket().catch(() => null);
     await readSession();
     // Sessions to pick from: this machine's, or a connected host's (needs SFTP).
@@ -63,6 +70,25 @@
           : Promise.resolve([]);
     sessions = await listed.catch(() => []);
   });
+
+  /** Address, user, port and SSH target from a host of ~/.ssh/config. The
+   * socket keeps following the user; the key is made as usual on saving. */
+  function applyConfigHost(alias: string) {
+    const picked = configHosts.find((entry) => entry.alias === alias && !entry.unsupported);
+    if (!picked) return;
+    if (!draft.name.trim()) draft.name = picked.alias;
+    draft.host = picked.hostName;
+    draft.port = picked.port ?? 22;
+    if (picked.user) draft.user = picked.user;
+    draft.sshTarget = picked.alias;
+  }
+
+  function configHostLabel(entry: SshConfigHost): string {
+    if (entry.unsupported) return t("sshConfigUnsupported", { alias: entry.alias, what: entry.unsupported });
+    const user = entry.user ? `${entry.user}@` : "";
+    const port = entry.port ? `:${entry.port}` : "";
+    return `${entry.alias}  ${user}${entry.hostName}${port}`;
+  }
 
   /** The socket the session field starts from: the path or its default. */
   function baseSocket(): string {
@@ -151,6 +177,18 @@
     </label>
 
     {#if draft.kind === "ssh"}
+      {#if configHosts.length > 0}
+        <label class="row">
+          <span>{t("sshConfigHost")}</span>
+          <select bind:value={chosenConfigHost} onchange={() => applyConfigHost(chosenConfigHost)}>
+            <option value="">{t("sshConfigNone")}</option>
+            {#each configHosts as entry (entry.alias)}
+              <option value={entry.alias} disabled={entry.unsupported !== null}>{configHostLabel(entry)}</option>
+            {/each}
+          </select>
+        </label>
+        <p class="hint">{t("sshConfigHint")}</p>
+      {/if}
       <label class="row">
         <span>Host</span>
         <input bind:value={draft.host} placeholder={t("hostAddressExample")} required />

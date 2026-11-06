@@ -33,6 +33,16 @@ export interface HostConfig {
 export type SpaceSortMode = "herdr" | "nameAscending" | "nameDescending" | "manual";
 
 /** A named herdr session on a host (#213). */
+/** A `Host` entry of `~/.ssh/config` (#340). */
+export interface SshConfigHost {
+  alias: string;
+  hostName: string;
+  user: string | null;
+  port: number | null;
+  /** What the app cannot do for this host, e.g. `ProxyJump`. */
+  unsupported: string | null;
+}
+
 export interface HerdrSession {
   name: string;
   running: boolean;

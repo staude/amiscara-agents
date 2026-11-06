@@ -15,6 +15,7 @@ import type {
   ScrollStep,
   SessionUpdate,
   SpaceSortMode,
+  SshConfigHost,
   TranscriptCursor,
   TranscriptPage,
 } from "./types";
@@ -41,6 +42,7 @@ export const sessionOfSocket = (socketPath: string) =>
 export const validSessionName = (name: string) => invoke<boolean>("valid_session_name", { name });
 export const localDefaultSocket = () => invoke<string | null>("local_default_socket");
 export const localSessions = () => invoke<HerdrSession[]>("local_sessions");
+export const sshConfigHosts = () => invoke<SshConfigHost[]>("ssh_config_hosts");
 export const hostSessions = (hostId: string) => invoke<HerdrSession[]>("host_sessions", { hostId });
 export const pendingLinks = () => invoke<string[]>("pending_links");
 export const connect = (hostId: string) => invoke<void>("connect", { hostId });
