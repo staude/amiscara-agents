@@ -1,5 +1,5 @@
 //! Against a herdr test session only (writes: opens and closes a tab):
-//! `HERDR_DIFF_SOCKET=<socket> HERDR_DIFF_PANE=<pane id> cargo test -p herdr-session --test diff_live -- --ignored --nocapture`
+//! `HERDR_DIFF_SOCKET=<socket> HERDR_DIFF_PANE=<pane id> cargo test -p herdr-session --test diff_live pane -- --ignored --nocapture`
 
 use std::time::Duration;
 
