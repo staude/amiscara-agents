@@ -75,6 +75,7 @@ struct WorkspaceDetailView: View {
                     visibleTabs(workspace, on: connection).count > 1
                         ? TabNavigator(step: { step(by: $0, in: workspace, on: connection) }) : nil
                 )
+                .focusedSceneValue(\.spaceCommands, commands(workspace, on: connection))
                 .navigationTitle(workspace.worktreeName ?? workspace.name)
                 #if !os(tvOS)
                 .navigationSubtitle(workspace.group ?? "")
@@ -477,6 +478,73 @@ struct WorkspaceDetailView: View {
         .buttonStyle(.borderless)
         .padding(.trailing, 8)
         .help(String(localized: "Weggeräumte Tabs"))
+    }
+
+    /// What the tab bar and its menus offer, for the switcher (#346): with
+    /// input allowed the writing ones, always the pull request, putting a
+    /// tab away and stepping through the tabs.
+    private func commands(_ workspace: WorkspaceItem, on connection: HostConnection) -> [PaletteCommand] {
+        var commands: [PaletteCommand] = []
+        func add(_ id: String, _ title: String, shortcut: CommandShortcut? = nil, keywords: [String] = [], run: @escaping @MainActor () -> Void) {
+            commands.append(PaletteCommand(id: "space.\(id)", title: title, section: .space, shortcut: shortcut, keywords: keywords, run: run))
+        }
+        let tab = workspace.tabs.first(where: isCurrent)
+        if RenameTarget.available(on: connection) {
+            add("newTab", String(localized: "Neuer Tab")) { newTab(in: workspace, on: connection) }
+            if !startingAgent {
+                for kind in agentKinds {
+                    add("newTab.\(kind)", String(localized: "Neuer Tab mit \(kind)"), keywords: ["agent"]) {
+                        newTab(in: workspace, on: connection, agent: kind)
+                    }
+                }
+            }
+            if let repo = WorktreeSource.repository(of: workspace, in: connection.update?.workspaces ?? []) {
+                add("newWorktree", String(localized: "Neuer Worktree …"), keywords: ["git", "branch"]) {
+                    newWorktreeFrom = WorktreeSource(connection: connection, repository: repo)
+                }
+            }
+            if let tab {
+                add("renameTab", String(localized: "Tab umbenennen …")) {
+                    renaming = RenameTarget(connection: connection, kind: .tab(tabID: tab.tabId), current: tab.label)
+                }
+            }
+            add("renameSpace", String(localized: "Space umbenennen …")) {
+                renaming = RenameTarget(connection: connection, kind: .space(workspaceID: workspace.workspaceId), current: workspace.label)
+            }
+            if let paneID, let pane = tab?.panes.first(where: { $0.paneId == paneID }), pane.agent != nil {
+                add("renameAgent", String(localized: "Agent benennen …")) {
+                    renaming = RenameTarget(connection: connection, kind: .agent(paneID: paneID), current: pane.name ?? "")
+                }
+            }
+            if let tab {
+                add("closeTab", String(localized: "Tab schließen …")) { closing = closeTarget(tab, on: connection) }
+            }
+            add("closeSpace", String(localized: "Space schließen …")) { closing = .space(workspace, on: connection) }
+            #if !os(tvOS)
+            add("claudeSessions", String(localized: "Claude-Sitzungen …"), keywords: ["resume"]) {
+                claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
+            }
+            #endif
+        }
+        if let tab, canSettle(tab, in: workspace, on: connection) {
+            add("settleTab", String(localized: "Tab wegräumen")) { settle(tab, in: workspace, on: connection) }
+        }
+        #if !os(tvOS)
+        if let pullRequest = connection.pullRequests.pullRequest(for: workspace.workspaceId) {
+            add("pullRequest", String(localized: "Pull Request #\(pullRequest.number) …"), keywords: ["pr", "github"]) {
+                pullRequestShown = PullRequestTarget(connection: connection, pullRequest: pullRequest)
+            }
+        }
+        #endif
+        if visibleTabs(workspace, on: connection).count > 1 {
+            add("previousTab", String(localized: "Vorheriger Tab"), shortcut: Shortcuts.previousTab) {
+                step(by: -1, in: workspace, on: connection)
+            }
+            add("nextTab", String(localized: "Nächster Tab"), shortcut: Shortcuts.nextTab) {
+                step(by: 1, in: workspace, on: connection)
+            }
+        }
+        return commands
     }
 
     private func closeTarget(_ tab: TabItem, on connection: HostConnection) -> CloseTarget {

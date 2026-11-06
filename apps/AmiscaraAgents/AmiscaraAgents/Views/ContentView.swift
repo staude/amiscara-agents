@@ -19,6 +19,10 @@ struct ContentView: View {
     /// An opened "add host" link and the new host it is meant for.
     @State private var pendingImport: (hostID: UUID, link: String)?
     @State private var switching = false
+    /// The switcher's commands, collected when it opened (#346).
+    @State private var paletteCommands: [PaletteCommand] = []
+    /// The command picked in the switcher, run once it is closed.
+    @State private var pendingCommand: PaletteCommand?
     /// Sidebar width that ends at the fold of an unfolded iPhone Duo (#215).
     @State private var foldWidth: CGFloat?
     #if os(macOS)
@@ -41,7 +45,7 @@ struct ContentView: View {
             TVContentView(editing: $editing, open: $selection)
             #else
             NavigationSplitView {
-                HostSidebar(selection: sidebarSelection, editing: $editing, switching: $switching, openHandoff: openHandoff)
+                HostSidebar(selection: sidebarSelection, editing: $editing, openSwitcher: openSwitcher, openHandoff: openHandoff)
                     .navigationSplitViewColumnWidth(min: foldWidth ?? 240, ideal: foldWidth ?? 280, max: foldWidth)
             } detail: {
                 // Without a space chosen, Mac and iPad show the overview.
@@ -80,13 +84,18 @@ struct ContentView: View {
             store.notifier.openRequest = nil
         }
         .focusedSceneValue(\.navigator, Navigator(
-            openSwitcher: { switching = true },
+            openSwitcher: openSwitcher,
             spaceCount: currentSpaces.count,
             selectSpace: selectSpace,
             openHandoff: openHandoff
         ))
-        .sheet(isPresented: $switching) {
-            QuickSwitcher { selection = $0 }
+        .sheet(isPresented: $switching, onDismiss: {
+            let command = pendingCommand
+            pendingCommand = nil
+            paletteCommands = []
+            command?.run()
+        }) {
+            QuickSwitcher(commands: paletteCommands, onCommand: { pendingCommand = $0 }) { selection = $0 }
         }
         .onDisappear {
             // A closed window shows no pane; its agents get banners again.
@@ -184,7 +193,7 @@ struct ContentView: View {
                     selection = SpaceRef(hostID: connection.id, workspaceID: space.workspaceId, paneID: DemoMode.pane)
                 }
                 switch DemoMode.view {
-                case "switcher": switching = true
+                case "switcher": openSwitcher()
                 case "addHost": editing = HostConfig(name: "", kind: .ssh)
                 case "overview": showingOverview = true
                 case "dashboard": dashboardHost = connection.id
@@ -259,6 +268,83 @@ struct ContentView: View {
         pendingImport = (config.id, url.absoluteString)
         editing = config
     }
+
+    /// ⌘K: the switcher with the commands of the app, the open space's host
+    /// and what the focused space and pane offer (#346).
+    private func openSwitcher(_ sources: PaletteSources = PaletteSources()) {
+        #if os(tvOS)
+        paletteCommands = []
+        #else
+        // Behind the app lock (#232) no command runs.
+        paletteCommands = paletteCommands(sources).map { $0.guarded { !AppLock.shared.isCovered } }
+        #endif
+        pendingCommand = nil
+        switching = true
+    }
+
+    #if !os(tvOS)
+    /// In the order app, host, space, pane. Nothing on tvOS, whose remote
+    /// has no shortcuts and whose views offer these on screen.
+    private func paletteCommands(_ sources: PaletteSources) -> [PaletteCommand] {
+        var commands: [PaletteCommand] = []
+        func add(
+            _ section: PaletteCommand.Section,
+            _ id: String,
+            _ title: String,
+            shortcut: CommandShortcut? = nil,
+            keywords: [String] = [],
+            run: @escaping @MainActor () -> Void
+        ) {
+            commands.append(PaletteCommand(id: "\(section).\(id)", title: title, section: section, shortcut: shortcut, keywords: keywords, run: run))
+        }
+        add(.app, "overview", String(localized: "Übersicht")) {
+            selection = nil
+            showingOverview = true
+            dashboardHost = nil
+        }
+        if !store.connections.isEmpty {
+            add(.app, "handoff", String(localized: "Übergabe aus Zwischenablage …"), shortcut: Shortcuts.handoff, run: openHandoff)
+        }
+        add(.app, "addHost", String(localized: "Host hinzufügen …")) { editing = HostConfig(name: "", kind: .ssh) }
+        #if os(macOS)
+        add(.app, "settings", String(localized: "Einstellungen …"), shortcut: Shortcuts.settings) { openSettings() }
+        #endif
+        if let connection = store.connection(for: selection?.hostID) {
+            add(.host, "edit", String(localized: "Host bearbeiten …")) { editing = connection.config }
+            add(.host, "reconnect", String(localized: "Neu verbinden")) { connection.start() }
+            let allowed = connection.config.inputAllowed
+            add(.host, "input", allowed ? String(localized: "Host nur lesend schalten") : String(localized: "Eingaben an den Host erlauben"), keywords: ["read only"]) {
+                // The same switch as in the host editor, without a question.
+                var config = connection.config
+                config.inputAllowed = !allowed
+                store.update(config)
+            }
+        }
+        commands += sources.space ?? []
+        commands += sources.pane ?? []
+        if let keys = sources.keySender {
+            add(.pane, "escape", String(localized: "Esc senden"), shortcut: Shortcuts.escape) { keys.send(["esc"]) }
+            add(.pane, "controlC", String(localized: "Control-C senden"), shortcut: Shortcuts.controlC) { keys.send(["ctrl+c"]) }
+            add(.pane, "enter", String(localized: "Enter senden"), shortcut: Shortcuts.enter) { keys.send(["enter"]) }
+            if keys.isBlocked {
+                for number in 1...3 {
+                    let option = "\(number)"
+                    add(.pane, "option\(number)", String(localized: "Option \(option) wählen"), shortcut: Shortcuts.option(number)) {
+                        keys.send([option])
+                    }
+                }
+            }
+        }
+        if let search = sources.paneSearch {
+            add(.pane, "find", String(localized: "Suchen …"), shortcut: Shortcuts.find, run: search.open)
+            if search.canStep {
+                add(.pane, "findNext", String(localized: "Weitersuchen"), shortcut: Shortcuts.findNext) { search.step(1) }
+                add(.pane, "findPrevious", String(localized: "Rückwärts suchen"), shortcut: Shortcuts.findPrevious) { search.step(-1) }
+            }
+        }
+        return commands
+    }
+    #endif
 
     /// The clipboard's text as a handoff (#236); nothing without text.
     private func openHandoff() {
