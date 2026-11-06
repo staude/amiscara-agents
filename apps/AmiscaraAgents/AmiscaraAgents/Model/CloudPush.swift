@@ -286,8 +286,8 @@ final class CloudPushSubscriptions {
         info.alertLocalizationArgs = [CloudPush.Field.body]
         info.desiredKeys = [CloudPush.Field.hostKey, CloudPush.Field.paneID, CloudPush.Field.workspaceID]
         info.collapseIDKey = CloudPush.Field.collapseID
+        info.soundName = NotificationSound.current(waiting: waiting).pushSoundName
         if waiting {
-            info.soundName = "default"
             info.category = AgentNotification.blockedCategory
         }
         subscription.notificationInfo = info
