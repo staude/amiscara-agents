@@ -20,6 +20,10 @@ struct AgentTaskField: View {
             TextField("Aufgabe", text: $task, axis: .vertical)
                 .lineLimit(3...8)
                 .disabled(!enabled)
+                // On a row, not on the Section: a container may pass it on to its children.
+                .sheet(item: $filling) { template in
+                    PromptTemplateForm(template: template, prefills: prefills()) { insert($0) }
+                }
             let available = templates.matching(repo: repo)
             if !available.isEmpty {
                 Menu("Vorlage", systemImage: "text.badge.plus") {
@@ -35,9 +39,6 @@ struct AgentTaskField: View {
             Text(enabled
                  ? "Die App sendet die Aufgabe, sobald der Agent bereit ist."
                  : "Nur mit Agent.")
-        }
-        .sheet(item: $filling) { template in
-            PromptTemplateForm(template: template, prefills: prefills()) { insert($0) }
         }
     }
 
@@ -102,6 +103,8 @@ struct NewAgentTabView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(createdTab ? "Schließen" : "Abbrechen") { dismiss() }
+                        // The error would appear in a closed sheet.
+                        .disabled(starting)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Starten") { start() }
@@ -113,6 +116,7 @@ struct NewAgentTabView: View {
                 if agentKind == nil { agentKind = kinds.first }
             }
         }
+        .interactiveDismissDisabled(starting)
         #if os(macOS)
         .frame(width: 460, height: 380)
         #endif
