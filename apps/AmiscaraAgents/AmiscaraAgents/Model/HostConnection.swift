@@ -287,10 +287,14 @@ final class HostConnection: Identifiable {
     /// e.g. a dropped connection, report nothing.
     private func watchStart(of kind: String, in paneID: String, on session: HostSession) {
         Task { [weak self] in
-            let failure = try? await Task.detached {
-                try session.watchAgentStart(paneId: paneID)
-            }.value
-            guard let self, let failure = failure ?? nil else { return }
+            // Blocks up to 35 s: on its own thread, not one of the few of
+            // the shared pool the other calls into Rust need.
+            let failure: StartFailure? = await withCheckedContinuation { continuation in
+                Thread.detachNewThread {
+                    continuation.resume(returning: (try? session.watchAgentStart(paneId: paneID)) ?? nil)
+                }
+            }
+            guard let self, let failure else { return }
             self.startFailures.append(AgentStartFailure(
                 kind: kind,
                 workspaceID: failure.workspaceId,
