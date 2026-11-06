@@ -14,7 +14,9 @@ use herdr_client::{SessionState, actions};
 use herdr_transport::{Connection, EntryKind as FileKind};
 use tokio::sync::watch;
 
-use crate::session::{Session, SessionError, TranscriptKind, UPLOAD_DIR, files_error, run_in_tab};
+use crate::session::{
+    HostRun, Session, SessionError, TranscriptKind, UPLOAD_DIR, files_error, run_host_script,
+};
 
 /// Most hits one search reports.
 pub const MAX_HITS: usize = 200;
@@ -28,6 +30,9 @@ const RECENT_BYTES: u64 = 300 << 20;
 const POLL: Duration = Duration::from_millis(300);
 /// How long the host's search may take.
 const HOST_DEADLINE: Duration = Duration::from_secs(5 * 60);
+/// How long the search may run on herdr-core (#329), which runs it without
+/// a tab and reports no progress; herdr-core allows at most 600 s.
+const HOST_EXEC_TIMEOUT: Duration = Duration::from_secs(600);
 /// Most bytes read of the host's result list.
 const MAX_RESULT_BYTES: u64 = 1 << 20;
 
@@ -556,20 +561,17 @@ impl<S: SearchSink> Search<'_, S> {
                 )
                 .await
                 .map_err(files_error)?;
-            // A leading space keeps it out of the shell's history where the
-            // shell honours that.
-            let tab = run_in_tab(
-                &self.conn,
-                space,
-                &self.home,
-                &format!(" sh '{script}'; exit"),
-            )
-            .await?;
-            let finished = self.wait_for_host(&stamp).await;
-            // The shell exits by itself; close the tab in case it stayed,
-            // and to end the search when it was cancelled.
-            let _ = actions::close_tab(&self.conn, &tab).await;
-            if !finished? {
+            let run =
+                run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT).await?;
+            if let HostRun::Tab(tab) = run {
+                let finished = self.wait_for_host(&stamp).await;
+                // The shell exits by itself; close the tab in case it
+                // stayed, and to end the search when it was cancelled.
+                let _ = actions::close_tab(&self.conn, &tab).await;
+                if !finished? {
+                    return Ok(());
+                }
+            } else if self.stopped() {
                 return Ok(());
             }
             let data = self

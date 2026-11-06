@@ -2339,19 +2339,13 @@ async fn run_script(
     let err_file = format!("{out}.err");
 
     let result = async {
-        // A leading space keeps it out of the shell's history where the
-        // shell honours that (fish, zsh/bash with ignorespace).
-        let tab = run_in_tab(
-            conn,
-            workspace_id,
-            cwd,
-            &format!(" sh '{script_path}'; exit"),
-        )
-        .await?;
-        let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
-        // The shell exits by itself; close the tab in case it stayed.
-        let _ = actions::close_tab(conn, &tab).await;
-        finished?;
+        let run = run_host_script(conn, workspace_id, cwd, &script_path, SCRIPT_TIMEOUT).await?;
+        if let HostRun::Tab(tab) = run {
+            let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
+            // The shell exits by itself; close the tab in case it stayed.
+            let _ = actions::close_tab(conn, &tab).await;
+            finished?;
+        }
         let mut data = conn
             .read_file_range(&done, 0, max_bytes + 1)
             .await
@@ -2477,6 +2471,68 @@ fn merge_github_repos(origins: Vec<(String, Vec<String>)>) -> Vec<github::GitHub
 
 /// The most of a Git `config` read for its `origin` (#296).
 const MAX_GIT_CONFIG_BYTES: u64 = 64 * 1024;
+
+/// How long a script of [`run_script`] may run on herdr-core.
+const SCRIPT_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// What [`run_host_script`] did.
+pub(crate) enum HostRun {
+    /// The script runs in this tab of herdr's; it is still to be waited
+    /// for and closed.
+    Tab(String),
+    /// herdr-core ran it to its end.
+    Finished,
+}
+
+/// Runs the uploaded script `script_path` with `sh` in `cwd` for the space
+/// `workspace_id`: on herdr in a short-lived, unfocused tab, on herdr-core
+/// (#329) with `machine.exec` up to `timeout`, without a tab. A space of a
+/// machine connected to the core is refused: the script was uploaded to
+/// the host.
+pub(crate) async fn run_host_script(
+    conn: &Connection,
+    workspace_id: &str,
+    cwd: &str,
+    script_path: &str,
+    timeout: Duration,
+) -> Result<HostRun, SessionError> {
+    if herdr_client::hc::is_hc(workspace_id) {
+        if herdr_client::hc::machine_of(workspace_id).is_some() {
+            return Err(SessionError::Unsupported(
+                "not available for terminals on another machine".into(),
+            ));
+        }
+        let value = conn
+            .hc_request(
+                "machine.exec",
+                serde_json::json!({
+                    "argv": ["sh", script_path],
+                    "cwd": cwd,
+                    "timeout": timeout.as_secs(),
+                }),
+            )
+            .await
+            .map_err(|err| SessionError::from(actions::ActionError::from(err)))?;
+        let result: herdr_proto::hc::ExecResult =
+            serde_json::from_value(value).map_err(|err| SessionError::Rejected(err.to_string()))?;
+        if result.timed_out {
+            return Err(SessionError::Files(
+                "the script on the host did not finish in time".into(),
+            ));
+        }
+        return Ok(HostRun::Finished);
+    }
+    // A leading space keeps it out of the shell's history where the shell
+    // honours that (fish, zsh/bash with ignorespace).
+    let tab = run_in_tab(
+        conn,
+        workspace_id,
+        cwd,
+        &format!(" sh '{script_path}'; exit"),
+    )
+    .await?;
+    Ok(HostRun::Tab(tab))
+}
 
 /// Opens an unfocused tab in `cwd` and types `command` with Enter;
 /// returns the tab's id.
