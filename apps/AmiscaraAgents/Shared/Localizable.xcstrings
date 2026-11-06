@@ -1322,6 +1322,16 @@
         }
       }
     },
+    "Arbeitet seit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working for %@"
+          }
+        }
+      }
+    },
     "Arbeitsverzeichnis der Pane in VS Code öffnen" : {
       "localizations" : {
         "en" : {
@@ -8110,6 +8120,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting"
+          }
+        }
+      }
+    },
+    "Wartet seit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for %@"
           }
         }
       }
