@@ -385,6 +385,9 @@ targets:
           - Model/PromptTemplates.swift
           - Views/PromptTemplateEditor.swift
           - Views/PromptTemplateForm.swift
+          # Notification tones; tvOS shows no banners (#336).
+          - Sounds/**
+          - Views/NotificationSoundSettings.swift
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true

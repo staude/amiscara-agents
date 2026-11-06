@@ -139,6 +139,10 @@ struct HostSidebar: View {
                         AppLockSettings()
                             .pickerStyle(.menu)
                     }
+                    Section("Mitteilungston") {
+                        NotificationSoundSettings()
+                            .pickerStyle(.menu)
+                    }
                     LiveActivityToggle()
                     SpotlightToggle()
                     Section("Tokens und Kosten") {
