@@ -125,6 +125,8 @@ struct QuickSwitcher: View {
     @State private var highlighted: String?
     #if !os(tvOS)
     @State private var peeking: AgentPeek?
+    /// Opened from the peek: picked once the peek is gone.
+    @State private var pendingPick: SpaceRef?
     #endif
     @FocusState private var searchFocused: Bool
 
@@ -151,8 +153,11 @@ struct QuickSwitcher: View {
                     }
                     #if !os(tvOS)
                     .onKeyPress(.return, phases: .down) { press in
-                        guard press.modifiers.contains(.option) else { return .ignored }
-                        if let peek = current(in: results).flatMap(peek) { peeking = peek }
+                        // A space has no peek: ⌥Return opens it like Return.
+                        guard press.modifiers.contains(.option),
+                              let peek = current(in: results).flatMap(peek)
+                        else { return .ignored }
+                        peeking = peek
                         return .handled
                     }
                     #endif
@@ -199,11 +204,16 @@ struct QuickSwitcher: View {
                 }
             }
             #if !os(tvOS)
-            // The peek closes before the switcher it sits on.
-            .agentPeek($peeking) { target in
-                peeking = nil
+            // The peek closes before the switcher it sits on: a Mac sheet
+            // closed with a sheet on it can leave one behind.
+            .agentPeek($peeking, onDismiss: {
+                guard let target = pendingPick else { return }
+                pendingPick = nil
                 onPick(target)
                 dismiss()
+            }) { target in
+                pendingPick = target
+                peeking = nil
             }
             #endif
         }
