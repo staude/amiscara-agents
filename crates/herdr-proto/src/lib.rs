@@ -2,7 +2,10 @@
 //!
 //! The server speaks newline-delimited JSON: one request line in, one
 //! response line out. Subscriptions keep the connection open and stream one
-//! event per line after the initial acknowledgement.
+//! event per line after the initial acknowledgement. [`hc`] has the types of
+//! herdr-core, the second backend (#329).
+
+pub mod hc;
 
 use std::collections::BTreeMap;
 
@@ -38,6 +41,9 @@ pub struct ApiError {
 pub enum ProtoError {
     #[error("herdr error {code}: {message}")]
     Api { code: String, message: String },
+    /// herdr-core refused the call; `kind` is its stable `data.kind`.
+    #[error("herdr-core error {kind}: {message}")]
+    Rpc { kind: String, message: String },
     #[error("malformed response: {0}")]
     Malformed(String),
     #[error(transparent)]
