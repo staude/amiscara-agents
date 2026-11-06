@@ -130,6 +130,7 @@ impl From<actions::ActionError> for SessionError {
         match err {
             actions::ActionError::AgentBlocked => Self::AgentBlocked(err.to_string()),
             actions::ActionError::Rejected { .. } => Self::Rejected(err.to_string()),
+            actions::ActionError::Unsupported(message) => Self::Unsupported(message),
             actions::ActionError::Transport(_) => Self::NotConnected(err.to_string()),
         }
     }
@@ -215,6 +216,17 @@ pub(crate) fn files_error(err: TransportError) -> SessionError {
         TransportError::Files(message) => SessionError::Files(message),
         other => SessionError::NotConnected(other.to_string()),
     }
+}
+
+/// [`SessionError::Unsupported`] for a herdr-core space, tab or pane
+/// (#329), for what only herdr offers.
+fn herdr_only(id: &str) -> Result<(), SessionError> {
+    if herdr_client::hc::is_hc(id) {
+        return Err(SessionError::Unsupported(
+            herdr_client::hc::NOT_AVAILABLE.into(),
+        ));
+    }
+    Ok(())
 }
 
 fn health_error(err: TransportError) -> SessionError {
@@ -588,6 +600,8 @@ impl Session {
         target_pane_id: &str,
         text: &str,
     ) -> Result<String, SessionError> {
+        herdr_only(pane_id)?;
+        herdr_only(target_pane_id)?;
         let text = chains::normalize_text(text).ok_or_else(|| {
             SessionError::Rejected(format!(
                 "a chain's prompt needs 1 to {} characters without control characters",
@@ -654,6 +668,7 @@ impl Session {
     /// Removes a chain of the agent in `pane_id`; an unknown one is no
     /// error.
     pub async fn remove_chain(&self, pane_id: &str, chain_id: &str) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         if !chains::is_chain_id(chain_id) {
             return Err(SessionError::Rejected(format!("no chain {chain_id:?}")));
         }
@@ -760,6 +775,7 @@ impl Session {
         pane_id: &str,
         request_id: &str,
     ) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         // A mark under a source of its own instead of clearing the
         // request: herdr has no compare-and-set, and clearing could take a
         // newer request of the pane along that this client has not seen
@@ -800,6 +816,7 @@ impl Session {
         pane_id: &str,
         request_id: &str,
     ) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         let current = self.state.lock().ok().and_then(|state| {
             let session = state.as_ref()?.borrow().session.clone()?;
             session
@@ -910,6 +927,14 @@ impl Session {
         label: Option<&str>,
         cwd: &str,
     ) -> Result<actions::Created, SessionError> {
+        if self
+            .session_state()
+            .is_some_and(|session| !session.backends.herdr)
+        {
+            return Err(SessionError::Unsupported(
+                herdr_client::hc::NOT_AVAILABLE.into(),
+            ));
+        }
         let conn = self.connection()?;
         Ok(actions::create_workspace(&conn, label, cwd).await?)
     }
@@ -1154,6 +1179,7 @@ impl Session {
     /// it fails with [`SessionError::AgentWorking`] unless the agent is
     /// idle. Takes a moment.
     pub async fn agent_history(&self, pane_id: &str) -> Result<PaneContent, SessionError> {
+        herdr_only(pane_id)?;
         let conn = self.connection()?;
         let screen = fullscreen::read_history(&conn, pane_id).await?;
         Ok(view::pane_content(&screen))
@@ -1163,6 +1189,7 @@ impl Session {
     /// the view in herdr's own client on the host too; end with
     /// [`ScrollStep::Bottom`].
     pub async fn scroll_agent(&self, pane_id: &str, step: ScrollStep) -> Result<(), SessionError> {
+        herdr_only(pane_id)?;
         let conn = self.connection()?;
         Ok(fullscreen::scroll(&conn, pane_id, step.into()).await?)
     }

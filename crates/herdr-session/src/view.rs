@@ -742,7 +742,9 @@ pub fn session_update(
         editor_requests,
         chain_results: Vec::new(),
         server_version: Some(session.version.clone()),
-        protocol_supported: session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
+        // herdr-core alone has no herdr protocol to check (#329).
+        protocol_supported: !session.backends.herdr
+            || session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
         focused_pane_id: session.focused_pane_id.clone(),
         workspaces,
         space_order,

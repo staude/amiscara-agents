@@ -5,6 +5,13 @@
 //! `up`, `down`, `left`, `right`, single characters such as `1`, and
 //! combinations such as `ctrl+c`. herdr validates all keys before it writes
 //! anything.
+//!
+//! herdr-core's panes (ids starting `hc:`, #329) take prompts and keys
+//! (`terminal.send`, `terminal.keys`, which know the same key names). Its
+//! `terminal.keys` refuses characters such as umlauts, so text without
+//! Enter is not offered there, and neither is anything that changes spaces,
+//! tabs or agents, which herdr desktop keeps to itself:
+//! [`ActionError::Unsupported`].
 
 use herdr_proto::{PaneInfo, ProtoError};
 use herdr_transport::{Connection, TransportError};
@@ -19,6 +26,9 @@ pub enum ActionError {
     /// herdr refused the call, e.g. unknown pane or invalid key.
     #[error("herdr refused ({code}): {message}")]
     Rejected { code: String, message: String },
+    /// The server cannot do this, e.g. herdr-core with spaces and tabs.
+    #[error("{0}")]
+    Unsupported(String),
     #[error(transparent)]
     Transport(TransportError),
 }
@@ -32,15 +42,39 @@ impl From<TransportError> for ActionError {
             TransportError::Proto(ProtoError::Api { code, message }) => {
                 Self::Rejected { code, message }
             }
+            TransportError::Proto(ProtoError::Rpc { kind, .. }) if kind == "blocked" => {
+                Self::AgentBlocked
+            }
+            TransportError::Proto(ProtoError::Rpc { kind, message }) => Self::Rejected {
+                code: kind,
+                message,
+            },
             other => Self::Transport(other),
         }
     }
 }
 
+/// [`ActionError::Unsupported`] for a herdr-core space, tab or pane.
+fn herdr_only(id: &str) -> Result<(), ActionError> {
+    if crate::hc::is_hc(id) {
+        return Err(ActionError::Unsupported(crate::hc::NOT_AVAILABLE.into()));
+    }
+    Ok(())
+}
+
 /// Sends a prompt to the agent in a pane, followed by Enter. Returns once
 /// herdr has written it; whether the agent starts a turn shows up in its
-/// status.
+/// status. herdr-core pastes it once nobody has typed for about 3 s, also
+/// into a waiting dialog.
 pub async fn send_prompt(conn: &Connection, pane_id: &str, text: &str) -> Result<(), ActionError> {
+    if let Some(address) = crate::hc::address(pane_id) {
+        conn.hc_request(
+            "terminal.send",
+            json!({ "terminal": address, "text": text, "force": true }),
+        )
+        .await?;
+        return Ok(());
+    }
     conn.request("agent.prompt", json!({ "target": pane_id, "text": text }))
         .await?;
     Ok(())
@@ -52,6 +86,14 @@ pub async fn send_keys(
     pane_id: &str,
     keys: &[String],
 ) -> Result<(), ActionError> {
+    if let Some(address) = crate::hc::address(pane_id) {
+        conn.hc_request(
+            "terminal.keys",
+            json!({ "terminal": address, "keys": keys }),
+        )
+        .await?;
+        return Ok(());
+    }
     conn.request(
         "pane.send_keys",
         json!({ "pane_id": pane_id, "keys": keys }),
@@ -62,6 +104,7 @@ pub async fn send_keys(
 
 /// Types text into a pane without pressing Enter.
 pub async fn send_text(conn: &Connection, pane_id: &str, text: &str) -> Result<(), ActionError> {
+    herdr_only(pane_id)?;
     conn.request(
         "pane.send_text",
         json!({ "pane_id": pane_id, "text": text }),
@@ -123,6 +166,7 @@ pub async fn create_tab(
     workspace_id: &str,
     cwd: Option<&str>,
 ) -> Result<Created, ActionError> {
+    herdr_only(workspace_id)?;
     let mut params = json!({ "workspace_id": workspace_id, "focus": false });
     if let Some(cwd) = cwd {
         params["cwd"] = json!(cwd);
@@ -160,6 +204,7 @@ pub async fn create_worktree(
     workspace_id: &str,
     new: &NewWorktree,
 ) -> Result<Created, ActionError> {
+    herdr_only(workspace_id)?;
     let mut params = json!({ "workspace_id": workspace_id, "focus": false });
     for (key, value) in [
         ("branch", &new.branch),
@@ -287,6 +332,7 @@ pub async fn start_agent(
     name: Option<&str>,
     args: &[String],
 ) -> Result<StartedAgent, ActionError> {
+    herdr_only(pane_id)?;
     let base = agent_name(name.filter(|name| !name.trim().is_empty()).unwrap_or(kind));
     let mut attempt = 1;
     let mut busy = 0;
@@ -430,6 +476,7 @@ pub async fn rename_workspace(
     workspace_id: &str,
     label: &str,
 ) -> Result<(), ActionError> {
+    herdr_only(workspace_id)?;
     let label = non_empty(label)?;
     conn.request(
         "workspace.rename",
@@ -441,6 +488,7 @@ pub async fn rename_workspace(
 
 /// Renames a tab; announced with `tab_renamed`.
 pub async fn rename_tab(conn: &Connection, tab_id: &str, label: &str) -> Result<(), ActionError> {
+    herdr_only(tab_id)?;
     let label = non_empty(label)?;
     conn.request("tab.rename", json!({ "tab_id": tab_id, "label": label }))
         .await?;
@@ -450,6 +498,7 @@ pub async fn rename_tab(conn: &Connection, tab_id: &str, label: &str) -> Result<
 /// Closes a tab with its panes, ending what runs in them; announced with
 /// `tab_closed`. herdr closes the space too when it was its last tab.
 pub async fn close_tab(conn: &Connection, tab_id: &str) -> Result<(), ActionError> {
+    herdr_only(tab_id)?;
     conn.request("tab.close", json!({ "tab_id": tab_id }))
         .await?;
     Ok(())
@@ -464,6 +513,7 @@ pub async fn close_workspace(
     workspace_id: &str,
     with_worktrees: bool,
 ) -> Result<(), ActionError> {
+    herdr_only(workspace_id)?;
     conn.request(
         "workspace.close",
         json!({ "workspace_id": workspace_id, "close_group": with_worktrees }),
@@ -482,6 +532,7 @@ pub async fn rename_agent(
     pane_id: &str,
     name: Option<&str>,
 ) -> Result<(), ActionError> {
+    herdr_only(pane_id)?;
     let name = name.map(str::trim).filter(|name| !name.is_empty());
     conn.request("agent.rename", json!({ "target": pane_id, "name": name }))
         .await?;
@@ -564,6 +615,56 @@ mod tests {
         assert!(matches!(
             ActionError::from(TransportError::Closed),
             ActionError::Transport(TransportError::Closed)
+        ));
+    }
+
+    #[test]
+    fn herdr_core_errors_and_limits() {
+        let rpc = |kind: &str| {
+            TransportError::Proto(ProtoError::Rpc {
+                kind: kind.into(),
+                message: "msg".into(),
+            })
+        };
+        assert!(matches!(
+            ActionError::from(rpc("blocked")),
+            ActionError::AgentBlocked
+        ));
+        assert!(matches!(
+            ActionError::from(rpc("not_found")),
+            ActionError::Rejected { code, .. } if code == "not_found"
+        ));
+        assert!(matches!(
+            herdr_only("hc:t1"),
+            Err(ActionError::Unsupported(message)) if message == crate::hc::NOT_AVAILABLE
+        ));
+        assert!(herdr_only("w1:t1").is_ok());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn herdr_core_tabs_and_spaces_are_refused_before_any_call() {
+        // A connection that would fail if anything were sent.
+        let conn = Connection::local("/nonexistent/herdr.sock");
+        let unsupported =
+            |result: Result<(), ActionError>| matches!(result, Err(ActionError::Unsupported(_)));
+        assert!(unsupported(send_text(&conn, "hc:t1", "x").await));
+        assert!(unsupported(rename_tab(&conn, "hc:tb1", "x").await));
+        assert!(unsupported(rename_workspace(&conn, "hc:sp1", "x").await));
+        assert!(unsupported(close_tab(&conn, "hc:tb1").await));
+        assert!(unsupported(close_workspace(&conn, "hc:sp1", false).await));
+        assert!(unsupported(rename_agent(&conn, "hc:t1", None).await));
+        assert!(matches!(
+            create_tab(&conn, "hc:sp1", None).await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            create_worktree(&conn, "hc:sp1", &NewWorktree::default()).await,
+            Err(ActionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            start_agent(&conn, "hc:t1", "claude", None, &[]).await,
+            Err(ActionError::Unsupported(_))
         ));
     }
 
