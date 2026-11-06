@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use herdr_core::SessionState;
 use herdr_core::chains;
 use herdr_core::pane::PaneScreen;
+use herdr_core::programs::{self, ProgramMatch};
 use herdr_core::question;
 use herdr_core::spaces::{self, SpaceSort};
 use herdr_core::sync::{SyncState, SyncStatus};
@@ -271,6 +272,59 @@ pub struct PaneItem {
     pub name: Option<String>,
     pub agent_state: AgentState,
     pub focused: bool,
+    /// What runs in the pane, for its icon (#337); `None` while unknown.
+    pub program: Option<ProgramItem>,
+}
+
+/// A program for an icon (#337). `id` names a table entry
+/// (`herdr_core::programs`); `other` is a process missing from the table,
+/// `agent` an agent kind missing from it, both with `known: false`.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgramItem {
+    pub id: String,
+    pub name: String,
+    /// `#RRGGBB`.
+    pub color: String,
+    pub known: bool,
+}
+
+/// Colour of a program missing from the table.
+const UNKNOWN_PROGRAM_COLOR: &str = "#8E8E93";
+
+/// The program of one pane: the agent kind herdr reports (the raw `agent`,
+/// since `display_agent` may carry a status text), else what the sync
+/// driver found among the foreground processes.
+fn program_item(session: &SessionState, pane: &PaneInfo) -> Option<ProgramItem> {
+    if let Some(kind) = pane.agent.as_deref().filter(|kind| !kind.is_empty()) {
+        return Some(match programs::for_agent(kind) {
+            Some(program) => known_program(program),
+            None => ProgramItem {
+                id: "agent".into(),
+                name: kind.to_owned(),
+                color: UNKNOWN_PROGRAM_COLOR.into(),
+                known: false,
+            },
+        });
+    }
+    Some(match session.programs.get(&pane.pane_id)? {
+        ProgramMatch::Known(program) => known_program(program),
+        ProgramMatch::Unknown(name) => ProgramItem {
+            id: "other".into(),
+            name: name.clone(),
+            color: UNKNOWN_PROGRAM_COLOR.into(),
+            known: false,
+        },
+    })
+}
+
+fn known_program(program: &programs::Program) -> ProgramItem {
+    ProgramItem {
+        id: program.id.into(),
+        name: program.name.into(),
+        color: program.color.into(),
+        known: true,
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -296,6 +350,8 @@ pub struct BoardItem {
     pub state_since_ms: Option<u64>,
     /// Prompts that follow this agent's change (#300), stored on the host.
     pub chains: Vec<ChainItem>,
+    /// The agent as a program, for its icon (#337).
+    pub program: Option<ProgramItem>,
 }
 
 /// Remembers since when each agent pane is in its state, across updates of
@@ -544,6 +600,7 @@ pub fn session_update(
                             name: session.agent_names.get(&pane.pane_id).cloned(),
                             agent_state: pane.agent_status.into(),
                             focused: pane.focused,
+                            program: program_item(session, pane),
                         })
                         .collect(),
                     layout: session.layout(&tab.tab_id).map(split_layout),
@@ -584,6 +641,7 @@ pub fn session_update(
                 .into_iter()
                 .map(|chain| chain_item(session, chain))
                 .collect(),
+            program: program_item(session, entry.pane),
         })
         .collect();
 
@@ -859,6 +917,7 @@ mod tests {
             cwd: None,
             state_since_ms: None,
             chains: Vec::new(),
+            program: None,
         }
     }
 
@@ -919,6 +978,47 @@ mod tests {
         let mut attention = board.clone();
         clock.stamp(&mut board, &mut attention, 200);
         assert_eq!(attention[0].state_since_ms, Some(200));
+    }
+
+    #[test]
+    fn program_comes_from_the_raw_agent_kind_or_the_processes() {
+        let snapshot: herdr_proto::SessionSnapshot = serde_json::from_value(serde_json::json!({
+            "version": "0.9.5", "protocol": 22, "workspaces": [], "tabs": [],
+            "panes": [
+                {"pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                 "agent": "claude", "display_agent": "📋 #337 · planning"},
+                {"pane_id": "w1:p2", "workspace_id": "w1", "tab_id": "w1:t1", "agent": "hal"},
+                {"pane_id": "w1:p3", "workspace_id": "w1", "tab_id": "w1:t1"},
+                {"pane_id": "w1:p4", "workspace_id": "w1", "tab_id": "w1:t1"},
+                {"pane_id": "w1:p5", "workspace_id": "w1", "tab_id": "w1:t1"}
+            ]
+        }))
+        .expect("snapshot");
+        let mut session = SessionState::from_snapshot(snapshot);
+        let vim = programs::all().iter().find(|p| p.id == "vim").expect("vim");
+        session
+            .programs
+            .insert("w1:p3".into(), ProgramMatch::Known(vim));
+        session
+            .programs
+            .insert("w1:p4".into(), ProgramMatch::Unknown("caffeinate".into()));
+        let item = |id: &str| program_item(&session, session.pane(id).expect("pane"));
+
+        let claude = item("w1:p1").expect("claude");
+        assert_eq!((claude.id.as_str(), claude.known), ("claude", true));
+        let hal = item("w1:p2").expect("agent");
+        assert_eq!(
+            (hal.id.as_str(), hal.name.as_str(), hal.known),
+            ("agent", "hal", false)
+        );
+        let vim = item("w1:p3").expect("vim");
+        assert_eq!((vim.id.as_str(), vim.color.as_str()), ("vim", "#019733"));
+        let other = item("w1:p4").expect("other");
+        assert_eq!(
+            (other.id.as_str(), other.name.as_str(), other.known),
+            ("other", "caffeinate", false)
+        );
+        assert_eq!(item("w1:p5"), None);
     }
 
     #[test]

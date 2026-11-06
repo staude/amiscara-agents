@@ -23,9 +23,9 @@ pub use add_host::{
 pub use convert::{
     AgentState, BoardItem, ChainItem, ChainOutcome, ChainResult, ChainTrigger, ChoiceOption,
     ChoiceQuestion, ClaudeSessionItem, EditorRequest, HostStatus, OpenRequest, PaneContent,
-    PaneFrame, PaneItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout, StyledLine, StyledSpan,
-    TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry, TranscriptKind,
-    TranscriptPage, TranscriptSpan, UsageBucket, UsageReport, WorkspaceItem,
+    PaneFrame, PaneItem, ProgramItem, ScrollStep, SessionUpdate, SpaceSlot, SplitLayout,
+    StyledLine, StyledSpan, TabItem, TermColor, TokenItem, TranscriptCursor, TranscriptEntry,
+    TranscriptKind, TranscriptPage, TranscriptSpan, UsageBucket, UsageReport, WorkspaceItem,
 };
 pub use convert::{ConversationHit, SearchEnd};
 pub use convert::{
