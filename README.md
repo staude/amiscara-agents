@@ -241,6 +241,9 @@ code), so a host is set up the same way everywhere.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles.
+  The sound for "waits" and for "done" is chosen in the settings, per
+  device: the default, four tones the app brings, no sound, and on the Mac
+  the system sounds or an own file. Mac, iPhone and iPad.
 - **Folders in VS Code:** `code .` in a pane, or "In VS Code öffnen" on a
   space or pane, opens the folder in VS Code on the Mac or PC over
   Remote-SSH, see [Setting up a host](#setting-up-a-host). Mac and desktop

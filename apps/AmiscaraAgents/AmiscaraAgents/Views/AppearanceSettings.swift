@@ -87,6 +87,13 @@ struct SettingsView: View {
                 TerminalSettings()
             }
             Section {
+                NotificationSoundSettings()
+            } header: {
+                Text("Mitteilungston")
+            } footer: {
+                Text("Gilt für diesen Mac. iPhone und iPad wählen ihren Ton selbst.")
+            }
+            Section {
                 KeyboardShortcuts.Recorder("Kürzel", name: .quickComposer)
             } header: {
                 Text("Schnelleingabe")

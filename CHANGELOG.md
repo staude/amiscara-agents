@@ -757,6 +757,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
   when a commit came in since. The repositories come from
   `Session::github_repos` like the approvals'. Without a token nothing
   changes. Mac, iPhone and iPad. FFI `parse_diff`.
+- Notification sound per state (#336): "Mitteilungston" in the Mac's settings
+  window and the iPhone's and iPad's "Erscheinungsbild" menu picks one sound
+  for "wartet" and one for "fertig", each with "Kein Ton" and a preview. The
+  list offers the default sound and four tones the app brings (Glocke,
+  Aufsteigend, Absteigend, Klopfen; `scripts/notification-sounds.swift`
+  makes them); the Mac adds its system sounds and own files, copied to
+  `~/Library/Sounds`. Local notifications and the pushes through iCloud use
+  the choice of the device. Without a choice "wartet" sounds as before and
+  "fertig" stays silent. Mac, iPhone and iPad.
 
 ### Changed
 
