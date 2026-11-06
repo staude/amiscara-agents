@@ -129,7 +129,15 @@ async fn a_herdr_core_space_takes_prompts_keys_and_scripts() {
     session.send_keys(&pane, &keys).await.expect("keys");
     assert!(screen_shows(&session, &pane, "k1").await);
 
-    // Text without Enter is refused rather than typed wrongly.
+    // Plain text key by key, as the apps send shell commands.
+    session.send_text(&pane, "echo t2").await.expect("text");
+    session
+        .send_keys(&pane, &["enter".to_owned()])
+        .await
+        .expect("enter");
+    assert!(screen_shows(&session, &pane, "t2").await);
+
+    // Text herdr-core cannot type is refused rather than typed wrongly.
     assert!(matches!(
         session.send_text(&pane, "äöü 'x'").await,
         Err(SessionError::Unsupported(_))

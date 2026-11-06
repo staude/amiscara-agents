@@ -64,13 +64,13 @@ fn herdr_only(id: &str) -> Result<(), ActionError> {
 
 /// Sends a prompt to the agent in a pane, followed by Enter. Returns once
 /// herdr has written it; whether the agent starts a turn shows up in its
-/// status. herdr-core pastes it once nobody has typed for about 3 s, also
-/// into a waiting dialog.
+/// status. herdr-core pastes it once nobody has typed for about 3 s and,
+/// like herdr, refuses an agent waiting at a dialog.
 pub async fn send_prompt(conn: &Connection, pane_id: &str, text: &str) -> Result<(), ActionError> {
     if let Some(address) = crate::hc::address(pane_id) {
         conn.hc_request(
             "terminal.send",
-            json!({ "terminal": address, "text": text, "force": true }),
+            json!({ "terminal": address, "text": text }),
         )
         .await?;
         return Ok(());
@@ -103,14 +103,44 @@ pub async fn send_keys(
 }
 
 /// Types text into a pane without pressing Enter.
+/// On herdr-core the text goes key by key (`terminal.keys`), which only
+/// knows unshifted keys: text with other characters (umlauts, `|`, `"`,
+/// `$`, ...) is [`ActionError::Unsupported`].
 pub async fn send_text(conn: &Connection, pane_id: &str, text: &str) -> Result<(), ActionError> {
-    herdr_only(pane_id)?;
+    if let Some(address) = crate::hc::address(pane_id) {
+        let keys = hc_text_keys(text).ok_or_else(|| {
+            ActionError::Unsupported(
+                "herdr-core types only letters, digits, spaces and unshifted signs".into(),
+            )
+        })?;
+        if !keys.is_empty() {
+            conn.hc_request(
+                "terminal.keys",
+                json!({ "terminal": address, "keys": keys }),
+            )
+            .await?;
+        }
+        return Ok(());
+    }
     conn.request(
         "pane.send_text",
         json!({ "pane_id": pane_id, "text": text }),
     )
     .await?;
     Ok(())
+}
+
+/// `text` as herdr-core key names, `None` when a character has none.
+/// `terminal.keys` takes letters, digits and the unshifted signs of a US
+/// keyboard as themselves (tested against hc 0.1.18), a space as `space`.
+fn hc_text_keys(text: &str) -> Option<Vec<String>> {
+    text.chars()
+        .map(|ch| match ch {
+            ' ' => Some("space".to_owned()),
+            ch if ch.is_ascii_alphanumeric() || "',-./;=[\\]`".contains(ch) => Some(ch.to_string()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Where a new space or tab starts: its first pane.
@@ -639,6 +669,16 @@ mod tests {
             Err(ActionError::Unsupported(message)) if message == crate::hc::NOT_AVAILABLE
         ));
         assert!(herdr_only("w1:t1").is_ok());
+        assert_eq!(hc_text_keys("ls -la ~"), None, "a shifted sign has no key");
+        assert_eq!(
+            hc_text_keys("cd dev/A1"),
+            Some(
+                ["c", "d", "space", "d", "e", "v", "/", "A", "1"]
+                    .map(String::from)
+                    .to_vec()
+            )
+        );
+        assert_eq!(hc_text_keys("über"), None);
     }
 
     #[cfg(unix)]
@@ -648,7 +688,7 @@ mod tests {
         let conn = Connection::local("/nonexistent/herdr.sock");
         let unsupported =
             |result: Result<(), ActionError>| matches!(result, Err(ActionError::Unsupported(_)));
-        assert!(unsupported(send_text(&conn, "hc:t1", "x").await));
+        assert!(unsupported(send_text(&conn, "hc:t1", "grep x | wc").await));
         assert!(unsupported(rename_tab(&conn, "hc:tb1", "x").await));
         assert!(unsupported(rename_workspace(&conn, "hc:sp1", "x").await));
         assert!(unsupported(close_tab(&conn, "hc:tb1").await));
