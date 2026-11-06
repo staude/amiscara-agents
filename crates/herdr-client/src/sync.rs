@@ -416,7 +416,15 @@ async fn follow_inner(
             () = wait_until(hc_list_at) => {
                 hc_list_at = None;
                 if let Some(feed) = hc.as_mut() {
-                    feed.terminals = crate::hc::list(conn).await?;
+                    // A stalled link must not hold up herdr's events; the
+                    // heartbeat watch tells a dead core.
+                    let Ok(list) =
+                        tokio::time::timeout(DETECT_TIMEOUT, crate::hc::list(conn)).await
+                    else {
+                        hc_list_at = Some(Instant::now() + RESNAPSHOT_DELAY);
+                        continue;
+                    };
+                    feed.terminals = list?;
                     if state.replace_hc(&feed.terminals) == Applied::Updated {
                         publish(tx, SyncStatus::Live, &state);
                     }
