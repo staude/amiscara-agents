@@ -114,7 +114,8 @@ enum SwitcherMatch {
 }
 
 /// ⌘K: search spaces and agents on all hosts and jump there. Arrow keys move
-/// the highlight, Return opens it, Esc closes.
+/// the highlight, Return opens it, ⌥Return peeks into an agent (#332), Esc
+/// closes. Closing the peek comes back here.
 struct QuickSwitcher: View {
     @Environment(HostStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -122,6 +123,9 @@ struct QuickSwitcher: View {
 
     @State private var query = ""
     @State private var highlighted: String?
+    #if !os(tvOS)
+    @State private var peeking: AgentPeek?
+    #endif
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -136,6 +140,13 @@ struct QuickSwitcher: View {
                     #endif
                     .focused($searchFocused)
                     .onSubmit { pick(current(in: results)) }
+                    #if !os(tvOS)
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard press.modifiers.contains(.option) else { return .ignored }
+                        if let peek = current(in: results).flatMap(peek) { peeking = peek }
+                        return .handled
+                    }
+                    #endif
                     .onKeyPress(.downArrow) { move(1, in: results) }
                     .onKeyPress(.upArrow) { move(-1, in: results) }
                     .padding(10)
@@ -151,6 +162,9 @@ struct QuickSwitcher: View {
                                 SwitcherRow(entry: entry, showHost: showHost)
                             }
                             .buttonStyle(.plain)
+                            #if !os(tvOS)
+                            .peekMenu(peek(entry), open: { _ in pick(entry) }) { peeking = $0 }
+                            #endif
                             .listRowBackground(
                                 entry.id == current(in: results)?.id ? Color.accentColor.opacity(0.2) : Color.clear
                             )
@@ -175,6 +189,12 @@ struct QuickSwitcher: View {
                         #endif
                 }
             }
+            #if !os(tvOS)
+            .agentPeek($peeking) { target in
+                onPick(target)
+                dismiss()
+            }
+            #endif
         }
         .onChange(of: query) { highlighted = nil }
         .onAppear { searchFocused = true }
@@ -194,6 +214,14 @@ struct QuickSwitcher: View {
         highlighted = results[min(max(index + step, 0), results.count - 1)].id
         return .handled
     }
+
+    #if !os(tvOS)
+    /// The peek of an agent entry; spaces have none.
+    private func peek(_ entry: SwitcherEntry) -> AgentPeek? {
+        guard entry.kind == .agent, let paneID = entry.target.paneID else { return nil }
+        return AgentPeek(hostID: entry.target.hostID, workspaceID: entry.target.workspaceID, paneID: paneID)
+    }
+    #endif
 
     private func pick(_ entry: SwitcherEntry?) {
         guard let entry else { return }
