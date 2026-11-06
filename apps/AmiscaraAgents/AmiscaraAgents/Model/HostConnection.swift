@@ -6,7 +6,13 @@ import Observation
 @MainActor
 @Observable
 final class HostConnection: Identifiable {
-    private(set) var config: HostConfig
+    private(set) var config: HostConfig {
+        didSet { settledHost = Self.settledHost(for: config) }
+    }
+    /// The host as the put away tabs (#333) know it on every device: its
+    /// SSH host key fingerprint and socket. A host without a known key
+    /// keeps its tabs on this device only.
+    private(set) var settledHost: String
     private(set) var update: SessionUpdate?
     private(set) var startError: String?
     /// When the host was last seen connected, for the overview (#274).
@@ -38,12 +44,19 @@ final class HostConnection: Identifiable {
 
     init(config: HostConfig) {
         self.config = config
+        settledHost = Self.settledHost(for: config)
         id = config.id
         #if !os(tvOS)
         pullRequests = PullRequests(host: config.id)
         pullRequests.connection = self
         #endif
         usage.attach(self)
+    }
+
+    private static func settledHost(for config: HostConfig) -> String {
+        let line = config.kind == .local ? Platform.localHostKey() : config.pinnedHostKey
+        guard let key = CloudPush.hostKey(forPublicKey: line) else { return "device|" + config.id.uuidString }
+        return key + "|" + config.socketPath
     }
 
     var status: HostStatus? { update?.status }

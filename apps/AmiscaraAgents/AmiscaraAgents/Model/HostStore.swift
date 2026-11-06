@@ -105,6 +105,7 @@ final class HostStore {
             }
             if connection.isLive {
                 self.notifier.withdraw(answeredIn: update.board, hostID: connection.config.id)
+                Self.reviveSettledTabs(in: update, of: connection)
             }
             self.notifier.updateBadge(waiting: self.waitingAgents
                 .filter(\.connection.config.notificationsOn)
@@ -122,6 +123,21 @@ final class HostStore {
             #endif
         }
         return connection
+    }
+
+    /// A put away tab whose agent waits shows again and stays (#333); tabs
+    /// the host no longer has are forgotten. Only from a live session: a
+    /// stale snapshot would forget tabs that are still there. Removing a
+    /// host keeps its entries, the other devices may still use them.
+    private static func reviveSettledTabs(in update: SessionUpdate, of connection: HostConnection) {
+        let settled = SettledTabs.shared
+        let host = connection.settledHost
+        let tabs = update.workspaces.flatMap(\.tabs)
+        for tab in tabs where tab.agentState == .blocked {
+            settled.unsettle(tab: tab.tabId, host: host)
+        }
+        guard !update.workspaces.isEmpty else { return }
+        settled.prune(host: host, keeping: Set(tabs.map(\.tabId)))
     }
 
     #if os(macOS)
