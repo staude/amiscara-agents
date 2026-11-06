@@ -43,7 +43,7 @@
   /** Notes the version as seen when the dialog came up after an update (#341). */
   function closeWhatsNew() {
     whatsNew.closed();
-    close();
+    ui.dialog = ui.dialog?.kind === "whatsNew" ? ui.dialog.back : null;
   }
   let hostName = $derived(dialog && "hostId" in dialog ? (model.host(dialog.hostId)?.name ?? "") : "");
   let groupHint = $derived(

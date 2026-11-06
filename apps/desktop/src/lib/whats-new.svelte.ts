@@ -32,6 +32,8 @@ class WhatsNew {
   async start() {
     const current = model.info?.version;
     if (!current) return;
+    // The screenshot demo (#199) shows its own views.
+    if (await core.demoTarget().catch(() => null)) return;
     const seen = readSeen();
     // The first start (or a version seen already) shows nothing.
     if (seen === null || seen === current) {
@@ -54,13 +56,14 @@ class WhatsNew {
     // Started with the system the window is hidden; the version counts as
     // seen only when the dialog was closed.
     this.unseen = current;
-    ui.dialog = { kind: "whatsNew", entries };
+    ui.dialog = { kind: "whatsNew", entries, back: null };
   }
 
   /** "Neuigkeiten" in the settings: all versions up to the installed one. */
   async showAll() {
     try {
-      ui.dialog = { kind: "whatsNew", entries: await core.whatsNew(null) };
+      const back = ui.dialog?.kind === "settings" ? ui.dialog : null;
+      ui.dialog = { kind: "whatsNew", entries: await core.whatsNew(null), back };
     } catch (err) {
       model.error = core.errorText(err);
     }

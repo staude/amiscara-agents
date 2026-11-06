@@ -27,7 +27,8 @@ export type Dialog =
       worktrees: number;
     }
   | { kind: "settings" }
-  | { kind: "whatsNew"; entries: WhatsNewEntry[] };
+  /** `back`: the settings it was opened from, shown again on close. */
+  | { kind: "whatsNew"; entries: WhatsNewEntry[]; back: Dialog | null };
 
 export const ui = $state<{
   dialog: Dialog | null;
