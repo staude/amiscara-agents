@@ -18,6 +18,8 @@ struct WorkspaceDetailView: View {
     @State private var claudeSessionsFor: ClaudeSessionsTarget?
     /// The space a new tab with an agent and a first prompt is for (#344).
     @State private var newAgentTabIn: NewAgentTabTarget?
+    /// The repository whose existing worktrees are offered (#343).
+    @State private var openWorktreeFrom: OpenWorktreeTarget?
     #endif
     @State private var tabID: String?
     @State private var paneID: String?
@@ -144,6 +146,11 @@ struct WorkspaceDetailView: View {
             ClaudeSessionsView(target: target) { created in
                 tabID = created.tabId
                 paneID = created.paneId
+            }
+        }
+        .sheet(item: $openWorktreeFrom) { target in
+            OpenWorktreeView(target: target) { created in
+                selection = SpaceRef(hostID: target.connection.id, workspaceID: created.workspaceId, paneID: created.paneId.isEmpty ? nil : created.paneId)
             }
         }
         #endif
@@ -412,6 +419,11 @@ struct WorkspaceDetailView: View {
             Button("Neuer Tab mit Aufgabe …", systemImage: "text.badge.plus") {
                 newAgentTabIn = NewAgentTabTarget(connection: connection, workspace: workspace)
             }
+            if OpenWorktreeTarget.available(for: workspace, on: connection) {
+                Button("Worktree öffnen …", systemImage: "folder.badge.plus") {
+                    openWorktreeFrom = OpenWorktreeTarget(connection: connection, workspace: workspace)
+                }
+            }
             Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                 claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
             }
@@ -446,6 +458,13 @@ struct WorkspaceDetailView: View {
                         closing = closeTarget(tab, on: connection)
                     }
                 }
+                #if !os(tvOS)
+                if CloseTarget.worktreeRemovable(workspace, on: connection) {
+                    Button("Worktree entfernen …", systemImage: "trash", role: .destructive) {
+                        closing = .worktree(workspace, on: connection)
+                    }
+                }
+                #endif
                 Button("Space schließen …", systemImage: "xmark.square", role: .destructive) {
                     closing = .space(workspace, on: connection)
                 }
