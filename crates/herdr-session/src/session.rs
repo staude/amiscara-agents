@@ -1268,14 +1268,40 @@ impl Session {
         &self,
         pane_id: &str,
     ) -> Result<diff::WorkingTreeDiff, SessionError> {
-        let conn = self.connection()?;
         let (workspace_id, cwd) = self.pane_directory(pane_id).ok_or_else(|| {
             SessionError::Files(format!("no working directory known for pane {pane_id}"))
         })?;
+        self.diff_in(&workspace_id, &cwd).await
+    }
+
+    /// What changed in the folder of a space (#342), like
+    /// [`Session::working_tree_diff`] for a pane. The folder is the one of
+    /// the focused pane in herdr's active tab of the space, as
+    /// [`Session::space_folder`] finds it.
+    pub async fn space_working_tree_diff(
+        &self,
+        workspace_id: &str,
+    ) -> Result<diff::WorkingTreeDiff, SessionError> {
+        let cwd = self.space_folder(workspace_id).ok_or_else(|| {
+            SessionError::Files(format!(
+                "no working directory known for space {workspace_id}"
+            ))
+        })?;
+        self.diff_in(workspace_id, &cwd).await
+    }
+
+    /// Runs the diff script in `cwd` through a short-lived tab of the
+    /// space `workspace_id`.
+    async fn diff_in(
+        &self,
+        workspace_id: &str,
+        cwd: &str,
+    ) -> Result<diff::WorkingTreeDiff, SessionError> {
+        let conn = self.connection()?;
         let output = run_script(
             &conn,
-            &workspace_id,
-            &cwd,
+            workspace_id,
+            cwd,
             "diff",
             diff::diff_script,
             MAX_DIFF_BYTES,
