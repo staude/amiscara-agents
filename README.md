@@ -286,7 +286,8 @@ code), so a host is set up the same way everywhere.
   [docs/ai-handoff.md](docs/ai-handoff.md). Mac, iPhone and iPad.
 - **Quick switcher** (⌘K or Ctrl+K) across spaces and agents of all hosts,
   and keyboard shortcuts for spaces, tabs, search and the keys sent to the
-  pane.
+  pane. On Mac, iPhone and iPad it also finds the commands of the open
+  space and pane with their shortcuts; `>` lists commands only.
 
 ### Mac
 
