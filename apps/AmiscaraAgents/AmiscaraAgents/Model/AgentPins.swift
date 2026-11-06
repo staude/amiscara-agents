@@ -52,15 +52,17 @@ final class AgentPins {
     }
     #endif
 
-    /// The Mac's own host key fingerprint, read from disk once it is there.
-    private static var localHostKey: String?
+    /// The Mac's own host key fingerprint, read from disk once per launch,
+    /// also when there is none (Remote Login off): every update and every
+    /// list asks for it.
+    private static var localHostKey: String??
 
     /// The part of a pin's key that names the host and its herdr server.
     static func prefix(of connection: HostConnection) -> String {
         let key: String?
         if connection.config.kind == .local {
-            if localHostKey == nil { localHostKey = PaneHandoff.hostKey(of: connection) }
-            key = localHostKey
+            if localHostKey == nil { localHostKey = .some(PaneHandoff.hostKey(of: connection)) }
+            key = localHostKey ?? nil
         } else {
             key = PaneHandoff.hostKey(of: connection)
         }
