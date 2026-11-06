@@ -527,6 +527,9 @@ struct WorkspaceDetailView: View {
     /// not when the shown tab closed and the selection still names a pane.
     private func focus(on selection: SpaceRef?, opened: Bool = false) {
         tabError = nil
+        // Another selection ends the launch: the reopened pane chosen again
+        // later is opened on purpose.
+        if selection != Self.reopened { Self.reopened = nil }
         let opened = opened && (selection == nil || selection != Self.reopened)
         guard let selection,
               let connection = store.connection(for: selection.hostID),
