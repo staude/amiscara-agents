@@ -652,12 +652,18 @@ final class HostConnection: Identifiable {
 
     /// Marks the finish of the done agent in `paneID` as seen on the host
     /// (#335), so every device shows it as idle. Not on a read-only host;
-    /// best effort like `dismiss(_:)`.
-    func markSeen(paneID: String) async {
-        guard config.inputAllowed, let session else { return }
-        try? await Task.detached {
-            try session.markSeen(paneId: paneID)
-        }.value
+    /// best effort like `dismiss(_:)`. `false` when the call failed.
+    @discardableResult
+    func markSeen(paneID: String) async -> Bool {
+        guard config.inputAllowed, let session else { return true }
+        do {
+            try await Task.detached {
+                try session.markSeen(paneId: paneID)
+            }.value
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Takes an editor request back on the host (#288), so other devices

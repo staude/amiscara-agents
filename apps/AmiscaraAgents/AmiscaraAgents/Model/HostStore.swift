@@ -205,8 +205,11 @@ final class HostStore {
         let key = "\(visible.hostID)/\(visible.paneID)"
         guard seenTried != key else { return }
         seenTried = key
-        Task {
-            await connection.markSeen(paneID: visible.paneID)
+        Task { [weak self] in
+            // Failed, e.g. the link dropped: the next update tries again.
+            if await !connection.markSeen(paneID: visible.paneID), self?.seenTried == key {
+                self?.seenTried = nil
+            }
         }
         #endif
     }
