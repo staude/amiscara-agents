@@ -7,6 +7,7 @@ mod hosts;
 mod i18n;
 mod notify;
 mod tray;
+mod whats_new;
 
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -114,6 +115,7 @@ pub fn run() {
             app::close,
             app::autostart,
             app::set_autostart,
+            whats_new::whats_new,
             pending_links,
         ])
         .run(tauri::generate_context!())

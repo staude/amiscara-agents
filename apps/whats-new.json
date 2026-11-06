@@ -1,0 +1,16 @@
+{
+  "mac": [
+    {
+      "version": "0.1.0",
+      "de": ["Erste Version"],
+      "en": ["First release"]
+    }
+  ],
+  "desktop": [
+    {
+      "version": "0.1.0",
+      "de": ["Erste Version"],
+      "en": ["First release"]
+    }
+  ]
+}

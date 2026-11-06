@@ -179,4 +179,18 @@ struct UpdateCommands: Commands {
         }
     }
 }
+
+/// "Hilfe › Neuigkeiten" in place of the empty standard help item.
+struct WhatsNewCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Neuigkeiten") {
+                WhatsNewState.shared.showHistory()
+                openWindow(id: WhatsNewWindow.id)
+            }
+        }
+    }
+}
 #endif

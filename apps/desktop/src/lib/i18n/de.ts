@@ -279,6 +279,8 @@ export const de: Messages = {
   waitingCount: "{n} wartet",
   waitingForAnswer: "Wartet auf Antwort",
   welcomeHint: "Fügen Sie einen Host hinzu, um seine Agents zu sehen.",
+  whatsNew: "Neuigkeiten",
+  whatsNewEmpty: "Keine Neuigkeiten für diese Version",
   windowsOpenSshAgent: "OpenSSH-Agent von Windows",
   worktreeHint: "Ohne Branch wählt herdr einen Namen. Einen vorhandenen Branch checkt herdr aus. Der Worktree liegt in herdrs Worktree-Verzeichnis.",
   worktreeRunning: "git worktree add läuft …",
