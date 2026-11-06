@@ -110,8 +110,10 @@ final class AgentPins {
     }
 
     #if !os(tvOS)
-    /// Applies only this change to the store's current pins, so pins set on
-    /// another device that this one has not seen yet stay.
+    /// Applies only this change to the store's local copy, so pins from
+    /// other devices that already arrived stay. One array for all pins:
+    /// iCloud keeps the last write, so two devices changing pins before
+    /// either has the other's change lose one of them.
     private func save(adding added: Set<String> = [], removing removed: Set<String> = []) {
         guard let store else {
             keys = keys.subtracting(removed).union(added)

@@ -106,7 +106,8 @@ code), so a host is set up the same way everywhere.
   grouped, see [below](#organizing-spaces-bereichname)), tabs and agents.
   Agents are sorted by urgency: waiting for an answer, working, done, idle.
 - **Overview:** the agents of all hosts on one page, grouped into waiting,
-  working and done, newest first, with the time in that state. Hosts
+  working and done, newest first, with the time in that state; pinned
+  agents come first in a group "Angeheftet", ready ones too. Hosts
   without a connection show their last known state (or the Mac's board in
   iCloud) with its age. First entry of the sidebar on Mac, iPad and iPhone.
 - **Pinned agents:** "Anheften" in an agent's context menu keeps it at the
