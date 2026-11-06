@@ -1172,6 +1172,26 @@
         }
       }
     },
+    "Angeheftet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pinned"
+          }
+        }
+      }
+    },
+    "Anheften" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        }
+      }
+    },
     "Anlegen" : {
       "localizations" : {
         "en" : {
@@ -2258,6 +2278,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore list prices"
+          }
+        }
+      }
+    },
+    "Lösen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
           }
         }
       }
