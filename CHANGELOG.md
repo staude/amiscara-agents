@@ -841,6 +841,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `herdr-transport` builds its SSH layer (connecting, key and agent sign-in,
+  host key checks, key generation and parsing, channels) on the shared crate
+  `amiscara-ssh` v0.3.0 instead of its own code; the public API stays the
+  same. `herdr-spike` now learns a host key under `--accept-new-host-key` only
+  for hosts without a `known_hosts` entry, and an unreadable file is an error
+  (#328).
 - The crate `herdr-core` is now `herdr-client` (#329), since upstream's
   runtime is called herdr-core.
 

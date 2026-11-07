@@ -3,21 +3,17 @@
 //! `Local` talks to the Unix socket directly (Unix only). `Ssh` keeps one SSH session and
 //! opens a `direct-streamlocal@openssh.com` channel per request, which is the
 //! same path `herdr --remote` uses. Nothing has to be installed on the server.
+//! Connecting, sign-in, host key checks and channels come from the shared
+//! crate `amiscara-ssh`; what is specific to herdr stays here.
 
 pub mod keys;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use amiscara_ssh::{Session, SshError};
 use herdr_proto::{ProtoError, Request};
-use russh::client::{self, AuthResult, Handle};
-use russh::keys::agent::client::AgentClient;
-use russh::keys::{
-    HashAlg, PrivateKey, PrivateKeyWithHashAlg, PublicKey, PublicKeyOrCertificate, known_hosts,
-    load_secret_key,
-};
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use serde_json::Value;
@@ -86,137 +82,50 @@ impl TransportError {
     }
 }
 
+impl From<SshError> for TransportError {
+    fn from(err: SshError) -> Self {
+        match err {
+            SshError::Io(e) => Self::Io(e),
+            SshError::Ssh(e) => Self::Ssh(e),
+            SshError::Key(s) => Self::Key(s),
+            SshError::AuthFailed(s) => Self::AuthFailed(s),
+            SshError::UnknownHostKey {
+                host,
+                key,
+                fingerprint,
+            } => Self::UnknownHostKey {
+                host,
+                key,
+                fingerprint,
+            },
+            SshError::HostKeyChanged {
+                host,
+                key,
+                fingerprint,
+            } => Self::HostKeyChanged {
+                host,
+                key,
+                fingerprint,
+            },
+            SshError::Timeout(_) => Self::Timeout,
+            SshError::Refused(what) => {
+                Self::Io(std::io::Error::other(format!("server refused {what}")))
+            }
+            SshError::Hop { source, .. } => Self::from(*source),
+        }
+    }
+}
+
 trait Stream: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> Stream for T {}
 
-#[derive(Clone)]
-pub enum Identity {
-    /// Private key file in OpenSSH format, unencrypted.
-    File(PathBuf),
-    /// The SSH agent (`SSH_AUTH_SOCK`, on Windows the OpenSSH named pipe).
-    Agent,
-    /// A key held in memory, for example loaded from the Keychain.
-    Key(Arc<PrivateKey>),
-}
-
-impl std::fmt::Debug for Identity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::File(path) => f.debug_tuple("File").field(path).finish(),
-            Self::Agent => f.write_str("Agent"),
-            Self::Key(_) => f.write_str("Key(..)"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum HostKeyPolicy {
-    /// An OpenSSH `known_hosts` file. With `accept_new`, unknown keys are
-    /// recorded (trust on first use); changed keys are always refused.
-    KnownHostsFile { path: PathBuf, accept_new: bool },
-    /// Exactly this key, as an OpenSSH public key line. `None` trusts
-    /// nothing yet, so the first contact ends in `UnknownHostKey`.
-    Pinned(Option<String>),
-}
-
-#[derive(Debug, Clone)]
-pub struct SshTarget {
-    pub host: String,
-    pub port: u16,
-    pub user: String,
-    pub identity: Identity,
-    pub host_key: HostKeyPolicy,
-}
-
-struct HostKeyCheck {
-    host: String,
-    port: u16,
-    policy: HostKeyPolicy,
-    /// Why a key was refused, read after the handshake failed.
-    refusal: Arc<Mutex<Option<TransportError>>>,
-}
-
-impl HostKeyCheck {
-    fn refuse(&self, error: TransportError) -> Result<bool, russh::Error> {
-        if let Ok(mut refusal) = self.refusal.lock() {
-            *refusal = Some(error);
-        }
-        Ok(false)
-    }
-}
-
-impl client::Handler for HostKeyCheck {
-    type Error = russh::Error;
-
-    async fn check_server_key(
-        &mut self,
-        server_key: &PublicKeyOrCertificate,
-    ) -> Result<bool, Self::Error> {
-        // Host certificates are not supported yet; only plain host keys.
-        if server_key.certificate().is_some() {
-            return Ok(false);
-        }
-        let server_public_key = server_key.public_key();
-        let presented = || {
-            (
-                server_public_key.to_openssh().unwrap_or_default(),
-                server_public_key.fingerprint(HashAlg::Sha256).to_string(),
-            )
-        };
-        let unknown = || {
-            let (key, fingerprint) = presented();
-            TransportError::UnknownHostKey {
-                host: self.host.clone(),
-                key,
-                fingerprint,
-            }
-        };
-        let changed = || {
-            let (key, fingerprint) = presented();
-            TransportError::HostKeyChanged {
-                host: self.host.clone(),
-                key,
-                fingerprint,
-            }
-        };
-        match &self.policy {
-            HostKeyPolicy::Pinned(None) => self.refuse(unknown()),
-            HostKeyPolicy::Pinned(Some(line)) => match PublicKey::from_openssh(line) {
-                Ok(pinned) if pinned.key_data() == server_public_key.key_data() => Ok(true),
-                _ => self.refuse(changed()),
-            },
-            HostKeyPolicy::KnownHostsFile { path, accept_new } => {
-                match known_hosts::check_known_hosts_path(
-                    &self.host,
-                    self.port,
-                    &server_public_key,
-                    path,
-                ) {
-                    Ok(true) => Ok(true),
-                    Ok(false) if *accept_new => {
-                        known_hosts::learn_known_hosts_path(
-                            &self.host,
-                            self.port,
-                            &server_public_key,
-                            path,
-                        )
-                        .map_err(|e| russh::Error::IO(std::io::Error::other(e.to_string())))?;
-                        Ok(true)
-                    }
-                    Ok(false) => self.refuse(unknown()),
-                    Err(russh::keys::Error::KeyChanged { .. }) => self.refuse(changed()),
-                    Err(_) => self.refuse(unknown()),
-                }
-            }
-        }
-    }
-}
+pub use amiscara_ssh::{HostKeyPolicy, Identity, SshTarget};
 
 enum Inner {
     #[cfg(unix)]
     Local(PathBuf),
     Ssh {
-        handle: Handle<HostKeyCheck>,
+        handle: Session,
         socket_path: String,
         /// Set once sshd refused a streamlocal channel: the key's line has no
         /// `port-forwarding` but a forced command that connects every
@@ -348,41 +257,7 @@ impl Connection {
     }
 
     pub async fn ssh(target: &SshTarget, socket_path: String) -> Result<Self, TransportError> {
-        let config = Arc::new(client::Config {
-            inactivity_timeout: None,
-            keepalive_interval: Some(Duration::from_secs(15)),
-            nodelay: true,
-            ..Default::default()
-        });
-        let refusal = Arc::new(Mutex::new(None));
-        let check = HostKeyCheck {
-            host: target.host.clone(),
-            port: target.port,
-            policy: target.host_key.clone(),
-            refusal: Arc::clone(&refusal),
-        };
-        let mut handle =
-            match client::connect(config, (target.host.as_str(), target.port), check).await {
-                Ok(handle) => handle,
-                Err(err) => {
-                    let refused = refusal.lock().ok().and_then(|mut r| r.take());
-                    return Err(refused.unwrap_or(TransportError::Ssh(err)));
-                }
-            };
-
-        let authenticated = match &target.identity {
-            Identity::File(path) => authenticate_with_file(&mut handle, &target.user, path).await?,
-            Identity::Agent => authenticate_with_agent(&mut handle, &target.user).await?,
-            Identity::Key(key) => {
-                authenticate_with_key(&mut handle, &target.user, Arc::clone(key)).await?
-            }
-        };
-        if !authenticated {
-            return Err(TransportError::AuthFailed(format!(
-                "{}@{}",
-                target.user, target.host
-            )));
-        }
+        let handle = Session::connect(target).await?;
 
         Ok(Self {
             inner: Inner::Ssh {
@@ -411,23 +286,20 @@ impl Connection {
             } => {
                 let open = async {
                     if !gated.load(Ordering::Relaxed) {
-                        match handle
-                            .channel_open_direct_streamlocal(socket_path.clone())
-                            .await
-                        {
+                        match handle.direct_streamlocal(socket_path).await {
                             Ok(channel) => {
                                 return Ok::<Box<dyn Stream>, TransportError>(Box::new(
                                     channel.into_stream(),
                                 ));
                             }
                             // No port forwarding for this key: try the gate.
-                            Err(russh::Error::ChannelOpenFailure(_)) => {
+                            Err(SshError::Ssh(russh::Error::ChannelOpenFailure(_))) => {
                                 gated.store(true, Ordering::Relaxed)
                             }
                             Err(err) => return Err(err.into()),
                         }
                     }
-                    let channel = handle.channel_open_session().await?;
+                    let channel = handle.channel_session().await?;
                     channel.exec(true, "herdr").await?;
                     Ok(Box::new(channel.into_stream()))
                 };
@@ -440,15 +312,8 @@ impl Connection {
                     // until the keepalives give up a minute later. Close it so
                     // the session reconnects instead of every read hanging (#258).
                     Err(_) => {
-                        let _ = tokio::time::timeout(
-                            Duration::from_secs(2),
-                            handle.disconnect(
-                                russh::Disconnect::ByApplication,
-                                "channel open timed out",
-                                "",
-                            ),
-                        )
-                        .await;
+                        let _ =
+                            tokio::time::timeout(Duration::from_secs(2), handle.disconnect()).await;
                         Err(TransportError::Timeout)
                     }
                 }
@@ -474,19 +339,18 @@ impl Connection {
             } => (handle, tcp_gated),
         };
         if !tcp_gated.load(Ordering::Relaxed) {
-            match handle
-                .channel_open_direct_tcpip("localhost", u32::from(port), "127.0.0.1", 0)
-                .await
-            {
+            match handle.direct_tcpip("localhost", port).await {
                 Ok(channel) => {
                     let stream: Box<dyn Stream> = Box::new(channel.into_stream());
                     return Ok(BufReader::new(stream));
                 }
                 // `restrict` in the key's line: try the gate.
-                Err(russh::Error::ChannelOpenFailure(
+                Err(SshError::Ssh(russh::Error::ChannelOpenFailure(
                     russh::ChannelOpenFailure::AdministrativelyProhibited,
-                )) => tcp_gated.store(true, Ordering::Relaxed),
-                Err(russh::Error::ChannelOpenFailure(russh::ChannelOpenFailure::ConnectFailed)) => {
+                ))) => tcp_gated.store(true, Ordering::Relaxed),
+                Err(SshError::Ssh(russh::Error::ChannelOpenFailure(
+                    russh::ChannelOpenFailure::ConnectFailed,
+                ))) => {
                     return Err(TransportError::Io(std::io::Error::new(
                         std::io::ErrorKind::ConnectionRefused,
                         format!("nothing answers on localhost:{port} on the host"),
@@ -495,7 +359,7 @@ impl Connection {
                 Err(err) => return Err(err.into()),
             }
         }
-        let channel = handle.channel_open_session().await?;
+        let channel = handle.channel_session().await?;
         channel.exec(true, format!("amiscara-tcp {port}")).await?;
         let stream: Box<dyn Stream> = Box::new(channel.into_stream());
         let mut reader = BufReader::new(stream);
@@ -576,7 +440,7 @@ impl Connection {
         };
         let deadline = tokio::time::Instant::now() + HEALTH_TIMEOUT;
         let channel = tokio::time::timeout_at(deadline, async {
-            let channel = handle.channel_open_session().await?;
+            let channel = handle.channel_session().await?;
             channel.exec(true, HEALTH_GATE_READY).await?;
             Ok::<_, TransportError>(channel)
         })
@@ -1078,7 +942,7 @@ impl Connection {
             Inner::Ssh { handle, .. } => handle,
         };
         let open = |command: &'static str| async move {
-            let channel = handle.channel_open_session().await?;
+            let channel = handle.channel_session().await?;
             channel.exec(true, command).await?;
             let stream: Box<dyn Stream> = Box::new(channel.into_stream());
             Ok::<_, TransportError>(BufReader::new(stream))
@@ -1477,10 +1341,7 @@ async fn sftp_real_path(
     Ok((home, target))
 }
 
-async fn sftp_list_dir(
-    handle: &Handle<HostKeyCheck>,
-    path: &str,
-) -> Result<DirListing, TransportError> {
+async fn sftp_list_dir(handle: &Session, path: &str) -> Result<DirListing, TransportError> {
     let sftp = sftp_session(handle, TransportError::Files).await?;
     let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
     let (home, target) = sftp_real_path(&sftp, path).await?;
@@ -1524,7 +1385,7 @@ async fn sftp_list_dir(
 
 /// Like [`write_below`], on the server.
 async fn sftp_write_file(
-    handle: &Handle<HostKeyCheck>,
+    handle: &Session,
     path: &str,
     data: &[u8],
     expected_size: u64,
@@ -1566,10 +1427,10 @@ fn local_home_path(path: &str) -> Result<std::path::PathBuf, TransportError> {
 /// An SFTP session on its own channel. `error` wraps the failure: only a key
 /// whose forced command is `sftp-server` gets one.
 async fn sftp_session(
-    handle: &Handle<HostKeyCheck>,
+    handle: &Session,
     error: fn(String) -> TransportError,
 ) -> Result<SftpSession, TransportError> {
-    let channel = handle.channel_open_session().await?;
+    let channel = handle.channel_session().await?;
     channel.request_subsystem(true, "sftp").await?;
     SftpSession::new(channel.into_stream()).await.map_err(|err| {
         error(format!(
@@ -1612,7 +1473,7 @@ async fn local_list_files(
 }
 
 async fn sftp_list(
-    handle: &Handle<HostKeyCheck>,
+    handle: &Session,
     dir: &str,
     if_present: bool,
 ) -> Result<Vec<RemoteFile>, TransportError> {
@@ -1676,9 +1537,7 @@ fn tidy_sessions(mut sessions: Vec<HerdrSessionEntry>) -> Vec<HerdrSessionEntry>
     sessions
 }
 
-async fn sftp_herdr_sessions(
-    handle: &Handle<HostKeyCheck>,
-) -> Result<Vec<HerdrSessionEntry>, TransportError> {
+async fn sftp_herdr_sessions(handle: &Session) -> Result<Vec<HerdrSessionEntry>, TransportError> {
     let sftp = sftp_session(handle, TransportError::Files).await?;
     let failed = |err: russh_sftp::client::error::Error| TransportError::Files(err.to_string());
     let home = sftp.canonicalize(".").await.map_err(failed)?;
@@ -1724,7 +1583,7 @@ fn with_authorized_key(current: &str, line: &str, key_blob: &str) -> Option<Stri
 }
 
 async fn sftp_add_authorized_key(
-    handle: &Handle<HostKeyCheck>,
+    handle: &Session,
     line: &str,
     key_blob: &str,
 ) -> Result<bool, TransportError> {
@@ -1776,7 +1635,7 @@ async fn sftp_add_authorized_key(
 }
 
 async fn sftp_upload(
-    handle: &Handle<HostKeyCheck>,
+    handle: &Session,
     dir: &str,
     file_name: &str,
     data: &[u8],
@@ -1862,7 +1721,7 @@ async fn write_private_below(
 
 /// [`Connection::write_private_file`] over SFTP.
 async fn sftp_write_private(
-    handle: &Handle<HostKeyCheck>,
+    handle: &Session,
     dir: &str,
     file_name: &str,
     data: &[u8],
@@ -1918,55 +1777,6 @@ async fn read_line(
             return Ok(Some(line));
         }
     }
-}
-
-async fn authenticate_with_file(
-    handle: &mut Handle<HostKeyCheck>,
-    user: &str,
-    path: &Path,
-) -> Result<bool, TransportError> {
-    let key = load_secret_key(path, None).map_err(|e| TransportError::Key(e.to_string()))?;
-    authenticate_with_key(handle, user, Arc::new(key)).await
-}
-
-async fn authenticate_with_key(
-    handle: &mut Handle<HostKeyCheck>,
-    user: &str,
-    key: Arc<PrivateKey>,
-) -> Result<bool, TransportError> {
-    let hash = handle.best_supported_rsa_hash().await?.flatten();
-    let result = handle
-        .authenticate_publickey(user, PrivateKeyWithHashAlg::new(key, hash))
-        .await?;
-    Ok(matches!(result, AuthResult::Success))
-}
-
-async fn authenticate_with_agent(
-    handle: &mut Handle<HostKeyCheck>,
-    user: &str,
-) -> Result<bool, TransportError> {
-    #[cfg(unix)]
-    let agent = AgentClient::connect_env().await;
-    // Windows OpenSSH runs its agent on a fixed named pipe.
-    #[cfg(windows)]
-    let agent = AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await;
-    let mut agent = agent.map_err(|e| TransportError::Key(e.to_string()))?;
-    let identities = agent
-        .request_identities()
-        .await
-        .map_err(|e| TransportError::Key(e.to_string()))?;
-    let hash = handle.best_supported_rsa_hash().await?.flatten();
-    for identity in identities {
-        let key = identity.public_key().into_owned();
-        let result = handle
-            .authenticate_publickey_with(user, key, hash, &mut agent)
-            .await
-            .map_err(|e| TransportError::Key(e.to_string()))?;
-        if matches!(result, AuthResult::Success) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 #[cfg(test)]
@@ -2265,5 +2075,76 @@ mod health_tests {
             read(b"amiscara-health\n", Duration::from_millis(50)),
             Err(TransportError::Timeout)
         ));
+    }
+}
+
+#[cfg(test)]
+mod ssh_error_tests {
+    use super::*;
+
+    fn io_kind(err: TransportError) -> Option<String> {
+        match err {
+            TransportError::Io(e) => Some(e.to_string()),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn ssh_errors_map_to_their_transport_variants() {
+        let fingerprint = || ("h".to_owned(), "k".to_owned(), "SHA256:f".to_owned());
+        let (host, key, f) = fingerprint();
+        assert!(matches!(
+            TransportError::from(SshError::UnknownHostKey {
+                host,
+                key,
+                fingerprint: f
+            }),
+            TransportError::UnknownHostKey { fingerprint, .. } if fingerprint == "SHA256:f"
+        ));
+        let (host, key, f) = fingerprint();
+        assert!(matches!(
+            TransportError::from(SshError::HostKeyChanged {
+                host,
+                key,
+                fingerprint: f
+            }),
+            TransportError::HostKeyChanged { .. }
+        ));
+        assert!(matches!(
+            TransportError::from(SshError::AuthFailed("u@h".into())),
+            TransportError::AuthFailed(s) if s == "u@h"
+        ));
+        assert!(matches!(
+            TransportError::from(SshError::Key("x".into())),
+            TransportError::Key(s) if s == "x"
+        ));
+        assert!(matches!(
+            TransportError::from(SshError::Ssh(russh::Error::Disconnect)),
+            TransportError::Ssh(_)
+        ));
+        assert!(matches!(
+            TransportError::from(SshError::Io(std::io::Error::other("io"))),
+            TransportError::Io(_)
+        ));
+        assert!(matches!(
+            TransportError::from(SshError::Timeout("u@h:22".into())),
+            TransportError::Timeout
+        ));
+        assert_eq!(
+            io_kind(SshError::Refused("pty".into()).into()).as_deref(),
+            Some("server refused pty")
+        );
+    }
+
+    #[test]
+    fn a_failed_hop_maps_like_its_cause() {
+        let hop = SshError::Hop {
+            index: 0,
+            hop: "u@jump:22".into(),
+            source: Box::new(SshError::AuthFailed("u@jump".into())),
+        };
+        let err = TransportError::from(hop);
+        assert!(err.needs_user());
+        assert!(matches!(err, TransportError::AuthFailed(_)));
     }
 }

@@ -169,11 +169,18 @@ impl Endpoint {
             host: host.to_owned(),
             port,
             user: user.to_owned(),
-            identity: cli.identity.clone().map_or(Identity::Agent, Identity::File),
+            identity: cli
+                .identity
+                .clone()
+                .map_or(Identity::Agent, |path| Identity::File {
+                    path,
+                    passphrase: None,
+                }),
             host_key: HostKeyPolicy::KnownHostsFile {
                 path: known_hosts,
                 accept_new: cli.accept_new_host_key,
             },
+            agent_forward: false,
         };
         let socket = cli
             .socket

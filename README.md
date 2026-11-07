@@ -763,7 +763,8 @@ What the apps cannot do, because herdr's API does not offer it:
 - `crates/herdr-proto`: request, response and event types of herdr's
   socket API, protocol version check, and of herdr-core's JSON-RPC API.
 - `crates/herdr-transport`: local socket and SSH transport, requests and
-  event subscriptions, host key checks.
+  event subscriptions, SFTP file helpers. The SSH layer (sign-in, host key
+  checks, keys, channels) is the shared crate `amiscara-ssh`.
 - `crates/herdr-client`: session state from snapshot and events, the agent
   board, the sync driver with reconnect, pane content as styled lines (ANSI
   parsing, links), space grouping, the Claude conversation, herdr-core's

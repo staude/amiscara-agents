@@ -106,6 +106,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "amiscara-ssh"
+version = "0.3.0"
+source = "git+https://github.com/staude/amiscara-ssh?tag=v0.3.0#3bc34551766195c30cf53707bcb24b3ee0765c33"
+dependencies = [
+ "russh",
+ "ssh-key",
+ "thiserror 2.0.21",
+ "tokio",
+ "zeroize",
+]
+
+[[package]]
 name = "android_log-sys"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2455,13 +2467,13 @@ dependencies = [
 name = "herdr-transport"
 version = "0.1.0"
 dependencies = [
+ "amiscara-ssh",
  "async-trait",
  "dirs 7.0.0",
  "herdr-proto",
  "russh",
  "russh-sftp",
  "serde_json",
- "ssh-key",
  "thiserror 2.0.21",
  "tokio",
 ]
