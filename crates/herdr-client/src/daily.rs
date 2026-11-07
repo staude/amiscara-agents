@@ -2,7 +2,7 @@
 //! finished turns, and the commits of every space. herdr keeps no history
 //! of agent states, so the turns come from the Claude Code session files
 //! (see [`crate::claude`]); the commits and the list of session files from
-//! a small script in a short-lived tab like [`crate::diff::diff_script`].
+//! a small script run like [`crate::diff::diff_script`].
 //! Nothing is stored.
 
 use crate::claude::{Entry, EntryKind};

@@ -19,7 +19,8 @@ struct ChangesTarget: Identifiable {
 
 /// What an agent changed in its working directory (#228): `git diff`
 /// against `HEAD` plus untracked files, per file with its hunks. Read only;
-/// the host runs Git in a short-lived tab of the pane's space.
+/// the host runs Git in a short-lived tab of the pane's space, without one
+/// where herdr-core answers (#359).
 struct DiffView: View {
     let connection: HostConnection
     let target: DiffTarget

@@ -1,8 +1,9 @@
 //! Git status of the worktree spaces on a host (#343): ahead/behind against
 //! the upstream and the number of uncommitted changes. herdr reports only
-//! the branch, so like [`crate::diff`] the session runs a small script in a
-//! short-lived tab (see [`status_script`]) and reads its output through
-//! SFTP; one run covers every worktree of the host.
+//! the branch, so like [`crate::diff`] the session runs a small script (see
+//! [`status_script`]) in a short-lived tab or, where herdr-core answers,
+//! without one (#359) and reads its output through SFTP; one run covers
+//! every worktree of the host.
 
 /// Starts the lines of one directory: the mark, a space, its path.
 pub const DIR_MARK: &str = "#amiscara-dir";

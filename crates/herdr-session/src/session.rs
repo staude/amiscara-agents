@@ -1301,9 +1301,10 @@ impl Session {
 
     /// What changed in the working directory of a pane (#228): `git diff`
     /// against `HEAD` plus untracked files, read only. herdr has no method
-    /// for it and device keys reach no shell, so a small script runs in a
-    /// short-lived, unfocused tab in the pane's directory and leaves its
-    /// output in the uploads folder, read and removed through SFTP. Needs
+    /// for it and device keys reach no shell, so a small script runs in the
+    /// pane's directory, in a short-lived, unfocused tab or, while
+    /// herdr-core answers, without one (#359), and leaves its output in the
+    /// uploads folder, read and removed through SFTP. Needs
     /// file access like uploads; takes a moment.
     pub async fn working_tree_diff(
         &self,

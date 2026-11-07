@@ -1,8 +1,9 @@
 //! What an agent changed in its working directory (#228): the output of
 //! `git diff` against `HEAD`, plus untracked files, read into files and
 //! hunks. herdr has no method for it and the device keys reach no shell, so
-//! the session runs a small script in a short-lived tab (see
-//! [`diff_script`]) and reads its output through SFTP.
+//! the session runs a small script (see [`diff_script`]) in a short-lived
+//! tab or, where herdr-core answers, without one (#359) and reads its
+//! output through SFTP.
 
 /// One file of a diff.
 #[derive(Debug, Clone, PartialEq, Eq)]

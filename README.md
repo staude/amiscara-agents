@@ -142,8 +142,9 @@ code), so a host is set up the same way everywhere.
   turns they finished (from the session files in `~/.claude/projects`)
   and the commits of all spaces. A menu picks one of the last seven days;
   "Zusammenfassen" turns the list into a few sentences with the on-device
-  model (Apple Intelligence). Git runs in a short-lived tab, so it needs
-  input and file access; nothing is stored. Mac, iPhone and iPad.
+  model (Apple Intelligence). Git runs in a short-lived tab, without one
+  where herdr-core answers, so it needs input and file access; nothing is
+  stored. Mac, iPhone and iPad.
 - **Approvals:** with a GitHub token for a host (host settings, "GitHub",
   fine-grained with Issues: Read, kept only on this device), the overview
   and the host's dashboard list "Freigaben": issues in the host's GitHub

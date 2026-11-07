@@ -584,8 +584,9 @@ final class HostConnection: Identifiable {
     }
 
     /// What changed in a pane's working directory (#228). Read only, but it
-    /// opens a short-lived tab to run Git and reads the result over SFTP, so
-    /// it needs both input and file access.
+    /// runs Git in a short-lived tab (without one where herdr-core answers,
+    /// #359) and reads the result over SFTP, so it needs both input and file
+    /// access.
     func workingTreeDiff(paneID: String) async throws -> WorkingTreeDiff {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
@@ -619,7 +620,8 @@ final class HostConnection: Identifiable {
 
     /// What happened on the host between `since` and `until` (#301):
     /// Claude Code prompts and finished turns, and the commits of every
-    /// space. Read only, but like the diff it opens a short-lived tab and
+    /// space. Read only, but like the diff it runs a script on the host (in
+    /// a short-lived tab or without one where herdr-core answers, #359) and
     /// reads over SFTP, so it needs both input and file access.
     func dailyLog(since: Date, until: Date) async throws -> DailyLog {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
@@ -937,7 +939,7 @@ enum ConnectionFailure: LocalizedError {
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .diffReadOnly:
-            String(localized: "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
+            String(localized: "Die Änderungen liest die App über ein Skript auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
         case .dailyLogFilesOff:
             String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .gitStatusFilesOff:
