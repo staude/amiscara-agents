@@ -838,6 +838,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `machine.exec`. Core: `herdr_proto::hc`, `herdr_client::hc`,
   `Connection::hc_request`, `hc_subscribe`, `Endpoint::Local` takes
   `hc_socket_path`; `herdr-spike hc`.
+- Terminal addresses in pane text (#331): `t7` or `vps/t7` of a live
+  herdr-core terminal is underlined in a pane, a split tab and a peek; a
+  click on the Mac or a tap on iPhone and iPad shows that terminal in the
+  peek. `t7` means the machine of the pane it stands in. Core:
+  `Span::terminal`, `herdr_client::hc::resolve`, FFI `StyledSpan.terminal`,
+  `terminal_pane_id`.
 
 ### Changed
 
