@@ -61,9 +61,11 @@ struct InputBar: View {
     @State private var windowBox = WindowBox()
     #endif
 
-    #if os(iOS)
     /// The on-screen keyboard is up; with a hardware keyboard it is not.
+    /// Only iOS sets it; elsewhere it stays false.
     @State private var keyboardShown = false
+
+    #if os(iOS)
     private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
     #endif
     private var isAgent: Bool { pane.agent != nil }
