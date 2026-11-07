@@ -1318,7 +1318,8 @@ enum AgentOrder: String {
     }
 
     /// Pinned agents (#334) first, in either order; otherwise as before.
-    /// Sub-agents (#330) follow their parent agent, except pinned ones.
+    /// Sub-agents (#330) follow their parent agent, except pinned ones; by
+    /// state they keep their place, so a waiting one stays on top.
     static func sorted(_ update: SessionUpdate, by order: AgentOrder, pinned: Set<String> = []) -> [Entry] {
         let spaces = SpaceOrder.arrange(update).map(\.workspace)
         // The data comes from the server; duplicate ids must not crash the
@@ -1347,7 +1348,7 @@ enum AgentOrder: String {
             ordered.map(\.agent),
             id: \.paneId,
             parent: \.parentPaneId,
-            keepInPlace: { pinned.contains($0.paneId) }
+            keepInPlace: { order == .status || pinned.contains($0.paneId) }
         )
         return nested.map { agent, depth in
             Entry(
