@@ -841,6 +841,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `herdr-transport` builds its SSH layer (connecting, key and agent sign-in,
+  host key checks, key generation and parsing, channels) on the shared crate
+  `amiscara-ssh` v0.3.0 instead of its own code. `Identity`, `HostKeyPolicy`
+  and `SshTarget` are now the types of `amiscara-ssh` (`Identity::File` takes
+  a passphrase, `SshTarget` has `agent_forward`); errors keep their
+  `TransportError` variants. For `known_hosts` files the new rules apply:
+  host names are lower-cased and checked, an unreadable file is an error, and
+  trust on first use only records hosts without any entry (`herdr-spike`
+  `--accept-new-host-key`). A refused TCP connect is now `TransportError::Io`
+  (#328).
 - The crate `herdr-core` is now `herdr-client` (#329), since upstream's
   runtime is called herdr-core.
 

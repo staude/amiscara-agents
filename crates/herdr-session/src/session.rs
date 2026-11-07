@@ -2360,6 +2360,7 @@ impl Connector {
                         user,
                         identity,
                         host_key: HostKeyPolicy::Pinned(pinned_host_key),
+                        agent_forward: false,
                     },
                     socket: socket_path,
                 })
