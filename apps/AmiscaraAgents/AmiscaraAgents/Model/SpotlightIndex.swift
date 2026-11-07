@@ -84,14 +84,25 @@ final class SpotlightIndex {
         }
     }
 
-    /// A removed host loses its entries at once.
+    /// A removed host loses its entries. The delete waits for a batch write
+    /// in flight (like `clearAll()`), because that write may be for this
+    /// host, or still queued for it, and would otherwise land after the
+    /// delete and bring the entries back. `pending` is cleared first, so no
+    /// later batch picks the host up again.
     func remove(host id: UUID) {
         let key = id.uuidString
         pending[id] = nil
         written[id] = nil
         lastSpaces[id] = nil
         indexedHosts.remove(key)
-        Task { try? await CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: [key]) }
+        let inFlight = writeTask
+        Task { [weak self] in
+            await inFlight?.value
+            try? await CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: [key])
+            // The write that just finished may have recorded the host again.
+            self?.written[id] = nil
+            self?.indexedHosts.remove(key)
+        }
     }
 
     /// Turning the setting off clears Spotlight at once. Turning it on asks
