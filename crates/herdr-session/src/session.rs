@@ -1341,9 +1341,11 @@ impl Session {
         let conn = self.connection()?;
         let output = run_script(
             &conn,
-            workspace_id,
-            cwd,
-            self.core_answers(),
+            RunIn {
+                workspace_id,
+                cwd,
+                core: self.core_answers(),
+            },
             "diff",
             diff::diff_script,
             MAX_DIFF_BYTES,
@@ -1382,9 +1384,11 @@ impl Session {
         let minutes = (unix_ms() / 1000).saturating_sub(since_secs).div_ceil(60) + 1;
         let output = run_script(
             &conn,
-            &workspace_id,
-            &cwd,
-            self.core_answers(),
+            RunIn {
+                workspace_id: &workspace_id,
+                cwd: &cwd,
+                core: self.core_answers(),
+            },
             "day",
             |out| daily::day_script(out, since_secs, until_secs, minutes, &dirs),
             MAX_DAY_BYTES,
@@ -1465,9 +1469,11 @@ impl Session {
         }
         let output = run_script(
             &conn,
-            &run_in,
-            &cwd,
-            self.core_answers(),
+            RunIn {
+                workspace_id: &run_in,
+                cwd: &cwd,
+                core: self.core_answers(),
+            },
             "git-status",
             |out| gitstatus::status_script(out, &dirs),
             MAX_GIT_STATUS_BYTES,
@@ -2470,17 +2476,23 @@ struct ScriptOutput {
     truncated: bool,
 }
 
-/// Runs a script in a short-lived, unfocused tab of `workspace_id` in
-/// `cwd` and reads what it wrote (#228). `script` gets the output path
-/// below the home directory; the script writes it next to itself and
-/// renames it to `.done` when complete, errors to `.err`. When `failed`
-/// says the output is empty of results, the errors become the error.
-/// Everything is removed afterwards.
+/// Where [`run_script`] runs a script: for the space `workspace_id` in
+/// `cwd`, without a tab when `core` says herdr-core answers (#359).
+struct RunIn<'a> {
+    workspace_id: &'a str,
+    cwd: &'a str,
+    core: bool,
+}
+
+/// Runs a script as [`run_host_script`] does, in a short-lived, unfocused
+/// tab or with herdr-core, and reads what it wrote (#228). `script` gets
+/// the output path below the home directory; the script writes it next to
+/// itself and renames it to `.done` when complete, errors to `.err`. When
+/// `failed` says the output is empty of results, the errors become the
+/// error. Everything is removed afterwards.
 async fn run_script(
     conn: &Connection,
-    workspace_id: &str,
-    cwd: &str,
-    core: bool,
+    place: RunIn<'_>,
     kind: &str,
     script: impl FnOnce(&str) -> String,
     max_bytes: u64,
@@ -2500,8 +2512,15 @@ async fn run_script(
     let err_file = format!("{out}.err");
 
     let result = async {
-        let run =
-            run_host_script(conn, workspace_id, cwd, &script_path, SCRIPT_TIMEOUT, core).await?;
+        let run = run_host_script(
+            conn,
+            place.workspace_id,
+            place.cwd,
+            &script_path,
+            SCRIPT_TIMEOUT,
+            place.core,
+        )
+        .await?;
         if let HostRun::Tab(tab) = run {
             let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
             // The shell exits by itself; close the tab in case it stayed.
