@@ -40,6 +40,9 @@ struct AgentSummaryRow: View {
     let host: String?
     /// Pinned to the top in the app (#334); widgets show no pins.
     var pinned = false
+    /// Steps under the parent agent for a sub-agent (#330); a sub-agent
+    /// also shows its time in the state. Widgets list no sub-agents apart.
+    var depth = 0
 
     var body: some View {
         HStack(spacing: 6) {
@@ -60,7 +63,21 @@ struct AgentSummaryRow: View {
             Text(agent.state.label)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(agent.state.color)
+            if depth > 0, let since = agent.since {
+                TimelineView(.everyMinute) { context in
+                    Text(Self.relative(since, now: context.date))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
+        .padding(.leading, CGFloat(depth) * 14)
+    }
+
+    /// "vor 5 Min."; times a little ahead of this device's clock (from
+    /// another device) count as now.
+    static func relative(_ date: Date, now: Date) -> String {
+        min(date, now).formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
     }
 }
 

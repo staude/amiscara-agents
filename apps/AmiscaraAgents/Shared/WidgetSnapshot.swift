@@ -62,6 +62,9 @@ struct WidgetSnapshot: Codable, Equatable {
         /// Since when the agent is in its state, as the app saw it change;
         /// `nil` when unknown, also in snapshots and boards from older builds.
         var since: Date? = nil
+        /// The pane of the agent that started this one, for a sub-agent
+        /// (#330); `nil` also in snapshots and boards from older builds.
+        var parentID: String? = nil
 
         var id: String { paneID }
     }

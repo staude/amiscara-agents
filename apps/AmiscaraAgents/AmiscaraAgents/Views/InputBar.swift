@@ -68,6 +68,14 @@ struct InputBar: View {
     #if os(iOS)
     private var isPhone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
     #endif
+    /// The on-screen keyboard is up; only iOS has one.
+    private var keyboardUp: Bool {
+        #if os(iOS)
+        keyboardShown
+        #else
+        false
+        #endif
+    }
     private var isAgent: Bool { pane.agent != nil }
     /// Waits for an answer: herdr says so, or a choice question is on the
     /// screen, which herdr may report late (#272).
@@ -125,7 +133,7 @@ struct InputBar: View {
             start: startRequestedDictation
         ))
         .toolbar {
-            if verticalBar && !keyboardShown {
+            if verticalBar && !keyboardUp {
                 ToolbarItem(placement: .primaryAction) { dictationButton }
             }
         }
@@ -669,7 +677,7 @@ struct InputBar: View {
 
     private var keys: some View {
         HStack(spacing: 4) {
-            if !verticalBar || keyboardShown {
+            if !verticalBar || keyboardUp {
                 dictationButton
                 Divider().frame(height: 16)
             }

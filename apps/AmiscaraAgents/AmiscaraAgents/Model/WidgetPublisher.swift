@@ -111,7 +111,8 @@ extension WidgetSnapshot.Agent {
             place: [item.workspaceName, item.tabLabel].filter { !$0.isEmpty }.joined(separator: " · "),
             name: item.name ?? item.agent,
             state: WidgetSnapshot.State(item.agentState),
-            since: item.stateSinceMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000) }
+            since: item.stateSinceMs.map { Date(timeIntervalSince1970: TimeInterval($0) / 1000) },
+            parentID: item.parentPaneId
         )
     }
 }

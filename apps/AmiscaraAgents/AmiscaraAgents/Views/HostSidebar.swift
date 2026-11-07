@@ -53,6 +53,10 @@ struct HostSidebar: View {
     /// The price table of the token costs (#302).
     @State private var editingPrices = false
     #endif
+    #if !os(tvOS)
+    /// The sub-agent looked into (#330).
+    @State private var peeking: AgentPeek?
+    #endif
     /// Why a swipe action on an agent row could not be sent.
     @State private var swipeError: String?
     /// Bumped after a swipe action went out, for the haptic.
@@ -114,6 +118,7 @@ struct HostSidebar: View {
         }
         #if !os(tvOS)
         .listStyle(.sidebar)
+        .agentPeek($peeking) { selection = .space($0) }
         #endif
         .navigationTitle("Amiscara Agents")
         .toolbar {
@@ -265,10 +270,19 @@ struct HostSidebar: View {
         #else
         let hasMenu = true
         #endif
-        let row = AgentRow(agent: agent, tabNumber: entry.tabNumber, pinned: pinned)
+        let row = AgentRow(agent: agent, tabNumber: entry.tabNumber, pinned: pinned, depth: entry.depth)
             .tag(SidebarItem.space(SpaceRef(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId)))
             .contextMenu(when: hasMenu) {
                 #if !os(tvOS)
+                // A click opens a sub-agent like any agent (#330); the
+                // peek is here.
+                if agent.parentPaneId != nil {
+                    PeekMenuItems(
+                        peek: AgentPeek(hostID: connection.id, workspaceID: agent.workspaceId, paneID: agent.paneId),
+                        open: { selection = .space($0) }
+                    ) { peeking = $0 }
+                    Divider()
+                }
                 PinButton(pinned: pinned) { AgentPins.shared.toggle(agent.paneId, on: connection) }
                 #endif
                 if renamable {
@@ -1167,6 +1181,9 @@ private struct AgentRow: View {
     let tabNumber: String?
     /// Pinned to the top (#334).
     var pinned = false
+    /// Steps under the parent agent for a sub-agent (#330), which also
+    /// shows its time in the state.
+    var depth = 0
 
     /// "Kette: → reviewer", or that one failed.
     private var chainLine: Text? {
@@ -1205,10 +1222,19 @@ private struct AgentRow: View {
                             .foregroundStyle(agent.agentState.color)
                     }
                 }
-                Text(agent.name.map { "\($0) · \(agent.agent)" } ?? agent.agent)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(agent.name.map { "\($0) · \(agent.agent)" } ?? agent.agent)
+                        .lineLimit(1)
+                    if depth > 0, let ms = agent.stateSinceMs {
+                        let since = Date(timeIntervalSince1970: TimeInterval(ms) / 1000)
+                        TimelineView(.everyMinute) { context in
+                            Text(verbatim: "· \(AgentSummaryRow.relative(since, now: context.date))")
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 if let chains = chainLine {
                     chains
                         .font(.caption)
@@ -1216,6 +1242,7 @@ private struct AgentRow: View {
                 }
             }
         }
+        .padding(.leading, CGFloat(depth) * 14)
     }
 }
 
@@ -1286,9 +1313,13 @@ enum AgentOrder: String {
         let agent: BoardItem
         /// Tab label, only when the agent's space has more than one tab.
         let tabNumber: String?
+        /// Steps under its parent agent, for a sub-agent (#330).
+        var depth = 0
     }
 
     /// Pinned agents (#334) first, in either order; otherwise as before.
+    /// Sub-agents (#330) follow their parent agent, except pinned ones; by
+    /// state they keep their place, so a waiting one stays on top.
     static func sorted(_ update: SessionUpdate, by order: AgentOrder, pinned: Set<String> = []) -> [Entry] {
         let spaces = SpaceOrder.arrange(update).map(\.workspace)
         // The data comes from the server; duplicate ids must not crash the
@@ -1313,10 +1344,17 @@ enum AgentOrder: String {
                     < (b.agent.agentState.urgency, place(b).0, place(b).1, b.index)
             }
         }
-        return ordered.map { item in
+        let nested = SubAgentTree.nest(
+            ordered.map(\.agent),
+            id: \.paneId,
+            parent: \.parentPaneId,
+            keepInPlace: { order == .status || pinned.contains($0.paneId) }
+        )
+        return nested.map { agent, depth in
             Entry(
-                agent: item.agent,
-                tabNumber: (tabCount[item.agent.workspaceId] ?? 0) > 1 ? item.agent.tabLabel : nil
+                agent: agent,
+                tabNumber: (tabCount[agent.workspaceId] ?? 0) > 1 ? agent.tabLabel : nil,
+                depth: depth
             )
         }
     }

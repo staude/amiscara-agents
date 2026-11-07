@@ -6718,6 +6718,16 @@
         }
       }
     },
+    "Sub-Agent von %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sub-agent of %@"
+          }
+        }
+      }
+    },
     "Worktree entfernen" : {
       "localizations" : {
         "en" : {
