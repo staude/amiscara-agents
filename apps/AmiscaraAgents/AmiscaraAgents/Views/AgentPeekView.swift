@@ -164,6 +164,7 @@ struct AgentPeekView: View {
     private func screen(_ connection: HostConnection) -> some View {
         if let content = model.content {
             TerminalScreenView(content: content, history: model)
+                .linkingTerminals(on: connection)
                 .terminalZoomGesture()
                 .opacity(connection.isLive ? 1 : 0.5)
                 .overlay(alignment: .top) {
@@ -183,9 +184,12 @@ struct AgentPeekView: View {
 
 extension View {
     /// Shows the peek of `item` as a sheet; `open` switches to its space.
+    /// A terminal address in the peek replaces it with that terminal's
+    /// (#331), so Esc closes one layer only.
     func agentPeek(_ item: Binding<AgentPeek?>, onDismiss: (() -> Void)? = nil, open: @escaping (SpaceRef) -> Void) -> some View {
         sheet(item: item, onDismiss: onDismiss) { peek in
             AgentPeekView(peek: peek, open: open)
+                .environment(\.peekTerminal, PeekTerminalAction { item.wrappedValue = $0 })
         }
     }
 
