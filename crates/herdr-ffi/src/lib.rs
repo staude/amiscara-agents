@@ -866,7 +866,8 @@ impl HostSession {
 
     /// What changed in the working directory of a pane (#228): `git diff`
     /// against `HEAD` plus untracked files, read only. Runs a small script
-    /// in a short-lived, unfocused tab and reads its output through SFTP,
+    /// in a short-lived, unfocused tab (without one where herdr-core
+    /// answers, #359) and reads its output through SFTP,
     /// so it needs file access like uploads. Blocks for a moment; call it
     /// off the main thread.
     pub fn working_tree_diff(&self, pane_id: String) -> Result<WorkingTreeDiff, FfiError> {
@@ -887,7 +888,8 @@ impl HostSession {
     /// What happened on the host between the Unix seconds `since_secs` and
     /// `until_secs` (#301): Claude Code prompts and finished turns, and the
     /// commits of every space, oldest first. Read only; runs a small script
-    /// in a short-lived, unfocused tab and reads files through SFTP, so it
+    /// in a short-lived, unfocused tab (without one where herdr-core
+    /// answers, #359) and reads files through SFTP, so it
     /// needs input and file access. Blocks for a moment; call it off the
     /// main thread.
     pub fn daily_log(&self, since_secs: u64, until_secs: u64) -> Result<DailyLog, FfiError> {
@@ -896,7 +898,8 @@ impl HostSession {
 
     /// Ahead/behind and uncommitted changes of every space showing a Git
     /// checkout (#343), or only of `only_workspace_id`. Read only; runs one
-    /// small script in a short-lived, unfocused tab and reads its output
+    /// small script in a short-lived, unfocused tab (without one where
+    /// herdr-core answers, #359) and reads its output
     /// through SFTP, so it needs input and file access. Spaces Git could
     /// not read are left out. Blocks for a moment; call it off the main
     /// thread.

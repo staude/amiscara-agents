@@ -7,8 +7,9 @@ import AppKit
 
 /// Ahead/behind and uncommitted changes of a host's Git spaces (#343), read
 /// by one script on the host for all of them (`HostConnection.worktreeStatus`).
-/// Only with input and file access, which the script's tab and its output
-/// need; otherwise empty and no runs. Read again when spaces or branches
+/// Only with input and file access, which the script (in a tab, or without
+/// one where herdr-core answers, #359) and its output need; otherwise empty
+/// and no runs. Where herdr-core answers also when a space is opened. Read again when spaces or branches
 /// change, the host comes back, an agent in a Git space stops working, the
 /// app comes to the front, and every five minutes while the host is live
 /// and the app in front; reasons close together make one follow-up
@@ -45,11 +46,38 @@ final class GitStatusStore {
         byWorkspace[workspaceID]
     }
 
+    /// The status runs on its own without a tab (#359): herdr-core of the
+    /// host answers and input and file access are on. Then the button
+    /// "Änderungen" shows only for spaces with changes.
+    var automatic: Bool {
+        allowed && connection?.update?.herdrCore == true
+    }
+
+    /// A space was opened: read again on a host where that opens no tab
+    /// (#359), paced like any other reason.
+    func spaceOpened() {
+        guard automatic else { return }
+        request()
+    }
+
+    /// The changes of a space were loaded with `count` files: the number
+    /// of the view counts until the next run.
+    func changesLoaded(workspaceID: String, count: Int) {
+        guard var status = byWorkspace[workspaceID] else { return }
+        status.changes = UInt32(clamping: count)
+        byWorkspace[workspaceID] = status
+    }
+
     /// After a session update.
     func updated(_ update: SessionUpdate, live: Bool) {
         let current = update.workspaces.compactMap { space -> GitSpace? in
-            guard let key = space.repoKey else { return nil }
-            return GitSpace(workspaceID: space.workspaceId, repoKey: key, branch: space.branch ?? "")
+            // A space of herdr desktop has no repository key, only a branch
+            // when its terminal is in a checkout (#359).
+            if let key = space.repoKey {
+                return GitSpace(workspaceID: space.workspaceId, repoKey: key, branch: space.branch ?? "")
+            }
+            guard space.workspaceId.hasPrefix("hc:"), let branch = space.branch else { return nil }
+            return GitSpace(workspaceID: space.workspaceId, repoKey: "", branch: branch)
         }
         let nowWorking = Set(update.workspaces.filter { $0.agentState == .working }.map(\.workspaceId))
         let occasion = gitStatusOccasion(

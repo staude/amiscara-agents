@@ -101,6 +101,27 @@ func gitStatusText(hasUpstream: Bool, ahead: UInt32, behind: UInt32, changes: UI
     return parts.joined(separator: " ")
 }
 
+/// The button "Änderungen" next to a space's tabs (#342, #359).
+enum ChangesButton: Equatable {
+    case hidden
+    /// With the number of changed files when one is known and not 0.
+    case shown(count: Int?)
+}
+
+/// Whether and with what number the button shows. `automatic`: the host's
+/// Git status runs on its own without a tab (herdr-core, input and file
+/// access), so the button shows only for a space with changes. Otherwise
+/// it shows in every Git space, with the number once known. The number is
+/// that of the Git status, else of the last loaded changes.
+func changesButton(automatic: Bool, gitSpace: Bool, statusChanges: UInt32?, loadedCount: Int?) -> ChangesButton {
+    let count = statusChanges.map { Int($0) } ?? loadedCount ?? 0
+    if automatic {
+        return count > 0 ? .shown(count: count) : .hidden
+    }
+    guard gitSpace else { return .hidden }
+    return .shown(count: count > 0 ? count : nil)
+}
+
 /// Whether a worktree matches the search of "Worktree öffnen": branch,
 /// name or path contain every word, without regard to case.
 func worktreeMatches(_ query: String, branch: String?, label: String, path: String) -> Bool {

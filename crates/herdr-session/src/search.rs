@@ -573,12 +573,12 @@ impl<S: SearchSink> Search<'_, S> {
                 // request, which ends the script with it.
                 let mut stop = self.stop.clone();
                 tokio::select! {
-                    run = run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT) => run?,
+                    run = run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT, false) => run?,
                     _ = stop.wait_for(|stopped| *stopped) => return Ok(()),
                 }
             } else {
                 // Not cut short: the tab has to be closed again.
-                run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT).await?
+                run_host_script(&self.conn, space, &self.home, &script, HOST_EXEC_TIMEOUT, false).await?
             };
             if let HostRun::Tab(tab) = run {
                 let finished = self.wait_for_host(&stamp).await;

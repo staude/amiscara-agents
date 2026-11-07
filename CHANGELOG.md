@@ -854,6 +854,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - The crate `herdr-core` is now `herdr-client` (#329), since upstream's
   runtime is called herdr-core.
 
+- On a host with herdr-core the button "Änderungen" next to a space's
+  tabs shows only for a space with uncommitted changes, with their number,
+  and the Git status is read again when a space is opened (#359). The Git
+  status, changes and the day's log then run with `machine.exec` without
+  a tab, also for the herdr server's spaces, and spaces of herdr desktop
+  on the host get the Git status. Hosts without herdr-core keep the button
+  in every Git space, now with the number from the Git status. Core:
+  `SessionUpdate::herdr_core`.
+
 - README and screenshots cover the features since 22 October; the
   screenshot run adds the overview, host dashboard, file browser and an
   offline pane for Mac, iPhone and iPad, from the new `-demoView` values

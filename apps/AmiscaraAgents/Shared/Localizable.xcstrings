@@ -1882,12 +1882,12 @@
         }
       }
     },
-    "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten)." : {
+    "Die Änderungen liest die App über ein Skript auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten)." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The app reads the changes through a short-lived tab on the host; turn on “Allow input” for this (Edit host)."
+            "value" : "The app reads the changes through a script on the host; turn on “Allow input” for this (Edit host)."
           }
         }
       }
