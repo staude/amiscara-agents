@@ -7,8 +7,9 @@ import AppKit
 
 /// Ahead/behind and uncommitted changes of a host's Git spaces (#343), read
 /// by one script on the host for all of them (`HostConnection.worktreeStatus`).
-/// Only with input and file access, which the script's tab and its output
-/// need; otherwise empty and no runs. Read again when spaces or branches
+/// Only with input and file access, which the script (in a tab, or without
+/// one where herdr-core answers, #359) and its output need; otherwise empty
+/// and no runs. Where herdr-core answers also when a space is opened. Read again when spaces or branches
 /// change, the host comes back, an agent in a Git space stops working, the
 /// app comes to the front, and every five minutes while the host is live
 /// and the app in front; reasons close together make one follow-up

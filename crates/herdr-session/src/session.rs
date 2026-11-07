@@ -1362,8 +1362,9 @@ impl Session {
     /// `until` (#301): Claude Code prompts and finished turns from the
     /// session files, commits of all local branches in every space's
     /// repository, oldest first. Like [`Session::working_tree_diff`] a
-    /// script runs in a short-lived tab (of the first space with a folder)
-    /// and the files come through SFTP, so it needs input and file access.
+    /// script runs for the first space with a folder, in a short-lived tab
+    /// or, while herdr-core answers, without one (#359), and the files come
+    /// through SFTP, so it needs input and file access.
     /// Read only; takes a moment.
     pub async fn daily_log(
         &self,
@@ -1448,8 +1449,9 @@ impl Session {
 
     /// Ahead/behind and uncommitted changes of every space showing a Git
     /// checkout (#343), or only of space `only`. One script for all of them
-    /// runs in a short-lived, unfocused tab of the first such space and
-    /// the output comes through SFTP, like [`Session::working_tree_diff`],
+    /// runs for the first such space, in a short-lived, unfocused tab or,
+    /// while herdr-core answers, without one (#359), and the output comes
+    /// through SFTP, like [`Session::working_tree_diff`],
     /// so it needs input and file access. Spaces Git could not read are
     /// left out; without such spaces nothing runs. Read only.
     pub async fn worktree_status(

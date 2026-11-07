@@ -278,9 +278,9 @@ final class HostConnection: Identifiable {
 
     #if !os(tvOS)
     /// Ahead/behind and uncommitted changes of the Git spaces (#343), or
-    /// only of `workspaceID`. Read only, but like the diff it opens a
-    /// short-lived tab and reads its output through SFTP, so it needs
-    /// input and file access.
+    /// only of `workspaceID`. Read only, but like the diff it runs a script
+    /// in a short-lived tab (without one where herdr-core answers, #359)
+    /// and reads its output through SFTP, so it needs input and file access.
     func worktreeStatus(only workspaceID: String? = nil) async throws -> [SpaceGitStatus] {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard config.uploadAllowed else { throw ConnectionFailure.gitStatusFilesOff }
