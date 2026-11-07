@@ -8,6 +8,12 @@
 //! example `hc run --bg claude`) gets a space per directory and a tab of
 //! its own. The status is the program's own report (OSC 7501).
 //!
+//! A terminal another terminal started (`hc run --bg` from inside it, #330)
+//! names that one as `parent`. Without a tab of its own it is a sub-agent:
+//! it joins the tab of its root (the first ancestor that is no sub-agent),
+//! behind the root's own panes, and [`HcSnapshot::parents`] keeps its
+//! direct parent so the apps can show it under that one.
+//!
 //! Every id carries [`PREFIX`], so the actions can tell herdr-core's
 //! terminals from herdr's panes. A pane's id is `hc:` and the terminal's
 //! address: `t7` here, `machine/t7` on a machine connected to the core.
@@ -62,6 +68,56 @@ pub struct HcSnapshot {
     pub workspaces: Vec<WorkspaceInfo>,
     pub tabs: Vec<TabInfo>,
     pub panes: Vec<PaneInfo>,
+    /// Direct parent pane id by pane id, for sub-agents only.
+    pub parents: BTreeMap<String, String>,
+    /// When each pane's status word last changed (`status_ms`), by pane id;
+    /// panes the core gives no time for are missing.
+    pub status_since: BTreeMap<String, u64>,
+}
+
+/// The address of the terminal that started `terminal`, as written on a
+/// machine: a bare `t3` from `m/t7` means `m/t3`.
+fn parent_address(terminal: &Terminal) -> Option<String> {
+    let parent = non_empty(terminal.parent.as_deref()?)?;
+    Some(match machine(&terminal.address) {
+        Some(machine) if !parent.contains('/') => format!("{machine}/{parent}"),
+        _ => parent.to_owned(),
+    })
+}
+
+fn has_tab(terminal: &Terminal) -> bool {
+    terminal
+        .labels
+        .get("herdr.tab")
+        .is_some_and(|tab| non_empty(tab).is_some())
+}
+
+/// The direct parent and the root of a sub-agent among `live` (by
+/// address); `None` for a terminal that is no sub-agent: one with a tab of
+/// its own, without a live parent, or in a cycle of parents.
+fn sub_agent_of<'a>(
+    terminal: &'a Terminal,
+    live: &BTreeMap<&str, &'a Terminal>,
+) -> Option<(&'a Terminal, &'a Terminal)> {
+    let mut seen = vec![terminal.address.as_str()];
+    let mut current = terminal;
+    let mut parent = None;
+    loop {
+        if has_tab(current) {
+            break;
+        }
+        let Some(next) = parent_address(current).and_then(|address| live.get(address.as_str()))
+        else {
+            break;
+        };
+        if seen.contains(&next.address.as_str()) {
+            return None;
+        }
+        seen.push(next.address.as_str());
+        parent.get_or_insert(*next);
+        current = next;
+    }
+    parent.map(|parent| (parent, current))
 }
 
 /// Maps the live terminals onto spaces, tabs and panes. Spaces are
@@ -83,9 +139,30 @@ pub fn snapshot_from(terminals: &[Terminal], first_number: u32) -> HcSnapshot {
 
     let mut live: Vec<&Terminal> = terminals.iter().filter(|t| t.is_live()).collect();
     live.sort_by(|a, b| (a.created_ms, &a.address).cmp(&(b.created_ms, &b.address)));
+    let by_address: BTreeMap<&str, &Terminal> = live
+        .iter()
+        .map(|terminal| (terminal.address.as_str(), *terminal))
+        .collect();
+    let mut parents = BTreeMap::new();
+    // Sub-agents with their root, placed after every other terminal so
+    // they stand behind the root's own panes.
+    let mut subs: Vec<(&Terminal, &Terminal)> = Vec::new();
+    let mut own: Vec<&Terminal> = Vec::new();
+    for terminal in live {
+        match sub_agent_of(terminal, &by_address) {
+            Some((parent, root)) => {
+                parents.insert(
+                    format!("{PREFIX}{}", terminal.address),
+                    format!("{PREFIX}{}", parent.address),
+                );
+                subs.push((terminal, root));
+            }
+            None => own.push(terminal),
+        }
+    }
     // In order of the first terminal, since `live` is sorted.
     let mut spaces: Vec<Space<'_>> = Vec::new();
-    for terminal in live {
+    for terminal in own {
         let space_id = space_id(terminal);
         let tab_id = tab_id(terminal);
         let space = match spaces.iter().position(|space| space.id == space_id) {
@@ -117,8 +194,28 @@ pub fn snapshot_from(terminals: &[Terminal], first_number: u32) -> HcSnapshot {
             }),
         }
     }
+    for (terminal, root) in subs {
+        let (space_id, tab_id) = (space_id(root), tab_id(root));
+        if let Some(tab) = spaces
+            .iter_mut()
+            .find(|space| space.id == space_id)
+            .and_then(|space| space.tabs.iter_mut().find(|tab| tab.id == tab_id))
+        {
+            tab.panes.push(terminal);
+        }
+    }
 
-    let mut snapshot = HcSnapshot::default();
+    let mut snapshot = HcSnapshot {
+        parents,
+        status_since: terminals
+            .iter()
+            .filter(|terminal| terminal.is_live())
+            .filter_map(|terminal| {
+                Some((format!("{PREFIX}{}", terminal.address), terminal.status_ms?))
+            })
+            .collect(),
+        ..HcSnapshot::default()
+    };
     for (space, number) in spaces.iter().zip(first_number..) {
         let mut space_status = Vec::new();
         let mut pane_count = 0;
@@ -382,7 +479,20 @@ pub fn apply_event(
         return EventOutcome::NeedsList;
     };
     let applied = match kind {
-        "status" => serde_json::from_value(field("status")).map(|status| terminal.status = status),
+        "status" => serde_json::from_value::<Option<Status>>(field("status")).map(|status| {
+            // Whether hc sends `status_ms` with the event is not known; a
+            // changed word without it leaves the time unknown.
+            match data.get("status_ms").and_then(Value::as_u64) {
+                Some(ms) => terminal.status_ms = Some(ms),
+                None if status.as_ref().map(|s| &s.state)
+                    != terminal.status.as_ref().map(|s| &s.state) =>
+                {
+                    terminal.status_ms = None;
+                }
+                None => {}
+            }
+            terminal.status = status;
+        }),
         "turn" => serde_json::from_value(field("turn")).map(|turn| terminal.turn = turn),
         "title" => serde_json::from_value(field("title")).map(|title| terminal.title = title),
         "labels" => serde_json::from_value(field("labels")).map(|labels| terminal.labels = labels),
@@ -668,6 +778,147 @@ mod tests {
         apply_event(&mut terminals, "t1", "finished", &finished);
         assert_eq!(terminals.len(), 1);
         assert_eq!(terminals[0].address, "t2");
+    }
+
+    fn sub(address: &str, created: u64, parent: &str) -> Terminal {
+        terminal(json!({
+            "address": address, "created_ms": created, "cwd": "/Users/me/dev/repo",
+            "parent": parent, "status": {"app": "claude-code", "state": "blocked"},
+            "status_ms": 1_000 + created,
+        }))
+    }
+
+    #[test]
+    fn sub_agents_join_the_tab_of_their_root() {
+        let terminals = vec![
+            desktop("t1", 10, "spA", "tbA", "Kino / 1"),
+            desktop("t2", 20, "spA", "tbB", "Kino / 2"),
+            sub("t3", 30, "t1"),
+            // A grandchild stands in the root's tab too, with its own parent.
+            sub("t4", 40, "t3"),
+            desktop("t5", 50, "spA", "tbA", "Kino / 1"),
+        ];
+        let snapshot = snapshot_from(&terminals, 1);
+        assert_eq!(snapshot.workspaces.len(), 1, "no space of their own");
+        assert_eq!(snapshot.workspaces[0].pane_count, 5);
+        let panes: Vec<_> = snapshot
+            .panes
+            .iter()
+            .map(|pane| {
+                (
+                    pane.pane_id.as_str(),
+                    pane.workspace_id.as_str(),
+                    pane.tab_id.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            panes,
+            [
+                ("hc:t1", "hc:spA", "hc:tbA"),
+                ("hc:t5", "hc:spA", "hc:tbA"),
+                ("hc:t3", "hc:spA", "hc:tbA"),
+                ("hc:t4", "hc:spA", "hc:tbA"),
+                ("hc:t2", "hc:spA", "hc:tbB"),
+            ]
+        );
+        let parents: Vec<_> = snapshot
+            .parents
+            .iter()
+            .map(|(child, parent)| (child.as_str(), parent.as_str()))
+            .collect();
+        assert_eq!(parents, [("hc:t3", "hc:t1"), ("hc:t4", "hc:t3")]);
+        // A waiting sub-agent makes its root's tab and space wait.
+        assert_eq!(snapshot.tabs[0].agent_status, AgentStatus::Blocked);
+        assert_eq!(snapshot.tabs[0].pane_count, 4);
+        assert_eq!(snapshot.workspaces[0].agent_status, AgentStatus::Blocked);
+        assert_eq!(snapshot.status_since.get("hc:t3"), Some(&1_030));
+        assert!(!snapshot.status_since.contains_key("hc:t1"));
+    }
+
+    #[test]
+    fn only_tabless_children_of_live_terminals_are_sub_agents() {
+        let mut own_tab = sub("t3", 30, "t1");
+        own_tab.labels.insert("herdr.tab".into(), "tbC".into());
+        own_tab.labels.insert("herdr.space".into(), "spA".into());
+        let mut empty_tab = sub("t6", 60, "t1");
+        empty_tab.labels.insert("herdr.tab".into(), " ".into());
+        let terminals = vec![
+            desktop("t1", 10, "spA", "tbA", "Kino / 1"),
+            // Its parent has finished: a space of its own, as before.
+            terminal(json!({"address": "t2", "state": "finished", "created_ms": 5})),
+            sub("t4", 40, "t2"),
+            own_tab,
+            // Parents in a cycle: neither is a sub-agent.
+            sub("t7", 70, "t8"),
+            sub("t8", 80, "t7"),
+            empty_tab,
+        ];
+        let snapshot = snapshot_from(&terminals, 1);
+        let parents: Vec<_> = snapshot.parents.keys().map(String::as_str).collect();
+        assert_eq!(parents, ["hc:t6"], "an empty tab label is no tab");
+        let tab_of = |id: &str| {
+            snapshot
+                .panes
+                .iter()
+                .find(|pane| pane.pane_id == id)
+                .map(|pane| pane.tab_id.as_str())
+        };
+        assert_eq!(tab_of("hc:t3"), Some("hc:tbC"));
+        assert_eq!(tab_of("hc:t4"), Some("hc:tab:t4"));
+        assert_eq!(tab_of("hc:t6"), Some("hc:tbA"));
+        assert_eq!(tab_of("hc:t7"), Some("hc:tab:t7"));
+        assert_eq!(tab_of("hc:t8"), Some("hc:tab:t8"));
+    }
+
+    #[test]
+    fn sub_agents_on_a_machine_name_parents_with_or_without_it() {
+        let terminals = vec![
+            desktop("box/t1", 10, "spA", "tbA", "api / 1"),
+            sub("box/t2", 20, "t1"),
+            sub("box/t3", 30, "box/t1"),
+            // `t1` on this core is no parent of a terminal on `box`.
+            desktop("t1", 5, "spL", "tbL", "Lokal / 1"),
+        ];
+        let snapshot = snapshot_from(&terminals, 1);
+        assert_eq!(
+            snapshot.parents.get("hc:box/t2").map(String::as_str),
+            Some("hc:box/t1")
+        );
+        assert_eq!(
+            snapshot.parents.get("hc:box/t3").map(String::as_str),
+            Some("hc:box/t1")
+        );
+        let tabs: Vec<_> = snapshot
+            .panes
+            .iter()
+            .map(|pane| (pane.pane_id.as_str(), pane.tab_id.as_str()))
+            .collect();
+        assert_eq!(
+            tabs,
+            [
+                ("hc:t1", "hc:tbL"),
+                ("hc:box/t1", "hc:box/tbA"),
+                ("hc:box/t2", "hc:box/tbA"),
+                ("hc:box/t3", "hc:box/tbA"),
+            ]
+        );
+    }
+
+    #[test]
+    fn status_events_carry_or_forget_the_time() {
+        let mut terminals = vec![sub("t1", 1, "t0")];
+        assert_eq!(terminals[0].status_ms, Some(1_001));
+        let same = json!({"status": {"app": "claude-code", "state": "blocked"}});
+        apply_event(&mut terminals, "t1", "status", &same);
+        assert_eq!(terminals[0].status_ms, Some(1_001), "same word, same time");
+        let changed = json!({"status": {"app": "claude-code", "state": "working"}});
+        apply_event(&mut terminals, "t1", "status", &changed);
+        assert_eq!(terminals[0].status_ms, None, "new word, time unknown");
+        let timed = json!({"status": {"app": "claude-code", "state": "idle"},
+            "status_ms": 5_000});
+        apply_event(&mut terminals, "t1", "status", &timed);
+        assert_eq!(terminals[0].status_ms, Some(5_000));
     }
 
     #[test]
