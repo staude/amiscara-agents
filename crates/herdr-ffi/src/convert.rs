@@ -34,6 +34,9 @@ pub struct SessionUpdate {
     pub server_version: Option<String>,
     /// False when the server speaks a protocol this build does not know.
     pub protocol_supported: bool,
+    /// herdr-core of the host answers (#359): scripts such as the Git
+    /// status run without a tab.
+    pub herdr_core: bool,
     pub focused_pane_id: Option<String>,
     pub workspaces: Vec<WorkspaceItem>,
     /// The spaces in sidebar order: herdr's, with linked worktrees under

@@ -47,6 +47,9 @@ pub struct SessionUpdate {
     pub server_version: Option<String>,
     /// False when the server speaks a protocol this build does not know.
     pub protocol_supported: bool,
+    /// herdr-core of the host answers (#359): scripts such as the Git
+    /// status run without a tab.
+    pub herdr_core: bool,
     pub focused_pane_id: Option<String>,
     pub workspaces: Vec<WorkspaceItem>,
     /// The spaces in sidebar order: herdr's or the host's sort, with linked
@@ -534,6 +537,7 @@ pub fn session_update(
             status,
             server_version: None,
             protocol_supported: true,
+            herdr_core: false,
             focused_pane_id: None,
             workspaces: Vec::new(),
             space_order: Vec::new(),
@@ -745,6 +749,7 @@ pub fn session_update(
         // herdr-core alone has no herdr protocol to check (#329).
         protocol_supported: !session.backends.herdr
             || session.protocol == herdr_proto::SUPPORTED_PROTOCOL,
+        herdr_core: session.backends.hc.is_some(),
         focused_pane_id: session.focused_pane_id.clone(),
         workspaces,
         space_order,
