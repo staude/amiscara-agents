@@ -7,6 +7,9 @@ import SwiftUI
 @MainActor @Observable
 final class AgentPeekState {
     var open = 0
+    /// The pane on screen before the first of the open peeks: a peek that
+    /// replaces another (#331) may appear before that one went.
+    @ObservationIgnored var visibleBefore: (hostID: UUID, paneID: String)?
 }
 
 /// Gives a window its own `AgentPeekState`; sheets inherit it.
@@ -83,8 +86,13 @@ struct AgentPeekView: View {
         .onChange(of: wrapLines, initial: true) { model.setUnwrap(wrapLines) }
         // The peeked agent is on screen: no banner for it meanwhile.
         .onAppear {
+            if let peekState {
+                if peekState.open == 0 { peekState.visibleBefore = store.notifier.visiblePane }
+                previousVisible = peekState.visibleBefore
+            } else {
+                previousVisible = store.notifier.visiblePane
+            }
             peekState?.open += 1
-            previousVisible = store.notifier.visiblePane
             store.notifier.peekedPane = (hostID: peek.hostID, paneID: peek.paneID)
             store.notifier.visiblePane = (hostID: peek.hostID, paneID: peek.paneID)
         }
