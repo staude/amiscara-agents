@@ -73,7 +73,9 @@ out="$(dirname "$0")/{out}"
   for d in {dirs}; do
     [ -n "$d" ] || continue
     printf '%s %s\n' '{dir}' "$d"
-    s=$(git -C "$d" status --porcelain=v2 --branch --untracked-files=normal 2>/dev/null) || continue
+    # Runs on its own in a terminal's folder (#359): no fsmonitor hook
+    # from the repository's config.
+    s=$(git -c core.fsmonitor=false -C "$d" status --porcelain=v2 --branch --untracked-files=normal 2>/dev/null) || continue
     printf '%s\n' "$s" | awk '
       /^# branch\.upstream / || /^# branch\.ab / {{ print; next }}
       /^#/ || NF == 0 {{ next }}
