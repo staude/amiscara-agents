@@ -32,3 +32,18 @@ pub fn fingerprint(key: &PublicKey) -> String {
 pub fn describe(key: &PrivateKey) -> Result<GeneratedKey, TransportError> {
     Ok(amiscara_ssh::keys::describe(key)?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn public_key_must_be_one_valid_line() -> Result<(), TransportError> {
+        let generated = generate_ed25519("one-line")?;
+        assert!(parse_public(&generated.public_openssh).is_ok());
+        let injected = format!("{}\nssh-ed25519 AAAA other", generated.public_openssh);
+        assert!(parse_public(&injected).is_err());
+        assert!(parse_public("command=\"sh\" ssh-ed25519 AAAA").is_err());
+        Ok(())
+    }
+}
