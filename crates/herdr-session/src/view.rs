@@ -277,6 +277,8 @@ pub struct PaneItem {
     pub focused: bool,
     /// What runs in the pane, for its icon (#337); `None` while unknown.
     pub program: Option<ProgramItem>,
+    /// The agent pane that started this one, for a sub-agent (#330).
+    pub parent_pane_id: Option<String>,
 }
 
 /// A program for an icon (#337). `id` names a table entry
@@ -347,10 +349,13 @@ pub struct BoardItem {
     pub agent_state: AgentState,
     pub title: String,
     pub cwd: Option<String>,
-    /// Since when the agent is in its state, in Unix milliseconds, as this
-    /// session saw it change; `None` for agents already in that state when
-    /// the session started. herdr does not report this time itself.
+    /// Since when the agent is in its state, in Unix milliseconds: as
+    /// herdr-core reports it (`status_ms`), else as this session saw it
+    /// change; `None` for herdr's agents already in that state when the
+    /// session started. herdr does not report this time itself.
     pub state_since_ms: Option<u64>,
+    /// The agent pane that started this one, for a sub-agent (#330).
+    pub parent_pane_id: Option<String>,
     /// Prompts that follow this agent's change (#300), stored on the host.
     pub chains: Vec<ChainItem>,
     /// The agent as a program, for its icon (#337).
@@ -368,7 +373,8 @@ pub(crate) struct StateClock {
 impl StateClock {
     /// Stamps `board` with the remembered times; a pane that is new or
     /// changed its state gets `now_ms`, except on the first call, when the
-    /// time of the states already shown is unknown. `attention` holds
+    /// time of the states already shown is unknown. A time the item brings
+    /// along (from the server) wins and is remembered. `attention` holds
     /// entries of `board` and gets the same times.
     pub(crate) fn stamp(
         &mut self,
@@ -379,6 +385,7 @@ impl StateClock {
         let mut seen = HashMap::with_capacity(board.len());
         for item in board.iter_mut() {
             let since = match self.seen.get(&item.pane_id) {
+                _ if item.state_since_ms.is_some() => item.state_since_ms,
                 Some((state, since)) if *state == item.agent_state => *since,
                 _ if self.stamped => Some(now_ms),
                 _ => None,
@@ -638,6 +645,7 @@ pub fn session_update(
                             agent_state: session.agent_status(pane).into(),
                             focused: pane.focused,
                             program: program_item(session, pane),
+                            parent_pane_id: session.parents.get(&pane.pane_id).cloned(),
                         })
                         .collect(),
                     layout: session.layout(&tab.tab_id).map(split_layout),
@@ -673,7 +681,8 @@ pub fn session_update(
             agent_state: session.agent_status(entry.pane).into(),
             title: title(entry.pane),
             cwd: entry.pane.cwd.clone(),
-            state_since_ms: None,
+            state_since_ms: session.status_since.get(&entry.pane.pane_id).copied(),
+            parent_pane_id: session.parents.get(&entry.pane.pane_id).cloned(),
             chains: chains::chains_of(entry.pane)
                 .into_iter()
                 .map(|chain| chain_item(session, chain))
@@ -956,6 +965,7 @@ mod tests {
             title: String::new(),
             cwd: None,
             state_since_ms: None,
+            parent_pane_id: None,
             chains: Vec::new(),
             program: None,
         }
@@ -1011,6 +1021,21 @@ mod tests {
     }
 
     #[test]
+    fn a_time_from_the_server_wins_and_stays() {
+        let mut clock = StateClock::default();
+        let mut first = board_item("hc:t2", AgentState::Blocked);
+        first.state_since_ms = Some(50);
+        let mut board = vec![first];
+        clock.stamp(&mut board, &mut [], 100);
+        assert_eq!(board[0].state_since_ms, Some(50), "known on the first call");
+        // An update without the time keeps the remembered one.
+        assert_eq!(
+            stamped(&mut clock, &[("hc:t2", AgentState::Blocked)], 200),
+            [Some(50)]
+        );
+    }
+
+    #[test]
     fn attention_gets_the_time_of_its_board_entry() {
         let mut clock = StateClock::default();
         stamped(&mut clock, &[("p1", AgentState::Working)], 100);
@@ -1018,6 +1043,46 @@ mod tests {
         let mut attention = board.clone();
         clock.stamp(&mut board, &mut attention, 200);
         assert_eq!(attention[0].state_since_ms, Some(200));
+    }
+
+    #[test]
+    fn sub_agents_name_their_parent_and_bring_their_time() {
+        let terminal = |value: serde_json::Value| -> herdr_proto::hc::Terminal {
+            serde_json::from_value(value).expect("terminal")
+        };
+        let mut session = SessionState::without_herdr("0.1.18");
+        session.replace_hc(&[
+            terminal(serde_json::json!({
+                "address": "t1", "cwd": "/x", "state": "live", "created_ms": 1,
+                "labels": {"herdr.space": "s", "herdr.tab": "a", "where": "S / 1"},
+                "status": {"app": "claude-code", "state": "working"}
+            })),
+            terminal(serde_json::json!({
+                "address": "t2", "cwd": "/x", "state": "live", "created_ms": 2,
+                "parent": "t1", "status_ms": 1_700,
+                "status": {"app": "claude-code", "state": "blocked"}
+            })),
+        ]);
+        let state = SyncState {
+            status: SyncStatus::Live,
+            session: Some(std::sync::Arc::new(session)),
+            ..SyncState::default()
+        };
+        let update = session_update(&state, None, false, &SpaceSort::default(), false);
+        let panes: Vec<_> = update.workspaces[0].tabs[0]
+            .panes
+            .iter()
+            .map(|pane| (pane.pane_id.as_str(), pane.parent_pane_id.as_deref()))
+            .collect();
+        assert_eq!(panes, [("hc:t1", None), ("hc:t2", Some("hc:t1"))]);
+        let child = update
+            .board
+            .iter()
+            .find(|item| item.pane_id == "hc:t2")
+            .expect("on the board");
+        assert_eq!(child.parent_pane_id.as_deref(), Some("hc:t1"));
+        assert_eq!(child.state_since_ms, Some(1_700));
+        assert_eq!(child.agent_state, AgentState::Blocked);
     }
 
     /// One space with two tabs: `t1` holds a done agent in finish 4 with
