@@ -118,6 +118,8 @@ code), so a host is set up the same way everywhere.
 - **Peek into an agent:** "Kurz ansehen" (context menu, ⌥-click on the Mac)
   in the overview, a dashboard or the quick switcher shows the agent's live
   pane with its input bar over the current view, without leaving it.
+  Addresses of herdr-core terminals in a pane's text (`t7`, `vps/t7`) are
+  links: a click or tap peeks into that terminal.
 - **Pinned agents:** "Anheften" in an agent's context menu keeps it at the
   top of the overview, the host dashboard and the sidebar, the same on Mac,
   iPhone and iPad; a pin goes when its pane closes.

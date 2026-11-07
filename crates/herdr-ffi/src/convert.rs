@@ -301,6 +301,8 @@ pub struct StyledSpan {
     pub strikethrough: bool,
     /// Web address to open on a click (#186).
     pub link: Option<String>,
+    /// herdr-core terminal address as written (#331).
+    pub terminal: Option<String>,
 }
 
 #[uniffi::remote(Enum)]

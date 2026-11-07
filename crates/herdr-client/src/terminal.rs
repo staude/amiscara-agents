@@ -9,7 +9,8 @@
 //! sequence is skipped, so a newer herdr cannot break the view.
 //!
 //! herdr drops the targets of OSC 8 hyperlinks from this format, so links
-//! are web addresses found in the text (#186).
+//! are web addresses found in the text (#186). Terminal addresses of
+//! herdr-core (`t7`, `vps/t7`) are found the same way (#331).
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -43,6 +44,9 @@ pub struct Span {
     /// The web address this text belongs to; a wrapped address links all
     /// of its parts to the whole of it.
     pub link: Option<String>,
+    /// A herdr-core terminal address as written (`t7`, `vps/t7`); whether
+    /// such a terminal lives is up to the caller.
+    pub terminal: Option<String>,
 }
 
 impl Span {
@@ -73,9 +77,55 @@ impl Line {
                 text: ch.to_string(),
                 style,
                 link: None,
+                terminal: None,
             }),
         }
     }
+
+    /// One entry per character, to mark parts of the line.
+    fn cells(&self) -> Vec<Cell> {
+        self.spans
+            .iter()
+            .flat_map(|span| {
+                span.text.chars().map(move |ch| Cell {
+                    ch,
+                    style: span.style,
+                    link: span.link.clone(),
+                    terminal: span.terminal.clone(),
+                })
+            })
+            .collect()
+    }
+
+    /// Joins cells back into runs of equal style, link and terminal.
+    fn set_cells(&mut self, cells: Vec<Cell>) {
+        let mut spans: Vec<Span> = Vec::new();
+        for cell in cells {
+            match spans.last_mut() {
+                Some(span)
+                    if span.style == cell.style
+                        && span.link == cell.link
+                        && span.terminal == cell.terminal =>
+                {
+                    span.text.push(cell.ch)
+                }
+                _ => spans.push(Span {
+                    text: cell.ch.to_string(),
+                    style: cell.style,
+                    link: cell.link,
+                    terminal: cell.terminal,
+                }),
+            }
+        }
+        self.spans = spans;
+    }
+}
+
+struct Cell {
+    ch: char,
+    style: Style,
+    link: Option<String>,
+    terminal: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -146,6 +196,7 @@ impl Screen {
         }
         let mut screen = Self { lines };
         screen.mark_links();
+        screen.mark_terminals();
         screen
     }
 
@@ -178,26 +229,47 @@ impl Screen {
             if marks.iter().all(Option::is_none) {
                 continue;
             }
-            let cells: Vec<(char, Style)> = line
-                .spans
-                .iter()
-                .flat_map(|span| span.text.chars().map(move |c| (c, span.style)))
-                .collect();
-            let mut spans: Vec<Span> = Vec::new();
-            for ((c, style), mark) in cells.into_iter().zip(marks) {
-                let link = mark.map(|index| &found[index].url);
-                match spans.last_mut() {
-                    Some(span) if span.style == style && span.link.as_ref() == link => {
-                        span.text.push(c)
-                    }
-                    _ => spans.push(Span {
-                        text: c.to_string(),
-                        style,
-                        link: link.cloned(),
-                    }),
+            let mut cells = line.cells();
+            for (cell, mark) in cells.iter_mut().zip(marks) {
+                if let Some(index) = mark {
+                    cell.link = Some(found[*index].url.clone());
                 }
             }
-            line.spans = spans;
+            line.set_cells(cells);
+        }
+    }
+
+    /// Finds terminal addresses of herdr-core (`t7`, `t1b`, `vps/t7`) and
+    /// puts them on the spans. Addresses do not wrap, and text that is
+    /// already a web link stays one.
+    fn mark_terminals(&mut self) {
+        for line in &mut self.lines {
+            let row: Vec<char> = line.text().chars().collect();
+            if !row
+                .windows(2)
+                .any(|pair| pair[0] == 't' && pair[1].is_ascii_digit())
+            {
+                continue;
+            }
+            let found = find_terminals(&row);
+            if found.is_empty() {
+                continue;
+            }
+            let mut cells = line.cells();
+            let mut changed = false;
+            for (start, end) in found {
+                if cells[start..end].iter().any(|cell| cell.link.is_some()) {
+                    continue;
+                }
+                let address: String = row[start..end].iter().collect();
+                for cell in &mut cells[start..end] {
+                    cell.terminal = Some(address.clone());
+                }
+                changed = true;
+            }
+            if changed {
+                line.set_cells(cells);
+            }
         }
     }
 
@@ -227,6 +299,76 @@ impl Screen {
         }
         lines.reverse();
         lines.join("\n")
+    }
+}
+
+/// Where terminal addresses stand in a row: `(start, end)` in characters.
+/// An address is `t`, a digit and more digits or lower-case letters,
+/// optionally after a machine and `/`. It must stand alone: not inside a
+/// word, a path (`src/t7.rs`) or a file name (`t7.rs`), while a full stop
+/// or comma ending a sentence may follow.
+fn find_terminals(row: &[char]) -> Vec<(usize, usize)> {
+    let mut found = Vec::new();
+    let mut i = 0;
+    while i < row.len() {
+        let free_before = i == 0 || {
+            let c = row[i - 1];
+            !c.is_alphanumeric() && !matches!(c, '/' | '.' | '_' | '-')
+        };
+        if free_before
+            && let Some(end) = terminal_at(row, i)
+            && free_after(row, end)
+        {
+            found.push((i, end));
+            i = end;
+            continue;
+        }
+        i += 1;
+    }
+    found
+}
+
+/// The end of a terminal address starting at `start`, with or without a
+/// machine in front.
+fn terminal_at(row: &[char], start: usize) -> Option<usize> {
+    let machine_end = row[start..]
+        .iter()
+        .enumerate()
+        .take_while(|&(n, &c)| {
+            if n == 0 {
+                c.is_ascii_alphanumeric()
+            } else {
+                c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')
+            }
+        })
+        .count();
+    if machine_end > 0
+        && row.get(start + machine_end) == Some(&'/')
+        && let Some(end) = address_at(row, start + machine_end + 1)
+    {
+        return Some(end);
+    }
+    address_at(row, start)
+}
+
+/// The end of `t`, a digit, then digits or lower-case letters.
+fn address_at(row: &[char], start: usize) -> Option<usize> {
+    if row.get(start) != Some(&'t') || !row.get(start + 1)?.is_ascii_digit() {
+        return None;
+    }
+    let rest = row[start + 2..]
+        .iter()
+        .take_while(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
+        .count();
+    Some(start + 2 + rest)
+}
+
+/// Whether an address ending at `end` stands alone.
+fn free_after(row: &[char], end: usize) -> bool {
+    match row.get(end) {
+        None => true,
+        Some('.') => !row.get(end + 1).is_some_and(|c| c.is_alphanumeric()),
+        Some(&c) => !c.is_alphanumeric() && !matches!(c, '/' | '_' | '-'),
     }
 }
 
@@ -744,6 +886,64 @@ mod tests {
     fn short_line_does_not_wrap() {
         let screen = Screen::parse(&format!("{}\r\nhttps://a.b/c\r\nnext", rule(60)));
         assert_eq!(links(&screen), [link("https://a.b/c", "https://a.b/c")]);
+    }
+
+    fn terminals(input: &str) -> Vec<(String, String)> {
+        Screen::parse(input)
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .filter_map(|span| Some((span.text.clone(), span.terminal.clone()?)))
+            .collect()
+    }
+
+    fn addresses(input: &str) -> Vec<String> {
+        terminals(input)
+            .into_iter()
+            .map(|(_, address)| address)
+            .collect()
+    }
+
+    #[test]
+    fn terminal_addresses_are_marked() {
+        assert_eq!(
+            terminals("started t7 and vps/t1b"),
+            [
+                ("t7".to_string(), "t7".to_string()),
+                ("vps/t1b".to_string(), "vps/t1b".to_string())
+            ]
+        );
+        assert_eq!(addresses("(t7)"), ["t7"]);
+        assert_eq!(addresses("see t7."), ["t7"]);
+        assert_eq!(addresses("t7, t8"), ["t7", "t8"]);
+        assert_eq!(addresses("box.lan/t12"), ["box.lan/t12"]);
+    }
+
+    #[test]
+    fn terminal_address_keeps_its_style() {
+        let screen = Screen::parse("\x1b[1mt7\x1b[0m done");
+        let span = &screen.lines[0].spans[0];
+        assert_eq!(span.text, "t7");
+        assert!(span.style.bold);
+        assert_eq!(span.terminal.as_deref(), Some("t7"));
+        assert_eq!(screen.lines[0].spans[1].terminal, None);
+    }
+
+    #[test]
+    fn no_terminal_inside_words_paths_or_links() {
+        for text in [
+            "st7",
+            "T7",
+            "src/t7.rs",
+            "t7.rs",
+            "https://a.b/t7",
+            "t7/x",
+            "t7-x",
+            "tx",
+            "at t",
+        ] {
+            assert!(addresses(text).is_empty(), "{text}");
+        }
     }
 
     #[test]

@@ -12,6 +12,11 @@ struct TerminalScreenView: View {
     /// Search matches to mark; empty when no search is open. Covers loaded
     /// history too, since it is part of `content`.
     var search = SearchHighlight()
+    #if !os(tvOS)
+    /// Terminal addresses to link (#331); `nil` leaves them plain text.
+    var terminals: TerminalLinks?
+    @Environment(\.peekTerminal) private var peekTerminal
+    #endif
     @AppStorage("terminalFontSize") private var preferredFontSize = Platform.defaultTerminalFontSize
     /// Long lines wrap at the view width instead of scrolling sideways (#191).
     @AppStorage(PaneModel.wrapLinesKey) private var wrapLines = false
@@ -59,7 +64,8 @@ struct TerminalScreenView: View {
                             theme: theme,
                             fontSize: fontSize,
                             matches: search.byLine[index] ?? [],
-                            current: search.current
+                            current: search.current,
+                            terminals: linkedTerminals
                         ))
                         if !wrapLines {
                             text
@@ -83,6 +89,9 @@ struct TerminalScreenView: View {
                 .padding(10)
                 .selectableText()
             }
+            #if !os(tvOS)
+            .environment(\.openURL, OpenURLAction(handler: open))
+            #endif
             // Like a terminal: start at the bottom, where the latest output and
             // the agent's prompt are, and stay there when new lines arrive.
             // Older lines loaded above keep the lines in view where they are.
@@ -140,7 +149,45 @@ struct TerminalScreenView: View {
             #endif
         }
     }
+
+    /// The terminals to link, only where a peek can show them.
+    private var linkedTerminals: TerminalLinks? {
+        #if os(tvOS)
+        nil
+        #else
+        peekTerminal == nil ? nil : terminals
+        #endif
+    }
+
+    #if !os(tvOS)
+    /// A terminal address peeks into its terminal, if it still lives;
+    /// web addresses go to the browser.
+    private func open(_ url: URL) -> OpenURLAction.Result {
+        guard let address = TerminalLinks.address(of: url) else { return .systemAction }
+        if let peek = terminals?.peek(for: address) { peekTerminal?(peek) }
+        return .handled
+    }
+    #endif
 }
+
+extension TerminalScreenView {
+    /// Links the terminal addresses in the text to the host's live
+    /// terminals (#331); does nothing on tvOS.
+    func linkingTerminals(on connection: HostConnection) -> Self {
+        #if os(tvOS)
+        self
+        #else
+        var view = self
+        view.terminals = TerminalLinks(connection: connection, viewingPaneID: content.paneId)
+        return view
+        #endif
+    }
+}
+
+#if os(tvOS)
+/// Only for the signature of `TerminalStyle.attributed`; tvOS links nothing.
+struct TerminalLinks {}
+#endif
 
 /// First row of the pane: load older lines, or say why there are none.
 /// For a full-screen agent, which herdr keeps no scrollback for, it can
@@ -229,7 +276,8 @@ enum TerminalStyle {
         theme: TerminalTheme,
         fontSize: Double,
         matches: [SearchMatch] = [],
-        current: SearchMatch? = nil
+        current: SearchMatch? = nil,
+        terminals: TerminalLinks? = nil
     ) -> AttributedString {
         var result = AttributedString()
         for span in line.spans {
@@ -253,6 +301,11 @@ enum TerminalStyle {
             #if !os(tvOS)
             // A web address in the output opens in the browser (#186).
             if let link = span.link, let url = URL(string: link) {
+                part.link = url
+                part.underlineStyle = .single
+            } else if let address = span.terminal, terminals?.peek(for: address) != nil,
+                      let url = TerminalLinks.url(for: address) {
+                // A live terminal's address peeks into it (#331).
                 part.link = url
                 part.underlineStyle = .single
             }

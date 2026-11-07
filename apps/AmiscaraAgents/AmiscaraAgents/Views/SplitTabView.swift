@@ -144,6 +144,7 @@ private struct PaneTile: View {
     private func screen(search: SearchHighlight) -> some View {
         if let content = model.content {
             TerminalScreenView(content: content, history: isSelected ? model : nil, fitColumns: columns, search: search)
+                .linkingTerminals(on: connection)
                 .opacity(connection.isLive ? 1 : 0.5)
                 .overlay(alignment: .top) {
                     if !connection.isLive {

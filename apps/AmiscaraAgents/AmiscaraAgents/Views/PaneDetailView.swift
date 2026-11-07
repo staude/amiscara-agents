@@ -367,6 +367,7 @@ struct PaneDetailView: View {
     private func screen(connection: HostConnection, search: SearchHighlight) -> some View {
         if let content = model.content {
             TerminalScreenView(content: content, history: model, search: search)
+                .linkingTerminals(on: connection)
                 .terminalZoomGesture()
                 .opacity(connection.isLive ? 1 : 0.5)
                 .overlay(alignment: .top) {

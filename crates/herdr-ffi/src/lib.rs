@@ -466,6 +466,13 @@ pub fn pane_content_from_json(json: String) -> Option<PaneContent> {
     herdr_session::view::pane_content_from_json(&json)
 }
 
+/// The pane id of a terminal address written in the pane `from_pane_id`
+/// (#331): `t7` stays on that pane's machine, `vps/t7` names its own.
+#[uniffi::export]
+pub fn terminal_pane_id(address: String, from_pane_id: String) -> String {
+    herdr_client::hc::resolve(&address, &from_pane_id)
+}
+
 /// The VS Code address that opens the folder `path` (#288): over
 /// Remote-SSH to `target`, or as a local folder without one.
 #[uniffi::export]

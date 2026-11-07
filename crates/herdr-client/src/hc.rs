@@ -56,6 +56,20 @@ pub fn machine_of(id: &str) -> Option<&str> {
     }
 }
 
+/// The pane id of a terminal address written in a pane (#331). An address
+/// without a machine (`t7`) means a terminal on the machine of the pane it
+/// stands in, because herdr-core prints addresses that way there; one with
+/// a machine (`vps/t7`) is taken as it is.
+pub fn resolve(written: &str, viewing_pane_id: &str) -> String {
+    if machine(written).is_some() {
+        return format!("{PREFIX}{written}");
+    }
+    match machine_of(viewing_pane_id) {
+        Some(machine) => format!("{PREFIX}{machine}/{written}"),
+        None => format!("{PREFIX}{written}"),
+    }
+}
+
 /// herdr-core's terminals, mapped.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct HcSnapshot {
@@ -563,6 +577,15 @@ mod tests {
         assert_eq!(machine_of("hc:dir:/Users/me/dev/kino"), None);
         assert_eq!(machine_of("hc:t1"), None);
         assert_eq!(machine_of("w1:p1"), None);
+    }
+
+    #[test]
+    fn written_addresses_resolve_to_pane_ids() {
+        assert_eq!(resolve("vps/t7", "hc:t1"), "hc:vps/t7");
+        assert_eq!(resolve("box/t7", "hc:vps/t1"), "hc:box/t7");
+        assert_eq!(resolve("t7", "hc:vps/t1"), "hc:vps/t7");
+        assert_eq!(resolve("t7", "hc:t1"), "hc:t7");
+        assert_eq!(resolve("t7", "w1:p1"), "hc:t7");
     }
 
     #[test]

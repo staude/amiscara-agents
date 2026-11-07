@@ -36,6 +36,8 @@ struct WorkspaceDetailView: View {
     @State private var pullRequestShown: PullRequestTarget?
     /// The uncommitted changes of the space, shown (#342).
     @State private var changesShown: ChangesTarget?
+    /// A terminal peeked into from an address in a pane (#331).
+    @State private var peeking: AgentPeek?
     #endif
     /// The space and pane reopened on launch (#276), set by `ContentView`:
     /// not opened on purpose, so a tab put away meanwhile (#333) stays away.
@@ -116,6 +118,10 @@ struct WorkspaceDetailView: View {
                 )
             }
         }
+        #if !os(tvOS)
+        .environment(\.peekTerminal, PeekTerminalAction { peeking = $0 })
+        .agentPeek($peeking, open: { selection = $0 })
+        #endif
         .sheet(item: $renaming) { target in
             RenameView(target: target)
         }

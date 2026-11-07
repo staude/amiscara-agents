@@ -15,13 +15,14 @@ func screen(_ pane: String, rows: Int, text: String = "row") -> PaneContent {
     let span = StyledSpan(
         text: text, width: UInt32(text.count), fg: .rgb(r: 1, g: 2, b: 3), bg: .default,
         bold: true, dim: false, italic: false, underline: false, inverse: false,
-        hidden: false, strikethrough: false, link: "https://example.com"
+        hidden: false, strikethrough: false, link: "https://example.com", terminal: nil
     )
     let lines = (0..<rows).map { index in
         StyledLine(spans: [StyledSpan(
             text: "\(text) \(index)", width: span.width, fg: span.fg, bg: span.bg,
             bold: span.bold, dim: span.dim, italic: span.italic, underline: span.underline,
-            inverse: span.inverse, hidden: span.hidden, strikethrough: span.strikethrough, link: span.link
+            inverse: span.inverse, hidden: span.hidden, strikethrough: span.strikethrough, link: span.link,
+            terminal: span.terminal
         )])
     }
     return PaneContent(paneId: pane, lines: lines, truncated: true, historyLines: 1000, question: ChoiceQuestion(options: [ChoiceOption(key: "1", label: "Yes")]))

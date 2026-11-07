@@ -446,6 +446,11 @@ pub struct StyledSpan {
     pub strikethrough: bool,
     /// Web address to open on a click (#186).
     pub link: Option<String>,
+    /// herdr-core terminal address as written (`t7`, `vps/t7`, #331); the
+    /// app links it only to a terminal that lives. Missing in screens saved
+    /// before it.
+    #[serde(default)]
+    pub terminal: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -837,6 +842,7 @@ fn styled_span(span: &Span) -> StyledSpan {
         hidden: style.hidden,
         strikethrough: style.strikethrough,
         link: span.link.clone(),
+        terminal: span.terminal.clone(),
     }
 }
 
@@ -1173,6 +1179,7 @@ mod tests {
             hidden: false,
             strikethrough: true,
             link: link.map(str::to_owned),
+            terminal: link.is_none().then(|| "vps/t7".to_owned()),
         };
         let content = PaneContent {
             pane_id: "w1:p2".into(),
@@ -1216,9 +1223,22 @@ mod tests {
         assert_eq!(spans[1].fg, TermColor::Rgb { r: 1, g: 2, b: 3 });
         assert_eq!(spans[1].link.as_deref(), Some("https://example.com"));
         assert_eq!(spans[0].link, None);
+        assert_eq!(spans[0].terminal.as_deref(), Some("vps/t7"));
+        assert_eq!(spans[1].terminal, None);
         assert!(spans[1].bold && spans[1].italic && spans[1].inverse && spans[1].strikethrough);
         assert!(!spans[1].dim && !spans[1].underline && !spans[1].hidden);
         assert_eq!((spans[0].text.as_str(), spans[0].width), ("plain", 5));
+    }
+
+    #[test]
+    fn saved_span_without_terminal_reads() {
+        let json = r#"{"paneId":"w1:p1","lines":[{"spans":[{"text":"a","width":1,
+            "fg":{"kind":"default"},"bg":{"kind":"default"},"bold":false,"dim":false,
+            "italic":false,"underline":false,"inverse":false,"hidden":false,
+            "strikethrough":false,"link":null}]}],"truncated":false,"historyLines":0,
+            "question":null}"#;
+        let content = pane_content_from_json(json).expect("old screen");
+        assert_eq!(content.lines[0].spans[0].terminal, None);
     }
 
     #[test]
