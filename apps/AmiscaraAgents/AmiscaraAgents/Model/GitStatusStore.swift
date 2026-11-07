@@ -72,11 +72,12 @@ final class GitStatusStore {
     func updated(_ update: SessionUpdate, live: Bool) {
         let current = update.workspaces.compactMap { space -> GitSpace? in
             // A space of herdr desktop has no repository key, only a branch
-            // when its terminal is in a checkout (#359).
+            // when its terminal is in a checkout (#359). Those of another
+            // machine are not in the host's status.
             if let key = space.repoKey {
                 return GitSpace(workspaceID: space.workspaceId, repoKey: key, branch: space.branch ?? "")
             }
-            guard space.workspaceId.hasPrefix("hc:"), let branch = space.branch else { return nil }
+            guard isHostCoreSpace(space.workspaceId), let branch = space.branch else { return nil }
             return GitSpace(workspaceID: space.workspaceId, repoKey: "", branch: branch)
         }
         let nowWorking = Set(update.workspaces.filter { $0.agentState == .working }.map(\.workspaceId))

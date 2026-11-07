@@ -101,6 +101,21 @@ func gitStatusText(hasUpstream: Bool, ahead: UInt32, behind: UInt32, changes: UI
     return parts.joined(separator: " ")
 }
 
+/// Whether `workspaceID` is a space of herdr-core on the host itself, not
+/// of a machine connected to it (`hc:box/t1`), like `hc::machine_of` in
+/// the core: only those get the host's Git status (#359).
+func isHostCoreSpace(_ workspaceID: String) -> Bool {
+    guard workspaceID.hasPrefix("hc:") else { return false }
+    var rest = workspaceID.dropFirst(3)
+    for kind in ["dir:", "tab:"] where rest.hasPrefix(kind) {
+        rest = rest.dropFirst(kind.count)
+        break
+    }
+    // A directory is absolute, so a machine comes before its first `/`.
+    guard let slash = rest.firstIndex(of: "/") else { return true }
+    return slash == rest.startIndex
+}
+
 /// The button "Änderungen" next to a space's tabs (#342, #359).
 enum ChangesButton: Equatable {
     case hidden
