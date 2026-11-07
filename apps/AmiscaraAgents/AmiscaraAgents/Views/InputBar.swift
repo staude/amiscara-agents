@@ -123,7 +123,7 @@ struct InputBar: View {
             start: startRequestedDictation
         ))
         .toolbar {
-            if verticalBar {
+            if verticalBar && !keyboardShown {
                 ToolbarItem(placement: .primaryAction) { dictationButton }
             }
         }
@@ -667,7 +667,7 @@ struct InputBar: View {
 
     private var keys: some View {
         HStack(spacing: 4) {
-            if !verticalBar {
+            if !verticalBar || keyboardShown {
                 dictationButton
                 Divider().frame(height: 16)
             }
