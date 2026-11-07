@@ -162,6 +162,9 @@ struct WorkspaceDetailView: View {
         #endif
         .onChange(of: selection, initial: true) { _, selection in
             focus(on: selection, opened: true)
+            #if !os(tvOS)
+            if let selection { store.connection(for: selection.hostID)?.gitStatus.spaceOpened() }
+            #endif
         }
         .onChange(of: isKnown) { _, known in
             // The host lists the space only now (a launch while offline, a
@@ -371,15 +374,24 @@ struct WorkspaceDetailView: View {
                     settledMenu(settled, on: connection)
                 }
                 #if !os(tvOS)
-                // Shown without input too, like "Heute": the sheet says why
-                // it needs input. The count only after a load (#342).
-                if connection.isLive && workspace.repoKey != nil {
+                // Where the Git status runs on its own (herdr-core, #359) only
+                // for a space with changes. Elsewhere in every Git space,
+                // without input too, like "Heute": the sheet says why it
+                // needs input; the count once the Git status or a load of
+                // the changes knows it (#342).
+                if connection.isLive,
+                   case .shown(let count) = changesButton(
+                       automatic: connection.gitStatus.automatic,
+                       gitSpace: workspace.repoKey != nil,
+                       statusChanges: connection.gitStatus.status(for: workspace.workspaceId)?.changes,
+                       loadedCount: connection.changeCounts[workspace.workspaceId]
+                   ) {
                     Button {
                         changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: "plusminus")
-                            if let count = connection.changeCounts[workspace.workspaceId], count > 0 {
+                            if let count {
                                 Text(count, format: .number)
                                     .font(.callout.monospacedDigit())
                             }
@@ -433,7 +445,9 @@ struct WorkspaceDetailView: View {
             Button("Claude-Sitzungen …", systemImage: "clock.arrow.circlepath") {
                 claudeSessionsFor = ClaudeSessionsTarget(connection: connection, workspaceID: workspace.workspaceId, paneID: paneID)
             }
-            if workspace.repoKey != nil {
+            // A space of herdr desktop has no repository key; its Git
+            // status tells it is in a checkout (#359).
+            if workspace.repoKey != nil || connection.gitStatus.status(for: workspace.workspaceId) != nil {
                 Button("Änderungen …", systemImage: "plusminus") {
                     changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
                 }
@@ -591,8 +605,11 @@ struct WorkspaceDetailView: View {
 
     private func panePicker(_ tab: TabItem) -> some View {
         Picker("Pane", selection: Binding(get: { paneID ?? "" }, set: { paneID = $0 })) {
-            ForEach(tab.panes, id: \.paneId) { pane in
-                Text(pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
+            // Sub-agents (#330) after their parent, marked.
+            let panes = SubAgentTree.nest(tab.panes, id: \.paneId, parent: \.parentPaneId)
+            ForEach(panes, id: \.item.paneId) { pane, depth in
+                let name = pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)
+                Text(depth > 0 ? "↳ \(name)" : name).tag(pane.paneId)
             }
         }
         .pickerStyle(.segmented)

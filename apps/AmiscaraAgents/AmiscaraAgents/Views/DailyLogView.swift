@@ -5,7 +5,7 @@ import SwiftUI
 /// What happened on a host on one day (#301): prompts to Claude agents,
 /// their finished turns and the commits of every space, by time, for
 /// today and the six days before. Read only and kept only while the sheet
-/// is open; the host runs Git in a short-lived tab like the diff.
+/// is open; the host runs Git like the diff.
 struct DailyLogView: View {
     let connection: HostConnection
     @Environment(\.dismiss) private var dismiss

@@ -205,6 +205,26 @@ do {
     check(pinnedReady.columns.first { $0.group == .done }?.rows.count == 2, "pinned ready and unknown agents stay on the board")
 }
 
+// A sub-agent names its parent on the same host (#330).
+do {
+    let parent = WidgetSnapshot.Agent(paneID: "p1", workspaceID: "w", place: "Kino · 1", name: "reviewer", state: .working, since: ago(3))
+    var child = agent("c1", .blocked, since: ago(1))
+    child.parentID = "p1"
+    var orphan = agent("c2", .blocked, since: ago(2))
+    orphan.parentID = "gone"
+    let other = host("o", live: true, [agent("p1", .idle)])
+    let rows = AgentOverview(hosts: [host("a", live: true, [parent, child, orphan]), other], boards: [])
+        .sections.flatMap(\.rows)
+    check(rows.first { $0.agent.paneID == "c1" }?.parentName == "reviewer", "the parent's name")
+    check(rows.first { $0.agent.paneID == "c2" }?.parentName == nil, "no name without the parent")
+    check(rows.first { $0.agent.paneID == "p1" }?.parentName == nil, "no name for the parent itself")
+    check(AgentOverview(hosts: [host("a", live: true, [parent, child])], boards: []).sections.map(\.group) == [.waiting, .working],
+          "a waiting sub-agent stays in the waiting group")
+    let json = #"{"paneID":"x","workspaceID":"w","place":"","name":"claude","state":"idle"}"#
+    let decoded = try? JSONDecoder().decode(WidgetSnapshot.Agent.self, from: Data(json.utf8))
+    check(decoded != nil && decoded?.parentID == nil, "boards from older builds decode without a parent")
+}
+
 // When the board reads a screen (#345).
 do {
     func due(_ state: WidgetSnapshot.State, _ last: (WidgetSnapshot.State, Double)?) -> Bool {

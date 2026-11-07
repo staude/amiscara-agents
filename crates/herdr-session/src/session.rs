@@ -698,6 +698,13 @@ impl Session {
             .and_then(|state| state.as_ref()?.borrow().session.clone())
     }
 
+    /// Whether herdr-core of the host answers (#359): then scripts run
+    /// without a tab, also for the herdr server's spaces.
+    fn core_answers(&self) -> bool {
+        self.session_state()
+            .is_some_and(|session| session.backends.hc.is_some())
+    }
+
     /// Ends the session and closes the connection. Pane followers stop too.
     pub fn stop(&self) {
         self.forward.abort();
@@ -1294,9 +1301,10 @@ impl Session {
 
     /// What changed in the working directory of a pane (#228): `git diff`
     /// against `HEAD` plus untracked files, read only. herdr has no method
-    /// for it and device keys reach no shell, so a small script runs in a
-    /// short-lived, unfocused tab in the pane's directory and leaves its
-    /// output in the uploads folder, read and removed through SFTP. Needs
+    /// for it and device keys reach no shell, so a small script runs in the
+    /// pane's directory, in a short-lived, unfocused tab or, while
+    /// herdr-core answers, without one (#359), and leaves its output in the
+    /// uploads folder, read and removed through SFTP. Needs
     /// file access like uploads; takes a moment.
     pub async fn working_tree_diff(
         &self,
@@ -1324,8 +1332,8 @@ impl Session {
         self.diff_in(workspace_id, &cwd).await
     }
 
-    /// Runs the diff script in `cwd` through a short-lived tab of the
-    /// space `workspace_id`.
+    /// Runs the diff script in `cwd` for the space `workspace_id`, in a
+    /// short-lived tab or, while herdr-core answers, without one (#359).
     async fn diff_in(
         &self,
         workspace_id: &str,
@@ -1334,8 +1342,11 @@ impl Session {
         let conn = self.connection()?;
         let output = run_script(
             &conn,
-            workspace_id,
-            cwd,
+            RunIn {
+                workspace_id,
+                cwd,
+                core: self.core_answers(),
+            },
             "diff",
             diff::diff_script,
             MAX_DIFF_BYTES,
@@ -1352,8 +1363,9 @@ impl Session {
     /// `until` (#301): Claude Code prompts and finished turns from the
     /// session files, commits of all local branches in every space's
     /// repository, oldest first. Like [`Session::working_tree_diff`] a
-    /// script runs in a short-lived tab (of the first space with a folder)
-    /// and the files come through SFTP, so it needs input and file access.
+    /// script runs for the first space with a folder, in a short-lived tab
+    /// or, while herdr-core answers, without one (#359), and the files come
+    /// through SFTP, so it needs input and file access.
     /// Read only; takes a moment.
     pub async fn daily_log(
         &self,
@@ -1374,8 +1386,11 @@ impl Session {
         let minutes = (unix_ms() / 1000).saturating_sub(since_secs).div_ceil(60) + 1;
         let output = run_script(
             &conn,
-            &workspace_id,
-            &cwd,
+            RunIn {
+                workspace_id: &workspace_id,
+                cwd: &cwd,
+                core: self.core_answers(),
+            },
             "day",
             |out| daily::day_script(out, since_secs, until_secs, minutes, &dirs),
             MAX_DAY_BYTES,
@@ -1435,8 +1450,9 @@ impl Session {
 
     /// Ahead/behind and uncommitted changes of every space showing a Git
     /// checkout (#343), or only of space `only`. One script for all of them
-    /// runs in a short-lived, unfocused tab of the first such space and
-    /// the output comes through SFTP, like [`Session::working_tree_diff`],
+    /// runs for the first such space, in a short-lived, unfocused tab or,
+    /// while herdr-core answers, without one (#359), and the output comes
+    /// through SFTP, like [`Session::working_tree_diff`],
     /// so it needs input and file access. Spaces Git could not read are
     /// left out; without such spaces nothing runs. Read only.
     pub async fn worktree_status(
@@ -1456,8 +1472,11 @@ impl Session {
         }
         let output = run_script(
             &conn,
-            &run_in,
-            &cwd,
+            RunIn {
+                workspace_id: &run_in,
+                cwd: &cwd,
+                core: self.core_answers(),
+            },
             "git-status",
             |out| gitstatus::status_script(out, &dirs),
             MAX_GIT_STATUS_BYTES,
@@ -1477,24 +1496,43 @@ impl Session {
     }
 
     /// The spaces showing a Git checkout with its path, all or only `only`.
+    /// While herdr-core answers, also its spaces on the host itself with
+    /// the folder of their terminal (#359): the script tells which of them
+    /// are in a repository.
     fn checkout_spaces(&self, only: Option<&str>) -> Vec<SpaceDir> {
-        let Some(session) = self
-            .state
-            .lock()
-            .ok()
-            .and_then(|state| state.as_ref().and_then(|rx| rx.borrow().session.clone()))
-        else {
+        let Some(session) = self.session_state() else {
             return Vec::new();
         };
-        session
+        let wanted = |ws: &&herdr_proto::WorkspaceInfo| only.is_none_or(|id| ws.workspace_id == id);
+        let mut spaces: Vec<SpaceDir> = session
             .workspaces
             .iter()
-            .filter(|ws| only.is_none_or(|id| ws.workspace_id == id))
+            .filter(wanted)
             .filter_map(|ws| {
                 let dir = &ws.worktree.as_ref()?.checkout_path;
                 (!dir.is_empty()).then(|| (ws.workspace_id.clone(), dir.clone()))
             })
-            .collect()
+            .collect();
+        if session.backends.hc.is_some() {
+            // Collected first: `space_folder` locks the state itself.
+            let core_spaces: Vec<String> = session
+                .workspaces
+                .iter()
+                .filter(wanted)
+                .filter(|ws| {
+                    herdr_client::hc::is_hc(&ws.workspace_id)
+                        && herdr_client::hc::machine_of(&ws.workspace_id).is_none()
+                        && !spaces.iter().any(|(id, _)| id == &ws.workspace_id)
+                })
+                .map(|ws| ws.workspace_id.clone())
+                .collect();
+            for id in core_spaces {
+                if let Some(dir) = self.space_folder(&id).filter(|dir| !dir.is_empty()) {
+                    spaces.push((id, dir));
+                }
+            }
+        }
+        spaces
     }
 
     /// The worktrees of the repository of space `workspace_id` that no
@@ -2442,16 +2480,23 @@ struct ScriptOutput {
     truncated: bool,
 }
 
-/// Runs a script in a short-lived, unfocused tab of `workspace_id` in
-/// `cwd` and reads what it wrote (#228). `script` gets the output path
-/// below the home directory; the script writes it next to itself and
-/// renames it to `.done` when complete, errors to `.err`. When `failed`
-/// says the output is empty of results, the errors become the error.
-/// Everything is removed afterwards.
+/// Where [`run_script`] runs a script: for the space `workspace_id` in
+/// `cwd`, without a tab when `core` says herdr-core answers (#359).
+struct RunIn<'a> {
+    workspace_id: &'a str,
+    cwd: &'a str,
+    core: bool,
+}
+
+/// Runs a script as [`run_host_script`] does, in a short-lived, unfocused
+/// tab or with herdr-core, and reads what it wrote (#228). `script` gets
+/// the output path below the home directory; the script writes it next to
+/// itself and renames it to `.done` when complete, errors to `.err`. When
+/// `failed` says the output is empty of results, the errors become the
+/// error. Everything is removed afterwards.
 async fn run_script(
     conn: &Connection,
-    workspace_id: &str,
-    cwd: &str,
+    place: RunIn<'_>,
     kind: &str,
     script: impl FnOnce(&str) -> String,
     max_bytes: u64,
@@ -2471,7 +2516,15 @@ async fn run_script(
     let err_file = format!("{out}.err");
 
     let result = async {
-        let run = run_host_script(conn, workspace_id, cwd, &script_path, SCRIPT_TIMEOUT).await?;
+        let run = run_host_script(
+            conn,
+            place.workspace_id,
+            place.cwd,
+            &script_path,
+            SCRIPT_TIMEOUT,
+            place.core,
+        )
+        .await?;
         if let HostRun::Tab(tab) = run {
             let finished = wait_for_file(conn, &format!("{stamp}.txt.done")).await;
             // The shell exits by itself; close the tab in case it stayed.
@@ -2644,24 +2697,45 @@ pub(crate) enum HostRun {
     Finished,
 }
 
+/// How [`run_host_script`] runs a script for a space.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ScriptWay {
+    /// herdr-core runs it with `machine.exec`, without a tab.
+    Exec,
+    /// A short-lived, unfocused tab of herdr's runs it.
+    Tab,
+}
+
+/// How a script for the space `workspace_id` runs: on herdr-core for its
+/// own spaces and, when `core` says herdr-core of the host answers, also
+/// for the herdr server's (#359), else in a tab. A space of a machine
+/// connected to the core is refused: the script was uploaded to the host.
+pub(crate) fn script_way(workspace_id: &str, core: bool) -> Result<ScriptWay, SessionError> {
+    if herdr_client::hc::machine_of(workspace_id).is_some() {
+        return Err(SessionError::Unsupported(
+            "not available for terminals on another machine".into(),
+        ));
+    }
+    if herdr_client::hc::is_hc(workspace_id) || core {
+        Ok(ScriptWay::Exec)
+    } else {
+        Ok(ScriptWay::Tab)
+    }
+}
+
 /// Runs the uploaded script `script_path` with `sh` in `cwd` for the space
-/// `workspace_id`: on herdr in a short-lived, unfocused tab, on herdr-core
-/// (#329) with `machine.exec` up to `timeout`, without a tab. A space of a
-/// machine connected to the core is refused: the script was uploaded to
-/// the host.
+/// `workspace_id` as [`script_way`] says: on herdr in a short-lived,
+/// unfocused tab, on herdr-core (#329) with `machine.exec` up to
+/// `timeout`, without a tab.
 pub(crate) async fn run_host_script(
     conn: &Connection,
     workspace_id: &str,
     cwd: &str,
     script_path: &str,
     timeout: Duration,
+    core: bool,
 ) -> Result<HostRun, SessionError> {
-    if herdr_client::hc::is_hc(workspace_id) {
-        if herdr_client::hc::machine_of(workspace_id).is_some() {
-            return Err(SessionError::Unsupported(
-                "not available for terminals on another machine".into(),
-            ));
-        }
+    if script_way(workspace_id, core)? == ScriptWay::Exec {
         let value = conn
             .hc_request(
                 "machine.exec",
@@ -2759,9 +2833,25 @@ fn upload_name(ext: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        SessionError, TransportError, files_error, health_error, merge_github_repos, named_upload,
-        removable, spaces_by_repo_key, worktree_choices,
+        ScriptWay, SessionError, TransportError, files_error, health_error, merge_github_repos,
+        named_upload, removable, script_way, spaces_by_repo_key, worktree_choices,
     };
+
+    #[test]
+    fn scripts_run_without_a_tab_while_herdr_core_answers() {
+        assert!(matches!(script_way("w1", false), Ok(ScriptWay::Tab)));
+        assert!(matches!(script_way("w1", true), Ok(ScriptWay::Exec)));
+        assert!(matches!(script_way("hc:t1", false), Ok(ScriptWay::Exec)));
+        assert!(matches!(script_way("hc:t1", true), Ok(ScriptWay::Exec)));
+        assert!(matches!(
+            script_way("hc:box/t1", true),
+            Err(SessionError::Unsupported(_))
+        ));
+        assert!(matches!(
+            script_way("hc:box/t1", false),
+            Err(SessionError::Unsupported(_))
+        ));
+    }
 
     #[test]
     fn worktree_choices_leave_out_open_bare_and_prunable() {

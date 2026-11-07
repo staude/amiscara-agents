@@ -36,6 +36,12 @@ pub struct SessionState {
     /// Which servers of the host answer; herdr-core's spaces, tabs and
     /// panes sit beside herdr's with ids starting `hc:` (#329).
     pub backends: Backends,
+    /// The direct parent pane of each sub-agent, by pane id (#330); only
+    /// herdr-core knows who started whom.
+    pub parents: BTreeMap<String, String>,
+    /// When each pane's status last changed (ms since the epoch), by pane
+    /// id, where the server says so; only herdr-core does (#330).
+    pub status_since: BTreeMap<String, u64>,
 }
 
 /// The servers a host runs.
@@ -156,6 +162,8 @@ impl SessionState {
                 herdr: true,
                 hc: None,
             },
+            parents: BTreeMap::new(),
+            status_since: BTreeMap::new(),
         };
         state.workspaces.sort_by_key(|ws| ws.number);
         let order = state.workspace_order();
@@ -184,6 +192,8 @@ impl SessionState {
                 herdr: false,
                 hc: Some(hc_version.to_owned()),
             },
+            parents: BTreeMap::new(),
+            status_since: BTreeMap::new(),
         }
     }
 
@@ -205,6 +215,8 @@ impl SessionState {
             self.workspaces.clone(),
             self.tabs.clone(),
             self.panes.clone(),
+            self.parents.clone(),
+            self.status_since.clone(),
         );
         self.workspaces.retain(|ws| !is_hc(&ws.workspace_id));
         self.tabs.retain(|tab| !is_hc(&tab.tab_id));
@@ -212,6 +224,9 @@ impl SessionState {
         self.workspaces.extend(fresh.workspaces);
         self.tabs.extend(fresh.tabs);
         self.panes.extend(fresh.panes);
+        // Only herdr-core fills these, so they are replaced whole.
+        self.parents = fresh.parents;
+        self.status_since = fresh.status_since;
         self.workspaces.sort_by_key(|ws| ws.number);
         let order = self.workspace_order();
         self.tabs
@@ -228,6 +243,8 @@ impl SessionState {
                 self.workspaces.clone(),
                 self.tabs.clone(),
                 self.panes.clone(),
+                self.parents.clone(),
+                self.status_since.clone(),
             )
         {
             Applied::Unchanged
@@ -731,6 +748,43 @@ mod tests {
             Ok(terminal) => terminal,
             Err(err) => panic!("fixture: {err}"),
         }
+    }
+
+    #[test]
+    fn a_waiting_sub_agent_needs_the_user() {
+        let mut parent = hc_terminal("t1", "kino", "working");
+        parent.status_ms = Some(10);
+        let child: herdr_proto::hc::Terminal = match serde_json::from_value(json!({
+            "address": "t2", "cwd": "/x", "state": "live", "created_ms": 2,
+            "parent": "t1", "status_ms": 20,
+            "status": {"app": "claude-code", "state": "working"}
+        })) {
+            Ok(terminal) => terminal,
+            Err(err) => panic!("fixture: {err}"),
+        };
+        let mut before = SessionState::without_herdr("0.1.18");
+        before.replace_hc(&[parent.clone(), child.clone()]);
+        assert_eq!(
+            before.parents.get("hc:t2").map(String::as_str),
+            Some("hc:t1")
+        );
+        assert_eq!(before.status_since.get("hc:t2"), Some(&20));
+        let mut waiting = child.clone();
+        if let Some(status) = waiting.status.as_mut() {
+            status.state = "blocked".into();
+        }
+        let mut after = before.clone();
+        assert_eq!(
+            after.replace_hc(&[parent.clone(), waiting.clone()]),
+            Applied::Updated
+        );
+        assert_eq!(after.attention_since(&before), ["hc:t2"]);
+        assert_eq!(board_ids(&after)[0], "hc:t2", "the waiting one comes first");
+        let tab = after.tab("hc:tb-t1").map(|tab| tab.agent_status);
+        assert_eq!(tab, Some(AgentStatus::Blocked));
+        // A new time alone changes what the apps see.
+        waiting.status_ms = Some(30);
+        assert_eq!(after.replace_hc(&[parent, waiting]), Applied::Updated);
     }
 
     #[test]

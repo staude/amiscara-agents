@@ -131,6 +131,13 @@ pub struct Terminal {
     pub turn: u64,
     #[serde(default)]
     pub template: Option<String>,
+    /// Address of the terminal that started this one (`hc run --bg` from
+    /// inside a terminal), set once at start.
+    #[serde(default)]
+    pub parent: Option<String>,
+    /// When the status word last changed, in ms since the epoch.
+    #[serde(default)]
+    pub status_ms: Option<u64>,
 }
 
 impl Terminal {
@@ -338,7 +345,8 @@ mod tests {
             "cwd": "/tmp", "foreground": {"argv": ["zsh"], "cwd": "/private/tmp", "name": "zsh", "pid": 1},
             "labels": {"herdr.space": "spA", "herdr.tab": "tbB", "where": "Mein Space / 1"},
             "name": null, "state": "live", "status": {"app": "claude-code", "state": "working"},
-            "title": "staude@work:/tmp", "turn": 3, "rows": 120, "screen": "exact"
+            "title": "staude@work:/tmp", "turn": 3, "rows": 120, "screen": "exact",
+            "parent": "t1", "status_ms": 1793970900000u64
         });
         let terminal: Terminal = serde_json::from_value(value)?;
         assert!(terminal.is_live());
@@ -351,6 +359,8 @@ mod tests {
             terminal.foreground.as_ref().map(|f| f.cwd.as_str()),
             Some("/private/tmp")
         );
+        assert_eq!(terminal.parent.as_deref(), Some("t1"));
+        assert_eq!(terminal.status_ms, Some(1793970900000));
         Ok(())
     }
 

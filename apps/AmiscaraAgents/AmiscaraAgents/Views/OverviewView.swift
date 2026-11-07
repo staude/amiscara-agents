@@ -207,6 +207,14 @@ private struct OverviewRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if let parent = row.parentName {
+                    // Grouped by state, a sub-agent names its parent instead of
+                    // standing under it (#330).
+                    Text("Sub-Agent von \(parent)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 OverviewAge(row: row)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -237,9 +245,8 @@ struct OverviewAge: View {
         }
     }
 
-    /// "vor 5 Min."; times a little ahead of this device's clock (from
-    /// another device) count as now.
+    /// "vor 5 Min.", as in the agent rows.
     static func relative(_ date: Date, now: Date) -> String {
-        min(date, now).formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
+        AgentSummaryRow.relative(date, now: now)
     }
 }

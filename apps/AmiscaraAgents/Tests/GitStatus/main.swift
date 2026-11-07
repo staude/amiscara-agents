@@ -1,6 +1,7 @@
 // Checks the rules for the Git status of worktree spaces (#343) without
 // the core or UI: when to read it again, the pacing of runs, the text of a
-// row and the search of "Worktree öffnen". Built by scripts/git-status-test.sh.
+// row, the button "Änderungen" (#359) and the search of "Worktree öffnen".
+// Built by scripts/git-status-test.sh.
 import Foundation
 
 var failures = 0
@@ -61,6 +62,24 @@ check(gitStatusText(hasUpstream: true, ahead: 0, behind: 5, changes: 0) == "↓5
 check(gitStatusText(hasUpstream: false, ahead: 0, behind: 0, changes: 0) == "kein Upstream", "never pushed")
 check(gitStatusText(hasUpstream: false, ahead: 7, behind: 0, changes: 1) == "kein Upstream ● 1 geändert",
       "no counts without upstream")
+
+// MARK: Button "Änderungen"
+
+func button(automatic: Bool, git: Bool = true, status: UInt32? = nil, loaded: Int? = nil) -> ChangesButton {
+    changesButton(automatic: automatic, gitSpace: git, statusChanges: status, loadedCount: loaded)
+}
+
+check(button(automatic: true, status: 0) == .hidden, "automatic: hidden without changes")
+check(button(automatic: true, status: 4) == .shown(count: 4), "automatic: with the number of changes")
+check(button(automatic: true, git: false, status: 2) == .shown(count: 2), "automatic: a herdr desktop space with changes")
+check(button(automatic: true, loaded: 3) == .shown(count: 3), "automatic: the loaded number before a status")
+check(button(automatic: true) == .hidden, "automatic: hidden before anything is known")
+check(button(automatic: true, status: 5, loaded: 3) == .shown(count: 5), "the status counts before the load")
+check(button(automatic: false) == .shown(count: nil), "without herdr-core: every Git space, no number yet")
+check(button(automatic: false, status: 0) == .shown(count: nil), "without herdr-core: no number without changes")
+check(button(automatic: false, status: 4) == .shown(count: 4), "without herdr-core: the number of the status")
+check(button(automatic: false, loaded: 2) == .shown(count: 2), "without herdr-core: the loaded number")
+check(button(automatic: false, git: false, status: 3) == .hidden, "without herdr-core: not outside a Git space")
 
 // MARK: Search
 

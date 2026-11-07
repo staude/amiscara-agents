@@ -58,9 +58,8 @@ final class HostConnection: Identifiable {
     /// (#339), until closed or opened. Only in memory.
     private(set) var startFailures: [AgentStartFailure] = []
     /// The number of changed files per space (workspace id) from the last
-    /// load of its changes (#342), for the button next to the tabs. Only
-    /// in memory; loading the changes runs Git in a tab on the host, so
-    /// the app never asks on its own.
+    /// load of its changes (#342), for the button next to the tabs until
+    /// the Git status knows the space (#359). Only in memory.
     private(set) var changeCounts: [String: Int] = [:]
     #endif
 
@@ -279,9 +278,9 @@ final class HostConnection: Identifiable {
 
     #if !os(tvOS)
     /// Ahead/behind and uncommitted changes of the Git spaces (#343), or
-    /// only of `workspaceID`. Read only, but like the diff it opens a
-    /// short-lived tab and reads its output through SFTP, so it needs
-    /// input and file access.
+    /// only of `workspaceID`. Read only, but like the diff it runs a script
+    /// in a short-lived tab (without one where herdr-core answers, #359)
+    /// and reads its output through SFTP, so it needs input and file access.
     func worktreeStatus(only workspaceID: String? = nil) async throws -> [SpaceGitStatus] {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard config.uploadAllowed else { throw ConnectionFailure.gitStatusFilesOff }
@@ -585,8 +584,9 @@ final class HostConnection: Identifiable {
     }
 
     /// What changed in a pane's working directory (#228). Read only, but it
-    /// opens a short-lived tab to run Git and reads the result over SFTP, so
-    /// it needs both input and file access.
+    /// runs Git in a short-lived tab (without one where herdr-core answers,
+    /// #359) and reads the result over SFTP, so it needs both input and file
+    /// access.
     func workingTreeDiff(paneID: String) async throws -> WorkingTreeDiff {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
         guard config.uploadAllowed else { throw ConnectionFailure.diffFilesOff }
@@ -609,6 +609,7 @@ final class HostConnection: Identifiable {
                 try session.spaceWorkingTreeDiff(workspaceId: spaceID)
             }.value
             changeCounts[spaceID] = diff.files.count
+            gitStatus.changesLoaded(workspaceID: spaceID, count: diff.files.count)
             return diff
         } catch {
             changeCounts[spaceID] = nil
@@ -619,7 +620,8 @@ final class HostConnection: Identifiable {
 
     /// What happened on the host between `since` and `until` (#301):
     /// Claude Code prompts and finished turns, and the commits of every
-    /// space. Read only, but like the diff it opens a short-lived tab and
+    /// space. Read only, but like the diff it runs a script on the host (in
+    /// a short-lived tab or without one where herdr-core answers, #359) and
     /// reads over SFTP, so it needs both input and file access.
     func dailyLog(since: Date, until: Date) async throws -> DailyLog {
         guard config.inputAllowed else { throw ConnectionFailure.readOnly }
@@ -937,7 +939,7 @@ enum ConnectionFailure: LocalizedError {
         case .diffFilesOff:
             String(localized: "Die Änderungen liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .diffReadOnly:
-            String(localized: "Die Änderungen liest die App über einen kurzen Tab auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
+            String(localized: "Die Änderungen liest die App über ein Skript auf dem Host; dafür „Eingaben erlauben“ einschalten (Host bearbeiten).")
         case .dailyLogFilesOff:
             String(localized: "Den Tag liest die App über den Dateizugriff wie „Bilder hochladen“ (Host bearbeiten).")
         case .gitStatusFilesOff:

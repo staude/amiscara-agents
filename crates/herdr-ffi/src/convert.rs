@@ -34,6 +34,9 @@ pub struct SessionUpdate {
     pub server_version: Option<String>,
     /// False when the server speaks a protocol this build does not know.
     pub protocol_supported: bool,
+    /// herdr-core of the host answers (#359): scripts such as the Git
+    /// status run without a tab.
+    pub herdr_core: bool,
     pub focused_pane_id: Option<String>,
     pub workspaces: Vec<WorkspaceItem>,
     /// The spaces in sidebar order: herdr's, with linked worktrees under
@@ -215,6 +218,8 @@ pub struct PaneItem {
     pub focused: bool,
     /// What runs in the pane, for its icon (#337); `None` while unknown.
     pub program: Option<ProgramItem>,
+    /// The agent pane that started this one, for a sub-agent (#330).
+    pub parent_pane_id: Option<String>,
 }
 
 /// A program for an icon (#337); `other` and `agent` are ids missing
@@ -245,8 +250,11 @@ pub struct BoardItem {
     pub title: String,
     pub cwd: Option<String>,
     /// Since when the agent is in its state, in Unix milliseconds; `None`
-    /// when it already was in it as the session started.
+    /// when it already was in it as the session started and the server
+    /// does not say.
     pub state_since_ms: Option<u64>,
+    /// The agent pane that started this one, for a sub-agent (#330).
+    pub parent_pane_id: Option<String>,
     /// Prompts that follow this agent's change (#300).
     pub chains: Vec<ChainItem>,
     /// The agent as a program, for its icon (#337).

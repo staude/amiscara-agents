@@ -144,8 +144,9 @@ code), so a host is set up the same way everywhere.
   turns they finished (from the session files in `~/.claude/projects`)
   and the commits of all spaces. A menu picks one of the last seven days;
   "Zusammenfassen" turns the list into a few sentences with the on-device
-  model (Apple Intelligence). Git runs in a short-lived tab, so it needs
-  input and file access; nothing is stored. Mac, iPhone and iPad.
+  model (Apple Intelligence). Git runs in a short-lived tab, without one
+  where herdr-core answers, so it needs input and file access; nothing is
+  stored. Mac, iPhone and iPad.
 - **Approvals:** with a GitHub token for a host (host settings, "GitHub",
   fine-grained with Issues: Read, kept only on this device), the overview
   and the host's dashboard list "Freigaben": issues in the host's GitHub
@@ -257,9 +258,13 @@ code), so a host is set up the same way everywhere.
   searchable like the diff of a pull request. For a pane through the ±
   button in its header, for a Git space through the ± button next to its
   tabs or "Änderungen …" in its menu (the folder of the focused pane in
-  the active tab); after loading, the button shows the number of files.
-  Git runs in a short-lived tab on the host, so it needs input allowed
-  and SFTP like uploads. Mac, iPhone and iPad.
+  the active tab). On a host with herdr-core the button shows only for a
+  space with uncommitted changes, with their number from the Git status,
+  which is read again when a space is opened; elsewhere it shows in every
+  Git space, with the number once the Git status or a load knows it.
+  Git runs in a short-lived tab on the host, without one where herdr-core
+  answers, so it needs input allowed and SFTP like uploads. Mac, iPhone
+  and iPad.
 - **Notifications** when an agent starts waiting or is done, with answer
   buttons, one per pane; local ones carry the options of Claude Code's
   question as titles. Done means finished unseen: once the agent's pane
@@ -528,7 +533,10 @@ herdr-core's spaces come after herdr's.
 - **Git branch, Git changes, the day's log and the conversation search**
   run with `machine.exec` (a branch every 30 s per space, also on another
   machine; the scripts without a tab and not for terminals on another
-  machine). Uploads, files and the conversation still go over SFTP.
+  machine). On a host with herdr-core the Git status, changes and the
+  day's log run that way for the herdr server's spaces too, and spaces of
+  herdr desktop on the host get the Git status and "Änderungen …". Uploads,
+  files and the conversation still go over SFTP.
 - **Spaces without herdr desktop's labels** follow their directory: a `cd`
   in such a terminal moves it to another space.
 
