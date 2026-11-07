@@ -54,6 +54,9 @@ struct AgentOverview: Equatable {
         /// For a host without a connection: how old the shown state is.
         let staleAt: Date?
         let pinned: Bool
+        /// For a sub-agent (#330): the name of its parent agent on the same
+        /// host, when that one is listed.
+        var parentName: String? = nil
 
         var id: String { "\(hostID.uuidString)|\(agent.paneID)" }
     }
@@ -99,8 +102,16 @@ struct AgentOverview: Equatable {
                 agents = host.agents
                 staleAt = host.liveAt
             }
+            let names = Dictionary(agents.map { ($0.paneID, $0.name) }, uniquingKeysWith: { first, _ in first })
             rows += agents.map {
-                Row(hostID: host.id, hostName: host.name, agent: $0, staleAt: staleAt, pinned: host.pinned.contains($0.paneID))
+                Row(
+                    hostID: host.id,
+                    hostName: host.name,
+                    agent: $0,
+                    staleAt: staleAt,
+                    pinned: host.pinned.contains($0.paneID),
+                    parentName: $0.parentID.flatMap { names[$0] }
+                )
             }
         }
         // Newest first, unknown times last; otherwise host and board order.

@@ -48,8 +48,15 @@ struct HostDashboardView: View {
         // Pinned agents first (#334), otherwise in the widget's order.
         let ordered = snapshot.agents.filter { pinned.contains($0.agent.paneID) }
             + snapshot.agents.filter { !pinned.contains($0.agent.paneID) }
-        let rows = ordered.map { _, agent in
-            (agent: agent, target: MultiSend.Target(
+        // Sub-agents (#330) under their parent, pinned ones stay on top.
+        let nested = SubAgentTree.nest(
+            ordered.map(\.agent),
+            id: \.paneID,
+            parent: \.parentID,
+            keepInPlace: { pinned.contains($0.paneID) }
+        )
+        let rows = nested.map { agent, depth in
+            (agent: agent, depth: depth, target: MultiSend.Target(
                 hostID: connection.id,
                 hostName: connection.config.name,
                 agent: agent,
@@ -80,7 +87,7 @@ struct HostDashboardView: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(rows, id: \.target.id) { agent, target in
+                    ForEach(rows, id: \.target.id) { agent, depth, target in
                         let peek = AgentPeek(hostID: connection.id, workspaceID: agent.workspaceID, paneID: agent.paneID)
                         Button {
                             if selecting {
@@ -94,10 +101,10 @@ struct HostDashboardView: View {
                         } label: {
                             if selecting {
                                 MultiSendRow(target: target, selected: selected.contains(target.id)) {
-                                    agentRow(agent, pinned: pinned.contains(agent.paneID))
+                                    agentRow(agent, pinned: pinned.contains(agent.paneID), depth: depth)
                                 }
                             } else {
-                                agentRow(agent, pinned: pinned.contains(agent.paneID))
+                                agentRow(agent, pinned: pinned.contains(agent.paneID), depth: depth)
                                     .contentShape(.rect)
                             }
                         }
@@ -207,9 +214,9 @@ struct HostDashboardView: View {
     }
 
     /// An agent's row with today's tokens of a Claude agent.
-    private func agentRow(_ agent: WidgetSnapshot.Agent, pinned: Bool) -> some View {
+    private func agentRow(_ agent: WidgetSnapshot.Agent, pinned: Bool, depth: Int) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            AgentSummaryRow(agent: agent, host: nil, pinned: pinned)
+            AgentSummaryRow(agent: agent, host: nil, pinned: pinned, depth: depth)
             if let cwd = claudeFolders[agent.paneID],
                let usage = connection.usage.todaySum(cwd: cwd, prices: .shared) {
                 Text(usage.todayText)

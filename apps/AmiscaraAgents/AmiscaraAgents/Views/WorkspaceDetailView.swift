@@ -599,8 +599,11 @@ struct WorkspaceDetailView: View {
 
     private func panePicker(_ tab: TabItem) -> some View {
         Picker("Pane", selection: Binding(get: { paneID ?? "" }, set: { paneID = $0 })) {
-            ForEach(tab.panes, id: \.paneId) { pane in
-                Text(pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)).tag(pane.paneId)
+            // Sub-agents (#330) after their parent, marked.
+            let panes = SubAgentTree.nest(tab.panes, id: \.paneId, parent: \.parentPaneId)
+            ForEach(panes, id: \.item.paneId) { pane, depth in
+                let name = pane.name ?? pane.agent ?? (pane.title.isEmpty ? pane.paneId : pane.title)
+                Text(depth > 0 ? "↳ \(name)" : name).tag(pane.paneId)
             }
         }
         .pickerStyle(.segmented)
