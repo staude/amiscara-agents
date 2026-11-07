@@ -45,11 +45,38 @@ final class GitStatusStore {
         byWorkspace[workspaceID]
     }
 
+    /// The status runs on its own without a tab (#359): herdr-core of the
+    /// host answers and input and file access are on. Then the button
+    /// "Änderungen" shows only for spaces with changes.
+    var automatic: Bool {
+        allowed && connection?.update?.herdrCore == true
+    }
+
+    /// A space was opened: read again on a host where that opens no tab
+    /// (#359), paced like any other reason.
+    func spaceOpened() {
+        guard automatic else { return }
+        request()
+    }
+
+    /// The changes of a space were loaded with `count` files: the number
+    /// of the view counts until the next run.
+    func changesLoaded(workspaceID: String, count: Int) {
+        guard var status = byWorkspace[workspaceID] else { return }
+        status.changes = UInt32(clamping: count)
+        byWorkspace[workspaceID] = status
+    }
+
     /// After a session update.
     func updated(_ update: SessionUpdate, live: Bool) {
         let current = update.workspaces.compactMap { space -> GitSpace? in
-            guard let key = space.repoKey else { return nil }
-            return GitSpace(workspaceID: space.workspaceId, repoKey: key, branch: space.branch ?? "")
+            // A space of herdr desktop has no repository key, only a branch
+            // when its terminal is in a checkout (#359).
+            if let key = space.repoKey {
+                return GitSpace(workspaceID: space.workspaceId, repoKey: key, branch: space.branch ?? "")
+            }
+            guard space.workspaceId.hasPrefix("hc:"), let branch = space.branch else { return nil }
+            return GitSpace(workspaceID: space.workspaceId, repoKey: "", branch: branch)
         }
         let nowWorking = Set(update.workspaces.filter { $0.agentState == .working }.map(\.workspaceId))
         let occasion = gitStatusOccasion(

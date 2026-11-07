@@ -58,9 +58,8 @@ final class HostConnection: Identifiable {
     /// (#339), until closed or opened. Only in memory.
     private(set) var startFailures: [AgentStartFailure] = []
     /// The number of changed files per space (workspace id) from the last
-    /// load of its changes (#342), for the button next to the tabs. Only
-    /// in memory; loading the changes runs Git in a tab on the host, so
-    /// the app never asks on its own.
+    /// load of its changes (#342), for the button next to the tabs until
+    /// the Git status knows the space (#359). Only in memory.
     private(set) var changeCounts: [String: Int] = [:]
     #endif
 
@@ -609,6 +608,7 @@ final class HostConnection: Identifiable {
                 try session.spaceWorkingTreeDiff(workspaceId: spaceID)
             }.value
             changeCounts[spaceID] = diff.files.count
+            gitStatus.changesLoaded(workspaceID: spaceID, count: diff.files.count)
             return diff
         } catch {
             changeCounts[spaceID] = nil

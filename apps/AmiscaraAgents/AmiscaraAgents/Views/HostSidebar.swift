@@ -437,10 +437,12 @@ struct HostSidebar: View {
     }
 
     /// "Änderungen …" for a Git space (#342), also without input: the
-    /// sheet then says why it needs input.
+    /// sheet then says why it needs input. A space of herdr desktop has no
+    /// repository key; its Git status tells it is in a checkout (#359).
     @ViewBuilder
     private func changesButton(_ workspace: WorkspaceItem, on connection: HostConnection) -> some View {
-        if workspace.repoKey != nil && connection.isLive {
+        if connection.isLive,
+           workspace.repoKey != nil || connection.gitStatus.status(for: workspace.workspaceId) != nil {
             Button("Änderungen …", systemImage: "plusminus") {
                 changesShown = ChangesTarget(connection: connection, workspaceID: workspace.workspaceId)
             }
