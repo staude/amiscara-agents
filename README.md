@@ -256,8 +256,8 @@ code), so a host is set up the same way everywhere.
   searchable like the diff of a pull request. For a pane through the ±
   button in its header, for a Git space through the ± button next to its
   tabs or "Änderungen …" in its menu (the folder of the focused pane in
-  the active tab). On a host with herdr-core the button shows only for a
-  space with uncommitted changes, with their number from the Git status,
+  the active tab). On a host with herdr-core, with input and file access
+  allowed, the button shows only for a space with uncommitted changes, with their number from the Git status,
   which is read again when a space is opened; elsewhere it shows in every
   Git space, with the number once the Git status or a load knows it.
   Git runs in a short-lived tab on the host, without one where herdr-core
