@@ -45,6 +45,44 @@
       ]
     }
   ],
+  "ios": [
+    {
+      "version": "0.2.0",
+      "de": [
+        "Hosts mit herdr-core (der Laufzeit von herdr desktop) zeigen ihre Spaces, Tabs und Agenten mit Status, neben dem herdr-Server oder allein.",
+        "Board-Ansicht der Übersicht: Spalten „Wartet auf dich“, „Arbeitet“ und „Fertig“ für alle Agenten auf allen Hosts.",
+        "Agenten anheften: Angeheftete stehen in Übersicht, Dashboard und Seitenleiste oben.",
+        "Tabs wegräumen: Sie laufen weiter und kommen von selbst zurück, sobald ihr Agent auf dich wartet.",
+        "„Fertig“ wird zu „Bereit“, sobald du den Agenten angesehen hast, auf allen Geräten.",
+        "Neuer Tab mit Aufgabe: Der Agent bekommt seinen ersten Prompt, sobald er bereit ist.",
+        "Git-Spaces zeigen ↑/↓ zum Upstream und geänderte Dateien; die Änderungen eines Spaces lassen sich als Diff ansehen.",
+        "Diese Neuigkeiten erscheinen nach jedem Update und über das Menü „…“ der Seitenleiste › Neuigkeiten."
+      ],
+      "en": [
+        "Hosts running herdr-core (the runtime of herdr desktop) show their spaces, tabs and agents with status, beside the herdr server or on their own.",
+        "Board view in the overview: columns \"Waiting for you\", \"Working\" and \"Done\" for every agent on every host.",
+        "Pin agents: pinned ones stay at the top of the overview, dashboard and sidebar.",
+        "Put tabs away: they keep running and come back on their own when their agent waits for you.",
+        "\"Done\" turns into \"Ready\" once you have looked at the agent, on every device.",
+        "New tab with a task: the agent gets its first prompt once it is ready.",
+        "Git spaces show ↑/↓ against the upstream and changed files; a space's changes open as a diff.",
+        "These notes show after every update and under the sidebar's \"…\" menu › What's New."
+      ]
+    }
+  ],
+  "android": [
+    {
+      "version": "0.1.0",
+      "de": [
+        "Erste Version für Android.",
+        "Diese Neuigkeiten erscheinen nach jedem Update und unter Einstellungen › Neuigkeiten."
+      ],
+      "en": [
+        "First release for Android.",
+        "These notes show after every update and under Settings › What's New."
+      ]
+    }
+  ],
   "desktop": [
     {
       "version": "0.1.0",

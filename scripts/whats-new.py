@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks that apps/whats-new.json has notes for a release (#341).
 
-Usage: scripts/whats-new.py check <mac|desktop> <version>
+Usage: scripts/whats-new.py check <mac|ios|android|desktop> <version>
 
 Exits 0 when the app has an entry for the version with German and English
 notes; otherwise prints why on stderr and exits 1. The release scripts call
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 FILE = Path(__file__).resolve().parent.parent / "apps" / "whats-new.json"
-APPS = ("mac", "desktop")
+APPS = ("mac", "ios", "android", "desktop")
 
 
 def has_notes(entry: object, version: str) -> bool:
@@ -28,7 +28,7 @@ def has_notes(entry: object, version: str) -> bool:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 4 or argv[1] != "check" or argv[2] not in APPS:
-        print("usage: whats-new.py check <mac|desktop> <version>", file=sys.stderr)
+        print("usage: whats-new.py check <mac|ios|android|desktop> <version>", file=sys.stderr)
         return 2
     app, version = argv[2], argv[3]
     try:

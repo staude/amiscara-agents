@@ -30,6 +30,11 @@ esac
 command -v xcodegen >/dev/null || die "xcodegen not found (brew install xcodegen)"
 require_identity "Apple Distribution"
 require_clean_tree
+# The sheet "Neuigkeiten" shows these notes after the update (#382). A tvOS
+# only upload has none.
+if [[ " ${platforms[*]} " == *" ios "* ]]; then
+    python3 scripts/whats-new.py check ios "$(marketing_version)" || exit 1
+fi
 
 version=$(marketing_version)
 build=$(build_number)

@@ -14,6 +14,8 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 cd "$(dirname "$0")/.."
+# The dialog "Neuigkeiten" shows these notes after the update (#382).
+python3 scripts/whats-new.py check android "$version" || exit 1
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "working tree not clean" >&2
     exit 1
