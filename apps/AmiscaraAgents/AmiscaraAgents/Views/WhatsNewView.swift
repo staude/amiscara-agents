@@ -1,21 +1,29 @@
-#if os(macOS)
+#if os(macOS) || os(iOS)
 import SwiftUI
 
-/// What the "Neuigkeiten" window lists (#341): after an update the new
-/// versions, from the Help menu all up to the installed one.
+/// What the "Neuigkeiten" window (Mac) or sheet (iPhone, iPad) lists (#341,
+/// #382): after an update the new versions, from the Help menu or the
+/// sidebar's menu all up to the installed one.
 @Observable @MainActor
 final class WhatsNewState {
     static let shared = WhatsNewState()
 
     var entries: [WhatsNewEntry]
+    #if os(iOS)
+    /// Whether the sheet is up.
+    var isPresented = false
+    #endif
 
     private init() {
         entries = WhatsNew.history(WhatsNew.bundled(), current: WhatsNew.currentVersion)
     }
 
-    /// For "Hilfe › Neuigkeiten".
+    /// For "Hilfe › Neuigkeiten" and the sidebar's menu.
     func showHistory() {
         entries = WhatsNew.history(WhatsNew.bundled(), current: WhatsNew.currentVersion)
+        #if os(iOS)
+        isPresented = true
+        #endif
     }
 
     /// On start: true when an update brought notes to show once.
@@ -25,13 +33,18 @@ final class WhatsNewState {
         )
         guard !pending.isEmpty else { return false }
         entries = pending
+        #if os(iOS)
+        isPresented = true
+        #endif
         return true
     }
 }
 
+#if os(macOS)
 enum WhatsNewWindow {
     nonisolated static let id = "whats-new"
 }
+#endif
 
 /// The window's content: per version its points.
 struct WhatsNewView: View {
@@ -67,10 +80,13 @@ struct WhatsNewView: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 380, idealWidth: 440, minHeight: 240, idealHeight: 360)
+        #endif
     }
 }
 
+#if os(macOS)
 /// Opens the window once after an update; not in the screenshot demo.
 private struct WhatsNewAfterUpdate: ViewModifier {
     @Environment(\.openWindow) private var openWindow
@@ -85,6 +101,35 @@ private struct WhatsNewAfterUpdate: ViewModifier {
         }
     }
 }
+#else
+/// Shows the sheet once after an update, and from the sidebar's menu later;
+/// not in the screenshot demo. A second iPad window shows nothing on start
+/// because the first one already noted the version.
+private struct WhatsNewAfterUpdate: ViewModifier {
+    @Environment(HostStore.self) private var store
+    @State private var state = WhatsNewState.shared
+
+    func body(content: Content) -> some View {
+        content
+            .task {
+                guard !DemoMode.isOn else { return }
+                _ = state.takeUpdateNotes(earlierInstall: store.hadSavedHosts)
+            }
+            .sheet(isPresented: $state.isPresented) {
+                NavigationStack {
+                    WhatsNewView()
+                        .navigationTitle("Neuigkeiten")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Fertig") { state.isPresented = false }
+                            }
+                        }
+                }
+            }
+    }
+}
+#endif
 
 extension View {
     func whatsNewAfterUpdate() -> some View {

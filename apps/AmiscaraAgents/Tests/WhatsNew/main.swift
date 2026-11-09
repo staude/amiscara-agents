@@ -65,6 +65,12 @@ let file = URL(fileURLWithPath: "apps/whats-new.json")
 let mac = WhatsNew.entries(from: file, app: "mac")
 check(!mac.isEmpty, "apps/whats-new.json has mac entries")
 check(mac.allSatisfy { WhatsNew.parse($0.version) != nil && !$0.de.isEmpty && !$0.en.isEmpty }, "mac entries are complete")
+for app in ["ios", "android"] {
+    let notes = WhatsNew.entries(from: file, app: app)
+    check(!notes.isEmpty, "apps/whats-new.json has \(app) entries")
+    check(notes.allSatisfy { WhatsNew.parse($0.version) != nil && !$0.de.isEmpty && !$0.en.isEmpty }, "\(app) entries are complete")
+}
+check(WhatsNew.app == "mac", "this test runs the Mac rules")
 check(!WhatsNew.entries(from: file, app: "desktop").isEmpty, "apps/whats-new.json has desktop entries")
 check(WhatsNew.entries(from: nil, app: "mac").isEmpty, "a missing file has no entries")
 let broken = FileManager.default.temporaryDirectory.appending(path: "whats-new-\(UUID().uuidString).json")

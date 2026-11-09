@@ -19,9 +19,17 @@ enum WhatsNew {
     /// The version whose notes the user has seen, in `UserDefaults.standard`.
     static let seenKey = "whatsNewSeenVersion"
 
-    /// The bundled notes of the Mac app.
+    /// The key of this app in apps/whats-new.json: the Mac has its own
+    /// notes, iPhone and iPad theirs (#382).
+    #if os(macOS)
+    static let app = "mac"
+    #else
+    static let app = "ios"
+    #endif
+
+    /// The bundled notes of this app.
     static func bundled() -> [WhatsNewEntry] {
-        entries(from: Bundle.main.url(forResource: "whats-new", withExtension: "json"), app: "mac")
+        entries(from: Bundle.main.url(forResource: "whats-new", withExtension: "json"), app: app)
     }
 
     /// The installed version, e.g. "0.2.0".
@@ -34,7 +42,7 @@ enum WhatsNew {
         (Bundle.main.preferredLocalizations.first ?? "").lowercased().hasPrefix("de")
     }
 
-    /// The entries of `app` ("mac" or "desktop"); empty when the file is
+    /// The entries of `app` ("mac", "ios", "android" or "desktop"); empty when the file is
     /// missing or broken, without the entries it cannot read.
     static func entries(from url: URL?, app: String) -> [WhatsNewEntry] {
         guard let url, let data = try? Data(contentsOf: url),
