@@ -174,5 +174,6 @@ Build it, read-only first, with its own forced-command case. Design points from 
 - Resolve `orca` by absolute path; never call it through `$SSH_ORIGINAL_COMMAND`.
 - An allowlist of subcommands in the forced command, because the CLI can also run `terminal close --all` and `computer`.
 - Accept unknown fields, show a terminal with `agentIdentity` but no agent row as "status unavailable", and tell the `done` right after launch from a finished turn by both signals from question 1: empty `lastAssistantMessage` and `programStatus.state` still `working`.
-- Check the desktop-app case and a restart during `working` or `waiting` early, since this spike covered neither.
+- Before building, run `status`, `worktree ps` and `terminal read` read-only against a running desktop app, the usual setup this spike did not cover. A difference from `orca serve` changes the design, so it comes first.
+- Check a restart during `working` or `waiting` early, which this spike did not cover either.
 - Text-only panes for now: Orca's rendered colours are only available through the WebSocket path, which stays out of scope.
