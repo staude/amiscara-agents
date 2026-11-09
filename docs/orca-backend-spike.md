@@ -57,12 +57,12 @@ Transitions from polling every 2 s on the host itself, without SSH (`state`, `to
 
 A second run with a different prompt, polled over SSH, showed `working`, `working Bash`, then `waiting AskUserQuestion blocked question`. That log stopped while the agent was waiting, so `done` was only observed in the local poll.
 
-- `done` appeared once for 2 s right after launch, before the first turn. A client must not treat that first `done` as a finished turn.
+- `done` appeared once for 2 s right after launch, before the first turn, with `lastAssistantMessage` empty and `programStatus.state` still `working`. Seen in one launch only. A client should use those two fields to tell it from a finished turn, since it may connect after the launch.
 - While waiting, `programStatus.message` holds the question (`answer: Red or blue? (Red · Blue)`), enough for a notification.
 - `agents[].paneKey` is `<tabId>:<leafId>` and joins `terminal list --json`.
 - `terminal list` and `terminal show` report `agentIdentity` but no state. `terminal show` carries `agentWait` (null here), and `worktree ps --agent-wait` adds the same field per agent row.
 
-**Dependency.** `agents[].state` comes from agent hooks. Orca writes them to the global `~/.claude/settings.json` (entries calling `~/.orca/agent-hooks/claude-hook.sh`) and keeps per-pane data under `<profile>/agent-hooks/hook-metadata/`. A host without them was not tested. By the contract, `agentWait` has non-hook sources too (`RuntimeTerminalInteractiveWaitSource`: `hook`, `prompt-text`, `title`), so waiting might still be detected there. A backend has to report a missing state rather than show an agent as idle.
+**Dependency.** `agents[].state` comes from agent hooks. Orca writes them to the global `~/.claude/settings.json` (entries calling `~/.orca/agent-hooks/claude-hook.sh`) and keeps per-pane data under `<profile>/agent-hooks/hook-metadata/`. A host without them was not tested. By the contract, `agentWait` has non-hook sources too (`RuntimeTerminalInteractiveWaitSource`: `hook`, `prompt-text`, `title`), so waiting might still be detected there. `state` is a required field of an agent row, so without hooks the row itself is the likely thing to be missing. A backend has to report a terminal with `agentIdentity` but no agent row as "status unavailable" rather than show it as idle.
 
 ## Question 2: How fast is `terminal read --screen` over SSH?
 
@@ -80,10 +80,10 @@ Fast enough. Serial runs, loopback, `terminal read --terminal <h> --screen --jso
 
 The target was a median under 1 s (`Pacing::default().quiet`, `crates/herdr-client/src/pane.rs`). An earlier new-connection series measured 512 ms median under other load, also within the target.
 
-- Each call starts Electron in Node mode: about 165 ms of client CPU on the host per local call. At the quiet rate of one poll per second that is about 16 % of one core per polled pane.
-- That figure holds for a quiet pane only. `Pacing::default()` has `busy: 150 ms`, shorter than one call, so following a pane with continuous output means back-to-back calls and close to a full core per pane. Polling is good enough for a quiet or slowly changing pane, not for a pane streaming output at the herdr rate. A backend needs a slower busy rate for Orca, poll only the visible pane, and use one shared `worktree ps` for state.
+- Each call starts Electron in Node mode: about 165 ms of client CPU on the host per local call. `follow_paced` reads and then sleeps, so a cycle is the read plus the interval. At the quiet interval of 1 s that is about 14 % of one core per polled pane.
+- A pane with continuous output runs at `busy: 150 ms`: a cycle of about 300 ms with `ControlMaster`, so about 55 % of a core per pane (about 37 % with a new connection each time, whose cycle is about 450 ms). Polling is good enough for a quiet or slowly changing pane and expensive for one streaming output. A backend should use a slower busy interval for Orca, poll only the visible pane, and use one shared `worktree ps` for state.
 - The server side comes on top. `ps` showed 0.6 % average CPU over the server's lifetime; the cost per call on the server and `sshd` was not isolated.
-- `tail` is `string[]`, text only, no colours. Live panes would be plain text, a visible step down from the herdr panes.
+- `tail` is `string[]`, text only, no colours. Live panes would be plain text: the same as herdr-core panes, a visible step down from herdr server panes.
 - `tailRows` gives wrap metadata per line, and the result's `source` says whether a rendered screen came back (`screen`, `stream`, `screen-unavailable`).
 - `draft` is UI-only composer text. It held text nobody typed in this run, so it must not be shown as input.
 
@@ -125,7 +125,7 @@ The server was stopped with SIGINT and started again:
 
 The agent process and its screen survived, and the old handle still read the screen. `runtimeId` signals a restart. `state` and `lastAssistantMessage` survived; `programStatus` and `conversationName` were absent afterwards, so a question held in `programStatus.message` would be lost.
 
-Only `done` was seen across the restart, because the agent had already finished. An agent changing state during the roughly 14 s outage was not tested, and its hook would have no server to report to. The contract has `restoredUnconfirmed?: boolean` on agent rows for restored state. A backend should treat a state read right after a `runtimeId` change as unconfirmed.
+Only `done` was seen across the restart, because the agent had already finished. An agent changing state during the roughly 14 s outage was not tested, and its hook would have no server to report to. The contract has an uncommented `restoredUnconfirmed?: boolean` on agent rows, but it was not set in this restart, so it cannot be relied on. A backend should treat a state read right after a `runtimeId` change as unconfirmed.
 
 While the server is down, `terminal list` and `terminal read` fail with exit 1 and `runtime_unavailable` (`ok: false`, message "Start the Orca app first"). Terminals are not lost, so a backend should retry rather than drop panes. Handles are not guaranteed by Orca across a reboot; resolve them from `terminal list` on every (re)connect.
 
@@ -163,16 +163,16 @@ Against the test server only: `terminal send --terminal <h> --text … --enter -
 |---|---|
 | Working, waiting and done distinguishable in a real run | Met (question 1) |
 | Screen read over SSH, median under 1 s | Met: 296 ms new connection, 157 ms `ControlMaster`, loopback only (question 2) |
-| Terminals found again automatically after an Orca restart | Met: all identifiers unchanged (question 3) |
+| Terminals found again automatically after an Orca restart | Met: `handle`, `ptyId`, `incarnationId`, `tabId` and `leafId` unchanged (question 3) |
 
 ## Recommendation
 
 Build it, read-only first, with its own forced-command case. Design points from this spike:
 
-- One `worktree ps --json` poll for state, `terminal read --screen` only for the visible pane at a slower busy rate than herdr's 150 ms, over one shared SSH connection.
+- One `worktree ps --json` poll for state, `terminal read --screen` only for the visible pane at a longer busy interval than herdr's 150 ms, over one shared SSH connection.
 - Walk the recursive layout (`split`, `pane-split`), and treat state read right after a `runtimeId` change as unconfirmed.
 - Resolve `orca` by absolute path; never call it through `$SSH_ORIGINAL_COMMAND`.
 - An allowlist of subcommands in the forced command, because the CLI can also run `terminal close --all` and `computer`.
-- Accept unknown fields, treat a missing `state` as "status unavailable", and do not count the first `done` after launch as finished.
+- Accept unknown fields, show a terminal with `agentIdentity` but no agent row as "status unavailable", and tell the `done` right after launch from a finished turn by its empty `lastAssistantMessage`.
 - Check the desktop-app case and a restart during `working` or `waiting` early, since this spike covered neither.
 - Text-only panes for now: Orca's rendered colours are only available through the WebSocket path, which stays out of scope.
