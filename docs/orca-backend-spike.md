@@ -163,7 +163,7 @@ Against the test server only: `terminal send --terminal <h> --text … --enter -
 |---|---|
 | Working, waiting and done distinguishable in a real run | Met (question 1) |
 | Screen read over SSH, median under 1 s | Met: 296 ms new connection, 157 ms `ControlMaster`, loopback only (question 2) |
-| Terminals found again automatically after an Orca restart | Met: `handle`, `ptyId`, `incarnationId`, `tabId` and `leafId` unchanged (question 3) |
+| Terminals found again automatically after an Orca restart | Met for a restart of `orca serve` with the agent already `done`: `handle`, `ptyId`, `incarnationId`, `tabId` and `leafId` unchanged (question 3). Other restart cases are untested, see the limits above |
 
 ## Recommendation
 
@@ -173,6 +173,6 @@ Build it, read-only first, with its own forced-command case. Design points from 
 - Walk the recursive layout (`split`, `pane-split`), and treat state read right after a `runtimeId` change as unconfirmed.
 - Resolve `orca` by absolute path; never call it through `$SSH_ORIGINAL_COMMAND`.
 - An allowlist of subcommands in the forced command, because the CLI can also run `terminal close --all` and `computer`.
-- Accept unknown fields, show a terminal with `agentIdentity` but no agent row as "status unavailable", and tell the `done` right after launch from a finished turn by its empty `lastAssistantMessage`.
+- Accept unknown fields, show a terminal with `agentIdentity` but no agent row as "status unavailable", and tell the `done` right after launch from a finished turn by both signals from question 1: empty `lastAssistantMessage` and `programStatus.state` still `working`.
 - Check the desktop-app case and a restart during `working` or `waiting` early, since this spike covered neither.
 - Text-only panes for now: Orca's rendered colours are only available through the WebSocket path, which stays out of scope.
