@@ -825,6 +825,13 @@ and the project uses [Semantic Versioning](https://semver.org/).
   live in `apps/whats-new.json`, per app in German and English, and
   `scripts/whats-new.py` stops a Mac or desktop release without notes for its
   version.
+- What's New on iPhone, iPad and Android (#382): the apps show the notes of
+  a new version once on the first start after an update (a sheet, a dialog);
+  a fresh install, the same version and a downgrade show nothing. Sidebar
+  "…" menu › Neuigkeiten (iOS) and Settings › Neuigkeiten (Android) list all
+  versions. `apps/whats-new.json` has the keys `ios` and `android`, and
+  `testflight.sh` (iOS) and `android-release.sh` stop without notes for the
+  version.
 - herdr-core (#329): hosts running herdr-core (`hc`), the runtime of the
   herdr desktop app, show its spaces, tabs and agents with their status in
   every app, beside the herdr server's or on their own; prompts and keys
