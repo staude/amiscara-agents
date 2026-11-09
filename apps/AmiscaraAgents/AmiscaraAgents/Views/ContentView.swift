@@ -165,7 +165,7 @@ struct ContentView: View {
         }
         .task { await openDemo() }
         .task { reopenLastPane() }
-        #if os(macOS)
+        #if os(macOS) || os(iOS)
         .whatsNewAfterUpdate()
         #endif
     }

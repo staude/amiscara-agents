@@ -136,6 +136,12 @@ struct HostSidebar: View {
                     .help(String(localized: "Text aus der Zwischenablage an einen Agent übergeben"))
                     .disabled(store.connections.isEmpty)
             }
+            // The Mac has it under Hilfe › Neuigkeiten (#382).
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Neuigkeiten", systemImage: "sparkles") {
+                    WhatsNewState.shared.showHistory()
+                }
+            }
             // The Mac has its settings window (⌘,) for this.
             ToolbarItem(placement: .secondaryAction) {
                 Menu("Erscheinungsbild", systemImage: "circle.lefthalf.filled") {

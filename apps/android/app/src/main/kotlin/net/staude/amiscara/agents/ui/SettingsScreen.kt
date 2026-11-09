@@ -236,6 +236,7 @@ fun SettingsScreen(app: AmiscaraApp, back: () -> Unit) {
             HorizontalDivider()
             Section(stringResource(R.string.settings_about))
             Text(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, supportedProtocol().toInt()))
+            TextButton(onClick = app::showWhatsNewHistory) { Text(stringResource(R.string.whats_new_title)) }
         }
     }
 }

@@ -15,7 +15,9 @@ after the first upload.
 4. Fill in the listing, the content rating questionnaire, the data safety
    form, the privacy policy URL and the foreground service declaration
    (texts below).
-5. `scripts/android-release.sh 0.1.0`: raises `versionCode`, builds the
+5. Notes for the version under `android` in `apps/whats-new.json` (German and
+   English; the app shows them once after an update, #382).
+   `scripts/android-release.sh 0.1.0` stops without them. Then it raises `versionCode`, builds the
    signed bundle `apps/android/app/build/outputs/bundle/release/app-release.aab`,
    commits and tags `android-v0.1.0`. Upload it to the internal test track.
 6. Closed test: a personal account created after November 2023 needs at

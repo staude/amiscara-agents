@@ -146,6 +146,9 @@ targets:
       - path: Shared
       - path: Generated/herdr_ffi.swift
         optional: true
+      # The notes of "Neuigkeiten" (#382), shared with the Mac app.
+      - path: ../whats-new.json
+        buildPhase: resources
     dependencies:
       # Builds the framework first; see aggregateTargets.
       - target: HerdrFFI

@@ -111,6 +111,8 @@ fun AppNavigation(app: AmiscaraApp) {
 
     var switcher by remember { mutableStateOf(false) }
 
+    WhatsNewDialog(app)
+
     LaunchedEffect(Unit) {
         app.openedLink.collect { link ->
             when (link) {
