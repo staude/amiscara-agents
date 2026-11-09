@@ -86,6 +86,11 @@ class Settings(context: Context) {
         repliesState.value = list
     }
 
+    /** The version whose notes the user has seen; `null` before the first start (#382). */
+    var whatsNewSeen: String?
+        get() = prefs.getString("whatsNewSeenVersion", null)
+        set(value) = prefs.edit { putString("whatsNewSeenVersion", value) }
+
     /** The agent a dialog last started (`key` per dialog); `null` for a plain shell. */
     fun agentKind(key: String): String? = prefs.getString("agentKind.$key", null)
 

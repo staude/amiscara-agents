@@ -23,6 +23,8 @@ import net.staude.amiscara.agents.model.HostRepository
 import net.staude.amiscara.agents.model.KeyVault
 import net.staude.amiscara.agents.model.Settings
 import net.staude.amiscara.agents.model.Shortcuts
+import net.staude.amiscara.agents.model.WhatsNew
+import net.staude.amiscara.agents.model.WhatsNewEntry
 import net.staude.amiscara.agents.standby.Notifier
 import net.staude.amiscara.agents.standby.StandbyService
 import net.staude.amiscara.agents.standby.StandbyTile
@@ -73,6 +75,31 @@ class AmiscaraApp : Application() {
      * that target it until the user allows it.
      */
     val localNetworkAllowed = MutableStateFlow(true)
+
+    /** The notes the dialog "Neuigkeiten" lists; empty while it is closed (#382). */
+    val whatsNew = MutableStateFlow<List<WhatsNewEntry>>(emptyList())
+
+    private fun bundledNotes(): List<WhatsNewEntry> =
+        runCatching { assets.open("whats-new.json").bufferedReader().use { it.readText() } }
+            .map { WhatsNew.entries(it) }
+            .getOrDefault(emptyList())
+
+    /**
+     * On the first start after an update: the notes of the new version,
+     * once. A fresh install, the same version and a downgrade show nothing.
+     * Called by the activity, not from `onCreate`: the standby and boot
+     * start the process without a screen.
+     */
+    fun takeUpdateNotes() {
+        val seen = settings.whatsNewSeen
+        settings.whatsNewSeen = BuildConfig.VERSION_NAME
+        whatsNew.value = WhatsNew.onLaunch(bundledNotes(), seen, BuildConfig.VERSION_NAME)
+    }
+
+    /** For Settings › Neuigkeiten: every version up to the installed one. */
+    fun showWhatsNewHistory() {
+        whatsNew.value = WhatsNew.history(bundledNotes(), BuildConfig.VERSION_NAME)
+    }
 
     /** Whether the app asked for the local network and notifications in this run. */
     var permissionsAsked = false

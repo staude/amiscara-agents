@@ -46,6 +46,24 @@ abstract class BuildRustCore @Inject constructor(private val exec: ExecOperation
     }
 }
 
+/**
+ * Puts `apps/whats-new.json`, shared with the other apps, into the assets
+ * so the app can show "Neuigkeiten" after an update (#382).
+ */
+abstract class BundleWhatsNew : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val notes: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val assets: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        notes.get().asFile.copyTo(assets.get().file("whats-new.json").asFile, overwrite = true)
+    }
+}
+
 /** `version.properties`, kept by `scripts/android-release.sh`. */
 val versions = Properties().apply { rootProject.file("version.properties").inputStream().use(::load) }
 
@@ -115,8 +133,13 @@ val buildRustCore = tasks.register<BuildRustCore>("buildRustCore") {
     ndkDirectory.set(androidComponents.sdkComponents.ndkDirectory)
 }
 
+val bundleWhatsNew = tasks.register<BundleWhatsNew>("bundleWhatsNew") {
+    notes.set(rootProject.layout.projectDirectory.file("../whats-new.json"))
+}
+
 androidComponents {
     onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(bundleWhatsNew, BundleWhatsNew::assets)
         variant.sources.java?.addGeneratedSourceDirectory(buildRustCore, BuildRustCore::kotlin)
         variant.sources.jniLibs?.addGeneratedSourceDirectory(buildRustCore, BuildRustCore::jniLibs)
     }

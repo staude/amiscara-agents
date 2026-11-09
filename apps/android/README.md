@@ -131,6 +131,10 @@ kept in the preferences for after the process ended (`widget/`).
 ../../scripts/android-release.sh 0.2.0      # per upload: versionCode + 1, signed .aab, tag
 ```
 
+Add the notes of the version under `android` in `apps/whats-new.json` before
+the release: the app shows them once after an update and under Settings ›
+Neuigkeiten (#382), and `android-release.sh` stops without them.
+
 `version.properties` holds `versionName` and `versionCode`. The release
 build is signed only with `keystore.properties` (not checked in) and the
 password in `AMISCARA_UPLOAD_KEY_PASSWORD`, which the release script takes

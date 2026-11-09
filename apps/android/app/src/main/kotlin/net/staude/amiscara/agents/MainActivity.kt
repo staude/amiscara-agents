@@ -20,6 +20,8 @@ class MainActivity : ComponentActivity() {
         dropExtras(intent)
         if (savedInstanceState == null) handle(intent)
         demo?.let { app.openedLink.value = it }
+        // Once per launch of the screen, not on a rotation; not in the demo.
+        if (savedInstanceState == null && demo == null) app.takeUpdateNotes()
         setContent {
             AmiscaraTheme {
                 AppNavigation(app)
