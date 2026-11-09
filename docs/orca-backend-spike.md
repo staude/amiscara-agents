@@ -1,0 +1,171 @@
+# Orca backend spike (#384)
+
+Can Amiscara Agents show and operate agents running in Orca (onorca.dev, `stablyai/orca`) through its CLI over SSH?
+
+**Recommendation: build the CLI backend.** All three criteria fixed before the measurement are met. The limits below belong in its design, above all the reliance on undocumented JSON and on Orca's agent hooks.
+
+## Setup
+
+- Orca 1.4.255 on macOS (arm64), Claude Code 2.1.319 as the agent, model Sonnet.
+- A separate server with its own profile, never the running app: `ORCA_USER_DATA_PATH=<spike>/profile orca serve --port 6790 --bind 127.0.0.1 --no-pairing --json`. It ran as its own process (`--user-data-dir=<spike>/profile`).
+- The running app's `orca-runtime.json` (mtime and hash) and `~/.claude/settings.json` were identical before and after.
+- SSH used a throwaway key restricted with `from="127.0.0.1,::1"`.
+
+**Limits of the measurement**
+
+- SSH ran over loopback only. Real network latency comes on top.
+- Version comparison is source only, see question 5: running the downloaded 1.4.250 build was not permitted in the spike session.
+- Claude ran with `--dangerously-skip-permissions`, as Orca launched it here, so no permission prompt occurred. The `waiting` state was produced by an `AskUserQuestion` instead. `blocked` as an `agents[].state` was not observed.
+- A server restart was tested, a host reboot was not.
+
+## Question 1: Does the CLI report an agent's state?
+
+Yes. `orca worktree ps --json` carries `result.worktrees[].agents[]`, one row per agent:
+
+```json
+{
+  "paneKey": "792fe5fe-…:8ca2b295-…",
+  "parentPaneKey": null,
+  "state": "working",
+  "agentType": "claude",
+  "prompt": "Create a file named hello.txt …",
+  "conversationName": "Hello.txt file creation",
+  "lastAssistantMessage": null,
+  "toolName": "Bash",
+  "toolInput": "date",
+  "interrupted": false,
+  "mainAgent": { "state": "working", "stateStartedAt": 1794230477071 },
+  "stateStartedAt": 1794230477071,
+  "updatedAt": 1794230485612,
+  "hasLivePty": true,
+  "programStatus": { "state": "working", "message": "Printing current date", "observedAt": 1794230483755 }
+}
+```
+
+Transitions from polling every 2 s (`state`, `toolName`, `programStatus.state`, `programStatus.kind`):
+
+```text
+14:21:16 done     -                working
+14:21:18 working  -                working
+14:21:25 working  Bash             working
+14:21:29 done     Bash             done
+14:21:53 working  -                working
+14:21:55 waiting  AskUserQuestion  blocked  question
+14:22:17 working  AskUserQuestion  working
+14:22:19 done     AskUserQuestion  done
+```
+
+Polling the same command over SSH showed the same sequence (`working`, `working Bash`, `waiting AskUserQuestion blocked question`).
+
+- `done` appeared once for 2 s right after launch, before the first turn. A client must not treat that first `done` as a finished turn.
+- While waiting, `programStatus.message` holds the question (`answer: Red or blue? (Red · Blue)`), enough for a notification.
+- `agents[].paneKey` is `<tabId>:<leafId>` and joins `terminal list --json`.
+- `terminal list` and `terminal show` report `agentIdentity` but no state; `terminal show` carries `agentWait` (null here).
+
+**Dependency.** The state comes from agent hooks. Orca writes them to the global `~/.claude/settings.json` (entries calling `~/.orca/agent-hooks/claude-hook.sh`) and keeps per-pane data under `<profile>/agent-hooks/hook-metadata/`. Without them no state can be expected; that case was not tested. A backend has to report a missing state rather than show an agent as idle.
+
+## Question 2: How fast is `terminal read --screen` over SSH?
+
+Fast enough. Serial runs, loopback, `terminal read --terminal <h> --screen --json`:
+
+| Path | Runs | Min | Median | p95 |
+|---|---|---|---|---|
+| Local, no SSH | 50 | 144 ms | 150 ms | 154 ms |
+| SSH, new connection | 50 | 281 ms | 296 ms | 321 ms |
+| SSH, `ControlMaster` | 50 | 151 ms | 157 ms | 164 ms |
+| Baseline `ssh … true`, new connection | 50 | 112 ms | 126 ms | 209 ms |
+| Baseline `ssh … true`, `ControlMaster` | 50 | 11 ms | 15 ms | 18 ms |
+
+`worktree ps --json` costs the same: 307 ms median on a new connection, 159 ms with `ControlMaster` (20 runs each).
+
+The target was a median under 1 s (`Pacing::default().quiet`, `crates/herdr-client/src/pane.rs`). An earlier new-connection series measured 512 ms median under other load, also within the target.
+
+- Each call starts Electron in Node mode: about 165 ms of client CPU on the host per local call. At one poll per second that is about 16 % of one core per polled pane, so a backend should poll only the visible pane and use one shared `worktree ps` for state.
+- `tail` is `string[]`, text only, no colours. Live panes would be plain text, a visible step down from the herdr panes.
+- `tailRows` gives wrap metadata per line, and the result's `source` says whether a rendered screen came back (`screen`, `stream`, `screen-unavailable`).
+- `draft` is UI-only composer text. It held text nobody typed in this run, so it must not be shown as input.
+
+## Question 3: How do worktrees and terminals map, and are handles stable?
+
+`terminal list --include-visual-layouts --json` gives the tree directly:
+
+| Amiscara | Orca | Key |
+|---|---|---|
+| Space | Worktree | `worktreeId` (`<repoId>::<path>`) |
+| Tab | Tab of a group | `tabId` |
+| Pane | Terminal leaf | `leafId`, `handle` |
+
+```json
+{
+  "worktreeId": "e86987f5-…::<spike>/repo",
+  "root": {
+    "type": "group",
+    "activeTabId": "792fe5fe-…",
+    "tabs": [{
+      "tabId": "792fe5fe-…",
+      "title": "Terminal",
+      "activeLeafId": "8ca2b295-…",
+      "panes": { "type": "terminal", "handle": "term_984a8bd7-…", "tabId": "792fe5fe-…", "leafId": "8ca2b295-…", "connected": true, "active": true }
+    }]
+  }
+}
+```
+
+The server was stopped with SIGINT and started again:
+
+| Field | Before | After |
+|---|---|---|
+| `handle` | `term_984a8bd7-…` | same |
+| `ptyId` | `e86987f5-…@@e8e96bdc` | same |
+| `incarnationId` | `8395237d-…` | same |
+| `tabId`, `leafId` | `792fe5fe-…`, `8ca2b295-…` | same |
+| `runtimeId` (`_meta`) | `7e85bc27-…` | `af32de89-…` |
+
+The agent process and its screen survived, and the old handle still read the screen. `state` and `lastAssistantMessage` survived too; `programStatus` was absent after the restart. So `state` is the field to rely on, and `runtimeId` signals a restart.
+
+While the server is down, a read fails with `runtime_unavailable` (`ok: false`, exit message "Start the Orca app first"). Terminals are not lost, so a backend should retry rather than drop panes. Handles are not guaranteed by Orca across a reboot; resolve them from `terminal list` on every (re)connect.
+
+## Question 4: What must hold on the host?
+
+- **Server running.** `orca status --json` over a stopped server returns `runtime.state: "not_running"`, `reachable: false`, `app.running: false`, and started no process. It is safe as a probe.
+- **Absolute path to `orca`.** A non-interactive SSH session had `PATH=<home>/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin` and no `orca` on it. The backend must call a configured or discovered path (here `/opt/homebrew/bin/orca`), and the forced command must not depend on `PATH`.
+- **Hooks installed**, see question 1.
+- **Headless:** `orca serve --help` says the packaged macOS app runs Electron and needs a desktop login, and that over SSH with nobody logged in `ORCA_SERVE_RUNTIME=orcad` is required. Not tested.
+
+## Question 5: How does the output change between releases?
+
+Source comparison only (`src/shared/runtime-terminal-contracts.ts`, `src/shared/runtime-worktree-contracts.ts`, `src/cli/specs/core.ts`, tags `v1.4.200` to `v1.4.255`, roughly two months). No run against an older build.
+
+- The fields a backend needs are present in both: `paneKey`, `state`, `handle`, `ptyId`, `tabId`, `leafId`, `tail`.
+- The state set is identical: `working`, `blocked`, `waiting`, `done`.
+- Changes are almost all additions, optional and commented as absent on old hosts (`mainAgent`, `programStatus`, `hasLivePty`, `conversationName`, `tailRows`, `verdict`).
+- Commands stay at the same paths (`worktree ps`, `terminal list/show/read`), though `core.ts` was reorganised: its specs for `repo` moved out of the file.
+- The churn is real: 100 to 194 changed lines per file over those two months, and 11 to 83 between 1.4.250 and 1.4.255 alone.
+
+There is no JSON schema and no stability promise, so a backend needs tolerant parsing, a tested version range, and a clear message on an unknown shape.
+
+## Write test
+
+Against the test server only: `terminal send --terminal <h> --text … --enter --wait-submit 10 --json`:
+
+```json
+{ "accepted": true, "prompt": { "stages": ["input_accepted", "turn_started"], "provider": "claude", "observation": "supported" } }
+```
+
+## Criteria
+
+| Criterion (fixed before measuring) | Result |
+|---|---|
+| Working, waiting and done distinguishable in a real run | Met (question 1) |
+| Screen read over SSH, median under 1 s | Met: 296 ms new connection, 157 ms `ControlMaster`, loopback only (question 2) |
+| Terminals found again automatically after an Orca restart | Met: all identifiers unchanged (question 3) |
+
+## Recommendation
+
+Build it, read-only first, with its own forced-command case. Design points from this spike:
+
+- One `worktree ps --json` poll for state, `terminal read --screen` only for the visible pane, over one shared SSH connection.
+- Resolve `orca` by absolute path; never call it through `$SSH_ORIGINAL_COMMAND`.
+- An allowlist of subcommands in the forced command, because the CLI can also run `terminal close --all` and `computer`.
+- Accept unknown fields, treat a missing `state` or hook as "status unavailable", and do not count the first `done` after launch as finished.
+- Text-only panes for now: Orca's rendered colours are only available through the WebSocket path, which stays out of scope.
