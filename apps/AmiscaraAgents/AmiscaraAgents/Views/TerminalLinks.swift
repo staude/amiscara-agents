@@ -27,10 +27,25 @@ struct TerminalLinks {
 
     /// The peek for an address as written; `nil` when no such terminal
     /// lives or it is the pane itself.
+    @MainActor
     func peek(for address: String) -> AgentPeek? {
-        let paneID = terminalPaneId(address: address, fromPaneId: viewingPaneID)
+        let paneID = Self.paneID(address, from: viewingPaneID)
         guard paneID != viewingPaneID, let workspaceID = workspaces[paneID] else { return nil }
         return AgentPeek(hostID: hostID, workspaceID: workspaceID, paneID: paneID)
+    }
+
+    /// Resolved addresses, so a redraw does not call into Rust for every
+    /// address again. The answer depends on nothing else.
+    @MainActor private static var resolved: [String: String] = [:]
+
+    @MainActor
+    private static func paneID(_ address: String, from viewingPaneID: String) -> String {
+        let key = "\(viewingPaneID)\u{0}\(address)"
+        if let paneID = resolved[key] { return paneID }
+        if resolved.count >= 1000 { resolved.removeAll() }
+        let paneID = terminalPaneId(address: address, fromPaneId: viewingPaneID)
+        resolved[key] = paneID
+        return paneID
     }
 
     /// The link put on an address in the text.

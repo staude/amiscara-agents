@@ -271,6 +271,7 @@ enum TerminalStyle {
     static let match = Color(red: 0.95, green: 0.80, blue: 0.25).opacity(0.75)
     static let currentMatch = Color(red: 1.00, green: 0.55, blue: 0.10)
 
+    @MainActor
     static func attributed(
         _ line: StyledLine,
         theme: TerminalTheme,
