@@ -81,6 +81,13 @@ check(button(automatic: false, status: 4) == .shown(count: 4), "without herdr-co
 check(button(automatic: false, loaded: 2) == .shown(count: 2), "without herdr-core: the loaded number")
 check(button(automatic: false, git: false, status: 3) == .hidden, "without herdr-core: not outside a Git space")
 
+check(isHostCoreSpace("hc:t1"), "a herdr-core terminal on the host")
+check(isHostCoreSpace("hc:dir:/Users/f/r"), "a herdr-core directory space on the host")
+check(isHostCoreSpace("hc:tab:t1"), "a herdr-core tab space on the host")
+check(!isHostCoreSpace("hc:box/t1"), "a terminal on another machine")
+check(!isHostCoreSpace("hc:dir:box/Users/f/r"), "a directory on another machine")
+check(!isHostCoreSpace("w1"), "a space of the herdr server")
+
 // MARK: Search
 
 check(worktreeMatches("", branch: nil, label: "x", path: "/x"), "empty search shows all")
